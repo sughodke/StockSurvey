@@ -1,4 +1,5 @@
 import csv
+import random
 
 FNAME = './s-and-p-500-companies/data/constituents.csv'
 
@@ -9,14 +10,11 @@ def snp_500(count=500):
     f = open(FNAME, 'rb')
     reader = csv.DictReader(f)
 
-    for idx, line in enumerate(reader):
-        pretty_name = '{}-{}'.format(line['Name'], line['Sector'])
+    for line in reader:
+        pretty_name = '{}-{}'.format(line['Name'], line['Sector'][0:4])
         ret[line['Symbol']] = pretty_name
 
-        if idx >= count - 1:
-            break
-
-    return ret
+    return {k: ret[k] for k in random.sample(ret.keys(), count)}
 
 
 def static_symbols():
