@@ -1,0 +1,3 @@
+[submodule "s-and-p-500-companies"]
+	path = s-and-p-500-companies
+	url = git@github.com:datasets/s-and-p-500-companies.git
