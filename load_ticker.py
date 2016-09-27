@@ -24,5 +24,15 @@ def mapper(symbol):
         return None
 
 
+def correct_size(q):
+    try:
+        return q.shape == (1258,)
+    except Exception as e:
+        logging.info(
+            '{} did not have enough data.  Err: {}'.format(q, e)
+        )
+        return False
+
+
 def load_quotes(symbols):
-    return [quote for quote in map(mapper, symbols) if quote is not None]
+    return filter(correct_size, map(mapper, symbols))
