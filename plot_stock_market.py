@@ -64,36 +64,24 @@ print(__doc__)
 # Author: Gael Varoquaux gael.varoquaux@normalesup.org
 # License: BSD 3 clause
 
-import datetime
-
 import numpy as np
 import matplotlib.pyplot as plt
-try:
-    from matplotlib.finance import quotes_historical_yahoo
-except ImportError:
-    from matplotlib.finance import quotes_historical_yahoo_ochl as quotes_historical_yahoo
 from matplotlib.collections import LineCollection
 
 from sklearn import cluster, covariance, manifold
 
 from load_symbols import snp_500
-
+from load_ticker import load_quotes
 
 ###############################################################################
 # Retrieve the data from Internet
 
-# Choose a time period reasonnably calm (not too long ago so that we get
-# high-tech firms, and before the 2008 crash)
-d1 = datetime.datetime(2003, 1, 1)
-d2 = datetime.datetime(2008, 1, 1)
-
 # kraft symbol has now changed from KFT to MDLZ in yahoo
-symbol_dict = snp_500(100)
+symbol_dict = snp_500(10)
 
 symbols, names = np.array(list(symbol_dict.items())).T
 
-quotes = [quotes_historical_yahoo(symbol, d1, d2, asobject=True)
-          for symbol in symbols]
+quotes = load_quotes(symbols)
 
 open = np.array([q.open for q in quotes]).astype(np.float)
 close = np.array([q.close for q in quotes]).astype(np.float)
