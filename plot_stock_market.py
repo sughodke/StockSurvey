@@ -70,14 +70,15 @@ from matplotlib.collections import LineCollection
 
 from sklearn import cluster, covariance, manifold
 
-from load_symbols import snp_500
+from load_symbols import snp_500, static_symbols
 from load_ticker import load_quotes
 
 ###############################################################################
 # Retrieve the data from Internet
 
 # kraft symbol has now changed from KFT to MDLZ in yahoo
-symbol_dict = snp_500(10)
+symbol_dict = snp_500(60)
+# symbol_dict = static_symbols()
 
 symbols, names = np.array(list(symbol_dict.items())).T
 
@@ -119,7 +120,24 @@ node_position_model = manifold.LocallyLinearEmbedding(
     n_components=2, eigen_solver='dense', n_neighbors=6)
 
 embedding = node_position_model.fit_transform(X.T).T
+"""
+tsne = manifold.TSNE(n_components=2, init='pca', random_state=0)
+Y = tsne.fit_transform(X.T)
 
+for point, word, label in zip(Y, names, labels):
+    # plot points
+    plt.scatter(point[0], point[1], c=label)
+    # plot word annotations
+    plt.annotate(
+        word,
+        xy=(point[0], point[1]),
+        # textcoords='offset points',
+        # ha='right',
+        # va='bottom',
+        # size='x-large'
+    )
+    plt.axis('off')
+"""
 ###############################################################################
 # Visualization
 plt.figure(1, facecolor='w', figsize=(10, 8))

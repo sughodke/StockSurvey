@@ -2,7 +2,7 @@ import datetime
 try:
     from matplotlib.finance import quotes_historical_yahoo
 except ImportError:
-    from matplotlib.finance import quotes_historical_yahoo_ochl as quotes_historical_yahoo
+    from matplotlib.finance import quotes_historical_yahoo_ohlc as quotes_historical_yahoo
 import urllib2
 import logging
 
@@ -14,7 +14,7 @@ d1 = datetime.datetime(2003, 1, 1)
 d2 = datetime.datetime(2008, 1, 1)
 
 
-def mapper(symbol):
+def retrieve_stock_data(symbol):
     try:
         return quotes_historical_yahoo(symbol, d1, d2, asobject=True)
     except urllib2.HTTPError as e:
@@ -35,4 +35,4 @@ def correct_size(q):
 
 
 def load_quotes(symbols):
-    return filter(correct_size, map(mapper, symbols))
+    return filter(correct_size, map(retrieve_stock_data, symbols))

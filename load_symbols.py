@@ -17,8 +17,8 @@ def snp_500(count=500):
     return {k: ret[k] for k in random.sample(ret.keys(), count)}
 
 
-def static_symbols():
-    return {
+def static_symbols(count=61):
+    ret = {
         'TOT': 'Total',
         'XOM': 'Exxon',
         'CVX': 'Chevron',
@@ -80,3 +80,5 @@ def static_symbols():
         'CAT': 'Caterpillar',
         'DD': 'DuPont de Nemours'
     }
+
+    return {k: ret[k] for k in random.sample(ret.keys(), count)}
