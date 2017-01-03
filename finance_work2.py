@@ -11,15 +11,22 @@ import matplotlib.font_manager as font_manager
 
 startdate = datetime.date(2015, 1, 1)
 today = enddate = datetime.date.today()
-ticker = 'AAPL'
+ticker = 'GLD'
 
-
+# try:
+# r = np.load(ticker + '.npy')
+# print('read from cache')
+"""
+except IOError:
+"""
 fh = finance.fetch_historical_yahoo(ticker, startdate, enddate)
 # a numpy record array with fields: date, open, high, low, close, volume, adj_close)
 
 r = mlab.csv2rec(fh)
 fh.close()
 r.sort()
+
+np.save(ticker, r)
 
 
 def moving_average(x, n, type='simple'):
@@ -91,9 +98,9 @@ plt.rc('grid', color='0.75', linestyle='-', linewidth=0.5)
 
 textsize = 9
 left, width = 0.1, 0.8
-rect1 = [left, 0.7, width, 0.2]
-rect2 = [left, 0.3, width, 0.4]
-rect3 = [left, 0.1, width, 0.2]
+rect1 = [left, 0.6, width, 0.3]
+rect2 = [left, 0.2, width, 0.4]
+rect3 = [left, 0.1, width, 0.1]
 
 
 fig = plt.figure(facecolor='white')
@@ -108,6 +115,7 @@ ax3 = fig.add_axes(rect3, axisbg=axescolor, sharex=ax1)
 # plot the relative strength indicator
 prices = r.adj_close
 rsi = relative_strength(prices)
+rsi_prime = np.gradient(rsi)
 
 fillcolor = 'darkgoldenrod'
 
@@ -116,6 +124,25 @@ ax1.axhline(70, color=fillcolor)
 ax1.axhline(30, color=fillcolor)
 ax1.fill_between(r.date, rsi, 70, where=(rsi >= 70), facecolor=fillcolor, edgecolor=fillcolor)
 ax1.fill_between(r.date, rsi, 30, where=(rsi <= 30), facecolor=fillcolor, edgecolor=fillcolor)
+
+# http://stackoverflow.com/a/3843124
+rsi_prime_zeros = np.where(np.diff(np.sign(rsi_prime)))[0]
+
+zeros_y = rsi[rsi_prime_zeros]
+ax1.scatter(
+    r.date[rsi_prime_zeros],
+    zeros_y,
+    # cmap=plt.get_cmap('plasma'),
+    # c='darksalmon')
+    c=zeros_y/100.,
+    s=50)
+
+rsi_ma10 = moving_average(rsi, 10, type='exponential')
+ax1.plot(r.date, rsi_ma10, color='blue', lw=2)
+
+rsi_ma_cross = np.where(np.diff(np.sign(rsi - rsi_ma10)))[0]
+ax1.scatter(r.date[rsi_ma_cross], rsi[rsi_ma_cross], c='teal', marker='s', s=50)
+
 ax1.text(0.6, 0.9, '>70 = overbought', va='top', transform=ax1.transAxes, fontsize=textsize)
 ax1.text(0.6, 0.1, '<30 = oversold', transform=ax1.transAxes, fontsize=textsize)
 ax1.set_ylim(0, 100)
@@ -133,7 +160,10 @@ deltas = np.zeros_like(prices)
 deltas[1:] = np.diff(prices)
 up = deltas > 0
 ax2.vlines(r.date[up], low[up], high[up], color='black', label='_nolegend_')
-ax2.vlines(r.date[~up], low[~up], high[~up], color='black', label='_nolegend_')
+ax2.vlines(r.date[~up], low[~up], high[~up], color='red', label='_nolegend_')
+
+# finance.candlestick_ohlc(ax2, r)
+
 ma20 = moving_average(prices, 20, type='simple')
 # ma200 = moving_average(prices, 200, type='simple')
 
@@ -161,12 +191,12 @@ poly = ax2t.fill_between(r.date, volume, 0, label='Volume', facecolor=fillcolor,
 ax2t.set_ylim(0, 5*vmax)
 ax2t.set_yticks([])
 """
-rsi_prime = np.gradient(rsi)
+
 ax3.plot(r.date, rsi_prime, color='darkslategrey')
 
 # rsi_double_prime = np.gradient(rsi_prime)
 # ax3.plot(r.date, rsi_double_prime, color='royalblue', lw=2)
-
+ax3.axhline()
 ax3.text(0.025, 0.95, 'RSI Gradient', va='top',
          transform=ax3.transAxes, fontsize=textsize)
 
@@ -186,6 +216,7 @@ ax3.fill_between(r.date, macd - ema9, 0, alpha=0.5, facecolor=fillcolor, edgecol
 ax3.text(0.025, 0.95, 'MACD (%d, %d, %d)' % (nfast, nslow, nema), va='top',
          transform=ax3.transAxes, fontsize=textsize)
 """
+
 #ax3.set_yticks([])
 # turn off upper axis tick labels, rotate the lower ones, etc
 for ax in ax1, ax2, ax2t, ax3:
@@ -215,4 +246,15 @@ class MyLocator(mticker.MaxNLocator):
 ax2.yaxis.set_major_locator(MyLocator(5, prune='both'))
 ax3.yaxis.set_major_locator(MyLocator(5, prune='both'))
 
+"""
+def onMouseMove(event):
+    print(event.x)
+    # ax1.lines = [ax1.lines[0]]
+    # ax2.lines = [ax2.lines[0]]
+    ax1.axvline(x=event.xdata, color="teal")
+    ax2.axvline(x=event.x, color="teal")
+fig.canvas.mpl_connect('motion_notify_event', onMouseMove)
+"""
+
 plt.show()
+
