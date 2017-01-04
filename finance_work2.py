@@ -159,8 +159,15 @@ high = r.high + dx
 deltas = np.zeros_like(prices)
 deltas[1:] = np.diff(prices)
 up = deltas > 0
-ax2.vlines(r.date[up], low[up], high[up], color='black', label='_nolegend_')
-ax2.vlines(r.date[~up], low[~up], high[~up], color='red', label='_nolegend_')
+plotargs = {'color': '#69B85D', 'linewidths': 1.}
+ax2.vlines(r.date[up], low[up], high[up], label='_nolegend_', **plotargs)
+ax2.scatter(r.date[up], r.open[up], marker=0, **plotargs)
+ax2.scatter(r.date[up], r.close[up], marker=1, **plotargs)
+
+plotargs = {'color': '#B84D4F', 'linewidths': 1.}
+ax2.vlines(r.date[~up], low[~up], high[~up], label='_nolegend_', **plotargs)
+ax2.scatter(r.date[~up], r.open[~up], marker=0, **plotargs)
+ax2.scatter(r.date[~up], r.close[~up], marker=1, **plotargs)
 
 # finance.candlestick_ohlc(ax2, r)
 
@@ -168,7 +175,7 @@ ma20 = moving_average(prices, 20, type='simple')
 # ma200 = moving_average(prices, 200, type='simple')
 
 linema20, = ax2.plot(r.date, ma20, color='blue', lw=2, label='MA (20)')
-# linema200, = ax2.plot(r.date, ma200, color='red', lw=2, label='MA (200)')
+# linema200, = ax2.plot(r.date, ma200, color='#FFB25E', lw=2, label='MA (200)')
 
 
 last = r[-1]
