@@ -10,7 +10,7 @@ import matplotlib.font_manager as font_manager
 
 
 startdate = datetime.date(2015, 1, 1)
-today = enddate = datetime.date.today()
+today = enddate = datetime.date(2016, 1, 1)  # datetime.date.today()
 ticker = 'GLD'
 
 # try:
@@ -143,6 +143,48 @@ ax1.plot(r.date, rsi_ma10, color='blue', lw=2)
 rsi_ma_cross = np.where(np.diff(np.sign(rsi - rsi_ma10)))[0]
 ax1.scatter(r.date[rsi_ma_cross], rsi[rsi_ma_cross], c='teal', marker='s', s=50)
 
+buy_idx, sell_idx = [], []
+k = 0
+for i in rsi_ma_cross:
+    j = rsi_prime_zeros[k]
+    while r.date[j] < r.date[i]:
+        k += 1
+        j = rsi_prime_zeros[k]
+
+    print('%s %s %s' % (r.date[j], 'buy' if rsi[j] < rsi[i] else 'sell', r.open[j]))
+
+    if rsi[j] < rsi[i]:
+        buy_idx.append(j)
+    else:
+        sell_idx.append(j)
+
+clean_buy, clean_sell = [], []
+j = 0
+for i in xrange(len(buy_idx)):
+    idx_i, idx_j = buy_idx[i], sell_idx[j]
+    di, dj = r.date[idx_i], r.date[idx_j]
+    if di < dj:
+        continue
+    clean_buy.append(idx_i)
+    while di > dj:
+        j += 1
+        try:
+            idx_j = sell_idx[j]
+            dj = r.date[idx_j]
+        except IndexError:
+            idx_j = sell_idx[j-1]
+            break
+    clean_sell.append(idx_j)
+
+ax2.scatter(r.date[clean_buy], r.low[clean_buy], c='lightgreen', marker='^')
+ax2.scatter(r.date[clean_sell], r.high[clean_sell], c='lightpink', marker='v')
+
+val_buy = r.open[clean_buy]
+val_sell = r.open[clean_sell]
+val = val_sell - val_buy
+sumval = np.sum(val)
+print('With %d trades we stand to make %f (%f%%).' % (len(val_buy), sumval, 100.*sumval/r.open[-1]))
+
 ax1.text(0.6, 0.9, '>70 = overbought', va='top', transform=ax1.transAxes, fontsize=textsize)
 ax1.text(0.6, 0.1, '<30 = oversold', transform=ax1.transAxes, fontsize=textsize)
 ax1.set_ylim(0, 100)
@@ -198,13 +240,15 @@ poly = ax2t.fill_between(r.date, volume, 0, label='Volume', facecolor=fillcolor,
 ax2t.set_ylim(0, 5*vmax)
 ax2t.set_yticks([])
 """
-
-ax3.plot(r.date, rsi_prime, color='darkslategrey')
+cumval = np.cumsum(val)
+ax3.plot(r.date[clean_sell], 100.*cumval/r.open[-1], color='darkslategrey', label='cumulative')
+ax3.plot(r.date[clean_sell], 100.*val/r.open[-1], color='deepskyblue', label='instantaneous')
+# ax3.scatter(r.date[clean_sell], np.sign(val)*3)
 
 # rsi_double_prime = np.gradient(rsi_prime)
 # ax3.plot(r.date, rsi_double_prime, color='royalblue', lw=2)
 ax3.axhline()
-ax3.text(0.025, 0.95, 'RSI Gradient', va='top',
+ax3.text(0.025, 0.95, 'Purse (pct)', va='top',
          transform=ax3.transAxes, fontsize=textsize)
 
 """
