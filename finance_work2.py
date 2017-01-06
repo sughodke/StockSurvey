@@ -114,7 +114,7 @@ ax3 = fig.add_axes(rect3, axisbg=axescolor, sharex=ax1)
 
 # plot the relative strength indicator
 prices = r.adj_close
-rsi = relative_strength(prices)
+rsi = relative_strength(prices, 7)
 rsi_prime = np.gradient(rsi)
 
 fillcolor = 'darkgoldenrod'
@@ -139,6 +139,9 @@ ax1.scatter(
 
 rsi_ma10 = moving_average(rsi, 10, type='exponential')
 ax1.plot(r.date, rsi_ma10, color='blue', lw=2)
+
+# rsi_ma20 = relative_strength(prices, 14)
+# ax1.plot(r.date, rsi_ma20, color='darkblue')
 
 rsi_ma_cross = np.where(np.diff(np.sign(rsi - rsi_ma10)))[0]
 ax1.scatter(r.date[rsi_ma_cross], rsi[rsi_ma_cross], c='teal', marker='s', s=50)
@@ -181,7 +184,8 @@ ax2.scatter(r.date[clean_sell], r.high[clean_sell], c='lightpink', marker='v')
 
 val_buy = r.open[clean_buy]
 val_sell = r.open[clean_sell]
-val = val_sell - val_buy
+vol_buy = 10 - rsi[clean_buy] // 10  # confidence that we are buying at the correct time
+val = vol_buy * (val_sell - val_buy)
 sumval = np.sum(val)
 print('With %d trades we stand to make %f (%f%%).' % (len(val_buy), sumval, 100.*sumval/r.open[-1]))
 
@@ -214,9 +218,9 @@ ax2.scatter(r.date[~up], r.close[~up], marker=1, **plotargs)
 # finance.candlestick_ohlc(ax2, r)
 
 ma20 = moving_average(prices, 20, type='simple')
-# ma200 = moving_average(prices, 200, type='simple')
-
 linema20, = ax2.plot(r.date, ma20, color='blue', lw=2, label='MA (20)')
+
+# ma200 = moving_average(prices, 200, type='simple')
 # linema200, = ax2.plot(r.date, ma200, color='#FFB25E', lw=2, label='MA (200)')
 
 
@@ -240,9 +244,10 @@ poly = ax2t.fill_between(r.date, volume, 0, label='Volume', facecolor=fillcolor,
 ax2t.set_ylim(0, 5*vmax)
 ax2t.set_yticks([])
 """
+
 cumval = np.cumsum(val)
-ax3.plot(r.date[clean_sell], 100.*cumval/r.open[-1], color='darkslategrey', label='cumulative')
-ax3.plot(r.date[clean_sell], 100.*val/r.open[-1], color='deepskyblue', label='instantaneous')
+ax3.plot(r.date[clean_sell], 100.*cumval/r.open[-1], color='darkslategrey', label='cumulative', lw=2)
+ax3.plot(r.date[clean_sell], 100.*val/r.open[-1], color='deepskyblue', label='instantaneous', lw=2)
 # ax3.scatter(r.date[clean_sell], np.sign(val)*3)
 
 # rsi_double_prime = np.gradient(rsi_prime)
