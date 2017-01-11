@@ -1,6 +1,6 @@
 import datetime
 import numpy as np
-import matplotlib.colors as colors
+import matplotlib.cm as cm
 import matplotlib.finance as finance
 import matplotlib.dates as mdates
 import matplotlib.ticker as mticker
@@ -9,8 +9,8 @@ import matplotlib.pyplot as plt
 import matplotlib.font_manager as font_manager
 
 
-startdate = datetime.date(2015, 1, 1)
-today = enddate = datetime.date(2016, 1, 1)  # datetime.date.today()
+startdate = datetime.date(2016, 6, 1)
+today = enddate = datetime.date.today()
 ticker = 'GLD'
 
 # try:
@@ -194,7 +194,7 @@ ax1.text(0.6, 0.1, '<30 = oversold', transform=ax1.transAxes, fontsize=textsize)
 ax1.set_ylim(0, 100)
 ax1.set_yticks([30, 70])
 # ax1.set_yscale("log")
-ax1.text(0.025, 0.95, 'RSI (14)', va='top', transform=ax1.transAxes, fontsize=textsize)
+ax1.text(0.025, 0.95, 'RSI (7)', va='top', transform=ax1.transAxes, fontsize=textsize)
 ax1.set_title('%s daily' % ticker)
 
 # plot the price and volume data
@@ -247,13 +247,15 @@ ax2t.set_yticks([])
 
 cumval = np.cumsum(val)
 ax3.plot(r.date[clean_sell], 100.*cumval/r.open[-1], color='darkslategrey', label='cumulative', lw=2)
-ax3.plot(r.date[clean_sell], 100.*val/r.open[-1], color='deepskyblue', label='instantaneous', lw=2)
+ax3.bar(r.date[clean_sell], 100.*val/r.open[-1],
+        width=4, color=cm.jet(-np.sign(val)), label='instantaneous')
+
 # ax3.scatter(r.date[clean_sell], np.sign(val)*3)
 
 # rsi_double_prime = np.gradient(rsi_prime)
 # ax3.plot(r.date, rsi_double_prime, color='royalblue', lw=2)
 ax3.axhline()
-ax3.text(0.025, 0.95, 'Purse (pct)', va='top',
+ax3.text(0.025, 0.95, 'Purse (pct of today value)', va='top',
          transform=ax3.transAxes, fontsize=textsize)
 
 """
@@ -267,7 +269,6 @@ ema9 = moving_average(macd, nema, type='exponential')
 ax3.plot(r.date, macd, color='black', lw=2)
 ax3.plot(r.date, ema9, color='blue', lw=1)
 ax3.fill_between(r.date, macd - ema9, 0, alpha=0.5, facecolor=fillcolor, edgecolor=fillcolor)
-
 
 ax3.text(0.025, 0.95, 'MACD (%d, %d, %d)' % (nfast, nslow, nema), va='top',
          transform=ax3.transAxes, fontsize=textsize)
@@ -312,5 +313,9 @@ def onMouseMove(event):
 fig.canvas.mpl_connect('motion_notify_event', onMouseMove)
 """
 
-plt.show()
+fig.set_size_inches(18.5, 10.5)
+fig.savefig('%s-6m.png' % ticker, dpi=100)
+
+# plt.savefig('%s-6m.svg' % ticker, format='svg')
+# plt.show()
 
