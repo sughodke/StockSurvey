@@ -1,19 +1,23 @@
 import datetime
-import numpy as np
+
 import matplotlib.cm as cm
-import matplotlib.finance as finance
 import matplotlib.dates as mdates
-import matplotlib.ticker as mticker
+import matplotlib.finance as finance
 import matplotlib.mlab as mlab
 import matplotlib.pyplot as plt
+import matplotlib.ticker as mticker
+import numpy as np
+
+from indicators import moving_average, relative_strength, fibonacci_retracement, interesting_fib
+from math import log10, fabs
 
 today = datetime.date.today()
 
 
-def go(startdate=datetime.date(2016, 6, 1), enddate=datetime.date.today(), ticker='GLD'):
+def go(startdate=datetime.date(2016, 6, 1), enddate=datetime.date.today(), ticker='GLD', save=True):
     # today = enddate
     r = load_data(startdate, enddate, ticker)
-    plot_data(r, ticker)
+    plot_data(r, ticker, save)
 
 
 def load_data(startdate, enddate, ticker):
@@ -27,71 +31,7 @@ def load_data(startdate, enddate, ticker):
     return r
 
 
-def moving_average(x, n, type='simple'):
-    """
-    compute an n period moving average.
-
-    type is 'simple' | 'exponential'
-
-    """
-    x = np.asarray(x)
-    if type == 'simple':
-        weights = np.ones(n)
-    else:
-        weights = np.exp(np.linspace(-1., 0., n))
-
-    weights /= weights.sum()
-
-    a = np.convolve(x, weights, mode='full')[:len(x)]
-    a[:n] = a[n]
-    return a
-
-
-def relative_strength(prices, n=14):
-    """
-    compute the n period relative strength indicator
-    http://stockcharts.com/school/doku.php?id=chart_school:glossary_r#relativestrengthindex
-    http://www.investopedia.com/terms/r/rsi.asp
-    """
-
-    deltas = np.diff(prices)
-    seed = deltas[:n+1]
-    up = seed[seed >= 0].sum()/n
-    down = -seed[seed < 0].sum()/n
-    rs = up/down
-    rsi = np.zeros_like(prices)
-    rsi[:n] = 100. - 100./(1. + rs)
-
-    for i in range(n, len(prices)):
-        delta = deltas[i - 1]  # cause the diff is 1 shorter
-
-        if delta > 0:
-            upval = delta
-            downval = 0.
-        else:
-            upval = 0.
-            downval = -delta
-
-        up = (up*(n - 1) + upval)/n
-        down = (down*(n - 1) + downval)/n
-
-        rs = up/down
-        rsi[i] = 100. - 100./(1. + rs)
-
-    return rsi
-
-
-def moving_average_convergence(x, nslow=26, nfast=12):
-    """
-    compute the MACD (Moving Average Convergence/Divergence) using a fast and slow exponential moving avg'
-    return value is emaslow, emafast, macd which are len(x) arrays
-    """
-    emaslow = moving_average(x, nslow, type='exponential')
-    emafast = moving_average(x, nfast, type='exponential')
-    return emaslow, emafast, emafast - emaslow
-
-
-def plot_data(r, ticker):
+def plot_data(r, ticker, save):
     plt.rc('axes', grid=True)
     plt.rc('grid', color='0.75', linestyle='-', linewidth=0.5)
 
@@ -106,7 +46,6 @@ def plot_data(r, ticker):
 
     ax1 = fig.add_axes(rect1, axisbg=axescolor)  # left, bottom, width, height
     ax2 = fig.add_axes(rect2, axisbg=axescolor, sharex=ax1)
-    ax2t = ax2.twinx()
     ax3 = fig.add_axes(rect3, axisbg=axescolor, sharex=ax1)
 
     # plot the relative strength indicator
@@ -160,7 +99,12 @@ def plot_data(r, ticker):
     clean_buy, clean_sell = [], []
     j = 0
     for i in xrange(len(buy_idx)):
-        idx_i, idx_j = buy_idx[i], sell_idx[j]
+        idx_i = buy_idx[i]
+        try:
+            idx_j = sell_idx[j]
+        except IndexError:
+            j = -1
+            idx_j = sell_idx[j]
         di, dj = r.date[idx_i], r.date[idx_j]
         if di < dj:
             continue
@@ -183,7 +127,8 @@ def plot_data(r, ticker):
     vol_buy = 10 - rsi[clean_buy] // 10  # confidence that we are buying at the correct time
     val = vol_buy * (val_sell - val_buy)
     sumval = np.sum(val)
-    print('With %d trades we stand to make %f (%f%%).' % (len(val_buy), sumval, 100.*sumval/r.open[-1]))
+    performance = 100.*sumval/r.open[-1]
+    print('With %d trades we stand to make %f (%f%%).' % (len(val_buy), sumval, performance))
 
     ax1.text(0.6, 0.9, '>70 = overbought', va='top', transform=ax1.transAxes, fontsize=textsize)
     ax1.text(0.6, 0.1, '<30 = oversold', transform=ax1.transAxes, fontsize=textsize)
@@ -213,6 +158,12 @@ def plot_data(r, ticker):
     ma20 = moving_average(prices, 20, type='simple')
     linema20, = ax2.plot(r.date, ma20, color='blue', lw=2, label='MA (20)')
 
+    fib_start, fib_end, fib_retracements = fibonacci_retracement(prices)
+    for label, fib in zip(interesting_fib, fib_retracements):
+        ax2.step([r.date[fib_start], r.date[-1]], [fib] * 2, alpha=0.6)
+        ax2.text(s='%.1f' % label, x=r.date[-1], y=fib, alpha=0.6,
+                 fontsize=8, horizontalalignment='right')
+
     last = r[-1]
     s = '%s O:%1.2f H:%1.2f L:%1.2f C:%1.2f, V:%1.1fM Chg:%+1.2f' % (
         today.strftime('%d-%b-%Y'),
@@ -225,14 +176,15 @@ def plot_data(r, ticker):
     cumval = np.cumsum(val)
     ax3.plot(r.date[clean_sell], 100.*cumval/r.open[-1], color='darkslategrey', label='cumulative', lw=2)
     ax3.bar(r.date[clean_sell], 100.*val/r.open[-1],
-            width=4, color=cm.jet(-np.sign(val)), label='instantaneous')
+            width=4, color=cm.jet(-np.sign(val)),
+            alpha=0.7, label='instantaneous')
 
     ax3.axhline()
     ax3.text(0.025, 0.95, 'Purse (pct of today value)', va='top',
              transform=ax3.transAxes, fontsize=textsize)
 
     # turn off upper axis tick labels, rotate the lower ones, etc
-    for ax in ax1, ax2, ax2t, ax3:
+    for ax in ax1, ax2, ax3:
         if ax != ax3:
             for label in ax.get_xticklabels():
                 label.set_visible(False)
@@ -258,12 +210,15 @@ def plot_data(r, ticker):
     ax2.yaxis.set_major_locator(MyLocator(5, prune='both'))
     ax3.yaxis.set_major_locator(MyLocator(5, prune='both'))
 
-    fig.set_size_inches(18.5, 10.5)
-    fig.savefig('%s-6m.png' % ticker, dpi=100)
-
-    # plt.savefig('%s-6m.svg' % ticker, format='svg')
-    # plt.show()
+    if save:
+        fig.set_size_inches(18.5, 10.5)
+        fig.savefig('%s-6m-%s.png' %
+                    (ticker, ('' if performance > 0 else 'n') + '%.0f' % log10(fabs(performance))),
+                    dpi=100)
+    else:
+        # plt.savefig('%s-6m.svg' % ticker, format='svg')
+        plt.show()
 
 
 if __name__ == '__main__':
-    go()
+    go(ticker='AMZN', save=False)

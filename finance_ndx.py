@@ -3,19 +3,20 @@ from textwrap import dedent
 import finance_work2 as fw
 
 """
-# ATVI
-# ADBE
-AKAM
-ALXN
-# GOOG
-# GOOGL
-# AMZN
-AAL
-AMGN
-# ADI
+Run backtrading algorithm against all NASDAQ-100 equities
 """
 
 NDX_constituents = """
+ATVI
+ADBE
+AKAM
+ALXN
+GOOG
+GOOGL
+AMZN
+AAL
+AMGN
+ADI
 AAPL
 AMAT
 ADSK
