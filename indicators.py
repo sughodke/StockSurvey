@@ -1,4 +1,5 @@
 import numpy as np
+import pandas as pd
 
 interesting_fib = [0., 14.6, 23.6, 38.2, 50., 61.8, 100.]
 # 161.8
@@ -88,3 +89,12 @@ def fibonacci_retracement(prices, n=90):
 
     offset = len(prices) - 90
     return offset + t1, offset + t2, prices_fib
+
+
+def bbands(price, length=30, numsd=2):
+    """ returns average, upper band, and lower band"""
+    ave = pd.stats.moments.rolling_mean(price,length)
+    sd = pd.stats.moments.rolling_std(price,length)
+    upband = ave + (sd*numsd)
+    dnband = ave - (sd*numsd)
+    return np.round(ave,3), np.round(upband,3), np.round(dnband,3)
