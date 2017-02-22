@@ -2,13 +2,12 @@ import datetime
 
 import matplotlib.cm as cm
 import matplotlib.dates as mdates
-import matplotlib.finance as finance
-import matplotlib.mlab as mlab
 import matplotlib.pyplot as plt
 import matplotlib.ticker as mticker
 import numpy as np
 
 from indicators import moving_average, relative_strength, fibonacci_retracement, interesting_fib
+from load_ticker import load_data
 from math import log10, fabs
 
 today = datetime.date.today()
@@ -18,17 +17,6 @@ def go(startdate=datetime.date(2016, 6, 1), enddate=datetime.date.today(), ticke
     # today = enddate
     r = load_data(startdate, enddate, ticker)
     plot_data(r, ticker, save)
-
-
-def load_data(startdate, enddate, ticker):
-    fh = finance.fetch_historical_yahoo(ticker, startdate, enddate)
-    # a numpy record array with fields: date, open, high, low, close, volume, adj_close)
-
-    r = mlab.csv2rec(fh)
-    fh.close()
-    r.sort()
-
-    return r
 
 
 def plot_data(r, ticker, save):
@@ -210,10 +198,21 @@ def plot_data(r, ticker, save):
     ax2.yaxis.set_major_locator(MyLocator(5, prune='both'))
     ax3.yaxis.set_major_locator(MyLocator(5, prune='both'))
 
+    important_events = {
+        'buy': datetime.date.today() - r.date[clean_buy][-1],
+        'sell': datetime.date.today() - r.date[clean_sell][-1]
+    }
+    important_events = {k: i.days for k, i in important_events.iteritems()}
+    closest_event = min(important_events, key=important_events.get)
+
     if save:
         fig.set_size_inches(18.5, 10.5)
-        fig.savefig('%s-6m-%s.png' %
-                    (ticker, ('' if performance > 0 else 'n') + '%.0f' % log10(fabs(performance))),
+        fig.savefig('%s-%s%d-%s%.0f.png' %
+                    (ticker,
+                     closest_event,
+                     important_events[closest_event],
+                     '' if performance > 0 else 'n',
+                     fabs(log10(fabs(performance)))),
                     dpi=100)
     else:
         # plt.savefig('%s-6m.svg' % ticker, format='svg')
@@ -221,4 +220,4 @@ def plot_data(r, ticker, save):
 
 
 if __name__ == '__main__':
-    go(ticker='AMZN', save=False)
+    go(ticker='NVDA', save=False)
