@@ -1,10 +1,9 @@
 import datetime
 
 import numpy as np
-import seaborn as sns
 
-import matplotlib.cm as cm
-import matplotlib.pyplot as plt
+from sklearn.model_selection import train_test_split
+from sklearn.tree import DecisionTreeClassifier
 
 from indicators import moving_average, relative_strength, bbands
 from load_ticker import load_data
@@ -14,69 +13,86 @@ fillcolor = "darkgoldenrod"
 
 def go(startdate=datetime.date(2016, 6, 1), enddate=datetime.date.today(), ticker='GLD', save=True):
     r = load_data(startdate, enddate, ticker)
-    plot_data(r, ticker, save)
+    clf = train(r, ticker, save)
+    # replay(enddate, datetime.date.today(), ticker, clf)
 
 
-def plot_data(r, ticker, save=False):
-    mark_zeros = False
-    quiver = False
-    heatmap = True
+# def replay(startdate=datetime.date(2016, 6, 1), enddate=datetime.date.today(), ticker='GLD', clf):
+#     r = load_data(startdate, enddate, ticker)
 
+def train(r, ticker, save=False):
     prices = r.adj_close
-    # ma14 = moving_average(prices, 14, type='simple')
+    ma14 = moving_average(prices, 14, type='simple')
     # ma20 = moving_average(prices, 20, type='simple')
 
     avgBB, upperBB, lowerBB = bbands(prices, 21, 2)
     pct_b = (prices - lowerBB) / (upperBB - lowerBB)
-    support = pct_b * 100  # prices - ma14
+    support = pct_b * 100  #
     support = support[20:]  # remove empties
 
     rsi = relative_strength(prices, 7)
-    rsi = rsi[20:]  # remove empties
     rsi_prime = np.gradient(rsi)
-    rsi_prime_zeros = np.where(np.diff(np.sign(rsi_prime)))[0]
+    # rsi_prime_zeros = np.diff(np.sign(rsi_prime))
 
-    g = sns.jointplot(rsi, support, color="k", xlim=(0, 100))
-
-    g.plot_joint(sns.kdeplot, zorder=0, n_levels=6)
-
-    plt.sca(g.ax_joint)
-    plt.scatter(rsi[rsi < 30], support[rsi < 30], c=fillcolor)
-    plt.scatter(rsi[rsi > 70], support[rsi > 70], c=fillcolor)
-
-    if mark_zeros:
-        plt.scatter(rsi[rsi_prime_zeros], support[rsi_prime_zeros],
-                    color='w', marker='x')
-
+    rsi = rsi[20:]  # remove empties
+    # TODO Use gradient instead of diff?
     d_rsi = np.diff(rsi)
     d_support = np.diff(support)
+    # d_rsi = np.gradient(rsi)
+    # d_support = np.gradient(support)
     arctan = np.arctan2(d_support, d_rsi)
-    # TODO arctan can be a weighted average of reversed itself
-    # this would be done to convert next day direction to trending direction
 
-    if quiver:
-        plt.quiver(rsi[:-1], support[:-1],
-                   np.cos(arctan), np.sin(arctan),
-                   color=cm.inferno(arctan), pivot='mid',
-                   alpha=0.3)
+    X = np.vstack([
+        avgBB[-len(rsi):],
+        rsi_prime[-len(rsi):],
+        ma14[-len(rsi):],
+        (prices - ma14)[-len(rsi):],
+        support,
+        rsi,
+        relative_strength(prices, 14)[-len(rsi):],
+        relative_strength(prices, 21)[-len(rsi):],
+    ]).T
 
-    if heatmap:
-        arctan = (arctan + np.pi) / (2 * np.pi)
-        plt.scatter(rsi[:-1], support[:-1], c=cm.inferno(arctan),
-                    marker='s', s=200, alpha=0.2)
+    y = np.flipud(moving_average(np.flipud(arctan), 2, 'exponential'))
 
-    g.ax_marg_x.axvline(30, color=fillcolor)
-    g.ax_marg_x.axvline(70, color=fillcolor)
+    # average of RSI, Support not diff
+    # y = np.flipud(moving_average(np.flipud(np.roll(rsi, -1)), 4, 'exponential'))
 
-    g.ax_marg_y.set_title("%s daily" % ticker)
-    g.set_axis_labels("RSI (n=7)", "Bol % (n=21, sd=2)")
+    def rad_to_quadrant(a):
+        if a > 0:
+            if a < np.pi / 2:
+                return 0
+            if a < np.pi:
+                return 1
+        else:
+            if a > -np.pi:
+                return 2
+            if a > -np.pi / 2:
+                return 3
+        return -1
+    y = np.array([-1] + map(rad_to_quadrant, y))
+    # y = np.array(map(rad_to_quadrant, y))
 
-    if save:
-        g.savefig('%s-RSI-Support.png' % ticker)
-    else:
-        plt.show()
+    print('{} has {} samples with {} features'.format(ticker, *X.shape))
+
+    X_train, X_test, y_train, y_test = train_test_split(X, y, random_state=0)
+
+    clf = DecisionTreeClassifier(random_state=0)
+    clf.fit(X_train, y_train)
+
+    print('Our classifier has scored with %.3f accuracy' % clf.score(X_test, y_test))
+
+    feat = dict(zip(['avgBB', 'rsi_prime', 'ma14', 'prices - ma14', 'bol_pct', 'rsi_7', 'rsi_14', 'rsi_21'],
+                    clf.feature_importances_))
+
+    print('With the following contributors')
+    for k in sorted(feat, key=feat.get, reverse=True):
+        v = feat[k]
+        print('%.2f %s' % (v, k))
+
+    return clf
 
 
 if __name__ == '__main__':
-    go(ticker='TSLA', save=False)
+    go(ticker='NVDA', enddate=datetime.date(2017, 2, 21), save=False)
 
