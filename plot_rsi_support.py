@@ -5,7 +5,10 @@ import pandas as pd
 
 from sklearn.model_selection import train_test_split
 from sklearn.tree import DecisionTreeClassifier
-from sklearn.linear_model import SGDClassifier
+from sklearn.cluster import KMeans, AgglomerativeClustering, MiniBatchKMeans
+from sklearn.decomposition import PCA
+from sklearn.svm import SVC
+from sklearn.semi_supervised import label_propagation
 from sklearn.metrics import classification_report, accuracy_score
 
 from indicators import moving_average, relative_strength, bbands
@@ -39,6 +42,14 @@ def replay(clf, X, y, replaydate):
 
 
 def rad_to_quadrant(a):
+    """
+    for i, r in enumerate(np.arange(0, 1, 0.5) + 0.5):
+        if a < np.pi * r:
+            return i
+
+    # from math import fabs
+    # a = fabs(a)
+    """
     if a > 0:
         if a < np.pi / 2:
             return 0
@@ -53,13 +64,15 @@ def rad_to_quadrant(a):
 
 
 def describe_quadrant(q):
-    return {
-        0: 'RSI to go up, moving toward B-Resistance',
-        1: '(unlikely) RSI to go down, moving toward B-Resistance',
-        2: 'RSI to go down, moving toward B-Support',
-        3: '(unlikely) RSI to go up, moving toward B-Support',
-        -1: 'Whoops'
-    }[q]
+    try:
+        return {
+            0: 'RSI to go up, moving toward B-Resistance',
+            1: '(unlikely) RSI to go down, moving toward B-Resistance',
+            2: 'RSI to go down, moving toward B-Support',
+            3: '(unlikely) RSI to go up, moving toward B-Support',
+        }[q]
+    except KeyError:
+        return 'Whoops'
 
 
 def prepare_data(r):
@@ -103,7 +116,7 @@ def prepare_data(r):
 
 
 def train(X, y, ticker):
-    decision_tree = True
+    decision_tree = False
 
     print('{} has {} samples with {} features'.format(ticker, *X.shape))
 
@@ -111,7 +124,12 @@ def train(X, y, ticker):
     if decision_tree:
         clf = DecisionTreeClassifier(random_state=0)
     else:
-        clf = SGDClassifier(loss="hinge", penalty="l2")
+        # X_train = PCA().fit_transform(X_train, y_train)
+        # clf = KMeans(init='k-means++')
+        # clf = AgglomerativeClustering(n_clusters=6, linkage='ward')
+        # clf = MiniBatchKMeans(init='k-means++')
+        # clf = label_propagation.LabelSpreading()
+        clf = SVC()
     clf.fit(X_train, y_train)
 
     y_pred = clf.predict(X_test)
