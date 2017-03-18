@@ -19,8 +19,8 @@ def go(startdate=datetime.date(2016, 6, 1), enddate=datetime.date.today(), ticke
 
 def plot_data(r, ticker, save=False):
     mark_zeros = False
-    quiver = False
-    heatmap = True
+    quiver = True
+    heatmap = False
 
     prices = r.adj_close
     # ma14 = moving_average(prices, 14, type='simple')
@@ -51,8 +51,7 @@ def plot_data(r, ticker, save=False):
     d_rsi = np.diff(rsi)
     d_support = np.diff(support)
     arctan = np.arctan2(d_support, d_rsi)
-    # TODO arctan can be a weighted average of reversed itself
-    # this would be done to convert next day direction to trending direction
+    arctan = np.flipud(moving_average(np.flipud(arctan), 2, 'exponential'))
 
     if quiver:
         plt.quiver(rsi[:-1], support[:-1],
@@ -78,5 +77,5 @@ def plot_data(r, ticker, save=False):
 
 
 if __name__ == '__main__':
-    go(ticker='TSLA', save=False)
+    go(ticker='LUV', save=False)
 
