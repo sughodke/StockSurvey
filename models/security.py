@@ -4,6 +4,7 @@ import joblib
 import numpy as np
 
 from models.indicators import RSIMixin
+from models.timespan import AddTimeSpan
 from util.load_ticker import load_data
 
 import logging
@@ -14,7 +15,7 @@ cwd = '/tmp/'
 ds_path = 'DataStore/'
 
 
-class Security(RSIMixin):
+class Security(RSIMixin, AddTimeSpan):
     STARTDATE = datetime.date(2016, 6, 1)
     store_dir = os.path.join(cwd, ds_path)
 
