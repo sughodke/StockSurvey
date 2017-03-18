@@ -3,7 +3,7 @@ import os
 import joblib
 import numpy as np
 
-from models.indicators import RSIMixin
+from models.indicators import RSIMixin, TheDecider, TheEvaluator
 from models.timespan import AddTimeSpan
 from util.load_ticker import load_data
 
@@ -15,7 +15,7 @@ cwd = '/tmp/'
 ds_path = 'DataStore/'
 
 
-class Security(RSIMixin, AddTimeSpan):
+class Security(AddTimeSpan):
     STARTDATE = datetime.date(2016, 6, 1)
     store_dir = os.path.join(cwd, ds_path)
 
@@ -26,6 +26,8 @@ class Security(RSIMixin, AddTimeSpan):
         self.daily = None
 
         self.sync()
+        self.add_week()
+        self.add_month()
 
     def sync(self):
         today = self._today
@@ -49,7 +51,6 @@ class Security(RSIMixin, AddTimeSpan):
     @staticmethod
     def _fix_dtypes(recarr):
         """
-        MLAB is a POS
         Overwriting the datatypes to ensure serialize works smoothly
         """
         return recarr.astype([('date', '<M8[D]'), ('open', '<f8'),
@@ -80,4 +81,15 @@ class Security(RSIMixin, AddTimeSpan):
             logging.info('Cache miss, creating new Security')
             return Security(ticker)
 
+    def span(self, span):
+        """acts as a context manager"""
+        return Span(self, span)
 
+
+class Span(RSIMixin, TheDecider, TheEvaluator):
+    def __init__(self, security, span=None):
+        self.dataset = getattr(security, span, security.daily)
+        self.events = []
+
+    def recent_events(self, days):
+        return [str(event) for event in self.events]  # [:days]
