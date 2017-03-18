@@ -1,62 +1,52 @@
+import datetime
 import numpy as np
+
 import matplotlib.pyplot as plt
 
-from matplotlib.finance import plot_day_summary_ohlc
+from sklearn.svm import SVR
+from sklearn.model_selection import train_test_split
 
-from load_symbols import static_symbols
-from load_ticker import load_quotes
-
-
-def relative_strength(prices, n=14):
-    """
-    compute the n period relative strength indicator
-    http://stockcharts.com/school/doku.php?id=chart_school:glossary_r#relativestrengthindex
-    http://www.investopedia.com/terms/r/rsi.asp
-    """
-
-    deltas = np.diff(prices)
-    seed = deltas[:n+1]
-    up = seed[seed >= 0].sum()/n
-    down = -seed[seed < 0].sum()/n
-    rs = up/down
-    rsi = np.zeros_like(prices)
-    rsi[:n] = 100. - 100./(1. + rs)
-
-    for i in range(n, len(prices)):
-        delta = deltas[i - 1]  # cause the diff is 1 shorter
-
-        if delta > 0:
-            upval = delta
-            downval = 0.
-        else:
-            upval = 0.
-            downval = -delta
-
-        up = (up*(n - 1) + upval)/n
-        down = (down*(n - 1) + downval)/n
-
-        rs = up/down
-        rsi[i] = 100. - 100./(1. + rs)
-
-    return rsi
+from indicators import relative_strength, bbands
+from load_ticker import load_data
 
 
-symbol_dict = static_symbols(1)
-
-symbols, names = np.array(list(symbol_dict.items())).T
-
-quotes = load_quotes(symbols)
-
-# open = np.array([q.open for q in quotes]).astype(np.float)
-close = np.array([q.close for q in quotes]).astype(np.float)
-
-rsi = relative_strength(close)
+r = load_data(startdate=datetime.date(2016, 6, 1),
+              enddate=datetime.date.today(),
+              ticker='GLD')
+rsi = relative_strength(r.close)
+mid, top, bot = bbands(r.close, 7)
 
 fig = plt.figure()
 fig.subplots_adjust(bottom=0.2)
 ax = fig.add_subplot(111)
 
-for quote in quotes:
-    plot_day_summary_ohlc(ax, quote, ticksize=3)
+plt.plot(r.date, r.close)
+plt.plot(r.date, top)
+plt.plot(r.date, mid)
+plt.plot(r.date, bot)
+plt.plot(r.date, rsi)
 
-fig.show()
+plot_prediction = True
+if plot_prediction:
+    """Predict RSI from BBands"""
+    length = len(rsi)
+
+    X = np.hstack([mid, top, bot])[-length:]
+    mask = np.all(np.isnan(X), axis=1)
+    X = X[~mask]
+
+    y = np.roll(rsi, -1)[-X.shape[0]:]
+
+    print(X.shape)
+    print(y.shape)
+
+    c = 0.75 * len(X)
+    X_train, X_test = X[:c], X[c:]
+    y_train, y_test = y[:c], y[c:]
+
+    clf = SVR(kernel='rbf')
+    clf.fit(X_train, y_train)
+    print(clf.score(X_test, y_test))
+
+    plt.plot(r.date[-len(y_test):], clf.predict(X_test), color="darkslategrey")
+plt.show()
