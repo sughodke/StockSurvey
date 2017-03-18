@@ -1,9 +1,8 @@
 from time import sleep
 from textwrap import dedent
-import finance_work2 as fw
 
 """
-Run backtrading algorithm against all NASDAQ-100 equities
+Run backtrading algorithm against all NASDAQ-100 securities
 """
 
 NDX_constituents = """
@@ -119,7 +118,15 @@ YHOO
 NDX_constituents = dedent(NDX_constituents).split('\n')
 NDX_constituents = filter(None, NDX_constituents)
 
-for c in NDX_constituents:
+my_faves = ['TWTR', 'MOBL', 'GLD', 'SNAP', 'LUV']
+
+finance_work = True
+if finance_work:
+    import finance_work2 as fw
+else:
+    import plot_rsi_support as fw
+
+for c in NDX_constituents + my_faves:
     print('\n## Plotting {}'.format(c))
     try:
         fw.go(ticker=c)
