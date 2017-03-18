@@ -3,7 +3,7 @@ import os
 import joblib
 import numpy as np
 
-from load_ticker import load_data
+from util.load_ticker import load_data
 
 # Legacy functions to preserve recarray when merging
 # from numpy.lib.recfunctions import merge_arrays, stack_arrays
@@ -76,11 +76,3 @@ class Security(object):
             return Security(ticker)
 
 
-class RSIMixin(object):
-    def computed_indicators(self):
-        prices = r.adj_close
-        rsi = relative_strength(prices, 7)
-        rsi_prime = np.gradient(rsi)
-        rsi_prime_zeros = np.where(np.diff(np.sign(rsi_prime)))[0]
-        rsi_ma10 = moving_average(rsi, 10, type='exponential')
-        rsi_ma_cross = np.where(np.diff(np.sign(rsi - rsi_ma10)))[0]
