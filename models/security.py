@@ -3,18 +3,18 @@ import os
 import joblib
 import numpy as np
 
+from models.indicators import RSIMixin
 from util.load_ticker import load_data
 
-# Legacy functions to preserve recarray when merging
-# from numpy.lib.recfunctions import merge_arrays, stack_arrays
-# stack_arrays((self.daily, delta), asrecarray=True, flatten=True)
+import logging
 
-# TODO: change cwd now that models is a component
-cwd = os.path.dirname(__file__)
+
+# TODO: find a place to store models
+cwd = '/tmp/'
 ds_path = 'DataStore/'
 
 
-class Security(object):
+class Security(RSIMixin):
     STARTDATE = datetime.date(2016, 6, 1)
     store_dir = os.path.join(cwd, ds_path)
 
@@ -32,6 +32,8 @@ class Security(object):
             self.enddate = self.STARTDATE
 
         if self.enddate < today:
+            logging.info('Sync necessary, retrieving missing data')
+
             delta = load_data(self.enddate + datetime.timedelta(days=1), today, self.ticker)
             delta = self._fix_dtypes(delta)
 
@@ -69,10 +71,12 @@ class Security(object):
     def load(cls, ticker, sync=False):
         try:
             security = joblib.load(cls._filename(ticker))
+            logging.info('Security loaded sucessfully')
             if sync:
                 security.sync()
             return security
         except IOError as e:
+            logging.info('Cache miss, creating new Security')
             return Security(ticker)
 
 
