@@ -1,6 +1,5 @@
-import os
 import unittest
-from security_model import *
+from security import *
 
 
 class SecurityTestHarness(Security):

@@ -9,9 +9,9 @@ from load_ticker import load_data
 # from numpy.lib.recfunctions import merge_arrays, stack_arrays
 # stack_arrays((self.daily, delta), asrecarray=True, flatten=True)
 
-
+# TODO: change cwd now that models is a component
 cwd = os.path.dirname(__file__)
-ds_path = './DataStore/'
+ds_path = 'DataStore/'
 
 
 class Security(object):
