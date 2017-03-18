@@ -3,8 +3,10 @@ from util.indicators import relative_strength, moving_average
 
 
 class RSIMixin(object):
-    def computed_indicators(self):
-        prices = self.daily.adj_close
+    def computed_indicators(self, span=''):
+        span = getattr(self, span, self.daily)
+
+        prices = span.adj_close
         rsi = relative_strength(prices, 7)
 
         rsi_ma10 = moving_average(rsi, 10, type='exponential')
@@ -14,13 +16,13 @@ class RSIMixin(object):
         rsi_ma_cross = np.where(np.diff(np.sign(rsi - rsi_ma10)))[0]
 
         self.computed = np.vstack(
-            (self.daily.date.astype('O'),
+            (span.date.astype('O'),
              rsi, rsi_ma10, rsi_prime)
         ).transpose()
 
         # self.computed.view([('date', '<M8[D]'), ('rsi', '<f8'),
         # ('rsi_ma10', '<f8'), ('rsi_prime', '<f8')])
 
-        self.date_rsi_dir_change = self.daily.date[rsi_prime_zeros]
-        self.date_rsi_ma_cross = self.daily.date[rsi_ma_cross]
+        self.date_rsi_dir_change = span.date[rsi_prime_zeros]
+        self.date_rsi_ma_cross = span.date[rsi_ma_cross]
 
