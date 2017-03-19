@@ -6,8 +6,8 @@ import matplotlib.pyplot as plt
 import matplotlib.ticker as mticker
 import numpy as np
 
-from indicators import moving_average, relative_strength, fibonacci_retracement, interesting_fib
-from load_ticker import load_data
+from util.indicators import moving_average, relative_strength, fibonacci_retracement, interesting_fib
+from util.load_ticker import load_data
 from math import log10, fabs
 
 today = datetime.date.today()
@@ -220,4 +220,4 @@ def plot_data(r, ticker, save):
 
 
 if __name__ == '__main__':
-    go(ticker='NVDA', save=False)
+    go(ticker='GLD', save=False)
