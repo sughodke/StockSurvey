@@ -3,7 +3,8 @@ import os
 import joblib
 import numpy as np
 
-from models.indicators import RSIMixin, TheDecider, TheEvaluator
+from models.indicators import RSIMixin, TheEvaluator
+from models.directors import TheDecider, NumpyDecider
 from models.timespan import AddTimeSpan
 from util.load_ticker import load_data
 
@@ -86,7 +87,7 @@ class Security(AddTimeSpan):
         return Span(self, span)
 
 
-class Span(RSIMixin, TheDecider, TheEvaluator):
+class Span(RSIMixin, NumpyDecider, TheEvaluator):
     def __init__(self, security, span=None):
         self.dataset = getattr(security, span, security.daily)
         self.events = []
