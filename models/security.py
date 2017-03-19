@@ -32,7 +32,7 @@ class Security(AddTimeSpan):
     def sync(self):
         today = self._today
         if not self.enddate:
-            self.enddate = self.STARTDATE
+            self.enddate = self.STARTDATE - datetime.timedelta(days=1)
 
         if self.enddate < today:
             logging.info('Sync necessary, retrieving missing data')
