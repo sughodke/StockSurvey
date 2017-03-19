@@ -105,17 +105,12 @@ class TheDecider(object):
 
         vol_buy = 10 - self.rsi[clean_buy] // 10  # confidence that we are buying at the correct time
 
-        # return zip(self.dataset.date[clean_buy],
-        #            self.dataset.date[clean_sell],
-        #            vol_buy)
-        return zip(clean_buy,
-                   clean_sell,
-                   vol_buy)
+        return clean_buy, clean_sell, vol_buy
 
 
 class TheEvaluator(object):
     def evaluate(self, orders):
-        buy, sell, vol_buy = zip(*orders)
+        buy, sell, vol_buy = orders
         val_buy, val_sell = self.dataset.open[list(buy)], self.dataset.open[list(sell)]
 
         val = np.array(vol_buy) * (val_sell - val_buy)
