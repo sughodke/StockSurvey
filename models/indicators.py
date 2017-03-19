@@ -39,6 +39,8 @@ class RSIMixin(object):
              rsi, rsi_ma10, rsi_prime)
         ).transpose()
 
+        logging.info('Computed RSI {0}, {1}'.format(*self.rsi_values.shape))
+
         # self.computed.view([('date', '<M8[D]'), ('rsi', '<f8'),
         # ('rsi_ma10', '<f8'), ('rsi_prime', '<f8')])
 
@@ -59,6 +61,12 @@ class TheDecider(object):
     """Decides Buy/Sell"""
     def compute_orders(self):
         buy_idx, sell_idx = [], []
+
+        logging.info('RSI crossed %d times' %
+                     self.rsi_ma_cross.shape)
+        logging.info('RSI changed direction %d times' %
+                     self.rsi_prime_zeros.shape)
+
         k = 0
         for i in self.rsi_ma_cross:
 
