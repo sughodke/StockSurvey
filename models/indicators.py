@@ -61,6 +61,8 @@ class TheDecider(object):
         buy_idx, sell_idx = [], []
         k = 0
         for i in self.rsi_ma_cross:
+
+            # get the next time the RSI changes directions
             j = self.rsi_prime_zeros[k]
             while self.dataset.date[j] < self.dataset.date[i]:
                 k += 1
@@ -74,6 +76,10 @@ class TheDecider(object):
                                        'buy' if self.rsi[j] < self.rsi[i] else 'sell',
                                        self.dataset.open[j]))
 
+            # we know this direction change is important
+            # but should we buy or sell?
+            # if the ma is ^ shaped, buy
+            # if the ma is u shaped, sell
             if self.rsi[j] < self.rsi[i]:
                 buy_idx.append(j)
             else:
@@ -82,7 +88,11 @@ class TheDecider(object):
         clean_buy, clean_sell = [], []
         j = 0
         for i in range(len(buy_idx)):
+
+            # walk through the buy-events
             idx_i = buy_idx[i]
+
+            # look for a matching next sell-event
             try:
                 idx_j = sell_idx[j]
             except IndexError:
@@ -103,7 +113,8 @@ class TheDecider(object):
                     break
             clean_sell.append(idx_j)
 
-        vol_buy = 10 - self.rsi[clean_buy] // 10  # confidence that we are buying at the correct time
+        # confidence that we are buying at the correct time
+        vol_buy = 10 - self.rsi[clean_buy] // 10
 
         return clean_buy, clean_sell, vol_buy
 
