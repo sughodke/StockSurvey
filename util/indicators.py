@@ -1,7 +1,7 @@
 import numpy as np
 import pandas as pd
 
-interesting_fib = [0., 14.6, 23.6, 38.2, 50., 61.8, 100., 161.8]
+interesting_fib = [0., 14.6, 23.6, 38.2, 50., 61.8, 100.]  # , 161.8
 
 
 def moving_average(x, n, type='simple'):
