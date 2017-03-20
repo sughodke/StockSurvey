@@ -72,8 +72,11 @@ class Security(AddTimeSpan):
         joblib.dump(self, self._filename(self.ticker), compress=False)
 
     @classmethod
-    def load(cls, ticker, sync=False):
+    def load(cls, ticker, sync=False, force_fetch=False):
         try:
+            if force_fetch:
+                raise IOError('Triggering Cache Miss')
+
             security = joblib.load(cls._filename(ticker))
             logging.info('Security loaded sucessfully')
             if sync:

@@ -61,5 +61,5 @@ class TheEvaluator(object):
 
         self.val = val = np.array(vol_buy) * (val_sell - val_buy)
         sumval = np.sum(val)
-        performance = 100. * sumval / self.dataset.open[-1]
-        logging.info('With %d trades we stand to make %f (%f%%).' % (len(val_buy), sumval, performance))
+        self.performance = 100. * sumval / self.dataset.open[-1]
+        logging.info('With %d trades we stand to make %f (%f%%).' % (len(val_buy), sumval, self.performance))

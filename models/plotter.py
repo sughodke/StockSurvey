@@ -1,16 +1,19 @@
 import datetime
+import logging
+
+import numpy as np
+from math import log10, fabs
 
 import matplotlib.cm as cm
 import matplotlib.dates as mdates
 import matplotlib.pyplot as plt
 import matplotlib.ticker as mticker
-import numpy as np
 
 from util.indicators import moving_average, fibonacci_retracement, interesting_fib
-from math import log10, fabs
 
 fillcolor = 'darkgoldenrod'
 textsize = 9
+IMGDIR = '/tmp/'
 
 
 class PlotMixin(object):
@@ -97,15 +100,13 @@ class PlotMixin(object):
 
         if save:
             fig.set_size_inches(18.5, 10.5)
-            fig.savefig('%s-%s%d-%s%.0f.png' %
-                        (ticker,
-                         closest_event,
-                         important_events[closest_event],
-                         '' if performance > 0 else 'n',
-                         fabs(log10(fabs(performance)))),
-                        dpi=100)
+            filename = IMGDIR + '%s-%s%d-%s%.0f.png' % (
+                ticker, closest_event, important_events[closest_event],
+                '' if self.performance > 0 else 'n',
+                fabs(log10(fabs(self.performance))))
+            fig.savefig(filename, dpi=100)
+            logging.info('Plot saved {}'.format(filename))
         else:
-            # plt.savefig('%s-6m.svg' % ticker, format='svg')
             plt.show()
 
     def plot_purse(self, ax3, r, clean_sell):
