@@ -1,5 +1,5 @@
 import unittest
-from .security import *
+from models.security import *
 
 
 class SecurityTestHarness(Security):

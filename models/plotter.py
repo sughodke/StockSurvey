@@ -6,7 +6,7 @@ import matplotlib.pyplot as plt
 import matplotlib.ticker as mticker
 import numpy as np
 
-from util.indicators import moving_average, relative_strength, fibonacci_retracement, interesting_fib
+from util.indicators import moving_average, fibonacci_retracement, interesting_fib
 from math import log10, fabs
 
 fillcolor = 'darkgoldenrod'
@@ -33,7 +33,7 @@ class PlotMixin(object):
         ax2 = fig.add_axes(rect2, axisbg=axescolor, sharex=ax1)
         ax3 = fig.add_axes(rect3, axisbg=axescolor, sharex=ax1)
 
-        ax1.set_title('%s daily' % ticker)
+        ax1.set_title('%s %s' % (ticker, self.span))
 
         # plot the relative strength indicator
         prices = r.adj_close
@@ -60,7 +60,7 @@ class PlotMixin(object):
             datetime.date.today().strftime('%d-%b-%Y'),
             last.open, last.high,
             last.low, last.close,
-            last.volume*1e-6,
+            0.,  # last.volume*1e-6,
             last.close - last.open)
         ax2.text(0.3, 0.9, s, transform=ax2.transAxes, fontsize=textsize)
 

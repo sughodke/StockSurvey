@@ -91,8 +91,10 @@ class Security(AddTimeSpan):
 class Span(RSIMixin, TheDecider, TheEvaluator, PlotMixin):
     def __init__(self, security, span=None):
         self.dataset = getattr(security, span, security.daily)
-        self.ticker = security.ticker
         self.events = []
 
-    def recent_events(self, days):
-        return [str(event) for event in self.events]  # [:days]
+        self.ticker = security.ticker
+        self.span = span or 'daily'
+
+    def recent_events(self, last_n):
+        return [str(event) for event in self.events][:last_n]

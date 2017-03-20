@@ -87,6 +87,8 @@ def fibonacci_retracement(prices, n=90):
     prices_fib = [p1 + diff * i / 100. for i in interesting_fib]
 
     offset = len(prices) - 90
+    if offset < 0:
+        offset = 0
     return offset + t1, offset + t2, prices_fib
 
 
