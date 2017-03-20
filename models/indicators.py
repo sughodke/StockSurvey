@@ -34,12 +34,9 @@ class RSIMixin(object):
         rsi_prime_zeros = np.where(np.diff(np.sign(rsi_prime)))[0]
         rsi_ma_cross = np.where(np.diff(np.sign(rsi - rsi_ma10)))[0]
 
-        self.rsi_values = np.vstack(
-            (self.dataset.date.astype('O'),
-             rsi, rsi_ma10, rsi_prime)
-        ).transpose()
+        self.rsi_values = (rsi, rsi_ma10, rsi_prime)
 
-        logging.info('Computed RSI {0}, {1}'.format(*self.rsi_values.shape))
+        logging.info('Computed RSI {}, {}, {}'.format(*map(len, self.rsi_values)))
 
         # self.computed.view([('date', '<M8[D]'), ('rsi', '<f8'),
         # ('rsi_ma10', '<f8'), ('rsi_prime', '<f8')])
@@ -62,7 +59,7 @@ class TheEvaluator(object):
         buy, sell, vol_buy = orders
         val_buy, val_sell = self.dataset.open[list(buy)], self.dataset.open[list(sell)]
 
-        val = np.array(vol_buy) * (val_sell - val_buy)
+        self.val = val = np.array(vol_buy) * (val_sell - val_buy)
         sumval = np.sum(val)
         performance = 100. * sumval / self.dataset.open[-1]
         logging.info('With %d trades we stand to make %f (%f%%).' % (len(val_buy), sumval, performance))

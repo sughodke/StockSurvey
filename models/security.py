@@ -3,6 +3,7 @@ import os
 import joblib
 import numpy as np
 
+from models.plotter import PlotMixin
 from models.indicators import RSIMixin, TheEvaluator
 from models.directors import TheDecider, NumpyDecider
 from models.timespan import AddTimeSpan
@@ -87,9 +88,10 @@ class Security(AddTimeSpan):
         return Span(self, span)
 
 
-class Span(RSIMixin, NumpyDecider, TheEvaluator):
+class Span(RSIMixin, TheDecider, TheEvaluator, PlotMixin):
     def __init__(self, security, span=None):
         self.dataset = getattr(security, span, security.daily)
+        self.ticker = security.ticker
         self.events = []
 
     def recent_events(self, days):
