@@ -1,5 +1,5 @@
 """
-evalute_securities : load and evaluate performance of a security
+evaluate_securities : load and evaluate performance of a security
 
 Ideally, the confidence of the buy/sell should translate to a Stop/Limit order (OrderManager?)
 
@@ -7,13 +7,12 @@ When we set the span to week, we need to pull YTD data. While daily should be li
 
 """
 
-from pprint import pprint
-
-from models.security import Security
-
 import logging
 from optparse import OptionParser
+from pprint import pprint
 
+from finance_ndx import NDX_constituents, my_faves
+from models.security import Security
 
 logging.basicConfig(level=logging.INFO,
                     format='%(asctime)s %(levelname)s %(message)s')
@@ -30,37 +29,47 @@ parser.add_option("--save-plot",
 parser.add_option("--force-fetch",
                   action="store_true", dest="force", default=False,
                   help="Invalidate cache and perform a full fetch")
+parser.add_option("--ndx",
+                  action="store_true", dest="ndx", default=False,
+                  help="Execute for all stocks on NDX100 and myfaves."
+                  " Forces save plot.")
 
 (opts, args) = parser.parse_args()
 
+if opts.ndx:
+    opts.save_plot = True
+    args = NDX_constituents + my_faves
+elif len(args) == 0:
+    args = ['GLD']
 
-# TODO: iterate over args
-ticker = args[0] if len(args) > 0 else 'GLD'
-s = Security.load(ticker, force_fetch=opts.force)
+for ticker in args:
+    try:
+        s = Security.load(ticker, force_fetch=opts.force)
 
-# Create a view of the data for the timespan we are interested in
-so = s.span(opts.span)
+        # Create a view of the data for the timespan we are interested in
+        so = s.span(opts.span)
 
-so.rsi()
+        so.rsi()
 
-if opts.verbose:
-    print('Events for {} strategy'.format(so.span))
-    pprint(so.recent_events(last_n=5))
-    print('')
+        if opts.verbose:
+            print('Events for {} strategy'.format(so.span))
+            pprint(so.recent_events(last_n=5))
+            print('')
 
-# Use our strategy to figure out when to buy and sell
-orders = so.compute_orders()
-if opts.verbose:
-    print('List of Buy/Sell')
-    pprint(zip(*orders))
-    print('')
+        # Use our strategy to figure out when to buy and sell
+        orders = so.compute_orders()
+        if opts.verbose:
+            print('List of Buy/Sell')
+            pprint(zip(*orders))
+            print('')
 
-# Evaluate our strategy
-so.evaluate(orders)
+        # Evaluate our strategy
+        so.evaluate(orders)
 
-# Save a plot of our work
-so.plot_data(save=opts.save_plot)
+        # Save a plot of our work
+        so.plot_data(save=opts.save_plot)
 
-s.save()
-
+        s.save()
+    except Exception:
+        logging.error('{} blew up'.format(ticker))
 
