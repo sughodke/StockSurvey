@@ -118,18 +118,19 @@ YHOO
 NDX_constituents = dedent(NDX_constituents).split('\n')
 NDX_constituents = filter(None, NDX_constituents)
 
-my_faves = ['TWTR', 'MOBL', 'GLD', 'SNAP', 'LUV']
+my_faves = ['TWTR', 'MOBL', 'GLD', 'LUV', 'T']  # , 'SNAP'
 
-finance_work = True
-if finance_work:
-    import finance_work2 as fw
-else:
-    import plot_rsi_support as fw
+if __name__ == '__main__':
+    finance_work = True
+    if finance_work:
+        import finance_work2 as fw
+    else:
+        import plot_rsi_support as fw
 
-for c in NDX_constituents + my_faves:
-    print('\n## Plotting {}'.format(c))
-    try:
-        fw.go(ticker=c)
-    except Exception as e:
-        print('skipping... %s' % e)
-    sleep(1)
+    for c in NDX_constituents + my_faves:
+        print('\n## Plotting {}'.format(c))
+        try:
+            fw.go(ticker=c)
+        except Exception as e:
+            print('skipping... %s' % e)
+        sleep(1)
