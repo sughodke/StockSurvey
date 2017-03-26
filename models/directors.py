@@ -13,7 +13,12 @@ class TheDecider(object):
         buy_index, sell_index = self.compute_possible_buysell()
         logging.info('Buy/Sell events {}/{}'.format(len(buy_index), len(sell_index)))
 
-        self.clean_buysellvol = self.filter_buysell(buy_index, sell_index)
+        clean_buy, clean_sell = self.filter_buysell(buy_index, sell_index)
+
+        # confidence that we are buying at the correct time
+        vol_buy = 10 - self.rsi[clean_buy] // 10
+
+        self.clean_buysellvol = (clean_buy, clean_sell, vol_buy)
         return self.clean_buysellvol
 
     def compute_possible_buysell(self):
@@ -75,10 +80,7 @@ class TheDecider(object):
                     break
             clean_sell.append(idx_j)
 
-        # confidence that we are buying at the correct time
-        vol_buy = 10 - self.rsi[clean_buy] // 10
-
-        return clean_buy, clean_sell, vol_buy
+        return clean_buy, clean_sell
 
 
 class NumpyDecider(TheDecider):
@@ -114,6 +116,39 @@ class NumpyDecider(TheDecider):
                 sell_idx.append(dir_change_index)
 
         return buy_idx, sell_idx
+
+    def filter_buysell(self, buy_idx, sell_idx):
+        """Sell when price is higher than when I bought"""
+        sell_dates = self.dataset.date[sell_idx]
+        clean_buy, clean_sell = [], []
+
+        # walk through the buy-events
+        for buy, buy_date in zip(buy_idx, self.dataset.date[buy_idx]):
+            rsi_at_buy = self.rsi[buy]
+            price_at_buy = self.dataset.adj_close[buy]
+
+            mask = np.where(sell_dates >= buy_date)
+            future_sell_dates = sell_dates[mask]
+
+            future_sell_index = [np.argmax(self.dataset.date == future_sell_date)
+                                 for future_sell_date in future_sell_dates]
+            future_sell_rsi = self.rsi[future_sell_index]
+            future_sell_price = self.dataset.adj_close[future_sell_index]
+
+            try:
+                # TODO: refactor first_beat to be a virtual function
+                # NOTE argmax returns 0 even on failure
+                # first_beat = np.where(future_sell_rsi > rsi_at_buy)[0][0]
+                first_beat = np.argmax(future_sell_price > price_at_buy)
+                matching_sell = future_sell_index[first_beat]
+            except (ValueError, IndexError):
+                matching_sell = None
+
+            # look for a matching next sell-event
+            clean_buy.append(buy)
+            clean_sell.append(matching_sell)
+
+        return clean_buy, clean_sell
 
 
 class DirectionChangeDecider(TheDecider):
@@ -191,8 +226,5 @@ class DirectionChangeDecider(TheDecider):
                 clean_buy.append(buy)
                 clean_sell.append(matching_sell)
 
-        # confidence that we are buying at the correct time
-        vol_buy = 10 - self.rsi[clean_buy] // 10
-
-        return clean_buy, clean_sell, vol_buy
+        return clean_buy, clean_sell
 
