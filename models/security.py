@@ -72,7 +72,7 @@ class Security(AddTimeSpan):
         joblib.dump(self, self._filename(self.ticker), compress=False)
 
     @classmethod
-    def load(cls, ticker, sync=False, force_fetch=False):
+    def load(cls, ticker, sync=True, force_fetch=False):
         try:
             if force_fetch:
                 raise IOError('Triggering Cache Miss')
@@ -93,6 +93,7 @@ class Security(AddTimeSpan):
 
 class Span(RSIMixin, TheDecider, TheEvaluator, PlotMixin):
     def __init__(self, security, span=None):
+        # TODO: Weekly Span should increase the look back to 1.5 years
         self.dataset = getattr(security, span, security.daily)
         self.events = []
 
