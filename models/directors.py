@@ -84,6 +84,14 @@ class TheDecider(object):
 
 
 class NumpyDecider(TheDecider):
+    # def compute_orders(self):
+    #     buy, sell, vol_buy = super(NumpyDecider, self).compute_orders()
+    #
+    #     buy, sell = np.array(buy), np.array(sell)
+    #     mask = ~np.equal(sell, None)
+    #
+    #     return buy[mask], sell[mask], vol_buy
+
     def compute_possible_buysell(self):
         """
         rsi_prime_zeros[k]  Index on self.rsi when RSI Prime is 0
@@ -142,7 +150,12 @@ class NumpyDecider(TheDecider):
                 first_beat = np.argmax(future_sell_price > price_at_buy)
                 matching_sell = future_sell_index[first_beat]
             except (ValueError, IndexError):
-                matching_sell = None
+                matching_sell = buy
+                logging.info(
+                    'Place-holding {} buy ({:0.2f}) with a noop sell'.format(
+                        buy_date, price_at_buy
+                    )
+                )
 
             # look for a matching next sell-event
             clean_buy.append(buy)
