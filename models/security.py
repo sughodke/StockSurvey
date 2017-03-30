@@ -7,13 +7,10 @@ from models.plotter import PlotMixin
 from models.indicators import RSIMixin, TheEvaluator
 from models.directors import TheDecider, NumpyDecider
 from models.timespan import AddTimeSpan
-from util.load_ticker import load_data
+from util import load_data, cwd
 
 import logging
 
-
-# TODO: find a place to store models
-cwd = '/tmp/'
 ds_path = 'DataStore/'
 
 

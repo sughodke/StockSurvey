@@ -1,5 +1,6 @@
 import datetime
 import logging
+import os
 
 import numpy as np
 from math import log10, fabs
@@ -9,11 +10,12 @@ import matplotlib.dates as mdates
 import matplotlib.pyplot as plt
 import matplotlib.ticker as mticker
 
+from util import cwd
 from util.indicators import moving_average, fibonacci_retracement, interesting_fib
 
 fillcolor = 'darkgoldenrod'
 textsize = 9
-IMGDIR = '/tmp/'
+IMGDIR = os.path.join(cwd, 'Output/')
 
 
 class PlotMixin(object):
