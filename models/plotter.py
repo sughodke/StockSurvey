@@ -19,6 +19,13 @@ IMGDIR = os.path.join(cwd, 'Output/')
 
 
 class PlotMixin(object):
+    def __init__(self, d, ticker, calc, decide, eval):
+        self.dataset = d
+        self.ticker = ticker
+        self.calc = calc
+        self.decide = decide
+        self.eval = eval
+
     def plot_data(self, save=False):
         r = self.dataset
         ticker = self.ticker
@@ -42,15 +49,15 @@ class PlotMixin(object):
 
         # plot the relative strength indicator
         prices = r.adj_close
-        rsi, rsi_ma10, rsi_prime = self.rsi_values
-        rsi_prime_zeros = self.rsi_prime_zeros
-        rsi_ma_cross = self.rsi_ma_cross
+        rsi, rsi_ma10, rsi_prime = self.calc.rsi_values
+        rsi_prime_zeros = self.calc.rsi_prime_zeros
+        rsi_ma_cross = self.calc.rsi_ma_cross
 
         self.plot_rsi(ax1, r.date, rsi)
         self.plot_rsi_direction_change(ax1, r.date, rsi_prime_zeros, rsi[rsi_prime_zeros])
         self.plot_rsi_ma(ax1, r.date, rsi, rsi_ma10, rsi_ma_cross)
 
-        clean_buy, clean_sell, vol_buy = self.clean_buysellvol
+        clean_buy, clean_sell, vol_buy = self.decide.clean_buysellvol
         self.plot_buysell(ax2, clean_buy, clean_sell, r)
 
         # plot the price and volume data
@@ -104,8 +111,8 @@ class PlotMixin(object):
             fig.set_size_inches(18.5, 10.5)
             filename = IMGDIR + '%s-%s%d-%s%.0f.png' % (
                 ticker, closest_event, important_events[closest_event],
-                '' if self.performance > 0 else 'n',
-                fabs(log10(fabs(self.performance))))
+                '' if self.eval.performance > 0 else 'n',
+                fabs(log10(fabs(self.eval.performance))))
             fig.savefig(filename, dpi=100)
             logging.info('Plot saved {}'.format(filename))
         else:
@@ -113,10 +120,12 @@ class PlotMixin(object):
         plt.close()
 
     def plot_purse(self, ax3, r, clean_sell):
-        cumval = np.cumsum(self.val)
-        ax3.plot(r.date[clean_sell], 100. * cumval / r.open[-1], color='darkslategrey', label='cumulative', lw=2)
-        ax3.bar(r.date[clean_sell], 100. * self.val / r.open[-1],
-                width=4, color=cm.jet(-np.sign(self.val)),
+        val = self.eval.val
+        cumval = np.cumsum(val)
+        ax3.plot(r.date[clean_sell], 100. * cumval / r.open[-1],
+                 color='darkslategrey', label='cumulative', lw=2)
+        ax3.bar(r.date[clean_sell], 100. * val / r.open[-1],
+                width=4, color=cm.jet(-np.sign(val)),
                 alpha=0.7, label='instantaneous')
         ax3.axhline()
         ax3.text(0.025, 0.95, 'Purse (pct of today value)', va='top',

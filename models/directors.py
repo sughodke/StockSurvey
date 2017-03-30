@@ -84,6 +84,10 @@ class TheDecider(object):
 
 
 class NumpyDecider(TheDecider):
+    def __init__(self, d, rsi):
+        self.dataset = d
+        self.calc = rsi
+
     # def compute_orders(self):
     #     buy, sell, vol_buy = super(NumpyDecider, self).compute_orders()
     #
@@ -97,28 +101,28 @@ class NumpyDecider(TheDecider):
         rsi_prime_zeros[k]  Index on self.rsi when RSI Prime is 0
 
         """
-        dir_change_dates = self.dataset.date[self.rsi_prime_zeros]
+        dir_change_dates = self.dataset.date[self.calc.rsi_prime_zeros]
 
         buy_idx, sell_idx = [], []
-        for cross_index in self.rsi_ma_cross:
+        for cross_index in self.calc.rsi_ma_cross:
             cross_date = self.dataset.date[cross_index]
 
             # get the next time the RSI changes directions
             try:
                 dir_change_index = np.where(cross_date < dir_change_dates)[0][0]
-                dir_change_index = self.rsi_prime_zeros[dir_change_index]
+                dir_change_index = self.calc.rsi_prime_zeros[dir_change_index]
             except IndexError:
                 dir_change_index = -1
 
             logging.info('%s %s %s' % (self.dataset.date[dir_change_index],
-                                       'buy' if self.rsi[dir_change_index] < self.rsi[cross_index] else 'sell',
+                                       'buy' if self.calc.rsi[dir_change_index] < self.calc.rsi[cross_index] else 'sell',
                                        self.dataset.open[dir_change_index]))
 
             # we know this direction change is important
             # but should we buy or sell?
             # if the ma is ^ shaped, buy
             # if the ma is u shaped, sell
-            if self.rsi[dir_change_index] < self.rsi[cross_index]:
+            if self.calc.rsi[dir_change_index] < self.calc.rsi[cross_index]:
                 buy_idx.append(dir_change_index)
             else:
                 sell_idx.append(dir_change_index)

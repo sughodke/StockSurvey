@@ -24,6 +24,13 @@ class Event(object):
 
 
 class RSIMixin(object):
+    def __init__(self, d):
+        self.dataset = d
+        self.rsi_values = None
+        self.rsi = None
+        self.rsi_prime_zeros = None
+        self.rsi_ma_cross = None
+
     def rsi(self):
         prices = self.dataset.adj_close
         rsi = relative_strength(prices, 7)
@@ -41,20 +48,27 @@ class RSIMixin(object):
         # self.computed.view([('date', '<M8[D]'), ('rsi', '<f8'),
         # ('rsi_ma10', '<f8'), ('rsi_prime', '<f8')])
 
-        for d in self.dataset.date[rsi_prime_zeros]:
-            self.events.append(Event(Event.RSI_direction_change, d))
-
-        for d in self.dataset.date[rsi_ma_cross]:
-            self.events.append(Event(Event.RSI_MA_cross, d))
-
         self.rsi = rsi
         self.rsi_prime_zeros = rsi_prime_zeros
         self.rsi_ma_cross = rsi_ma_cross
 
-        return self
+    def events(self):
+        r = []
+        for d in self.dataset.date[rsi_prime_zeros]:
+            r.append(Event(Event.RSI_direction_change, d))
+
+        for d in self.dataset.date[rsi_ma_cross]:
+            r.append(Event(Event.RSI_MA_cross, d))
+
+        return r
 
 
 class TheEvaluator(object):
+    def __init__(self, d):
+        self.dataset = d
+        self.val = None
+        self.performance = None
+
     def evaluate(self, orders):
         buy, sell, vol_buy = orders
         val_buy, val_sell = self.dataset.open[list(buy)], self.dataset.open[list(sell)]
