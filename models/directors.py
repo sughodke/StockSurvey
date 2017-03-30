@@ -132,7 +132,6 @@ class NumpyDecider(TheDecider):
 
         # walk through the buy-events
         for buy, buy_date in zip(buy_idx, self.dataset.date[buy_idx]):
-            rsi_at_buy = self.rsi[buy]
             price_at_buy = self.dataset.adj_close[buy]
 
             mask = np.where(sell_dates >= buy_date)
@@ -140,13 +139,9 @@ class NumpyDecider(TheDecider):
 
             future_sell_index = [np.argmax(self.dataset.date == future_sell_date)
                                  for future_sell_date in future_sell_dates]
-            future_sell_rsi = self.rsi[future_sell_index]
             future_sell_price = self.dataset.adj_close[future_sell_index]
 
             try:
-                # TODO: refactor first_beat to be a virtual function
-                # NOTE argmax returns 0 even on failure
-                # first_beat = np.where(future_sell_rsi > rsi_at_buy)[0][0]
                 first_beat = np.argmax(future_sell_price > price_at_buy)
                 matching_sell = future_sell_index[first_beat]
             except (ValueError, IndexError):
@@ -206,7 +201,6 @@ class DirectionChangeDecider(TheDecider):
         # walk through the buy-events
         for buy, buy_date in zip(buy_idx, self.dataset.date[buy_idx]):
             rsi_at_buy = self.rsi[buy]
-            price_at_buy = self.dataset.adj_close[buy]
 
             mask = np.where(sell_dates >= buy_date)
             future_sell_dates = sell_dates[mask]
@@ -214,11 +208,9 @@ class DirectionChangeDecider(TheDecider):
             future_sell_index = [np.argmax(self.dataset.date == future_sell_date)
                                  for future_sell_date in future_sell_dates]
             future_sell_rsi = self.rsi[future_sell_index]
-            future_sell_price = self.dataset.adj_close[future_sell_index]
 
             try:
                 first_beat = np.where(future_sell_rsi > rsi_at_buy)[0][0]  # argmax returns 0 even on failure
-                # first_beat = np.argmax(future_sell_price > price_at_buy)
                 matching_sell = future_sell_index[first_beat]
             except (ValueError, IndexError):
                 matching_sell = None
