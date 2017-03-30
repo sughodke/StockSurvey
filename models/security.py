@@ -88,7 +88,7 @@ class Security(AddTimeSpan):
         return Span(self, span)
 
 
-class Span(RSIMixin, TheDecider, TheEvaluator, PlotMixin):
+class Span(RSIMixin, NumpyDecider, TheEvaluator, PlotMixin):
     def __init__(self, security, span=None):
         # TODO: Weekly Span should increase the look back to 1.5 years
         self.dataset = getattr(security, span, security.daily)
