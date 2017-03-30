@@ -33,6 +33,7 @@ parser.add_option("--ndx",
                   action="store_true", dest="ndx", default=False,
                   help="Execute for all stocks on NDX100 and myfaves."
                   " Forces save plot.")
+# TODO span can be defined as the first argument instead of flag
 
 (opts, args) = parser.parse_args()
 
@@ -41,6 +42,8 @@ if opts.ndx:
     args = NDX_constituents + my_faves
 elif len(args) == 0:
     args = ['GLD']
+
+raise_exception = True
 
 for ticker in args:
     try:
@@ -70,6 +73,8 @@ for ticker in args:
         so.plot_data(save=opts.save_plot)
 
         s.save()
-    except Exception:
-        logging.error('{} blew up'.format(ticker))
-
+    except Exception as e:
+        if not raise_exception:
+            logging.error('{} blew up with {}'.format(ticker, e))
+        else:
+            raise
