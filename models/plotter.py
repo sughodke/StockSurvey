@@ -65,7 +65,7 @@ class PlotMixin(object):
             datetime.date.today().strftime('%d-%b-%Y'),
             last.open, last.high,
             last.low, last.close,
-            0.,  # last.volume*1e-6,
+            0.,  # TODO: last.volume*1e-6,
             last.close - last.open)
         ax2.text(0.3, 0.9, s, transform=ax2.transAxes, fontsize=textsize)
 
@@ -110,6 +110,7 @@ class PlotMixin(object):
             logging.info('Plot saved {}'.format(filename))
         else:
             plt.show()
+        plt.close()
 
     def plot_purse(self, ax3, r, clean_sell):
         cumval = np.cumsum(self.val)
