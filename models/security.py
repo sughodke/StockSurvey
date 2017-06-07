@@ -1,7 +1,7 @@
 import datetime
 import os
 import joblib
-import numpy as np
+import pandas as pd
 
 from models.plotter import PlotMixin
 from models.indicators import RSIMixin, TheEvaluator
@@ -11,12 +11,12 @@ from util import load_data, cwd
 
 import logging
 
-ds_path = 'DataStore/'
+ds_path = 'DataStore'
+store_dir = os.path.join(cwd, ds_path)
 
 
 class Security(AddTimeSpan):
     STARTDATE = datetime.date(2016, 6, 1)
-    store_dir = os.path.join(cwd, ds_path)
 
     def __init__(self, ticker='GLD'):
         self.ticker = ticker
@@ -25,8 +25,8 @@ class Security(AddTimeSpan):
         self.daily = None
 
         self.sync()
-        self.add_week()
-        self.add_month()
+        self.weekly = self.add_week(self.daily)
+        self.monthly = self.add_month(self.daily)
 
     def sync(self):
         today = self._today
@@ -37,29 +37,17 @@ class Security(AddTimeSpan):
             logging.info('Sync necessary, retrieving missing data')
 
             delta = load_data(self.enddate + datetime.timedelta(days=1), today, self.ticker)
-            delta = self._fix_dtypes(delta)
 
             if self.daily is not None:
-                self.daily = np.hstack((self.daily, delta)).view(np.recarray)
+                self.daily = pd.concat((self.daily, delta))
             else:
                 self.daily = delta
 
-            self.daily = self._fix_dtypes(self.daily)
             self.enddate = today
-
-    @staticmethod
-    def _fix_dtypes(recarr):
-        """
-        Overwriting the datatypes to ensure serialize works smoothly
-        """
-        return recarr.astype([('date', '<M8[D]'), ('open', '<f8'),
-                              ('high', '<f8'), ('low', '<f8'),
-                              ('close', '<f8'), ('volume', '<i8'),
-                              ('adj_close', '<f8')])
 
     @classmethod
     def _filename(cls, ticker):
-        return os.path.join(cls.store_dir, '{}'.format(ticker))
+        return os.path.join(store_dir, '{}'.format(ticker))
 
     @property
     def _today(self):

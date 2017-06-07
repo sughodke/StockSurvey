@@ -15,13 +15,13 @@ class TestSyncMethods(unittest.TestCase):
     def test_enddate(self):
         self.assertEqual(self.security.enddate,
                          SecurityTestHarness._today)
-        self.assertEqual(self.security.daily.date[-1],
+        self.assertEqual(self.security.daily.index[-1],
                          SecurityTestHarness._today)
 
     def test_nextday(self):
         self.security._today = datetime.date(2016, 12, 2)
         self.security.sync()
-        self.assertEqual(self.security.daily.date[-1],
+        self.assertEqual(self.security.daily.index[-1],
                          self.security._today)
 
 
