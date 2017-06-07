@@ -52,7 +52,7 @@ for ticker in args:
         # Create a view of the data for the timespan we are interested in
         so = s.span(opts.span)
 
-        so.rsi()
+        # so.rsi()
 
         if opts.verbose:
             print('Events for {} strategy'.format(so.span))
@@ -60,17 +60,17 @@ for ticker in args:
             print('')
 
         # Use our strategy to figure out when to buy and sell
-        orders = so.compute_orders()
+        orders = so.decide.compute_orders()
         if opts.verbose:
             print('List of Buy/Sell')
             pprint(zip(*orders))
             print('')
 
         # Evaluate our strategy
-        so.evaluate(orders)
+        so.eval.evaluate(orders)
 
         # Save a plot of our work
-        so.plot_data(save=opts.save_plot)
+        so.plot.plot_data(save=opts.save_plot)
 
         s.save()
     except Exception as e:
