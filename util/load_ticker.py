@@ -1,8 +1,10 @@
 import datetime
 import logging
 
-from matplotlib import finance
-from matplotlib import mlab
+import intrinio
+
+intrinio.client.username = "5aa358835739a7a4cf76b63193451dd3"
+intrinio.client.password = "f4e816313de6afff9f9a0ddb923b8827"
 
 
 def retrieve_stock_data(symbol, d1 = datetime.datetime(2003, 1, 1), d2 = datetime.datetime(2008, 1, 1)):
@@ -45,10 +47,6 @@ def load_data(startdate, enddate, ticker):
     """
     :return: numpy.recarray with fields: date, open, high, low, close, volume, adj_close
     """
-    fh = finance.fetch_historical_yahoo(ticker, startdate, enddate)
 
-    r = mlab.csv2rec(fh)
-    fh.close()
-    r.sort()
+    return intrinio.prices(ticker, start_date=startdate, end_date=enddate)
 
-    return r
