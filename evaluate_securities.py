@@ -39,7 +39,7 @@ parser.add_option("--ndx",
 
 if opts.ndx:
     opts.save_plot = True
-    args = NDX_constituents + my_faves
+    args = list(NDX_constituents) + my_faves
 elif len(args) == 0:
     args = ['GLD']
 

@@ -43,6 +43,8 @@ class Security(AddTimeSpan):
 
             self.enddate = today
 
+        self.daily.sort_index(inplace=True)
+
     @classmethod
     def _filename(cls, ticker):
         return os.path.join(store_dir, '{}'.format(ticker))

@@ -6,9 +6,9 @@ class TheDecider(object):
     """Decides Buy/Sell"""
     def compute_orders(self):
         logging.info('RSI crossed %d times' %
-                     self.rsi_ma_cross.shape)
+                     self.calc.rsi_ma_cross.shape)
         logging.info('RSI changed direction %d times' %
-                     self.rsi_prime_zeros.shape)
+                     self.calc.rsi_prime_zeros.shape)
 
         buy_index, sell_index = self.compute_possible_buysell()
         logging.info('Buy/Sell events {}/{}'.format(len(buy_index), len(sell_index)))
@@ -16,7 +16,7 @@ class TheDecider(object):
         clean_buy, clean_sell = self.filter_buysell(buy_index, sell_index)
 
         # confidence that we are buying at the correct time
-        vol_buy = 10 - self.rsi[clean_buy] // 10
+        vol_buy = 10 - self.calc.rsi[clean_buy] // 10
 
         self.clean_buysellvol = (clean_buy, clean_sell, vol_buy)
         return self.clean_buysellvol
@@ -24,27 +24,27 @@ class TheDecider(object):
     def compute_possible_buysell(self):
         buy_idx, sell_idx = [], []
         k = 0
-        for i in self.rsi_ma_cross:
+        for i in self.calc.rsi_ma_cross:
 
             # get the next time the RSI changes directions
-            j = self.rsi_prime_zeros[k]
-            while self.dataset.date[j] < self.dataset.date[i]:
+            j = self.calc.rsi_prime_zeros[k]
+            while self.dataset.index[j] < self.dataset.index[i]:
                 k += 1
                 try:
-                    j = self.rsi_prime_zeros[k]
+                    j = self.calc.rsi_prime_zeros[k]
                 except IndexError:
-                    j = self.rsi_prime_zeros[-1]
+                    j = self.calc.rsi_prime_zeros[-1]
                     break
 
-            logging.info('%s %s %s' % (self.dataset.date[j],
-                                       'buy' if self.rsi[j] < self.rsi[i] else 'sell',
+            logging.info('%s %s %s' % (self.dataset.index[j],
+                                       'buy' if self.calc.rsi[j] < self.calc.rsi[i] else 'sell',
                                        self.dataset.open[j]))
 
             # we know this direction change is important
             # but should we buy or sell?
             # if the ma is ^ shaped, buy
             # if the ma is u shaped, sell
-            if self.rsi[j] < self.rsi[i]:
+            if self.calc.rsi[j] < self.calc.rsi[i]:
                 buy_idx.append(j)
             else:
                 sell_idx.append(j)
@@ -66,7 +66,7 @@ class TheDecider(object):
                 j = -1
                 idx_j = sell_idx[j]
 
-            di, dj = self.dataset.date[idx_i], self.dataset.date[idx_j]
+            di, dj = self.dataset.index[idx_i], self.dataset.index[idx_j]
             if di < dj:
                 continue
             clean_buy.append(idx_i)
@@ -74,7 +74,7 @@ class TheDecider(object):
                 j += 1
                 try:
                     idx_j = sell_idx[j]
-                    dj = self.dataset.date[idx_j]
+                    dj = self.dataset.index[idx_j]
                 except IndexError:
                     idx_j = sell_idx[j - 1]
                     break
@@ -101,11 +101,11 @@ class NumpyDecider(TheDecider):
         rsi_prime_zeros[k]  Index on self.rsi when RSI Prime is 0
 
         """
-        dir_change_dates = self.dataset.date[self.calc.rsi_prime_zeros]
+        dir_change_dates = self.dataset.index[self.calc.rsi_prime_zeros]
 
         buy_idx, sell_idx = [], []
         for cross_index in self.calc.rsi_ma_cross:
-            cross_date = self.dataset.date[cross_index]
+            cross_date = self.dataset.index[cross_index]
 
             # get the next time the RSI changes directions
             try:
@@ -114,7 +114,7 @@ class NumpyDecider(TheDecider):
             except IndexError:
                 dir_change_index = -1
 
-            logging.info('%s %s %s' % (self.dataset.date[dir_change_index],
+            logging.info('%s %s %s' % (self.dataset.index[dir_change_index],
                                        'buy' if self.calc.rsi[dir_change_index] < self.calc.rsi[cross_index] else 'sell',
                                        self.dataset.open[dir_change_index]))
 
@@ -131,22 +131,22 @@ class NumpyDecider(TheDecider):
 
     def filter_buysell(self, buy_idx, sell_idx):
         """Sell when price is higher than when I bought"""
-        sell_dates = self.dataset.date[sell_idx]
+        sell_dates = self.dataset.index[sell_idx]
         clean_buy, clean_sell = [], []
 
         # walk through the buy-events
-        for buy, buy_date in zip(buy_idx, self.dataset.date[buy_idx]):
+        for buy, buy_date in zip(buy_idx, self.dataset.index[buy_idx]):
             price_at_buy = self.dataset.adj_close[buy]
 
             mask = np.where(sell_dates >= buy_date)
             future_sell_dates = sell_dates[mask]
 
-            future_sell_index = [np.argmax(self.dataset.date == future_sell_date)
+            future_sell_index = [np.argmax(self.dataset.index == future_sell_date)
                                  for future_sell_date in future_sell_dates]
             future_sell_price = self.dataset.adj_close[future_sell_index]
 
             try:
-                first_beat = np.argmax(future_sell_price > price_at_buy)
+                first_beat = np.argmax((future_sell_price > price_at_buy).values)
                 matching_sell = future_sell_index[first_beat]
             except (ValueError, IndexError):
                 matching_sell = buy
@@ -167,9 +167,9 @@ class DirectionChangeDecider(TheDecider):
     def compute_possible_buysell(self):
         buy_idx, sell_idx = [], []
 
-        date_ma_cross = self.dataset.date[self.rsi_ma_cross]
-        for rsi_dir_change in self.rsi_prime_zeros:
-            date_dir_change = self.dataset.date[rsi_dir_change]
+        date_ma_cross = self.dataset.index[self.calc.rsi_ma_cross]
+        for rsi_dir_change in self.calc.rsi_prime_zeros:
+            date_dir_change = self.dataset.index[rsi_dir_change]
 
             # look at what the MA is doing
             # find the last time ma crossed rsi
@@ -183,7 +183,7 @@ class DirectionChangeDecider(TheDecider):
             # if the ma is u shaped, sell
 
             # TODO: should look at RSI double prime, predict direction
-            if self.rsi[nearest_ma_cross] > self.rsi[rsi_dir_change]:
+            if self.calc.rsi[nearest_ma_cross] > self.calc.rsi[rsi_dir_change]:
                 # RSI at Direction Change is more over-sold than at the MA cross
                 action = 'buy'
             else:
@@ -199,19 +199,19 @@ class DirectionChangeDecider(TheDecider):
         return buy_idx, sell_idx
 
     def filter_buysell(self, buy_idx, sell_idx):
-        sell_dates = self.dataset.date[sell_idx]
+        sell_dates = self.dataset.index[sell_idx]
         clean_buy, clean_sell = [], []
 
         # walk through the buy-events
-        for buy, buy_date in zip(buy_idx, self.dataset.date[buy_idx]):
-            rsi_at_buy = self.rsi[buy]
+        for buy, buy_date in zip(buy_idx, self.dataset.index[buy_idx]):
+            rsi_at_buy = self.calc.rsi[buy]
 
             mask = np.where(sell_dates >= buy_date)
             future_sell_dates = sell_dates[mask]
 
-            future_sell_index = [np.argmax(self.dataset.date == future_sell_date)
+            future_sell_index = [np.argmax(self.dataset.index == future_sell_date)
                                  for future_sell_date in future_sell_dates]
-            future_sell_rsi = self.rsi[future_sell_index]
+            future_sell_rsi = self.calc.rsi[future_sell_index]
 
             try:
                 first_beat = np.where(future_sell_rsi > rsi_at_buy)[0][0]  # argmax returns 0 even on failure
@@ -223,7 +223,7 @@ class DirectionChangeDecider(TheDecider):
             # look for a matching next sell-event
             matching_sell = None
             for sell_date in future_sell_dates:
-                sell = np.argmax(self.dataset.date == sell_date)
+                sell = np.argmax(self.dataset.index == sell_date)
                 rsi_at_sell = self.rsi[sell]
 
                 if rsi_at_sell > rsi_at_buy:

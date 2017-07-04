@@ -1,3 +1,5 @@
+import logging
+
 from models.directors import NumpyDecider
 from models.indicators import RSIMixin, TheEvaluator
 from models.plotter import PlotMixin
@@ -6,6 +8,7 @@ from models.plotter import PlotMixin
 class Span(object):
     def __init__(self, security, span=None):
         # TODO: Weekly Span should increase the look back to 1.5 years
+        logging.info('Setting span for {} to {}'.format(security.ticker, span))
         self.dataset = getattr(security, span, security.daily)
         self.events = []
 
