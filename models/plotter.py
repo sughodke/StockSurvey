@@ -104,8 +104,8 @@ class PlotMixin(object):
         ax3.yaxis.set_major_locator(MyLocator(5, prune='both'))
 
         important_events = {
-            'buy': last.index - r.index[clean_buy][-1],
-            'sell': last.index - r.index[clean_sell][-1]
+            'buy': last.index[0] - r.index[clean_buy][-1],
+            'sell': last.index[0] - r.index[clean_sell][-1]
         }
         important_events = {k: i.days for k, i in important_events.items()}
         closest_event = min(important_events, key=important_events.get)

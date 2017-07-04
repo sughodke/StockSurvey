@@ -141,11 +141,14 @@ class NumpyDecider(TheDecider):
             mask = np.where(sell_dates >= buy_date)
             future_sell_dates = sell_dates[mask]
 
+            # TODO can this argmax be done with a reverse-lookup?
             future_sell_index = [np.argmax(self.dataset.index == future_sell_date)
                                  for future_sell_date in future_sell_dates]
-            future_sell_price = self.dataset.adj_close[future_sell_index]
 
             try:
+                # sometimes future index is empty
+                future_sell_price = self.dataset.adj_close[future_sell_index]
+
                 first_beat = np.argmax((future_sell_price > price_at_buy).values)
                 matching_sell = future_sell_index[first_beat]
             except (ValueError, IndexError):
@@ -199,6 +202,9 @@ class DirectionChangeDecider(TheDecider):
         return buy_idx, sell_idx
 
     def filter_buysell(self, buy_idx, sell_idx):
+        # buy_idx = filter(lambda x: x < 0, buy_idx)
+        # sell_idx = filter(lambda x: x < 0, sell_idx)
+
         sell_dates = self.dataset.index[sell_idx]
         clean_buy, clean_sell = [], []
 
