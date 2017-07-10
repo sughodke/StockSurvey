@@ -7,17 +7,18 @@ import pandas as pd
 
 from models.span import Span
 from models.timespan import AddTimeSpan
-from util import load_data, cwd
+from util import load_data, cwd, load_crypto_data
 
 ds_path = 'DataStore'
 store_dir = os.path.join(cwd, ds_path)
 
 
 class Security(AddTimeSpan):
-    STARTDATE = datetime.date(2016, 6, 1)
+    STARTDATE = datetime.date(2017, 1, 1)
 
-    def __init__(self, ticker='GLD'):
+    def __init__(self, ticker='GLD', crypto=False):
         self.ticker = ticker
+        self.is_crypto = crypto
         self.startdate = self.STARTDATE
         self.enddate = None
         self.daily = None
@@ -34,7 +35,10 @@ class Security(AddTimeSpan):
         if self.enddate < today:
             logging.info('Sync necessary, retrieving missing data')
 
-            delta = load_data(self.enddate + datetime.timedelta(days=1), today, self.ticker)
+            if not self.is_crypto:
+                delta = load_data(self.enddate + datetime.timedelta(days=1), today, self.ticker)
+            else:
+                delta = load_crypto_data(self.enddate + datetime.timedelta(days=1), today, self.ticker)
 
             if self.daily is not None:
                 self.daily = pd.concat((self.daily, delta))
@@ -57,7 +61,7 @@ class Security(AddTimeSpan):
         joblib.dump(self, self._filename(self.ticker), compress=False)
 
     @classmethod
-    def load(cls, ticker, sync=True, force_fetch=False):
+    def load(cls, ticker, sync=True, force_fetch=False, crypto=False):
         try:
             if force_fetch:
                 raise IOError('Triggering Cache Miss')
@@ -69,7 +73,7 @@ class Security(AddTimeSpan):
             return security
         except IOError as e:
             logging.info('Cache miss, creating new Security')
-            return Security(ticker)
+            return Security(ticker, crypto)
 
     def span(self, span):
         """acts as a context manager"""

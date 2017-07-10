@@ -33,6 +33,10 @@ parser.add_option("--ndx",
                   action="store_true", dest="ndx", default=False,
                   help="Execute for all stocks on NDX100 and myfaves."
                   " Forces save plot.")
+parser.add_option("--crypto", "--crypto-currency",
+                  action="store_true", dest="crypto", default=False,
+                  help="Invalidate cache and perform a full fetch")
+
 # TODO span can be defined as the first argument instead of flag
 
 (opts, args) = parser.parse_args()
@@ -47,7 +51,7 @@ raise_exception = True
 
 for ticker in args:
     try:
-        s = Security.load(ticker, force_fetch=opts.force)
+        s = Security.load(ticker, force_fetch=opts.force, crypto=opts.crypto)
 
         # Create a view of the data for the timespan we are interested in
         so = s.span(opts.span)

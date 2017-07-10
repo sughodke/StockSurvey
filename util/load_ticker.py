@@ -3,6 +3,9 @@ import logging
 
 import intrinio
 
+import gdax
+import pandas as pd
+
 intrinio.client.username = "5aa358835739a7a4cf76b63193451dd3"
 intrinio.client.password = "f4e816313de6afff9f9a0ddb923b8827"
 
@@ -50,3 +53,21 @@ def load_data(startdate, enddate, ticker):
 
     return intrinio.prices(ticker, start_date=startdate, end_date=enddate)
 
+
+def load_crypto_data(startdate, enddate, identifier, granularity=str(60*60*24)):
+    """
+    Get historical stock market prices or indices.
+
+    Returns:
+        Dataset as a Pandas DataFrame
+    """
+
+    quotes = gdax.PublicClient().get_product_historic_rates(identifier, start=startdate, end=enddate,
+                                                            granularity=granularity)
+    df = pd.DataFrame(quotes, columns=['time', 'low', 'high', 'open', 'close', 'volume'])
+    df.index = pd.to_datetime(df.time, unit='s')
+    df.drop('time', axis=1, inplace=True)
+
+    df['adj_close'] = df['close']
+    # df['adj_open'] = df['open']
+    return df
