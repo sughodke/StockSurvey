@@ -5,7 +5,7 @@ import os
 import joblib
 import pandas as pd
 
-from models.span import Span
+from models.span import Span, MACDSpan
 from models.timespan import AddTimeSpan
 from util import load_data, cwd, load_crypto_data
 
@@ -30,6 +30,8 @@ class Security(AddTimeSpan):
         self.daily = None
 
         self.sync()
+
+        # TODO: make this into a pandas view (or transform)
         self.weekly = self.add_week(self.daily)
         self.monthly = self.add_month(self.daily)
 
@@ -38,7 +40,8 @@ class Security(AddTimeSpan):
         if not self.enddate:
             self.enddate = self.STARTDATE - datetime.timedelta(days=1)
 
-        if self.enddate < today:
+        staleness = datetime.timedelta(days=1)
+        if self.enddate - today > staleness:
             logging.info('Sync necessary, retrieving missing data')
 
             if not getattr(self, 'is_crypto', False):
@@ -84,6 +87,11 @@ class Security(AddTimeSpan):
             logging.info('Cache miss, creating new Security {}'.format(ticker))
             return Security(ticker, crypto)
 
-    def span(self, span):
-        """acts as a context manager"""
-        return Span(self, span)
+    def span(self, span, klass='rsi'):
+        """return a new Span workflow as a context manager"""
+        klass_lookup = {
+            'rsi': Span,
+            'macd': MACDSpan
+        }.get(klass, Span)
+
+        return klass_lookup(self, span)

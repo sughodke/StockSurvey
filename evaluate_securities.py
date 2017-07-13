@@ -36,6 +36,10 @@ parser.add_option("--ndx",
 parser.add_option("--crypto", "--crypto-currency",
                   action="store_true", dest="crypto", default=False,
                   help="Invalidate cache and perform a full fetch")
+parser.add_option("--macd",
+                  action="store_const", dest="indicator",
+                  default='rsi', const='macd',
+                  help="Use moving average convergence divergence indicator")
 
 # TODO span can be defined as the first argument instead of flag
 
@@ -54,27 +58,25 @@ for ticker in args:
         s = Security.load(ticker, force_fetch=opts.force, crypto=opts.crypto)
 
         # Create a view of the data for the timespan we are interested in
-        so = s.span(opts.span)
+        with s.span(opts.span, opts.indicator) as so:
 
-        # so.rsi()
+            if opts.verbose:
+                print('Events for {} strategy'.format(so.span))
+                pprint(so.recent_events(last_n=5))
+                print('')
 
-        if opts.verbose:
-            print('Events for {} strategy'.format(so.span))
-            pprint(so.recent_events(last_n=5))
-            print('')
+            # Use our strategy to figure out when to buy and sell
+            orders = so.decide.compute_orders()
+            if opts.verbose:
+                print('List of Buy/Sell')
+                pprint(zip(*orders))
+                print('')
 
-        # Use our strategy to figure out when to buy and sell
-        orders = so.decide.compute_orders()
-        if opts.verbose:
-            print('List of Buy/Sell')
-            pprint(zip(*orders))
-            print('')
+            # Evaluate our strategy
+            so.eval.evaluate(orders)
 
-        # Evaluate our strategy
-        so.eval.evaluate(orders)
-
-        # Save a plot of our work
-        so.plot.plot_data(save=opts.save_plot)
+            # Save a plot of our work
+            so.plot.plot_data(save=opts.save_plot)
 
         s.save()
     except Exception as e:
