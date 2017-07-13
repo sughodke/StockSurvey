@@ -23,7 +23,7 @@ parser.add_option("--span", dest="span", default='daily',
 parser.add_option("--verbose",
                   action="store_true", dest="verbose", default=False,
                   help="Print additional information to the console")
-parser.add_option("--save-plot",
+parser.add_option("--save", "--save-plot",
                   action="store_true", dest="save_plot", default=False,
                   help="don't print status messages to stdout")
 parser.add_option("--force", "--force-fetch",

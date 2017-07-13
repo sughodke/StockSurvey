@@ -130,7 +130,8 @@ class PlotMixin(object):
         ax3.plot(r.index[clean_sell], 100. * cumval / r.open[-1],
                  color='darkslategrey', label='cumulative', lw=2)
         ax3.bar(r.index[clean_sell], 100. * val / r.open[-1],
-                width=4, color=cm.jet(-np.sign(val)),
+                width=4,  # TODO: width is absolute px size, cannot set as pct of chart
+                color=cm.jet(-np.sign(val)),
                 alpha=0.7, label='instantaneous')
         ax3.axhline()
         ax3.text(0.025, 0.95, 'Purse (pct of today value)', va='top',
