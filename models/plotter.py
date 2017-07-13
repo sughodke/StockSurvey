@@ -20,13 +20,14 @@ textsize = 9
 IMGDIR = os.path.join(cwd, 'Output/')
 
 
-class PlotMixin(object):
-    def __init__(self, d, ticker, calc, decide, eval):
+class PlotBaseMixin(object):
+    def __init__(self, d, ticker, calc, decide, eval, cadence='daily'):
         self.dataset = d
         self.ticker = ticker
         self.calc = calc
         self.decide = decide
         self.eval = eval
+        self.cadence = cadence
 
     def plot_data(self, save=False):
         r = self.dataset
@@ -49,22 +50,17 @@ class PlotMixin(object):
         ax2 = fig.add_axes(rect2, facecolor=axescolor, sharex=ax1)
         ax3 = fig.add_axes(rect3, facecolor=axescolor, sharex=ax1)
 
-        ax1.set_title('%s %s' % (ticker, 'daily'))
+        ax1.set_title('%s %s' % (ticker, self.cadence))
 
         # plot the relative strength indicator
-        prices = r.adj_close.values
-        rsi, rsi_ma10, rsi_prime = self.calc.rsi_values
-        rsi_prime_zeros = self.calc.rsi_prime_zeros
-        rsi_ma_cross = self.calc.rsi_ma_cross
+        self.plot_indicator(ax1, ax2, r)
 
-        self.plot_rsi(ax1, r.index, rsi)
-        self.plot_rsi_direction_change(ax1, r.index, rsi_prime_zeros, rsi[rsi_prime_zeros])
-        self.plot_rsi_ma(ax1, r.index, rsi, rsi_ma10, rsi_ma_cross)
-
-        clean_buy, clean_sell, vol_buy = self.decide.clean_buysellvol
+        # plot the buysell points
+        clean_buy, clean_sell, _ = self.decide.clean_buysellvol
         self.plot_buysell(ax2, clean_buy, clean_sell, r)
 
         # plot the price and volume data
+        prices = r.adj_close.values
         self.plot_price(ax2, r)
         self.plot_price_ma(ax2, r.index, prices)
 
@@ -103,16 +99,16 @@ class PlotMixin(object):
         ax2.yaxis.set_major_locator(MyLocator(5, prune='both'))
         ax3.yaxis.set_major_locator(MyLocator(5, prune='both'))
 
-        important_events = {
-            'buy': last.index[0] - r.index[clean_buy][-1],
-            'sell': last.index[0] - r.index[clean_sell][-1]
-        }
-        important_events = {k: i.days for k, i in important_events.items()}
-        closest_event = min(important_events, key=important_events.get)
-
         # plt.subplots_adjust(left=0.1, right=0.9, top=0.9, bottom=0.1)
 
         if save:
+            important_events = {
+                'buy': last.index[0] - r.index[clean_buy][-1],
+                'sell': last.index[0] - r.index[clean_sell][-1]
+            }
+            important_events = {k: i.days for k, i in important_events.items()}
+            closest_event = min(important_events, key=important_events.get)
+
             fig.set_size_inches(18.5, 10.5)
             filename = IMGDIR + '%s-%s%d-%s%.0f.png' % (
                 ticker, closest_event, important_events[closest_event],
@@ -123,6 +119,9 @@ class PlotMixin(object):
         else:
             plt.show(block=True)
         plt.close()
+
+    def plot_indicator(self, ax1, ax2, r):
+        raise NotImplemented()
 
     def plot_purse(self, ax3, r, clean_sell):
         val = self.eval.val
@@ -168,14 +167,26 @@ class PlotMixin(object):
         ax2.scatter(r.index[~up], r.open[~up], marker=0, s=20, **plotargs)
         ax2.scatter(r.index[~up], r.close[~up], marker=1, s=20, **plotargs)
 
+    def plot_buysell(self, ax2, clean_buy, clean_sell, r):
+        ax2.scatter(r.index[clean_buy], r.low[clean_buy], c='lightgreen', marker='^', edgecolors='black', s=20)
+        ax2.scatter(r.index[clean_sell], r.high[clean_sell], c='lightpink', marker='v', edgecolors='black', s=20)
+
+
+class PlotMixin(PlotBaseMixin):
+
+    def plot_indicator(self, ax1, ax2, r):
+        rsi, rsi_ma10, rsi_prime = self.calc.rsi_values
+        rsi_prime_zeros = self.calc.rsi_prime_zeros
+        rsi_ma_cross = self.calc.rsi_ma_cross
+
+        self.plot_rsi(ax1, r.index, rsi)
+        self.plot_rsi_direction_change(ax1, r.index, rsi_prime_zeros, rsi[rsi_prime_zeros])
+        self.plot_rsi_ma(ax1, r.index, rsi, rsi_ma10, rsi_ma_cross)
+
     def plot_rsi_ma(self, ax1, date, rsi, rsi_ma10, rsi_ma_cross):
         ax1.plot(date, rsi_ma10, color='blue', lw=2)
         ax1.scatter(date[rsi_ma_cross], rsi[rsi_ma_cross], c='teal', marker='s', s=MARKER_SIZE,
                     edgecolors='black')
-
-    def plot_buysell(self, ax2, clean_buy, clean_sell, r):
-        ax2.scatter(r.index[clean_buy], r.low[clean_buy], c='lightgreen', marker='^', edgecolors='black', s=20)
-        ax2.scatter(r.index[clean_sell], r.high[clean_sell], c='lightpink', marker='v', edgecolors='black', s=20)
 
     def plot_rsi_direction_change(self, ax1, date, rsi_prime_zeros, zeros_y):
         ax1.scatter(
@@ -199,3 +210,27 @@ class PlotMixin(object):
         ax1.axhline(30, color=fillcolor)
         ax1.fill_between(date, rsi, 70, where=(rsi >= 70), facecolor=fillcolor, edgecolor=fillcolor)
         ax1.fill_between(date, rsi, 30, where=(rsi <= 30), facecolor=fillcolor, edgecolor=fillcolor)
+
+
+class MACDPlotMixin(PlotBaseMixin):
+
+    def plot_indicator(self, ax1, ax2, r):
+        slow, fast, macd = self.calc.macd_values
+        signal = self.calc.macd_signal
+
+        macd_zero_cross = self.calc.macd_zero_cross
+        macd_signal_cross = self.calc.macd_signal_cross
+
+        self.plot_macd(ax1, r.index, macd, signal)
+        self.plot_signal_cross(ax1, r.index[macd_signal_cross], macd[macd_signal_cross])
+
+    def plot_macd(self, ax1, date, macd, signal):
+        ax1.bar(date, macd - signal, color='darkslategrey', alpha=0.7, label='instantaneous')
+
+        ax1.plot(date, macd, color=fillcolor, linewidth=1)
+        ax1.plot(date, signal, color='blue', linewidth=1)
+
+        ax1.text(0.025, 0.95, 'MACD (26, 12, 10)', va='top', transform=ax1.transAxes, fontsize=textsize)
+
+    def plot_signal_cross(self, ax1, date, y_val):
+        ax1.scatter(date, y_val, c=y_val / 100., s=MARKER_SIZE, edgecolors='black')
