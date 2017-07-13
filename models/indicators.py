@@ -1,6 +1,6 @@
 import logging
 import numpy as np
-from util.indicators import relative_strength, moving_average
+from util.indicators import relative_strength, moving_average, moving_average_convergence
 
 
 class Event(object):
@@ -50,6 +50,30 @@ class RSIMixin(object):
             r.append(Event(Event.RSI_MA_cross, d))
 
         return r
+
+
+class MACDMixin(object):
+    def __init__(self, d):
+        self.dataset = d
+        prices = self.dataset.adj_close.values
+        # prices = self.dataset.close.values
+
+        slow, fast, macd = moving_average_convergence(prices)
+
+        macd_ema10 = moving_average(macd, 10, type='exponential')
+
+        self.macd_sign = np.sign(macd)
+        self.macd_zero_cross = np.where(np.diff(self.macd_sign))[0]
+        self.macd_signal_cross = np.where(np.diff(np.sign(macd - macd_ema10)))[0]
+
+        self.macd_values = (slow, fast, macd)
+        self.macd = macd
+        self.macd_signal = macd_ema10
+
+        logging.info('Computed MACD {}, {}, {}'.format(*map(len, self.macd_values)))
+
+    def events(self):
+        raise NotImplemented()
 
 
 class TheEvaluator(object):
