@@ -14,7 +14,13 @@ store_dir = os.path.join(cwd, ds_path)
 
 
 class Security(AddTimeSpan):
-    STARTDATE = datetime.date(2017, 1, 1)
+    STARTDATE = datetime.datetime(2016, 6, 1)
+
+    # TODO: make startdate into an input
+    # STARTDATE = datetime.datetime(2017, 1, 1)
+    # STARTDATE = datetime.datetime(2017, 4, 1)
+    # STARTDATE = datetime.datetime(2017, 7, 12)
+    # STARTDATE = datetime.datetime(2017, 7, 13, 0, 0, 0, 0)
 
     def __init__(self, ticker='GLD', crypto=False):
         self.ticker = ticker
@@ -35,10 +41,11 @@ class Security(AddTimeSpan):
         if self.enddate < today:
             logging.info('Sync necessary, retrieving missing data')
 
-            if not self.is_crypto:
+            if not getattr(self, 'is_crypto', False):
                 delta = load_data(self.enddate + datetime.timedelta(days=1), today, self.ticker)
             else:
-                delta = load_crypto_data(self.enddate + datetime.timedelta(days=1), today, self.ticker)
+                delta = load_crypto_data(self.enddate + datetime.timedelta(days=1), today, self.ticker,
+                                         granularity=int(((today - self.enddate)/200).total_seconds()))
 
             if self.daily is not None:
                 self.daily = pd.concat((self.daily, delta))
@@ -55,7 +62,9 @@ class Security(AddTimeSpan):
 
     @property
     def _today(self):
-        return datetime.date.today()
+        if getattr(self, 'is_crypto', False):  # TODO: (versioning) migrate this into a property
+            return datetime.datetime.utcnow()
+        return datetime.datetime.now()  # TODO: tzdata to convert to EST (intrinio)
 
     def save(self):
         joblib.dump(self, self._filename(self.ticker), compress=False)
@@ -67,12 +76,12 @@ class Security(AddTimeSpan):
                 raise IOError('Triggering Cache Miss')
 
             security = joblib.load(cls._filename(ticker))
-            logging.info('Security loaded sucessfully')
+            logging.info('Security {} loaded successfully'.format(ticker))
             if sync:
                 security.sync()
             return security
         except IOError as e:
-            logging.info('Cache miss, creating new Security')
+            logging.info('Cache miss, creating new Security {}'.format(ticker))
             return Security(ticker, crypto)
 
     def span(self, span):

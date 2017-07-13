@@ -54,9 +54,12 @@ def load_data(startdate, enddate, ticker):
     return intrinio.prices(ticker, start_date=startdate, end_date=enddate)
 
 
-def load_crypto_data(startdate, enddate, identifier, granularity=str(60*60*24)):
+def load_crypto_data(startdate, enddate, identifier, granularity=str(60*60*2)):
     """
-    Get historical stock market prices or indices.
+    Get historical crypto-coin prices
+
+     - str(60*60*2) = 2h granularity
+     - str(60*60*8) = 8h granularity
 
     Returns:
         Dataset as a Pandas DataFrame
@@ -69,5 +72,24 @@ def load_crypto_data(startdate, enddate, identifier, granularity=str(60*60*24)):
     df.drop('time', axis=1, inplace=True)
 
     df['adj_close'] = df['close']
-    # df['adj_open'] = df['open']
     return df
+
+
+def load_forex_data(startdate, enddate, currency):
+    """
+    **Partially complete**
+
+    Get historic prices for currency to USD from startdate to enddate
+
+    Returns:
+        Dataset as a Pandas DataFrame
+    """
+    df = pd.DataFrame.from_csv('/Users/SidGhodke/Documents/Code/Sid/StockSurvey/DEXINUS.csv')
+
+    for k in ['low', 'high', 'open', 'close', 'adj_close', 'volume']:
+        df[k] = pd.to_numeric(df['DEXINUS'], errors='coerce')
+
+    df.drop('DEXINUS', axis=1, inplace=True)
+    df.dropna(axis=0, inplace=True)
+
+    return df[startdate:enddate]
