@@ -41,7 +41,7 @@ class Security(AddTimeSpan):
             self.enddate = self.STARTDATE - datetime.timedelta(days=1)
 
         staleness = datetime.timedelta(days=1)
-        if self.enddate - today > staleness:
+        if today - self.enddate >= staleness:
             logging.info('Sync necessary, retrieving missing data')
 
             if not getattr(self, 'is_crypto', False):
