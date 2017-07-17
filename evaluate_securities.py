@@ -23,53 +23,64 @@ parser.add_option("--span", dest="span", default='daily',
 parser.add_option("--verbose",
                   action="store_true", dest="verbose", default=False,
                   help="Print additional information to the console")
-parser.add_option("--save-plot",
+parser.add_option("--save", "--save-plot",
                   action="store_true", dest="save_plot", default=False,
                   help="don't print status messages to stdout")
-parser.add_option("--force-fetch",
+parser.add_option("--force", "--force-fetch",
                   action="store_true", dest="force", default=False,
                   help="Invalidate cache and perform a full fetch")
 parser.add_option("--ndx",
                   action="store_true", dest="ndx", default=False,
                   help="Execute for all stocks on NDX100 and myfaves."
                   " Forces save plot.")
+parser.add_option("--crypto", "--crypto-currency",
+                  action="store_true", dest="crypto", default=False,
+                  help="Invalidate cache and perform a full fetch")
+parser.add_option("--macd",
+                  action="store_const", dest="indicator",
+                  default='rsi', const='macd',
+                  help="Use moving average convergence divergence indicator")
+
+# TODO span can be defined as the first argument instead of flag
 
 (opts, args) = parser.parse_args()
 
 if opts.ndx:
     opts.save_plot = True
-    args = NDX_constituents + my_faves
+    args = list(NDX_constituents) + my_faves
 elif len(args) == 0:
     args = ['GLD']
 
+raise_exception = True
+
 for ticker in args:
     try:
-        s = Security.load(ticker, force_fetch=opts.force)
+        s = Security.load(ticker, force_fetch=opts.force, crypto=opts.crypto)
 
         # Create a view of the data for the timespan we are interested in
-        so = s.span(opts.span)
+        with s.span(opts.span, opts.indicator) as so:
 
-        so.rsi()
+            if opts.verbose:
+                print('Events for {} strategy'.format(so.span))
+                pprint(so.recent_events(last_n=5))
+                print('')
 
-        if opts.verbose:
-            print('Events for {} strategy'.format(so.span))
-            pprint(so.recent_events(last_n=5))
-            print('')
+            # Use our strategy to figure out when to buy and sell
+            orders = so.decide.compute_orders()
+            if opts.verbose:
+                print('List of Buy/Sell')
+                pprint(zip(*orders))
+                print('')
 
-        # Use our strategy to figure out when to buy and sell
-        orders = so.compute_orders()
-        if opts.verbose:
-            print('List of Buy/Sell')
-            pprint(zip(*orders))
-            print('')
+            # Evaluate our strategy
+            so.eval.evaluate(orders)
 
-        # Evaluate our strategy
-        so.evaluate(orders)
-
-        # Save a plot of our work
-        so.plot_data(save=opts.save_plot)
+            # Save a plot of our work
+            so.plot.plot_data(save=opts.save_plot)
 
         s.save()
-    except Exception:
-        logging.error('{} blew up'.format(ticker))
-
+    except Exception as e:
+        if not raise_exception:
+            logging.error('{} blew up with {}'.format(ticker, e))
+        else:
+            raise

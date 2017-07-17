@@ -1,8 +1,13 @@
 import datetime
 import logging
 
-from matplotlib import finance
-from matplotlib import mlab
+import intrinio
+
+import gdax
+import pandas as pd
+
+intrinio.client.username = "5aa358835739a7a4cf76b63193451dd3"
+intrinio.client.password = "f4e816313de6afff9f9a0ddb923b8827"
 
 
 def retrieve_stock_data(symbol, d1 = datetime.datetime(2003, 1, 1), d2 = datetime.datetime(2008, 1, 1)):
@@ -45,10 +50,46 @@ def load_data(startdate, enddate, ticker):
     """
     :return: numpy.recarray with fields: date, open, high, low, close, volume, adj_close
     """
-    fh = finance.fetch_historical_yahoo(ticker, startdate, enddate)
 
-    r = mlab.csv2rec(fh)
-    fh.close()
-    r.sort()
+    return intrinio.prices(ticker, start_date=startdate, end_date=enddate)
 
-    return r
+
+def load_crypto_data(startdate, enddate, identifier, granularity=str(60*60*2)):
+    """
+    Get historical crypto-coin prices
+
+     - str(60*60*2) = 2h granularity
+     - str(60*60*8) = 8h granularity
+
+    Returns:
+        Dataset as a Pandas DataFrame
+    """
+
+    quotes = gdax.PublicClient().get_product_historic_rates(identifier, start=startdate, end=enddate,
+                                                            granularity=granularity)
+    df = pd.DataFrame(quotes, columns=['time', 'low', 'high', 'open', 'close', 'volume'])
+    df.index = pd.to_datetime(df.time, unit='s')
+    df.drop('time', axis=1, inplace=True)
+
+    df['adj_close'] = df['close']
+    return df
+
+
+def load_forex_data(startdate, enddate, currency):
+    """
+    **Partially complete**
+
+    Get historic prices for currency to USD from startdate to enddate
+
+    Returns:
+        Dataset as a Pandas DataFrame
+    """
+    df = pd.DataFrame.from_csv('/Users/SidGhodke/Documents/Code/Sid/StockSurvey/DEXINUS.csv')
+
+    for k in ['low', 'high', 'open', 'close', 'adj_close', 'volume']:
+        df[k] = pd.to_numeric(df['DEXINUS'], errors='coerce')
+
+    df.drop('DEXINUS', axis=1, inplace=True)
+    df.dropna(axis=0, inplace=True)
+
+    return df[startdate:enddate]

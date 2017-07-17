@@ -1,6 +1,6 @@
 import logging
 import numpy as np
-from util.indicators import relative_strength, moving_average
+from util.indicators import relative_strength, moving_average, moving_average_convergence
 
 
 class Event(object):
@@ -24,42 +24,70 @@ class Event(object):
 
 
 class RSIMixin(object):
-    def rsi(self):
-        prices = self.dataset.adj_close
+    def __init__(self, d):
+        self.dataset = d
+        prices = self.dataset.adj_close.values
         rsi = relative_strength(prices, 7)
 
         rsi_ma10 = moving_average(rsi, 10, type='exponential')
         rsi_prime = np.gradient(rsi)
 
-        rsi_prime_zeros = np.where(np.diff(np.sign(rsi_prime)))[0]
-        rsi_ma_cross = np.where(np.diff(np.sign(rsi - rsi_ma10)))[0]
+        self.rsi_prime_zeros = np.where(np.diff(np.sign(rsi_prime)))[0]
+        self.rsi_ma_cross = np.where(np.diff(np.sign(rsi - rsi_ma10)))[0]
 
         self.rsi_values = (rsi, rsi_ma10, rsi_prime)
 
         logging.info('Computed RSI {}, {}, {}'.format(*map(len, self.rsi_values)))
 
-        # self.computed.view([('date', '<M8[D]'), ('rsi', '<f8'),
-        # ('rsi_ma10', '<f8'), ('rsi_prime', '<f8')])
+        self.rsi = rsi
 
+    def events(self):
+        r = []
         for d in self.dataset.date[rsi_prime_zeros]:
-            self.events.append(Event(Event.RSI_direction_change, d))
+            r.append(Event(Event.RSI_direction_change, d))
 
         for d in self.dataset.date[rsi_ma_cross]:
-            self.events.append(Event(Event.RSI_MA_cross, d))
+            r.append(Event(Event.RSI_MA_cross, d))
 
-        self.rsi = rsi
-        self.rsi_prime_zeros = rsi_prime_zeros
-        self.rsi_ma_cross = rsi_ma_cross
+        return r
 
-        return self
+
+class MACDMixin(object):
+    def __init__(self, d):
+        self.dataset = d
+        prices = self.dataset.adj_close.values
+        # prices = self.dataset.close.values
+
+        slow, fast, macd = moving_average_convergence(prices)
+
+        macd_ema10 = moving_average(macd, 10, type='exponential')
+
+        self.macd_sign = np.sign(macd)
+        self.macd_zero_cross = np.where(np.diff(self.macd_sign))[0]
+        self.macd_signal_cross = np.where(np.diff(np.sign(macd - macd_ema10)))[0]
+
+        self.macd_values = (slow, fast, macd)
+        self.macd = macd
+        self.macd_signal = macd_ema10
+
+        logging.info('Computed MACD {}, {}, {}'.format(*map(len, self.macd_values)))
+
+    def events(self):
+        raise NotImplemented()
 
 
 class TheEvaluator(object):
+    def __init__(self, d):
+        self.dataset = d
+        self.val = None
+        self.performance = None
+
     def evaluate(self, orders):
         buy, sell, vol_buy = orders
-        val_buy, val_sell = self.dataset.open[list(buy)], self.dataset.open[list(sell)]
+        val_buy = self.dataset.open[buy].values
+        val_sell = self.dataset.open[sell].values
 
-        self.val = val = np.array(vol_buy) * (val_sell - val_buy)
+        self.val = val = vol_buy * (val_sell - val_buy)
         sumval = np.sum(val)
         self.performance = 100. * sumval / self.dataset.open[-1]
         logging.info('With %d trades we stand to make %f (%f%%).' % (len(val_buy), sumval, self.performance))

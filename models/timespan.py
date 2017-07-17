@@ -1,6 +1,5 @@
-import numpy as np
+import pandas as pd
 
-from pandas import DatetimeIndex
 from pandas.tseries.holiday import USFederalHolidayCalendar
 from pandas.tseries.offsets import CustomBusinessDay
 
@@ -8,43 +7,24 @@ us_bd = CustomBusinessDay(calendar=USFederalHolidayCalendar())
 
 
 class AddTimeSpan(object):
-    def compute_calendar(self):
-        self.cal = DatetimeIndex(freq=us_bd,
-                                 start=self.daily.date[0],
-                                 end=self.daily.date[-1])
 
-    def add_week(self):
-        self.compute_calendar()
-        self.weekly = self.add_span('week')
+    def add_week(self, f):
+        open = f.open.resample('W-MON').last()
+        close = f.close.resample('W-FRI').last().resample('W-MON').last()
+        adj_close = f.adj_close.resample('W-FRI').last().resample('W-MON').last()
+        high = f.high.resample('W-MON').max()
+        low = f.low.resample('W-MON').min()
+        vol = f.volume.resample('W-MON').sum()
 
-    def add_month(self):
-        self.compute_calendar()
-        self.monthly = self.add_span('month')
+        return pd.concat([open, close, high, low, vol, adj_close], axis=1)
 
-    def add_span(self, span='week'):
-        span_changed = np.diff(getattr(self.cal, span))
-        span_changed += [0]
+    def add_month(self, f):
+        open = f.open.resample('MS').last()
+        close = f.close.resample('M').last().resample('MS').last()
+        adj_close = f.adj_close.resample('M').last().resample('MS').last()
+        high = f.high.resample('MS').max()
+        low = f.low.resample('MS').min()
+        vol = f.volume.resample('MS').sum()
 
-        r = []
-        high, low, open, close, adj_close = (0., float("inf"), 0., 0., 0.)
-        for h, l, o, c, ac, wk, date in zip(self.daily.high, self.daily.low,
-                                            self.daily.open, self.daily.close,
-                                            self.daily.adj_close,
-                                            span_changed, self.daily.date):
-            if wk == 1:
-                close = c
-                adj_close = ac
-
-                r.append((date, high, low, open, close, adj_close))
-                high, low, open, close, adj_close = (0., float('inf'), 0., 0., 0.)
-
-            if open == 0.:
-                open = o
-
-            high = max(high, h)
-            low = min(low, l)
-
-        r = np.array(r, dtype=[('date', '<M8[D]'), ('high', '<f8'), ('low', '<f8'),
-                               ('open', '<f8'), ('close', '<f8'), ('adj_close', '<f8')])
-        return r.view(np.recarray)
+        return pd.concat([open, close, high, low, vol, adj_close], axis=1)
 
