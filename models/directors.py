@@ -4,24 +4,28 @@ import numpy as np
 
 class TheDecider(object):
     """Decides Buy/Sell"""
-    def compute_orders(self):
-        logging.info('RSI crossed %d times' %
-                     self.calc.rsi_ma_cross.shape)
-        logging.info('RSI changed direction %d times' %
-                     self.calc.rsi_prime_zeros.shape)
+    def __init__(self, d, calc):
+        self.dataset = d
+        self.calc = calc
 
+    def compute_orders(self):
         buy_index, sell_index = self.compute_possible_buysell()
         logging.info('Buy/Sell events {}/{}'.format(len(buy_index), len(sell_index)))
 
         clean_buy, clean_sell = self.filter_buysell(buy_index, sell_index)
 
-        # confidence that we are buying at the correct time
-        vol_buy = 10 - self.calc.rsi[clean_buy] // 10
+        vol_buy = self.buy_confidence(clean_buy)
 
-        self.clean_buysellvol = (clean_buy, clean_sell, vol_buy)
+        self.clean_buysellvol = (clean_buy, clean_sell, vol_buy)  # TODO: use namedtuple
         return self.clean_buysellvol
 
+    def buy_confidence(self, clean_buy):
+        """confidence that we are buying at the correct time"""
+        vol_buy = 10 - self.calc.rsi[clean_buy] // 10
+        return vol_buy
+
     def compute_possible_buysell(self):
+        """
         buy_idx, sell_idx = [], []
         k = 0
         for i in self.calc.rsi_ma_cross:
@@ -50,6 +54,8 @@ class TheDecider(object):
                 sell_idx.append(j)
 
         return buy_idx, sell_idx
+        """
+        raise NotImplemented()
 
     def filter_buysell(self, buy_idx, sell_idx):
         clean_buy, clean_sell = [], []
@@ -84,10 +90,6 @@ class TheDecider(object):
 
 
 class NumpyDecider(TheDecider):
-    def __init__(self, d, rsi):
-        self.dataset = d
-        self.calc = rsi
-
     # def compute_orders(self):
     #     buy, sell, vol_buy = super(NumpyDecider, self).compute_orders()
     #
@@ -101,6 +103,11 @@ class NumpyDecider(TheDecider):
         rsi_prime_zeros[k]  Index on self.rsi when RSI Prime is 0
 
         """
+        logging.info('RSI crossed %d times' %
+                     self.calc.rsi_ma_cross.shape)
+        logging.info('RSI changed direction %d times' %
+                     self.calc.rsi_prime_zeros.shape)
+
         dir_change_dates = self.dataset.index[self.calc.rsi_prime_zeros]
 
         buy_idx, sell_idx = [], []
@@ -164,6 +171,40 @@ class NumpyDecider(TheDecider):
             clean_sell.append(matching_sell)
 
         return clean_buy, clean_sell
+
+
+class MACDDecider(TheDecider):
+    """
+    Zero cross-over:
+     - a change form positive to negative MACD is interpreted as bearish,
+     - and from negative to positive as bullish
+
+    Signal-line crossover:
+     - EMA signal crosses MACD generate buy/sell events
+       (consider slope of MACD and signal lines?)
+    """
+
+    def compute_possible_buysell(self):
+        logging.info('MACD changed direction %d times' %
+                     self.calc.macd_zero_cross.shape)
+        logging.info('MACD crossed signal %d times' %
+                     self.calc.macd_signal_cross.shape)
+
+        buy_idx, sell_idx = [], []
+
+        for cross_index in self.calc.macd_zero_cross:
+            dir_change = self.calc.macd_sign[cross_index - 1] > 0
+            if dir_change:
+                # positive to negative
+                sell_idx.append(cross_index)
+            else:
+                # negative to positive
+                buy_idx.append(cross_index)
+
+        return buy_idx, sell_idx
+
+    def buy_confidence(self, clean_buy):
+        return [10] * len(clean_buy)
 
 
 class DirectionChangeDecider(TheDecider):
