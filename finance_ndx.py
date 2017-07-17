@@ -118,7 +118,7 @@ NDX_constituents = dedent(NDX_constituents).split('\n')
 NDX_constituents = filter(None, NDX_constituents)
 
 my_faves = ['TWTR', 'MOBL', 'GLD', 'LUV', 'T', 'SNAP', 'RACE', 'VSAT',
-            'DATA', 'YELP', 'TWLO', 'TEAM', 'WMT', 'SHAK', 'ANET', 'DXY']
+            'DATA', 'YELP', 'TWLO', 'TEAM', 'WMT', 'SHAK', 'ANET']
 
 if __name__ == '__main__':
     finance_work = True
