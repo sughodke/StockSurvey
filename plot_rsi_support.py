@@ -1,22 +1,29 @@
-import datetime
+"""
+plot_rsi_support : graph an oscillator against support to find a pattern
+"""
 
 import numpy as np
 import seaborn as sns
 
 import matplotlib.cm as cm
 import matplotlib.pyplot as plt
+from joblib import Parallel, delayed
 
-from models.plotter import PlotBaseMixin
+import evaluate_securities
 from util.indicators import moving_average
+from models.plotter import PlotBaseMixin
 from models.security import Security
+
 
 MARKER_SIZE = 12
 fillcolor = "darkgoldenrod"
 
+opts, args = evaluate_securities.opts, evaluate_securities.args
 
-def go(ticker='GLD', save=True):
-    s = Security.load(ticker, force_fetch=False, crypto=False)
-    with s.span('daily', 'rsi') as so_rsi, s.span('daily', 'bbands') as so_bbands:
+
+def go(ticker='GLD'):
+    s = Security.load(ticker, force_fetch=opts.force, crypto=opts.crypto)
+    with s.span(opts.span, 'rsi') as so_rsi, s.span(opts.span, 'bbands') as so_bbands:
 
         # Use a specialized plotter that can process two indicators
         OscillatorSupportPlot(
@@ -25,15 +32,15 @@ def go(ticker='GLD', save=True):
             {'rsi': so_rsi.calc, 'bbands': so_bbands.calc},
             None,
             None,
-            'daily'
-        ).plot_data(save)
+            opts.span
+        ).plot_data(opts.save_plot)
 
 
 class OscillatorSupportPlot(PlotBaseMixin):
 
     def plot_data(self, save=False):
         mark_zeros = False
-        quiver = False
+        quiver = True
         heatmap = False
 
         """
@@ -81,15 +88,16 @@ class OscillatorSupportPlot(PlotBaseMixin):
         g.ax_marg_x.axvline(30, color=fillcolor)
         g.ax_marg_x.axvline(70, color=fillcolor)
 
-        g.ax_marg_y.set_title("%s daily" % self.ticker)
+        g.ax_marg_y.set_title('%s %s' % (self.ticker, self.cadence))
         g.set_axis_labels("RSI (n=7)", "Bol % (n=21, sd=2)")
 
         if save:
-            g.savefig('%s-RSI-Support.png' % self.ticker)
+            g.savefig('OscSupport/%s-RSI-Support.png' % self.ticker, dpi=100)
         else:
             plt.show()
+        plt.close()
 
 
 if __name__ == '__main__':
-    go(ticker='XLNX', save=False)
+    Parallel(n_jobs=4)(delayed(go)(ticker) for ticker in args)
 
