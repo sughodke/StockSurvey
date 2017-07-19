@@ -94,10 +94,9 @@ def fibonacci_retracement(prices, n=90):
 
 def bbands(price, length=30, numsd=2):
     """ returns average, upper band, and lower band"""
-    df = pd.DataFrame(price)
-    r = df.rolling(length)
+    r = price.rolling(length)
     ave = r.mean()
     sd = r.std()
     upband = ave + (sd*numsd)
     dnband = ave - (sd*numsd)
-    return np.round(ave,3), np.round(upband,3), np.round(dnband,3)
+    return np.round(ave, 3), np.round(upband, 3), np.round(dnband, 3)

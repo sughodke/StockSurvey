@@ -1,6 +1,6 @@
 import logging
 import numpy as np
-from util.indicators import relative_strength, moving_average, moving_average_convergence
+from util.indicators import relative_strength, moving_average, moving_average_convergence, bbands
 
 
 class Event(object):
@@ -71,6 +71,23 @@ class MACDMixin(object):
         self.macd_signal = macd_ema10
 
         logging.info('Computed MACD {}, {}, {}'.format(*map(len, self.macd_values)))
+
+    def events(self):
+        raise NotImplemented()
+
+
+class BBandsMixin(object):
+    def __init__(self, d):
+        self.dataset = d
+        prices = self.dataset.adj_close
+
+        avgBB, upperBB, lowerBB = bbands(prices, 21, 2)
+        self.pct_b = (prices - lowerBB) / (upperBB - lowerBB)
+        self.support = self.pct_b * 100
+
+        self.bbands_values = (avgBB, upperBB, lowerBB)
+
+        logging.info('Computed Bollinger Bands {}, {}, {}'.format(*map(len, self.bbands_values)))
 
     def events(self):
         raise NotImplemented()

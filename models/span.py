@@ -2,7 +2,7 @@ import logging
 from contextlib import ContextDecorator
 
 from models.directors import NumpyDecider, MACDDecider
-from models.indicators import RSIMixin, TheEvaluator, MACDMixin
+from models.indicators import RSIMixin, TheEvaluator, MACDMixin, BBandsMixin
 from models.plotter import PlotMixin, MACDPlotMixin
 
 
@@ -51,3 +51,10 @@ class MACDSpan(BaseSpan):
         self.eval = TheEvaluator(self.dataset)
         self.plot = MACDPlotMixin(self.dataset, self.ticker,
                                   self.calc, self.decide, self.eval)
+
+
+class BBandsSpan(BaseSpan):
+
+    def workflow(self):
+        self.calc = BBandsMixin(self.dataset)
+        self.decide = self.eval = self.plot = None
