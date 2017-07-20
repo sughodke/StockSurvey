@@ -1,81 +1,103 @@
-import datetime
+"""
+plot_rsi_support : graph an oscillator against support to find a pattern
+"""
 
 import numpy as np
 import seaborn as sns
 
 import matplotlib.cm as cm
 import matplotlib.pyplot as plt
+from joblib import Parallel, delayed
 
-from indicators import moving_average, relative_strength, bbands
-from load_ticker import load_data
+import evaluate_securities
+from util.indicators import moving_average
+from models.plotter import PlotBaseMixin
+from models.security import Security
 
+
+MARKER_SIZE = 12
 fillcolor = "darkgoldenrod"
 
-
-def go(startdate=datetime.date(2016, 6, 1), enddate=datetime.date.today(), ticker='GLD', save=True):
-    r = load_data(startdate, enddate, ticker)
-    plot_data(r, ticker, save)
+opts, args = evaluate_securities.opts, evaluate_securities.args
 
 
-def plot_data(r, ticker, save=False):
-    mark_zeros = False
-    quiver = True
-    heatmap = False
+def go(ticker='GLD'):
+    s = Security.load(ticker, force_fetch=opts.force, crypto=opts.crypto)
+    with s.span(opts.span, 'rsi') as so_rsi, s.span(opts.span, 'bbands') as so_bbands:
 
-    prices = r.adj_close
-    # ma14 = moving_average(prices, 14, type='simple')
-    # ma20 = moving_average(prices, 20, type='simple')
+        # Use a specialized plotter that can process two indicators
+        OscillatorSupportPlot(
+            so_rsi.dataset,
+            ticker,
+            {'rsi': so_rsi.calc, 'bbands': so_bbands.calc},
+            None,
+            None,
+            opts.span
+        ).plot_data(opts.save_plot)
 
-    avgBB, upperBB, lowerBB = bbands(prices, 21, 2)
-    pct_b = (prices - lowerBB) / (upperBB - lowerBB)
-    support = pct_b * 100  # prices - ma14
-    support = support[20:]  # remove empties
 
-    rsi = relative_strength(prices, 7)
-    rsi = rsi[20:]  # remove empties
-    rsi_prime = np.gradient(rsi)
-    rsi_prime_zeros = np.where(np.diff(np.sign(rsi_prime)))[0]
+class OscillatorSupportPlot(PlotBaseMixin):
 
-    g = sns.jointplot(rsi, support, color="k", xlim=(0, 100))
+    def plot_data(self, save=False):
+        mark_zeros = False
+        quiver = True
+        heatmap = False
 
-    g.plot_joint(sns.kdeplot, zorder=0, n_levels=6)
+        """
+        # Legacy
+        prices = self.dataset
+        # ma14 = moving_average(prices, 14, type='simple')
+        # ma20 = moving_average(prices, 20, type='simple')
+    
+        support = support[20:]  # TODO auto remove empties
+        rsi = rsi[20:]  # remove empties
+        """
 
-    plt.sca(g.ax_joint)
-    plt.scatter(rsi[rsi < 30], support[rsi < 30], c=fillcolor)
-    plt.scatter(rsi[rsi > 70], support[rsi > 70], c=fillcolor)
+        rsi, rsi_ma10, rsi_prime = self.calc['rsi'].rsi_values
+        rsi_prime_zeros = self.calc['rsi'].rsi_prime_zeros
+        support = self.calc['bbands'].support
 
-    if mark_zeros:
-        plt.scatter(rsi[rsi_prime_zeros], support[rsi_prime_zeros],
-                    color='w', marker='x')
+        g = sns.jointplot(rsi, support, color="k", xlim=(0, 100), s=MARKER_SIZE)
 
-    d_rsi = np.diff(rsi)
-    d_support = np.diff(support)
-    arctan = np.arctan2(d_support, d_rsi)
-    arctan = np.flipud(moving_average(np.flipud(arctan), 2, 'exponential'))
+        g.plot_joint(sns.kdeplot, zorder=0, n_levels=6)
 
-    if quiver:
-        plt.quiver(rsi[:-1], support[:-1],
-                   np.cos(arctan), np.sin(arctan),
-                   color=cm.inferno(arctan), pivot='mid',
-                   alpha=0.3)
+        plt.sca(g.ax_joint)
+        plt.scatter(rsi[rsi < 30], support[rsi < 30], c=fillcolor, s=MARKER_SIZE)
+        plt.scatter(rsi[rsi > 70], support[rsi > 70], c=fillcolor, s=MARKER_SIZE)
 
-    if heatmap:
-        arctan = (arctan + np.pi) / (2 * np.pi)
-        plt.scatter(rsi[:-1], support[:-1], c=cm.inferno(arctan),
-                    marker='s', s=200, alpha=0.2)
+        if mark_zeros:
+            plt.scatter(rsi[rsi_prime_zeros], support[rsi_prime_zeros],
+                        color='w', marker='x')
 
-    g.ax_marg_x.axvline(30, color=fillcolor)
-    g.ax_marg_x.axvline(70, color=fillcolor)
+        d_rsi = np.diff(rsi)
+        d_support = np.diff(support)
+        arctan = np.arctan2(d_support, d_rsi)
+        arctan = np.flipud(moving_average(np.flipud(arctan), 2, 'exponential'))
 
-    g.ax_marg_y.set_title("%s daily" % ticker)
-    g.set_axis_labels("RSI (n=7)", "Bol % (n=21, sd=2)")
+        if quiver:
+            plt.quiver(rsi[:-1], support[:-1],
+                       np.cos(arctan), np.sin(arctan),
+                       color=cm.inferno(arctan), pivot='mid',
+                       alpha=0.3)
 
-    if save:
-        g.savefig('%s-RSI-Support.png' % ticker)
-    else:
-        plt.show()
+        if heatmap:
+            arctan = (arctan + np.pi) / (2 * np.pi)
+            plt.scatter(rsi[:-1], support[:-1], c=cm.inferno(arctan),
+                        marker='s', s=200, alpha=0.2)
+
+        g.ax_marg_x.axvline(30, color=fillcolor)
+        g.ax_marg_x.axvline(70, color=fillcolor)
+
+        g.ax_marg_y.set_title('%s %s' % (self.ticker, self.cadence))
+        g.set_axis_labels("RSI (n=7)", "Bol % (n=21, sd=2)")
+
+        if save:
+            g.savefig('OscSupport/%s-RSI-Support.png' % self.ticker, dpi=100)
+        else:
+            plt.show()
+        plt.close()
 
 
 if __name__ == '__main__':
-    go(ticker='LUV', save=False)
+    Parallel(n_jobs=4)(delayed(go)(ticker) for ticker in args)
 

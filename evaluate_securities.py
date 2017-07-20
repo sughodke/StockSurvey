@@ -10,6 +10,7 @@ When we set the span to week, we need to pull YTD data. While daily should be li
 import logging
 from optparse import OptionParser
 from pprint import pprint
+from joblib import Parallel, delayed
 
 from finance_ndx import NDX_constituents, my_faves
 from models.security import Security
@@ -53,7 +54,8 @@ elif len(args) == 0:
 
 raise_exception = True
 
-for ticker in args:
+
+def run_one(ticker):
     try:
         s = Security.load(ticker, force_fetch=opts.force, crypto=opts.crypto)
 
@@ -83,4 +85,7 @@ for ticker in args:
         if not raise_exception:
             logging.error('{} blew up with {}'.format(ticker, e))
         else:
-            raise
+            raise e
+
+if __name__ == '__main__':
+    Parallel(n_jobs=4)(delayed(run_one)(ticker) for ticker in args)

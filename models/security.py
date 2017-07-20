@@ -5,12 +5,14 @@ import os
 import joblib
 import pandas as pd
 
-from models.span import Span, MACDSpan
+from models.span import Span, MACDSpan, BBandsSpan
 from models.timespan import AddTimeSpan
 from util import load_data, cwd, load_crypto_data
 
 ds_path = 'DataStore'
 store_dir = os.path.join(cwd, ds_path)
+
+# TODO use exchange endpoint to get all security prices instead of one at a time
 
 
 class Security(AddTimeSpan):
@@ -91,7 +93,8 @@ class Security(AddTimeSpan):
         """return a new Span workflow as a context manager"""
         klass_lookup = {
             'rsi': Span,
-            'macd': MACDSpan
+            'macd': MACDSpan,
+            'bbands': BBandsSpan
         }.get(klass, Span)
 
         return klass_lookup(self, span)
