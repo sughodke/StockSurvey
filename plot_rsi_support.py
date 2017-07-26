@@ -8,6 +8,9 @@ import seaborn as sns
 import matplotlib.cm as cm
 import matplotlib.pyplot as plt
 from joblib import Parallel, delayed
+from matplotlib import animation
+from scipy import signal
+from sklearn.decomposition import TruncatedSVD
 
 import evaluate_securities
 from util.indicators import moving_average
@@ -42,22 +45,16 @@ class OscillatorSupportPlot(PlotBaseMixin):
         mark_zeros = False
         quiver = True
         heatmap = False
-
-        """
-        # Legacy
-        prices = self.dataset
-        # ma14 = moving_average(prices, 14, type='simple')
-        # ma20 = moving_average(prices, 20, type='simple')
-    
-        support = support[20:]  # TODO auto remove empties
-        rsi = rsi[20:]  # remove empties
-        """
+        anim = True  # False if save else True
 
         rsi, rsi_ma10, rsi_prime = self.calc['rsi'].rsi_values
         rsi_prime_zeros = self.calc['rsi'].rsi_prime_zeros
         support = self.calc['bbands'].support
 
-        g = sns.jointplot(rsi, support, color="k", xlim=(0, 100), s=MARKER_SIZE)
+        rsi = self.transform(rsi)
+        support = self.transform(support)
+
+        g = sns.jointplot(rsi, support, color="k", s=MARKER_SIZE)
 
         g.plot_joint(sns.kdeplot, zorder=0, n_levels=6)
 
@@ -91,13 +88,39 @@ class OscillatorSupportPlot(PlotBaseMixin):
         g.ax_marg_y.set_title('%s %s' % (self.ticker, self.cadence))
         g.set_axis_labels("RSI (n=7)", "Bol % (n=21, sd=2)")
 
+        if anim:
+            scat = g.ax_joint.scatter([], [], s=100)
+            ani = animation.FuncAnimation(g.fig, self.update_plot, frames=range(len(self.dataset)),
+                                          blit=False, interval=25,
+                                          fargs=(scat, g.ax_marg_y.set_title,
+                                                 rsi, support, self.dataset.index))
+
         if save:
-            g.savefig('OscSupport/%s-RSI-Support.png' % self.ticker, dpi=100)
+            # g.savefig('OscSupport/%s-RSI-Support.png' % self.ticker, dpi=100)
+            ani.save('OscSupport/%s-RSI-Support.mp4' % self.ticker, fps=15)
         else:
             plt.show()
         plt.close()
 
+    def update_plot(self, i, scat, update_title, rsi, support, index):
+        scat.set_offsets(np.array([rsi[i], support[i]]))
+        update_title('%s %s\n%s' % (self.ticker, self.cadence, index[i].date()))
+        return scat,
+
+    @staticmethod
+    def transform(inp):
+        wavelet = signal.ricker
+        widths = np.arange(1, 5, 0.05)
+
+        inp = np.nan_to_num(inp)
+        X = signal.cwt(inp, wavelet, widths).T
+
+        svd = TruncatedSVD(n_components=1, n_iter=7)
+        transformed = svd.fit_transform(X)
+
+        return transformed.reshape((len(X),))
+
 
 if __name__ == '__main__':
+    # go(args[0])
     Parallel(n_jobs=4)(delayed(go)(ticker) for ticker in args)
-
