@@ -25,7 +25,7 @@ class PredictRSI(object):
 
     def go(self, ticker='VSAT'):
         # startdate=datetime.date(2015, 6, 1),
-        r = Security.load(ticker, force_fetch=False, crypto=False).daily
+        r = Security.load(ticker, force_fetch=opts.force, crypto=opts.crypto).daily
 
         rsi = relative_strength(r.close, 21)
         ema_rsi = moving_average(rsi, 14, 'exponential')
@@ -83,6 +83,7 @@ class PredictRSI(object):
             # metric = (r.close - r.open)/r.open
             X = signal.cwt(metric[-length:], wavelet, widths).T
 
+        # TODO !! the rolled bit at the end is causing data consistency issues
         y = np.roll(rsi[-length:], -forward_days)
         # y = np.roll(ema_rsi[-length:], -forward_days - 14)
 
