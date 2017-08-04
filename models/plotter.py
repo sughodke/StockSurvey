@@ -1,7 +1,7 @@
 import datetime
 import logging
 import os
-
+import io
 import numpy as np
 from math import log10, fabs
 
@@ -29,7 +29,7 @@ class PlotBaseMixin(object):
         self.eval = eval
         self.cadence = cadence
 
-    def plot_data(self, save=False):
+    def plot_data(self, save=False, web=False):
         r = self.dataset
         ticker = self.ticker
 
@@ -116,6 +116,16 @@ class PlotBaseMixin(object):
                 fabs(log10(fabs(self.eval.performance))))
             fig.savefig(filename, dpi=100)
             logging.info('Plot saved {}'.format(filename))
+        elif web:
+            # TODO move this to a new plotter class
+            fig.set_dpi(100)
+            fig.set_size_inches(7, 6.5)  # (10.5, 5.5)
+            fig.set_tight_layout(True)
+
+            output = io.StringIO()
+            fig.savefig(output, format='svg')
+            plt.close()
+            return output
         else:
             plt.show(block=True)
         plt.close()
