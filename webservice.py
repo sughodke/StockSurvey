@@ -4,30 +4,20 @@ import logging
 from aiohttp import web
 from aiohttp_swagger import *
 
+from sort_securities import sortby_relevance
 from models.security import Security
 logging.basicConfig(level=logging.INFO,
                     format='%(asctime)s %(levelname)s %(message)s')
 
-async def index(request):
-    with open('Frontend/index.html') as f:
-        r = f.read()
-    return web.Response(body=r, content_type='text/html')
 
-async def handle(request):
+async def evaluate(request):
     """
-    Description end-point
-    parameters:
-    - in: ticker
-        name: ticker
-        description: Security to evaluate
-        required: true
-        schema:
-            type: string
+    Evaluate a security
     ---
     tags:
     - Evaluate
     summary: Evaluate and plot a security
-    description: This can only be done by the logged in user.
+    description:
     produces:
     - image/svg+xml
     parameters:
@@ -74,10 +64,29 @@ async def handle(request):
 
     return web.Response(text=plot.getvalue(), content_type='image/svg+xml')
 
+async def relevance(request):
+    """
+    Sort interesting securities by relevance
+    ---
+    tags:
+    - Relevance
+    summary: Sort a bunch of securities
+    description:
+    produces:
+    - application/json
+    responses:
+      "200":
+        description: successful operation
+    """
+
+    return web.json_response(data=sortby_relevance(only_names=True),
+                             headers={'Access-Control-Allow-Origin': '*'})
+
 
 app = web.Application()
-app.router.add_route('GET', '/', index)
-app.router.add_route('GET', '/evaluate', handle)
+app.router.add_route('GET', '/evaluate', evaluate)
+app.router.add_route('GET', '/relevance', relevance)
+app.router.add_static('/', 'Frontend/')
 
-setup_swagger(app)
+setup_swagger(app)  # "/api/doc"
 web.run_app(app, host=None)
