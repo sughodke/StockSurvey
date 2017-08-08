@@ -1,7 +1,66 @@
 import csv
+import json
 import random
+import pandas as pd
 
 FNAME = './s-and-p-500-companies/data/constituents.csv'
+
+
+def nasdaq_gen():
+    with open('./s-and-p-500-companies/nasdaqlisted.txt') as f:
+        reader = csv.reader(f, delimiter='|')
+        for row in reader:
+            symbol = row[0]
+            if symbol.upper() == symbol:
+                yield row[0]
+
+
+def nasdaq():
+    return list(nasdaq_gen())
+
+
+def coin100():
+    df = coin100_dataframe()
+    return df['symbol'].tolist()
+
+
+def coin100_dataframe():
+    df = pd.read_json('./s-and-p-500-companies/coin100.json')
+    return df
+
+
+def old_coins():
+    """Deprecated"""
+    with open('./s-and-p-500-companies/topvolumeusd.json') as f:
+        d = json.load(f)
+
+    d = d['Data']
+
+    # def _split_cast(x):
+    #     cells = x.split('~')
+    #     ret = []
+    #     for cell in cells:
+    #         try:
+    #             ret.append(float(cell))
+    #         except ValueError:
+    #             ret.append(cell)
+    #     return ret
+    # d = list(map(_split_cast, d))
+    d = list(map(lambda x: x.split('~'), d))
+
+    r = pd.DataFrame(d, dtype=float,
+                  columns=['Id', 'Sh1', 'Coin', 'BaseCurrency', 'Sh2', 'Price',
+                           'Timestamp', 'PercentChange', 'BaseChange',
+                           'CoinVolume', '24HCoinVolume', '24HBaseVolume',
+                           'Low', 'High', 'Open', 'Exchange', 'Sh7'])
+
+    # dtype=[int, str, str, str, str, float,
+    #        int, float, float,
+    #        float, float, float,
+    #        float, float, float, str, str])
+
+    r['MarketCap'] = r['Price'] * r['CoinVolume']
+    return r
 
 
 def snp_500(count=500):
