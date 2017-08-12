@@ -21,7 +21,7 @@ class Security(AddTimeSpan):
     # TODO: make startdate into an input
     # STARTDATE = datetime.datetime(2017, 1, 1)
     # STARTDATE = datetime.datetime(2017, 4, 1)
-    # STARTDATE = datetime.datetime(2017, 7, 12)
+    # STARTDATE = datetime.datetime(2016, 9, 1)
     # STARTDATE = datetime.datetime(2017, 7, 13, 0, 0, 0, 0)
 
     def __init__(self, ticker='GLD', crypto=False):
@@ -49,8 +49,7 @@ class Security(AddTimeSpan):
             if not getattr(self, 'is_crypto', False):
                 delta = load_data(self.enddate + datetime.timedelta(days=1), today, self.ticker)
             else:
-                delta = load_crypto_data(self.enddate + datetime.timedelta(days=1), today, self.ticker,
-                                         granularity=int(((today - self.enddate)/200).total_seconds()))
+                delta = load_crypto_data(self.enddate + datetime.timedelta(days=1), today, self.ticker)
 
             if self.daily is not None:
                 self.daily = pd.concat((self.daily, delta))
