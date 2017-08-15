@@ -11,7 +11,6 @@ class BaseSpan(ContextDecorator):
         # TODO: Weekly Span should increase the look back to 1.5 years
 
         self.dataset = getattr(security, span, security.daily)
-        self.events = []
 
         self.ticker = security.ticker
         self.span = span or 'daily'
@@ -24,7 +23,14 @@ class BaseSpan(ContextDecorator):
         return self
 
     def __exit__(self, *args):
+        # TODO: save the span to disk
         pass
+
+    @property
+    def events(self):
+        l = [['buy {}'.format(self.dataset.index[b]), 'sell {}'.format(self.dataset.index[s])]
+             for b, s in zip(self.decide.clean_buysellvol[0:2])]
+        return [item for sublist in l for item in sublist]
 
     def recent_events(self, last_n):
         return [str(event) for event in self.events][:last_n]
@@ -40,7 +46,8 @@ class Span(BaseSpan):
         self.decide = NumpyDecider(self.dataset, self.calc)
         self.eval = TheEvaluator(self.dataset)
         self.plot = PlotMixin(self.dataset, self.ticker,
-                              self.calc, self.decide, self.eval)
+                              self.calc, self.decide, self.eval,
+                              self.span)
 
 
 class MACDSpan(BaseSpan):
@@ -50,7 +57,8 @@ class MACDSpan(BaseSpan):
         self.decide = MACDDecider(self.dataset, self.calc)
         self.eval = TheEvaluator(self.dataset)
         self.plot = MACDPlotMixin(self.dataset, self.ticker,
-                                  self.calc, self.decide, self.eval)
+                                  self.calc, self.decide, self.eval,
+                                  self.span)
 
 
 class BBandsSpan(BaseSpan):

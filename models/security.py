@@ -12,8 +12,6 @@ from util import load_data, cwd, load_crypto_data
 ds_path = 'DataStore'
 store_dir = os.path.join(cwd, ds_path)
 
-# TODO use exchange endpoint to get all security prices instead of one at a time
-
 
 class Security(AddTimeSpan):
     STARTDATE = datetime.datetime(2016, 6, 1)
