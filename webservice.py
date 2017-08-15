@@ -4,7 +4,7 @@ import logging
 from aiohttp import web
 from aiohttp_swagger import *
 
-from sort_securities import sortby_relevance
+from sort_securities import Relevancy
 from models.security import Security
 logging.basicConfig(level=logging.INFO,
                     format='%(asctime)s %(levelname)s %(message)s')
@@ -47,6 +47,10 @@ async def evaluate(request):
     crypto = request.query.get('crypto', False)
     span = request.query.get('span', 'daily')
 
+    if ticker.startswith('coin'):
+        ticker = ticker.replace('coin', '')
+        crypto = True
+
     s = Security.load(ticker, force_fetch=force, crypto=crypto)
 
     # Create a view of the data for the timespan we are interested in
@@ -78,14 +82,22 @@ async def relevance(request):
       "200":
         description: successful operation
     """
+    lookup_key = request.query.get('key', 'n100')
+    w_daily = float(request.query.get('w_daily', 0.4))
+    w_weekly = float(request.query.get('w_weekly', 0.6))
 
-    return web.json_response(data=sortby_relevance(only_names=True),
-                             headers={'Access-Control-Allow-Origin': '*'})
+    r = Relevancy(key=lookup_key, weighting=(w_daily, w_weekly))
+    sorted_relevance = r.sortby_relevance(only_names=True)
+    return web.json_response(data=sorted_relevance, headers={'Access-Control-Allow-Origin': '*'})
+
+async def predict_rsi(request):
+    return NotImplemented()
 
 
 app = web.Application()
 app.router.add_route('GET', '/evaluate', evaluate)
 app.router.add_route('GET', '/relevance', relevance)
+app.router.add_route('GET', '/predict_rsi', predict_rsi)
 app.router.add_static('/', 'Frontend/')
 
 setup_swagger(app)  # "/api/doc"
