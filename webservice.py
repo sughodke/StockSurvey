@@ -101,4 +101,4 @@ app.router.add_route('GET', '/predict_rsi', predict_rsi)
 app.router.add_static('/', 'Frontend/')
 
 setup_swagger(app)  # "/api/doc"
-web.run_app(app, host=None)
+web.run_app(app, port=8080)

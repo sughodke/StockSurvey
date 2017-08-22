@@ -13,7 +13,7 @@ intrinio.client.password = "f4e816313de6afff9f9a0ddb923b8827"
 # intrinio.client.username, intrinio.client.password = \
 #     "2851b6532120373e9b859785f05f3d79:c55ea5a0d6e448eb46d0a78740f82dc3".split(':')
 
-intrinio.client.api_base_url = 'http://10.0.0.88:8080'
+intrinio.client.api_base_url = 'http://172.93.55.89:8081'
 
 
 def load_data(startdate, enddate, ticker):
