@@ -7,10 +7,9 @@ from models.plotter import PlotMixin, MACDPlotMixin
 
 
 class BaseSpan(ContextDecorator):
-    def __init__(self, security, span=None):
-        # TODO: Weekly Span should increase the look back to 1.5 years
-
+    def __init__(self, security, span=None, start_date=None):
         self.dataset = getattr(security, span, security.daily)
+        self.truncate(start_date)
 
         self.ticker = security.ticker
         self.span = span or 'daily'
@@ -37,6 +36,10 @@ class BaseSpan(ContextDecorator):
 
     def workflow(self):
         raise NotImplemented()
+
+    def truncate(self, start_date):
+        if start_date:
+            self.dataset = self.dataset[self.dataset.index >= start_date]
 
 
 class Span(BaseSpan):

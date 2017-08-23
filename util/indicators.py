@@ -20,7 +20,12 @@ def moving_average(x, n, type='simple'):
     weights /= weights.sum()
 
     a = np.convolve(x, weights, mode='full')[:len(x)]
-    a[:n] = a[n]
+
+    try:
+        a[:n] = a[n]
+    except IndexError:
+        pass
+
     return a
 
 

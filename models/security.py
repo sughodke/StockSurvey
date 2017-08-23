@@ -16,16 +16,9 @@ store_dir = os.path.join(cwd, ds_path)
 class Security(AddTimeSpan):
     STARTDATE = datetime.datetime(2016, 6, 1)
 
-    # TODO: make startdate into an input
-    # STARTDATE = datetime.datetime(2017, 1, 1)
-    # STARTDATE = datetime.datetime(2017, 4, 1)
-    # STARTDATE = datetime.datetime(2016, 9, 1)
-    # STARTDATE = datetime.datetime(2017, 7, 13, 0, 0, 0, 0)
-
     def __init__(self, ticker='GLD', crypto=False):
         self.ticker = ticker
         self.is_crypto = crypto
-        self.startdate = self.STARTDATE
         self.enddate = None
         self.daily = None
 
@@ -86,12 +79,12 @@ class Security(AddTimeSpan):
             logging.info('Cache miss, creating new Security {}'.format(ticker))
             return Security(ticker, crypto)
 
-    def span(self, span, klass='rsi'):
-        """return a new Span workflow as a context manager"""
+    def span(self, freq, klass='rsi', **kwargs):
+        """return a new Span workflow as a context manager for the freq time-window"""
         klass_lookup = {
             'rsi': Span,
             'macd': MACDSpan,
             'bbands': BBandsSpan
         }.get(klass, Span)
 
-        return klass_lookup(self, span)
+        return klass_lookup(self, freq, **kwargs)
