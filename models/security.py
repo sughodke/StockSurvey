@@ -76,7 +76,7 @@ class Security(AddTimeSpan):
         joblib.dump(self, self._filename(self.ticker, self.is_crypto), compress=False)
 
     @classmethod
-    def load(cls, ticker, sync=True, force_fetch=False, crypto=False):
+    def load(cls, ticker, force_fetch=False, crypto=False):
         try:
             if force_fetch:
                 raise IOError('Triggering Cache Miss')
@@ -84,8 +84,12 @@ class Security(AddTimeSpan):
             security = joblib.load(cls._filename(ticker, crypto))
             logging.info('Security {} loaded successfully'.format(ticker))
             security.upgrade()
-            if sync:
+
+            try:
                 security.sync()
+            except AttributeError as e:
+                logging.error('Ignoring exception ({}) while syncing {} '.format(e, ticker))
+
             return security
         except IOError as e:
             logging.info('Cache miss, creating new Security {}'.format(ticker))
