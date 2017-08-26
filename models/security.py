@@ -51,9 +51,8 @@ class Security(AddTimeSpan):
 
         self.daily.sort_index(inplace=True)
 
-    @classmethod
-    def _filename(cls, ticker):
-        return os.path.join(store_dir, '{}'.format(ticker))
+    def _filename(self):
+        return os.path.join(store_dir, '{}{}'.format('coin' if self.is_crypto else '', self.ticker))
 
     @property
     def _today(self):
@@ -62,7 +61,7 @@ class Security(AddTimeSpan):
         return datetime.datetime.now()  # TODO: tzdata to convert to EST (intrinio)
 
     def save(self):
-        joblib.dump(self, self._filename(self.ticker), compress=False)
+        joblib.dump(self, self._filename(), compress=False)
 
     @classmethod
     def load(cls, ticker, sync=True, force_fetch=False, crypto=False):
