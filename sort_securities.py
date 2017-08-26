@@ -117,31 +117,34 @@ def build_fav():
         WRLD,WSBC,WSCI,WSFS,WSFSL,WSTC,WSTG,WSTL,WTBA,WTFC,WTFCW,WVFC,WVVIP,WWD,WYIGU,WYIGW,WYNN,XBKS,XCRA,
         XELAW,XENE,XENT,XGTI,XGTIW,XIV,XLNX,XNCR,XOMA,XRAY,YDIV,YERR,YGYI,YLCO,YLDE,YNDX,YRCW,YTEN,YTRA,YY,
         ZAGG,ZAIS,ZG,ZGNX,ZION,ZIONW,ZIONZ,ZIV,ZIXI,ZN,ZNGA,ZSAN,ZYNE"""
-    tickers = """
+    lookup['stocks'] = """
     AAPL,ADBE,ADI,ADP,ADSK,AKAM,ALXN,AMAT,AMGN,AMZN,ATVI,AVGO,BIDU,BIIB,CA,CELG,CHKP,CHTR,COST,CSCO,
     CSX,CTAS,CTRP,CTSH,DISCA,DISCK,DISH,DLTR,EA,EBAY,EXPE,FB,FISV,GOOG,GOOGL,HAS,HOLX,HSIC,ILMN,INCY,INTC,
     INTU,ISRG,JD,KHC,LBTYK,LRCX,LVNTA,MCHP,MOBL,MSFT,MU,MXIM,MYL,NCLH,NFLX,NTES,NVDA,NXPI,PAYX,PCLN,PYPL,
     REGN,SBAC,SBUX,SHPG,SIRI,STX,SWKS,SYMC,TEAM,TSLA,TXN,VOD,VRSK,VRTX,VSAT,WBA,WDC,XLNX,XRAY,
     ANET,DATA,GLD,LUV,RACE,SNAP,TWLO,TWTR,WMT
-    """
-    tickers = tickers.replace('\n', '').replace(' ', '').split(',')
-    lookup['stocks'] = tickers
+    """.replace('\n', '').replace(' ', '').split(',')
 
-    tickers = """
-    NEO,ARDR,ARK,BCC,BCH,BLOCK,BTC,BTCD,CVC,DASH,DASH,FUN,GBYTE,ICO,MAID,MYST,NLC2,NXS,PART,PAY,PIVX,PPT,
-    QTUM,RDD,SYS,VERI,VIA,WAVES,WINGS,XEM,XVG
-    """
-    tickers = tickers.replace('\n', '').replace(' ', '').split(',')
-    lookup['coins'] = list(map(lambda x: 'coin{}'.format(x), tickers))
+    # NEO,ARDR,ARK,BCC,BCH,BLOCK,BTC,BTCD,CVC,DASH,DASH,FUN,GBYTE,ICO,MAID,MYST,NLC2,NXS,PART,PAY,PIVX,PPT,
+    # QTUM,RDD,SYS,VERI,VIA,WAVES,WINGS,XEM,XVG
+    # Missing: LKK, XAS, GAS
+    lookup['coins'] = """
+    BTC,ETH,XRP,BCH,LTC,XEM,DASH,IOT,ETC,NEO,STRAT,XMR,QTUM,BCC,WAVES,EOS,ZEC,BTS,OMG,USDT,STEEM,VERI,SC,
+    ICN,BCN,LSK,XLM,SNT,GNT,REP,GBYTE,PAY,GNO,DOGE,PPT,GAME,FCT,DGD,DCR,BAT,DGB,MAID,NXT,ARDR,MCAP,PIVX,KMD,
+    BNT,MTL,MGO,SNGLS,ETP,ICO,1ST,ARK,FUN,ANT,CVC,SYS,BTCD,BDL,BLOCK,NXS,XEL,UBQ,DCT,WINGS,PART,BTM,NLC2,
+    PPC,LEO,XVG,PPY,DICE,EMC,EDG,RLC,SAFEX,MLN,ROUND,VSL,LBC,NMR,STX,RDD,VIA,NMC,PLR,MYST,STORJ,CLOAK,
+    XZC,XCP,TRST,NLG,ION
+    """.replace('\n', '').replace(' ', '').split(',')
+    lookup['coins'] = list(map(lambda x: 'coin{}'.format(x), lookup['coins']))
+
     lookup['both'] = lookup['coins'] + lookup['stocks']
-
     return lookup
 tickers_lookup = build_fav()
 
 
 class Relevancy(object):
 
-    def __init__(self, weighting=(0.4, 0.6), key='n100'):
+    def __init__(self, weighting=(0.4, 0.6), key='stocks'):
         self.t = tickers_lookup[key]
         self.weighting = weighting
         self.n_periods = -5
@@ -190,7 +193,7 @@ class Relevancy(object):
                 self.weighting[1] * np.mean(r2[self.n_periods:])) / 2
 
     def sortby_relevance(self, only_names=False, limit=200):
-        # with Pool(1) as p:
+        # with Pool(2) as p:
         #     val = p.map(self.value_security, self.t)
         val = map(self.value_security, self.t)
 
@@ -205,4 +208,4 @@ class Relevancy(object):
 
 if __name__ == '__main__':
     from pprint import pprint
-    pprint(Relevancy().sortby_relevance(only_names=False))
+    pprint(Relevancy(key='coins').sortby_relevance(only_names=False))
