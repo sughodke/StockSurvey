@@ -7,6 +7,9 @@ import gdax
 import pandas as pd
 import requests
 
+SECONDS_IN_HOUR = 60 * 60
+SECONDS_IN_DAY = 60 * 60 * 24
+
 intrinio.client.username = "5aa358835739a7a4cf76b63193451dd3"
 intrinio.client.password = "f4e816313de6afff9f9a0ddb923b8827"
 
@@ -24,14 +27,20 @@ def load_data(startdate, enddate, ticker):
     return intrinio.prices(ticker, start_date=startdate, end_date=enddate)
 
 
-def load_crypto_data(startdate, enddate, identifier):
+def load_crypto_data(startdate, enddate, identifier, period='day'):
     payload = {
         'fsym': identifier,
         'tsym': 'USD',
         'toTs': int(enddate.timestamp()),
-        'limit': (enddate - startdate).days
+        'limit': (enddate - startdate).total_seconds()
     }
-    r = requests.get('https://min-api.cryptocompare.com/data/histoday', params=payload)
+
+    if period == 'day':
+        payload['limit'] //= SECONDS_IN_DAY
+        r = requests.get('https://min-api.cryptocompare.com/data/histoday', params=payload)
+    else:
+        payload['limit'] //= SECONDS_IN_HOUR
+        r = requests.get('https://min-api.cryptocompare.com/data/histohour', params=payload)
 
     df = pd.DataFrame(r.json()['Data'])
     df.index = pd.to_datetime(df.time, unit='s')
