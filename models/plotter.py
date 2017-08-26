@@ -9,6 +9,7 @@ import matplotlib.cm as cm
 import matplotlib.dates as mdates
 import matplotlib.pyplot as plt
 import matplotlib.ticker as mticker
+from pytrends.request import TrendReq
 
 from util import cwd
 from util.indicators import moving_average, fibonacci_retracement, interesting_fib
@@ -189,9 +190,40 @@ class PlotMixin(PlotBaseMixin):
         rsi_prime_zeros = self.calc.rsi_prime_zeros
         rsi_ma_cross = self.calc.rsi_ma_cross
 
+        self.plot_gtrends(ax2, r.index)
         self.plot_rsi(ax1, r.index, rsi)
         self.plot_rsi_direction_change(ax1, r.index, rsi_prime_zeros, rsi[rsi_prime_zeros])
         self.plot_rsi_ma(ax1, r.index, rsi, rsi_ma10, rsi_ma_cross)
+
+    def plot_gtrends(self, ax2, date):
+        # TODO y-value on the cursor is the twin axis, not the orig
+        ax2t = ax2.twinx()
+        start, end = min(date), max(date)
+
+        pytrend = TrendReq()
+
+        # TODO Add hour?
+        timeframe = ' '.join((start.isoformat()[:10], end.isoformat()[:10]))
+
+        pytrend.build_payload(
+            kw_list=[
+                '{ticker} price'.format(ticker=self.ticker),
+                '{ticker} to USD'.format(ticker=self.ticker),
+                '{ticker} USD'.format(ticker=self.ticker),
+                '{ticker} BTC'.format(ticker=self.ticker),
+                '{ticker} to BTC'.format(ticker=self.ticker),
+            ],
+            timeframe=timeframe,
+        )
+
+        interest_over_time_df = pytrend.interest_over_time()
+        volume = interest_over_time_df.sum(numeric_only=True, axis=1)
+
+        vmax = volume.max()
+        ax2t.fill_between(interest_over_time_df.index, volume, 0, label='Search Volume',
+                          facecolor=fillcolor, edgecolor=fillcolor)
+        ax2t.set_ylim(0, 5 * vmax)
+        ax2t.set_yticks([])
 
     def plot_rsi_ma(self, ax1, date, rsi, rsi_ma10, rsi_ma_cross):
         ax1.plot(date, rsi_ma10, color='blue', lw=2)
