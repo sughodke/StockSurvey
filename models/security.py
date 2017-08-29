@@ -14,9 +14,12 @@ store_dir = os.path.join(cwd, ds_path)
 
 
 class Security(AddTimeSpan):
+    class_version = '3.0'
     STARTDATE = datetime.datetime(2016, 6, 1)
 
     def __init__(self, ticker='GLD', crypto=False):
+        self.version = self.__class__.class_version
+
         self.ticker = ticker
         self.is_crypto = crypto
         self.enddate = None
@@ -28,6 +31,14 @@ class Security(AddTimeSpan):
         self.weekly = self.add_week(self.daily)
         self.monthly = self.add_month(self.daily)
 
+    def upgrade(self):
+        version = float(getattr(self, 'version', 0))
+
+        if version < 3.:
+            self.version = '3.0'
+            self.is_crypto = False
+            logging.info('Upgraded {} cache to version {}'.format(self.ticker, self.version))
+
     def sync(self):
         today = self._today
         if not self.enddate:
@@ -37,7 +48,7 @@ class Security(AddTimeSpan):
         if today - self.enddate >= staleness:
             logging.info('Sync necessary, retrieving missing data')
 
-            if not getattr(self, 'is_crypto', False):
+            if not self.is_crypto:
                 delta = load_data(self.enddate + datetime.timedelta(days=1), today, self.ticker)
             else:
                 delta = load_crypto_data(self.enddate + datetime.timedelta(days=1), today, self.ticker)
@@ -51,28 +62,34 @@ class Security(AddTimeSpan):
 
         self.daily.sort_index(inplace=True)
 
-    def _filename(self):
-        return os.path.join(store_dir, '{}{}'.format('coin' if self.is_crypto else '', self.ticker))
+    @classmethod
+    def _filename(cls, ticker, is_crypto=False):
+        return os.path.join(store_dir, '{}{}'.format('coin' if is_crypto else '', ticker))
 
     @property
     def _today(self):
-        if getattr(self, 'is_crypto', False):  # TODO: (versioning) migrate this into a property
+        if self.is_crypto:
             return datetime.datetime.utcnow()
         return datetime.datetime.now()  # TODO: tzdata to convert to EST (intrinio)
 
     def save(self):
-        joblib.dump(self, self._filename(), compress=False)
+        joblib.dump(self, self._filename(self.ticker, self.is_crypto), compress=False)
 
     @classmethod
-    def load(cls, ticker, sync=True, force_fetch=False, crypto=False):
+    def load(cls, ticker, force_fetch=False, crypto=False):
         try:
             if force_fetch:
                 raise IOError('Triggering Cache Miss')
 
-            security = joblib.load(cls._filename(ticker))
+            security = joblib.load(cls._filename(ticker, crypto))
             logging.info('Security {} loaded successfully'.format(ticker))
-            if sync:
+            security.upgrade()
+
+            try:
                 security.sync()
+            except AttributeError as e:
+                logging.error('Ignoring exception ({}) while syncing {} '.format(e, ticker))
+
             return security
         except IOError as e:
             logging.info('Cache miss, creating new Security {}'.format(ticker))

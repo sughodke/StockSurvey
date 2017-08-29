@@ -34,13 +34,16 @@ parser.add_option("--ndx",
                   action="store_true", dest="ndx", default=False,
                   help="Execute for all stocks on NDX100 and myfaves."
                   " Forces save plot.")
-parser.add_option("--crypto", "--crypto-currency",
+parser.add_option("--coin", "--crypto",
                   action="store_true", dest="crypto", default=False,
                   help="Invalidate cache and perform a full fetch")
 parser.add_option("--macd",
                   action="store_const", dest="indicator",
                   default='rsi', const='macd',
                   help="Use moving average convergence divergence indicator")
+parser.add_option("--start-date", dest="start_date",
+                  default=None,
+                  help="Truncate the plot, starting from given start date")
 
 # TODO span can be defined as the first argument instead of flag
 
@@ -60,7 +63,7 @@ def run_one(ticker):
         s = Security.load(ticker, force_fetch=opts.force, crypto=opts.crypto)
 
         # Create a view of the data for the timespan we are interested in
-        with s.span(opts.span, opts.indicator) as so:
+        with s.span(opts.span, opts.indicator, start_date=opts.start_date) as so:
 
             if opts.verbose:
                 print('Events for {} strategy'.format(so.span))
