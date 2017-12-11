@@ -12,6 +12,7 @@ from optparse import OptionParser
 from pprint import pprint
 from joblib import Parallel, delayed
 
+from util import nasdaq, coin100
 from finance_ndx import NDX_constituents, my_faves
 from models.security import Security
 
@@ -44,6 +45,10 @@ parser.add_option("--macd",
 parser.add_option("--start-date", dest="start_date",
                   default=None,
                   help="Truncate the plot, starting from given start date")
+parser.add_option("--coin100",
+                  action="store_true", dest="coin100", default=False,
+                  help="Execute for all stocks on COIN100"
+                  " Forces save plot.")
 
 # TODO span can be defined as the first argument instead of flag
 
@@ -52,6 +57,10 @@ parser.add_option("--start-date", dest="start_date",
 if opts.ndx:
     opts.save_plot = True
     args = list(NDX_constituents) + my_faves
+    # args = nasdaq()
+elif opts.coin100:
+    opts.crypto = opts.save_plot = True
+    args = coin100()
 elif len(args) == 0:
     args = ['GLD']
 

@@ -7,6 +7,7 @@ class TheDecider(object):
     def __init__(self, d, calc):
         self.dataset = d
         self.calc = calc
+        self.clean_buysellvol = None
 
     def compute_orders(self):
         buy_index, sell_index = self.compute_possible_buysell()
