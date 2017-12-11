@@ -22,13 +22,14 @@ IMGDIR = os.path.join(cwd, 'Output/')
 
 
 class PlotBaseMixin(object):
-    def __init__(self, d, ticker, calc, decide, eval, cadence='daily'):
+    def __init__(self, d, ticker, calc, decide, eval, cadence='daily', hide_search=False):
         self.dataset = d
         self.ticker = ticker
         self.calc = calc
         self.decide = decide
         self.eval = eval
         self.cadence = cadence
+        self.hide_search = hide_search
 
     def plot_data(self, save=False, web=False):
         r = self.dataset
@@ -159,6 +160,9 @@ class PlotBaseMixin(object):
         ax2.plot(date, ma20, color='blue', lw=2, label='MA (20)')
 
     def plot_price(self, ax2, r):
+        # TODO define y-limits for price
+        # ax2.set_ylim(0)
+
         dx = r.adj_close - r.close
         high = r.high + dx
         low = r.low + dx
@@ -190,10 +194,13 @@ class PlotMixin(PlotBaseMixin):
         rsi_prime_zeros = self.calc.rsi_prime_zeros
         rsi_ma_cross = self.calc.rsi_ma_cross
 
-        self.plot_gtrends(ax2, r.index)
+        if self.hide_search:
+            self.plot_gtrends(ax2, r.index)
+
         self.plot_rsi(ax1, r.index, rsi)
         self.plot_rsi_direction_change(ax1, r.index, rsi_prime_zeros, rsi[rsi_prime_zeros])
         self.plot_rsi_ma(ax1, r.index, rsi, rsi_ma10, rsi_ma_cross)
+        # self.plot_predicted_rsi(ax1, r.index, self.calc.predict_rsi)
 
     def plot_gtrends(self, ax2, date):
         # TODO y-value on the cursor is the twin axis, not the orig
@@ -252,6 +259,9 @@ class PlotMixin(PlotBaseMixin):
         ax1.axhline(30, color=fillcolor)
         ax1.fill_between(date, rsi, 70, where=(rsi >= 70), facecolor=fillcolor, edgecolor=fillcolor)
         ax1.fill_between(date, rsi, 30, where=(rsi <= 30), facecolor=fillcolor, edgecolor=fillcolor)
+
+    def plot_predicted_rsi(self, ax1, date, predicted):
+        ax1.plot(date[3:], predicted, color='pink', linewidth=1)
 
 
 class MACDPlotMixin(PlotBaseMixin):

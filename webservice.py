@@ -44,10 +44,11 @@ async def evaluate(request):
 
     ticker = request.query['ticker']
     force = request.query.get('force', False)
-    crypto = request.query.get('crypto', False)
+    hide_search = request.query.get('hide_search', False)
     span = request.query.get('span', 'daily')
     start_date = request.query.get('start_date', Security.STARTDATE)
 
+    crypto = False
     if ticker.startswith('coin'):
         ticker = ticker.replace('coin', '')
         crypto = True
@@ -55,7 +56,7 @@ async def evaluate(request):
     s = Security.load(ticker, force_fetch=force, crypto=crypto)
 
     # Create a view of the data for the timespan we are interested in
-    with s.span(span, start_date=start_date) as so:
+    with s.span(span, start_date=start_date, hide_search=hide_search) as so:
         # Use our strategy to figure out when to buy and sell
         orders = so.decide.compute_orders()
 

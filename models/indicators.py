@@ -1,5 +1,9 @@
 import logging
+from scipy import signal, convolve
+
 import numpy as np
+from sklearn.svm import SVR
+
 from util.indicators import relative_strength, moving_average, moving_average_convergence, bbands
 
 
@@ -40,6 +44,36 @@ class RSIMixin(object):
         logging.info('Computed RSI {}, {}, {}'.format(*map(len, self.rsi_values)))
 
         self.rsi = rsi
+
+        """
+        prices = self.dataset.close.values
+        rsi_21 = relative_strength(prices, 7)
+
+        widths = np.arange(1, 5, 0.1)
+        wavelet = signal.ricker
+
+        # metric = np.gradient(r.close)
+        # metric = (r.close - r.open)/r.open
+
+        # X = signal.fftconvolve(prices, prices[::-1])
+        X = signal.cwt(prices, wavelet, widths).T
+        y = np.roll(rsi_21, -3)
+
+        X = X[0:-3]
+        y = y[0:-3]
+
+        c = int(0.75 * len(X))
+        logging.info('training with {} samples'.format(c))
+        X_train, X_test = X[:c], X[c:]
+        y_train, y_test = y[:c], y[c:]
+
+        clf = SVR(kernel='rbf')
+        clf.fit(X_train, y_train)
+        score = clf.score(X_test, y_test)
+
+        self.score = score
+        self.predict_rsi = clf.predict(X)
+        """
 
     def events(self):
         r = []

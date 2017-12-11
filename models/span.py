@@ -7,12 +7,13 @@ from models.plotter import PlotMixin, MACDPlotMixin
 
 
 class BaseSpan(ContextDecorator):
-    def __init__(self, security, span=None, start_date=None):
+    def __init__(self, security, span=None, start_date=None, hide_search=False):
         self.dataset = getattr(security, span, security.daily)
         self.truncate(start_date)
 
         self.ticker = security.ticker
         self.span = span or 'daily'
+        self.hide_search = hide_search
 
         self.calc = self.decide = self.eval = self.plot = None
 

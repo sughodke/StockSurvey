@@ -27,8 +27,8 @@ class PredictRSI(object):
         # startdate=datetime.date(2015, 6, 1),
         r = Security.load(ticker, force_fetch=opts.force, crypto=opts.crypto).daily
 
-        rsi = relative_strength(r.close, 21)
-        ema_rsi = moving_average(rsi, 14, 'exponential')
+        rsi = relative_strength(r.close, 21)  # 7
+        ema_rsi = moving_average(rsi, 14, 'exponential')  # 10
         mid, top, bot = bbands(r.close, 7)
 
         draw_price = False
