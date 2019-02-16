@@ -255,8 +255,8 @@ class PlotMixin(PlotBaseMixin):
         ax1.axhline(70, color=fillcolor)
         ax1.axhline(50, color=fillcolor, linestyle='--')
         ax1.axhline(30, color=fillcolor)
-        # ax1.fill_between(date, rsi, 70, where=(rsi >= 70), facecolor=fillcolor, edgecolor=fillcolor)
-        # ax1.fill_between(date, rsi, 30, where=(rsi <= 30), facecolor=fillcolor, edgecolor=fillcolor)
+        ax1.fill_between(date, rsi, 70, where=(rsi >= 70), facecolor=fillcolor, edgecolor=fillcolor)
+        ax1.fill_between(date, rsi, 30, where=(rsi <= 30), facecolor=fillcolor, edgecolor=fillcolor)
 
 
 class MACDPlotMixin(PlotBaseMixin):

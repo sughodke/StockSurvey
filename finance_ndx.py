@@ -24,7 +24,6 @@ BIDU
 BIIB
 BMRN
 AVGO
-CA
 CELG
 CERN
 CHTR
@@ -65,8 +64,6 @@ LBTYA
 LBTYK
 LILA
 LILAK
-LVNTA
-QVCA
 MAR
 MAT
 MXIM
@@ -99,7 +96,6 @@ TMUS
 TSLA
 TXN
 KHC
-PCLN
 TSCO
 TRIP
 FOX
@@ -118,7 +114,8 @@ NDX_constituents = dedent(NDX_constituents).split('\n')
 NDX_constituents = filter(None, NDX_constituents)
 
 my_faves = ['TWTR', 'MOBL', 'GLD', 'LUV', 'T', 'SNAP', 'RACE', 'VSAT',
-            'DATA', 'YELP', 'TWLO', 'TEAM', 'WMT', 'SHAK', 'ANET']
+            'DATA', 'YELP', 'TWLO', 'TEAM', 'WMT', 'SHAK', 'ANET',
+            'DXCM', 'MDT', 'TNDM']
 
 if __name__ == '__main__':
     finance_work = True
@@ -127,10 +124,13 @@ if __name__ == '__main__':
     else:
         import plot_rsi_support as fw
 
-    for c in NDX_constituents + my_faves:
+    for c in list(NDX_constituents) + my_faves:
         print('\n## Plotting {}'.format(c))
+        fw.go(ticker=c)
+        """
         try:
             fw.go(ticker=c)
         except Exception as e:
             print('skipping... %s' % e)
+        """
         sleep(1)
