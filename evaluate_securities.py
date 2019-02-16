@@ -10,7 +10,7 @@ When we set the span to week, we need to pull YTD data. While daily should be li
 import logging
 from optparse import OptionParser
 from pprint import pprint
-from joblib import Parallel, delayed
+from sklearn.externals.joblib import Parallel, delayed
 
 from finance_ndx import NDX_constituents, my_faves
 from models.security import Security
@@ -36,7 +36,7 @@ parser.add_option("--ndx",
                   " Forces save plot.")
 parser.add_option("--coin", "--crypto",
                   action="store_true", dest="crypto", default=False,
-                  help="Invalidate cache and perform a full fetch")
+                  help="Indicate that the arguments are crypto-currencies")
 parser.add_option("--macd",
                   action="store_const", dest="indicator",
                   default='rsi', const='macd',
@@ -90,5 +90,8 @@ def run_one(ticker):
         else:
             raise e
 
+
 if __name__ == '__main__':
-    Parallel(n_jobs=4)(delayed(run_one)(ticker) for ticker in args)
+    # Parallel(n_jobs=4)(delayed(run_one)(ticker) for ticker in args)
+    for ticker in args:
+        run_one(ticker)

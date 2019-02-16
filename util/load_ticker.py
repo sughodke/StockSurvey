@@ -1,30 +1,24 @@
 import datetime
 import logging
 
-import intrinio
-
-import gdax
 import pandas as pd
+import pandas_datareader as pdr
 import requests
 
 SECONDS_IN_HOUR = 60 * 60
 SECONDS_IN_DAY = 60 * 60 * 24
 
-intrinio.client.username = "5aa358835739a7a4cf76b63193451dd3"
-intrinio.client.password = "f4e816313de6afff9f9a0ddb923b8827"
-
-# intrinio.client.username, intrinio.client.password = \
-#     "2851b6532120373e9b859785f05f3d79:c55ea5a0d6e448eb46d0a78740f82dc3".split(':')
-
-intrinio.client.api_base_url = 'http://172.93.55.89:8081'
-
 
 def load_data(startdate, enddate, ticker):
     """
-    :return: numpy.recarray with fields: date, open, high, low, close, volume, adj_close
+    :return: NDFrame with columns: date, open, high, low, close, volume, adj_close
     """
 
-    return intrinio.prices(ticker, start_date=startdate, end_date=enddate)
+    df = pdr.get_data_yahoo(ticker, start=startdate, end=enddate)
+    df.rename(str.lower, axis='columns', inplace=True)
+    df.rename(index=str, columns={'adj close': 'adj_close'}, inplace=True)
+    df.set_index(pd.to_datetime(df.index), inplace=True)
+    return df
 
 
 def load_crypto_data(startdate, enddate, identifier, period='day'):
@@ -63,7 +57,7 @@ def load_crypto_data_v1(startdate, enddate, identifier, granularity=str(60*60*2)
     Returns:
         Dataset as a Pandas DataFrame
     """
-
+    import gdax
     quotes = gdax.PublicClient().get_product_historic_rates(identifier, start=startdate, end=enddate,
                                                             granularity=granularity)
     df = pd.DataFrame(quotes, columns=['time', 'low', 'high', 'open', 'close', 'volume'])

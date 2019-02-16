@@ -9,7 +9,10 @@ import matplotlib.cm as cm
 import matplotlib.dates as mdates
 import matplotlib.pyplot as plt
 import matplotlib.ticker as mticker
-from pytrends.request import TrendReq
+# from pytrends.request import TrendReq
+
+from pandas.plotting import register_matplotlib_converters
+register_matplotlib_converters()
 
 from util import cwd
 from util.indicators import moving_average, fibonacci_retracement, interesting_fib
@@ -197,6 +200,7 @@ class PlotMixin(PlotBaseMixin):
 
     def plot_gtrends(self, ax2, date):
         # TODO y-value on the cursor is the twin axis, not the orig
+        """
         ax2t = ax2.twinx()
         start, end = min(date), max(date)
 
@@ -224,6 +228,7 @@ class PlotMixin(PlotBaseMixin):
                           facecolor=fillcolor, edgecolor=fillcolor)
         ax2t.set_ylim(0, 5 * vmax)
         ax2t.set_yticks([])
+        """
 
     def plot_rsi_ma(self, ax1, date, rsi, rsi_ma10, rsi_ma_cross):
         ax1.plot(date, rsi_ma10, color='blue', lw=2)
@@ -250,8 +255,8 @@ class PlotMixin(PlotBaseMixin):
         ax1.axhline(70, color=fillcolor)
         ax1.axhline(50, color=fillcolor, linestyle='--')
         ax1.axhline(30, color=fillcolor)
-        ax1.fill_between(date, rsi, 70, where=(rsi >= 70), facecolor=fillcolor, edgecolor=fillcolor)
-        ax1.fill_between(date, rsi, 30, where=(rsi <= 30), facecolor=fillcolor, edgecolor=fillcolor)
+        # ax1.fill_between(date, rsi, 70, where=(rsi >= 70), facecolor=fillcolor, edgecolor=fillcolor)
+        # ax1.fill_between(date, rsi, 30, where=(rsi <= 30), facecolor=fillcolor, edgecolor=fillcolor)
 
 
 class MACDPlotMixin(PlotBaseMixin):

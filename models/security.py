@@ -2,7 +2,7 @@ import datetime
 import logging
 import os
 
-import joblib
+from sklearn.externals import joblib
 import pandas as pd
 
 from models.span import Span, MACDSpan, BBandsSpan
