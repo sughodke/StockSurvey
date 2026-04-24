@@ -1,12 +1,16 @@
 import logging
+import warnings
 from multiprocessing import Pool
+
+warnings.filterwarnings('ignore', category=DeprecationWarning, module='numpy')
+warnings.filterwarnings('ignore', category=DeprecationWarning, module='joblib')
 
 import numpy as np
 from scipy import signal
 from sklearn.decomposition import TruncatedSVD
 from models.security import Security
 
-logging.basicConfig(level=logging.INFO,
+logging.basicConfig(level=logging.WARNING,
                     format='%(asctime)s %(levelname)s %(message)s')
 
 
@@ -144,10 +148,11 @@ tickers_lookup = build_fav()
 
 class Relevancy(object):
 
-    def __init__(self, weighting=(0.4, 0.6), key='stocks'):
+    def __init__(self, weighting=(0.4, 0.6), key='stocks', offline=False):
         self.t = tickers_lookup[key]
         self.weighting = weighting
         self.n_periods = -5
+        self.offline = offline
 
         logging.info('New Relevancy window created for {} weights'.format(weighting))
 
@@ -171,7 +176,9 @@ class Relevancy(object):
             ticker = ticker.replace('coin', '')
             crypto = True
 
-        s = Security.load(ticker, crypto=crypto)
+        s = Security.load(ticker, crypto=crypto, offline=self.offline)
+        if s is None:
+            return None
 
         try:
             with s.span('daily') as so:
@@ -193,9 +200,11 @@ class Relevancy(object):
                 self.weighting[1] * np.mean(r2[self.n_periods:])) / 2
 
     def sortby_relevance(self, only_names=False, limit=200):
-        # with Pool(2) as p:
-        #     val = p.map(self.value_security, self.t)
-        val = map(self.value_security, self.t)
+        from tqdm import tqdm
+
+        val = []
+        for ticker in tqdm(self.t, desc='Evaluating', unit='ticker'):
+            val.append(self.value_security(ticker))
 
         d = dict(zip(self.t, val))
         d = {k: v for k, v in d.items() if v is not None}
@@ -207,5 +216,17 @@ class Relevancy(object):
 
 
 if __name__ == '__main__':
+    import argparse
     from pprint import pprint
-    pprint(Relevancy(key='coins').sortby_relevance(only_names=False))
+
+    parser = argparse.ArgumentParser(description='Sort securities by relevance')
+    parser.add_argument('--key', default='stocks', choices=tickers_lookup.keys(),
+                        help='Which ticker list to evaluate')
+    parser.add_argument('--offline', action='store_true',
+                        help='Use cached data only, skip network sync')
+    parser.add_argument('--limit', type=int, default=20,
+                        help='Number of results to show')
+    args = parser.parse_args()
+
+    pprint(Relevancy(key=args.key, offline=args.offline).sortby_relevance(
+        only_names=False, limit=args.limit))

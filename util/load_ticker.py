@@ -2,7 +2,6 @@ import datetime
 import logging
 
 import pandas as pd
-import pandas_datareader as pdr
 import requests
 
 SECONDS_IN_HOUR = 60 * 60
@@ -13,10 +12,12 @@ def load_data(startdate, enddate, ticker):
     """
     :return: NDFrame with columns: date, open, high, low, close, volume, adj_close
     """
+    import yfinance as yf
 
-    df = pdr.get_data_yahoo(ticker, start=startdate, end=enddate)
+    df = yf.download(ticker, start=startdate, end=enddate, auto_adjust=False, progress=False)
+    df.columns = df.columns.get_level_values(0)
     df.rename(str.lower, axis='columns', inplace=True)
-    df.rename(index=str, columns={'adj close': 'adj_close'}, inplace=True)
+    df.rename(columns={'adj close': 'adj_close'}, inplace=True)
     df.set_index(pd.to_datetime(df.index), inplace=True)
     return df
 

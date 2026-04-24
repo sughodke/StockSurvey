@@ -2,8 +2,16 @@ import datetime
 import logging
 import os
 
-from sklearn.externals import joblib
+import sys
+import joblib
 import pandas as pd
+
+# Shim for legacy cache files pickled with sklearn.externals.joblib
+if 'sklearn.externals.joblib' not in sys.modules:
+    import sklearn.externals
+    sklearn.externals.joblib = joblib
+    sys.modules['sklearn.externals.joblib'] = joblib
+    sys.modules['sklearn.externals.joblib.numpy_pickle'] = joblib.numpy_pickle
 
 from models.span import Span, MACDSpan, BBandsSpan
 from models.timespan import AddTimeSpan
@@ -76,7 +84,7 @@ class Security(AddTimeSpan):
         joblib.dump(self, self._filename(self.ticker, self.is_crypto), compress=False)
 
     @classmethod
-    def load(cls, ticker, force_fetch=False, crypto=False):
+    def load(cls, ticker, force_fetch=False, crypto=False, offline=False):
         try:
             if force_fetch:
                 raise IOError('Triggering Cache Miss')
@@ -85,13 +93,17 @@ class Security(AddTimeSpan):
             logging.info('Security {} loaded successfully'.format(ticker))
             security.upgrade()
 
-            try:
-                security.sync()
-            except AttributeError as e:
-                logging.error('Ignoring exception ({}) while syncing {} '.format(e, ticker))
+            if not offline:
+                try:
+                    security.sync()
+                except AttributeError as e:
+                    logging.error('Ignoring exception ({}) while syncing {} '.format(e, ticker))
 
             return security
         except IOError as e:
+            if offline:
+                logging.warning('Cache miss for {}, skipping (offline mode)'.format(ticker))
+                return None
             logging.info('Cache miss, creating new Security {}'.format(ticker))
             return Security(ticker, crypto)
 

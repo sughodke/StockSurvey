@@ -20,8 +20,8 @@ class AddTimeSpan(object):
 
     def add_month(self, f):
         open = f.open.resample('MS').last()
-        close = f.close.resample('M').last().resample('MS').last()
-        adj_close = f.adj_close.resample('M').last().resample('MS').last()
+        close = f.close.resample('ME').last().resample('MS').last()
+        adj_close = f.adj_close.resample('ME').last().resample('MS').last()
         high = f.high.resample('MS').max()
         low = f.low.resample('MS').min()
         vol = f.volume.resample('MS').sum()
