@@ -25,6 +25,24 @@ wheels = [
 ]
 
 [[package]]
+name = "bt"
+version = "1.1.5"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "ffn" },
+    { name = "pyprind" },
+    { name = "tqdm" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/15/e3/825313df0feda9be9472a5bb6c8d401a7c141b1048e1ee5572e274a308ce/bt-1.1.5.tar.gz", hash = "sha256:8144db8f374fab111cb9fac35cb42e28ae27425560466823c0e7fb637e6bddfe", size = 297408, upload-time = "2026-03-24T22:08:14.272Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/0e/34/752c8cc38c18d8724ef7fd8d4aad726162d515a3a4a5863e84024406aaa6/bt-1.1.5-cp314-cp314-macosx_10_15_x86_64.whl", hash = "sha256:a3bf98edbcf6d6eab7f9cddbc3e27cb0a30c781d46c6b5f60f12f473f94343f6", size = 242260, upload-time = "2026-03-24T22:08:07.344Z" },
+    { url = "https://files.pythonhosted.org/packages/33/0c/84bb16f938ca5ac212cabdaca402cea631792b3466fa90dfbac39c67081f/bt-1.1.5-cp314-cp314-macosx_11_0_arm64.whl", hash = "sha256:992102e3ee4727e60f1e9ec63ca92b6e71f9d82ef8aeca13ec9c8f7f0c6f3194", size = 226848, upload-time = "2026-03-24T22:08:08.538Z" },
+    { url = "https://files.pythonhosted.org/packages/07/c8/c14ab9d80fc1d2eac031d1d2f5a0623475a6b6c90d3e3ae96add9fe04470/bt-1.1.5-cp314-cp314-manylinux2014_aarch64.manylinux_2_17_aarch64.manylinux_2_28_aarch64.whl", hash = "sha256:f3147146ece2aa7919be0aa43ee17f4f6bd2d7ad00e1f8fcd583456b8d23e056", size = 1437102, upload-time = "2026-03-24T22:08:09.924Z" },
+    { url = "https://files.pythonhosted.org/packages/02/d3/c431ce5041c0c715634ff39be68dc55ffe43b9fa6eae2735683282aa7cd2/bt-1.1.5-cp314-cp314-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:eefc6ce5d83c673b44ee4be9ef40132aaef709ce9f904f528b861e3fade7ed18", size = 1440864, upload-time = "2026-03-24T22:08:11.853Z" },
+    { url = "https://files.pythonhosted.org/packages/82/67/169a1e2ac00e74cf5a780fcd7175e97ad6b833fcc6034f42df8b4d2e7890/bt-1.1.5-cp314-cp314-win_amd64.whl", hash = "sha256:4df08b1d92607ff46c996604c3c29a0a8dad31b41744176f4013335983a5e0c0", size = 209568, upload-time = "2026-03-24T22:08:13.213Z" },
+]
+
+[[package]]
 name = "certifi"
 version = "2026.4.22"
 source = { registry = "https://pypi.org/simple" }
@@ -429,6 +447,38 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/a9/95/a3dbbb5028f35eafb79008e7522a75244477d2838f38cbb722248dabc2a8/cycler-0.12.1.tar.gz", hash = "sha256:88bb128f02ba341da8ef447245a9e138fae777f6a23943da4540077d3601eb1c", size = 7615, upload-time = "2023-10-07T05:32:18.335Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/e7/05/c19819d5e3d95294a6f5947fb9b9629efb316b96de511b418c53d245aae6/cycler-0.12.1-py3-none-any.whl", hash = "sha256:85cef7cff222d8644161529808465972e51340599459b8ac3ccbac5a854e0d30", size = 8321, upload-time = "2023-10-07T05:32:16.783Z" },
+]
+
+[[package]]
+name = "decorator"
+version = "5.2.1"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/43/fa/6d96a0978d19e17b68d634497769987b16c8f4cd0a7a05048bec693caa6b/decorator-5.2.1.tar.gz", hash = "sha256:65f266143752f734b0a7cc83c46f4618af75b8c5911b00ccb61d0ac9b6da0360", size = 56711, upload-time = "2025-02-24T04:41:34.073Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/4e/8c/f3147f5c4b73e7550fe5f9352eaa956ae838d5c51eb58e7a25b9f3e2643b/decorator-5.2.1-py3-none-any.whl", hash = "sha256:d316bb415a2d9e2d2b3abcc4084c6502fc09240e292cd76a76afc106a1c8e04a", size = 9190, upload-time = "2025-02-24T04:41:32.565Z" },
+]
+
+[[package]]
+name = "ffn"
+version = "1.1.5"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "decorator" },
+    { name = "matplotlib" },
+    { name = "numpy", version = "2.2.6", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11'" },
+    { name = "numpy", version = "2.4.4", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.11'" },
+    { name = "pandas", version = "2.3.3", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11'" },
+    { name = "pandas", version = "3.0.2", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.11'" },
+    { name = "scikit-learn", version = "1.7.2", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11'" },
+    { name = "scikit-learn", version = "1.8.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.11'" },
+    { name = "scipy", version = "1.15.3", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11'" },
+    { name = "scipy", version = "1.17.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.11'" },
+    { name = "tabulate" },
+    { name = "yfinance" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/cd/93/8ad3b5f048359423820a54404869bcb465e1a05c68b48aea4855463c5c73/ffn-1.1.5.tar.gz", hash = "sha256:ec55ac1edd7ecc2efc9136cb69be39b422dacc8087a470cf1ee8f8d175dabc9b", size = 27677, upload-time = "2026-03-24T21:30:28.894Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/74/9d/efee2bb7fe80f0be1ecb4aa1ece075e08685e8cc06d48b729f6ce4a43e00/ffn-1.1.5-py3-none-any.whl", hash = "sha256:c922a6a3990f2579c12e23cf5f8d9c5d8d6a47b0870bb8b6895a4ffa6049f606", size = 26926, upload-time = "2026-03-24T21:30:27.961Z" },
 ]
 
 [[package]]
@@ -1216,6 +1266,15 @@ wheels = [
 ]
 
 [[package]]
+name = "pyprind"
+version = "2.11.3"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/6d/10/ca67b50d71e3c85143c1dc16d7954cc12b01f8866ec4250a4f3389727c3f/PyPrind-2.11.3.tar.gz", hash = "sha256:e37dcab6e1a9c8e0a7f0fce65fde7a79e2deda1c75aa015910a49e2137b54cbf", size = 11632, upload-time = "2021-04-18T18:10:04.594Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/ab/b3/1f12ebc5009c65b607509393ad98240728b4401bc3593868fb161fdd3760/PyPrind-2.11.3-py2.py3-none-any.whl", hash = "sha256:cc8edb66aabb18f25f7a3cce65312b3bc64b49992ddc93ba4cf511e5e25c1be3", size = 8373, upload-time = "2021-04-18T18:10:03.431Z" },
+]
+
+[[package]]
 name = "python-dateutil"
 version = "2.9.0.post0"
 source = { registry = "https://pypi.org/simple" }
@@ -1530,6 +1589,7 @@ name = "stocksurvey"
 version = "0.1.0"
 source = { virtual = "." }
 dependencies = [
+    { name = "bt" },
     { name = "joblib" },
     { name = "matplotlib" },
     { name = "numpy", version = "2.2.6", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11'" },
@@ -1547,6 +1607,7 @@ dependencies = [
 
 [package.metadata]
 requires-dist = [
+    { name = "bt" },
     { name = "joblib" },
     { name = "matplotlib" },
     { name = "numpy" },
@@ -1556,6 +1617,15 @@ requires-dist = [
     { name = "scipy" },
     { name = "tqdm" },
     { name = "yfinance" },
+]
+
+[[package]]
+name = "tabulate"
+version = "0.10.0"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/46/58/8c37dea7bbf769b20d58e7ace7e5edfe65b849442b00ffcdd56be88697c6/tabulate-0.10.0.tar.gz", hash = "sha256:e2cfde8f79420f6deeffdeda9aaec3b6bc5abce947655d17ac662b126e48a60d", size = 91754, upload-time = "2026-03-04T18:55:34.402Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/99/55/db07de81b5c630da5cbf5c7df646580ca26dfaefa593667fc6f2fe016d2e/tabulate-0.10.0-py3-none-any.whl", hash = "sha256:f0b0622e567335c8fabaaa659f1b33bcb6ddfe2e496071b743aa113f8774f2d3", size = 39814, upload-time = "2026-03-04T18:55:31.284Z" },
 ]
 
 [[package]]
