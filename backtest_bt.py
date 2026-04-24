@@ -65,38 +65,56 @@ def rsi_matrix(price_matrix, n=7):
     return rsi
 
 
-def cwt_convolve(x_matrix, scale):
-    """Apply Ricker wavelet at one scale to all tickers.
+def cwt_causal_convolve(x_matrix, scale):
+    """Apply CAUSAL Ricker wavelet at one scale to all tickers.
+
+    The kernel only looks backward in time: at index i, the convolution
+    uses data from indices [i - kernel_len + 1, ..., i]. No future data.
 
     x_matrix: (n_dates, n_tickers)
     Returns: (n_dates, n_tickers) coefficients
     """
+    from scipy.signal import fftconvolve
+
     n_dates = x_matrix.shape[0]
     points = min(10 * scale, n_dates)
-    half = points // 2
-    t = np.arange(-half, half + 1) / scale
+
+    # Build one-sided (causal) Ricker wavelet: t in [-points, 0]
+    t = np.arange(-points, 1) / scale
     wavelet = ((1.0 - t ** 2) * np.exp(-t ** 2 / 2.0) / np.sqrt(scale))
 
-    # FFT-based convolution (much faster than direct for large arrays)
-    from scipy.signal import fftconvolve
-    # fftconvolve handles 2D: convolve each column with the 1D wavelet
-    w2d = wavelet[:, None]  # (kernel_len, 1) — broadcast over tickers
-    result = fftconvolve(x_matrix, w2d, mode='same', axes=0)
+    # fftconvolve with mode='full', then take the last n_dates values
+    # This ensures output[i] only depends on input[:i+1]
+    w2d = wavelet[:, None]  # (kernel_len, 1)
+    full = fftconvolve(x_matrix, w2d, mode='full', axes=0)
+
+    # full has length n_dates + kernel_len - 1; take the tail
+    result = full[len(wavelet) - 1:len(wavelet) - 1 + n_dates]
     return result
 
 
-def cwt_matrix(price_matrix, scales):
-    """CWT for all tickers at all scales.
+def cwt_causal_matrix(price_matrix, scales, lookback):
+    """Causal CWT for all tickers at all scales.
+
+    Normalizes each ticker using a ROLLING window (lookback) mean/std,
+    so normalization at time t only uses data up to t.
 
     price_matrix: (n_dates, n_tickers)
     Returns: (n_scales, n_dates, n_tickers) coefficients
     """
-    # Normalize each ticker to zero-mean unit-variance
-    mu = np.mean(price_matrix, axis=0, keepdims=True)
-    std = np.std(price_matrix, axis=0, keepdims=True) + 1e-9
-    x = (price_matrix - mu) / std
+    n_dates, n_tickers = price_matrix.shape
 
-    coeffs = np.stack([cwt_convolve(x, s) for s in scales])
+    # Rolling mean and std (causal — only past data)
+    df = pd.DataFrame(price_matrix)
+    rolling_mu = df.rolling(lookback, min_periods=1).mean().values
+    rolling_std = df.rolling(lookback, min_periods=1).std().values
+    # First few rows have std=NaN from rolling; fill with 1 (no normalization)
+    rolling_std = np.nan_to_num(rolling_std, nan=1.0, copy=True)
+    rolling_std = np.where(rolling_std < 1e-9, 1e-9, rolling_std)
+
+    x = (price_matrix - rolling_mu) / rolling_std
+
+    coeffs = np.stack([cwt_causal_convolve(x, s) for s in scales])
     return coeffs  # (n_scales, n_dates, n_tickers)
 
 
@@ -105,42 +123,115 @@ def cwt_matrix(price_matrix, scales):
 # ---------------------------------------------------------------------------
 
 def load_price_matrix(data_dir, min_history=504, start_date=None, end_date=None):
-    """Load per-ticker CSVs into a single price DataFrame.
+    """Load per-ticker CSVs into close, high, low DataFrames.
 
-    Returns DataFrame with DatetimeIndex, columns = tickers, values = close price.
+    Returns (prices, highs, lows) — all DataFrames with same shape/index.
     """
     csv_files = sorted(f for f in os.listdir(data_dir) if f.endswith('.csv'))
-    frames = {}
+    close_frames = {}
+    high_frames = {}
+    low_frames = {}
 
     for fname in tqdm(csv_files, desc='Loading CSVs', unit='file'):
         ticker = fname.replace('.csv', '')
         path = os.path.join(data_dir, fname)
         try:
             df = pd.read_csv(path, parse_dates=['date'], index_col='date')
-            series = df['close'].dropna()
-            if len(series) >= min_history:
-                frames[ticker] = series
+            if len(df['close'].dropna()) >= min_history:
+                close_frames[ticker] = df['close']
+                high_frames[ticker] = df['high']
+                low_frames[ticker] = df['low']
         except Exception:
             continue
 
-    prices = pd.DataFrame(frames)
-    prices.sort_index(inplace=True)
+    prices = pd.DataFrame(close_frames)
+    highs = pd.DataFrame(high_frames)
+    lows = pd.DataFrame(low_frames)
+
+    for df in [prices, highs, lows]:
+        df.sort_index(inplace=True)
 
     if start_date:
         prices = prices.loc[start_date:]
+        highs = highs.loc[start_date:]
+        lows = lows.loc[start_date:]
     if end_date:
         prices = prices.loc[:end_date]
+        highs = highs.loc[:end_date]
+        lows = lows.loc[:end_date]
 
-    # Drop tickers with too many NaNs in the active period
+    # Keep same tickers across all three
     min_valid = int(len(prices) * 0.8)
     prices = prices.dropna(axis=1, thresh=min_valid)
+    common = prices.columns
+    highs = highs[common]
+    lows = lows[common]
 
-    # Forward-fill small gaps, drop remaining NaN rows at start
     prices = prices.ffill().dropna()
+    highs = highs.ffill().dropna()
+    lows = lows.ffill().dropna()
+
+    # Align indices
+    common_idx = prices.index.intersection(highs.index).intersection(lows.index)
+    prices = prices.loc[common_idx]
+    highs = highs.loc[common_idx]
+    lows = lows.loc[common_idx]
 
     print(f'Price matrix: {prices.shape[0]} dates x {prices.shape[1]} tickers')
     print(f'Date range: {prices.index[0].date()} to {prices.index[-1].date()}')
-    return prices
+    return prices, highs, lows
+
+
+# ---------------------------------------------------------------------------
+# Corwin-Schultz spread estimator
+# ---------------------------------------------------------------------------
+
+def corwin_schultz_spread(highs, lows, window=21):
+    """Estimate bid-ask spread from OHLC using Corwin & Schultz (2012).
+
+    Uses the ratio of 2-day vs 1-day high-low ranges to separate
+    volatility (scales with sqrt(t)) from spread (constant).
+
+    highs, lows: DataFrames (n_dates, n_tickers)
+    window: rolling window for smoothing the estimate
+    Returns: DataFrame of estimated spread as a fraction of price (0.01 = 1%)
+    """
+    # Log high-low ratio squared for single days
+    log_hl = np.log(highs / lows)
+    beta = log_hl ** 2
+
+    # 2-day high-low: max of consecutive highs, min of consecutive lows
+    high_2d = highs.rolling(2).max()
+    low_2d = lows.rolling(2).min()
+    log_hl_2d = np.log(high_2d / low_2d)
+    gamma = log_hl_2d ** 2
+
+    # Sum of single-day betas over 2 consecutive days
+    beta_sum = beta + beta.shift(1)
+
+    # Corwin-Schultz alpha
+    # alpha = (sqrt(2*beta) - sqrt(beta)) / (3 - 2*sqrt(2)) - sqrt(gamma / (3 - 2*sqrt(2)))
+    sqrt2 = np.sqrt(2)
+    denom = 3 - 2 * sqrt2
+
+    term1 = (np.sqrt(2) * np.sqrt(beta_sum) - np.sqrt(beta_sum)) / denom
+    term2 = np.sqrt(gamma / denom)
+
+    alpha = term1 - term2
+
+    # Spread = 2(e^alpha - 1) / (1 + e^alpha)
+    # Clamp alpha to avoid overflow and negative spreads
+    alpha = alpha.clip(lower=0)
+    exp_alpha = np.exp(alpha)
+    spread = 2 * (exp_alpha - 1) / (1 + exp_alpha)
+
+    # Smooth with rolling mean
+    spread = spread.rolling(window, min_periods=1).mean()
+
+    # Clamp to reasonable range [0, 0.20] (0-20%)
+    spread = spread.clip(lower=0, upper=0.20)
+
+    return spread
 
 
 # ---------------------------------------------------------------------------
@@ -172,56 +263,65 @@ def select_top_n_matrix(scores_matrix, top_n, ascending=True):
     return weights
 
 
-def weights_rsi(prices, lookback=60, n_tail=5, top_n=20):
-    """RSI-based: buy the most oversold stocks (lowest RSI).
+def _apply_spread_mask(scores, spread_arr, lookback, max_spread):
+    """NaN out scores for tickers with estimated spread > max_spread."""
+    if spread_arr is None:
+        return scores
+    n_dates_scores = scores.shape[0]
+    for i in range(n_dates_scores):
+        spread_row = spread_arr[i + lookback]
+        illiquid = spread_row > max_spread
+        scores[i, illiquid] = np.nan
+    return scores
 
-    Computes RSI for ALL tickers in one pass, then selects top_n per date.
-    """
+
+def _apply_nan_mask(scores, price_arr, lookback):
+    """NaN out scores for tickers with missing prices in lookback window."""
+    n_dates = price_arr.shape[0]
+    for i in range(lookback, n_dates):
+        chunk = price_arr[i - lookback:i + 1]
+        has_nan = np.any(np.isnan(chunk), axis=0)
+        scores[i - lookback, has_nan] = np.nan
+    return scores
+
+
+def weights_rsi(prices, lookback=60, n_tail=5, top_n=20,
+                spread_df=None, max_spread=0.02):
+    """RSI-based: buy the most oversold stocks (lowest RSI)."""
     print('  Computing RSI matrix...')
-    rsi = rsi_matrix(prices.values, n=7)  # (n_dates, n_tickers)
+    rsi = rsi_matrix(prices.values, n=7)
 
-    # Rolling trailing mean of RSI
     n_dates, n_tickers = rsi.shape
     scores = np.full((n_dates - lookback, n_tickers), np.nan)
     for i in range(lookback, n_dates):
         scores[i - lookback] = np.mean(rsi[i - n_tail + 1:i + 1], axis=0)
 
-    # Mask tickers that had NaN prices in their lookback window
-    price_arr = prices.values
-    for i in range(lookback, n_dates):
-        chunk = price_arr[i - lookback:i + 1]
-        has_nan = np.any(np.isnan(chunk), axis=0)
-        scores[i - lookback, has_nan] = np.nan
+    scores = _apply_nan_mask(scores, prices.values, lookback)
+    if spread_df is not None:
+        scores = _apply_spread_mask(scores, spread_df.values, lookback, max_spread)
 
     weights = select_top_n_matrix(scores, top_n, ascending=True)
     return pd.DataFrame(weights, index=prices.index[lookback:], columns=prices.columns)
 
 
-def weights_scalogram(prices, lookback=120, n_tail=10, top_n=20):
-    """Scalogram-based: multi-scale momentum + direction.
-
-    Computes CWT for ALL tickers at once, then scores from trailing edge.
-    """
+def weights_scalogram(prices, lookback=120, n_tail=10, top_n=20,
+                      spread_df=None, max_spread=0.02):
+    """Scalogram-based: multi-scale momentum + direction."""
     scales = [5, 7, 10, 12, 21, 26]
-    print('  Computing CWT matrix...')
-    coeffs = cwt_matrix(prices.values, scales)  # (n_scales, n_dates, n_tickers)
+    print('  Computing causal CWT matrix...')
+    coeffs = cwt_causal_matrix(prices.values, scales, lookback)
     power = coeffs ** 2
 
     n_dates, n_tickers = prices.shape
     scores = np.full((n_dates - lookback, n_tickers), np.nan)
 
     for i in tqdm(range(lookback, n_dates), desc='Scalogram scores', unit='day'):
-        # Momentum: mean trailing power across all scales
-        trailing = power[:, i - n_tail + 1:i + 1, :]  # (n_scales, n_tail, n_tickers)
-        momentum = np.mean(trailing, axis=(0, 1))  # (n_tickers,)
-
-        # Direction: mean coefficient at shortest scale (scale=5)
+        trailing = power[:, i - n_tail + 1:i + 1, :]
+        momentum = np.mean(trailing, axis=(0, 1))
         direction = np.mean(coeffs[0, i - n_tail + 1:i + 1, :], axis=0)
 
-        # Coherence: correlation between shortest and longest scale power
-        short_p = power[0, i - n_tail + 1:i + 1, :]   # (n_tail, n_tickers)
+        short_p = power[0, i - n_tail + 1:i + 1, :]
         long_p = power[-1, i - n_tail + 1:i + 1, :]
-
         short_m = short_p.mean(axis=0, keepdims=True)
         long_m = long_p.mean(axis=0, keepdims=True)
         cov = np.mean((short_p - short_m) * (long_p - long_m), axis=0)
@@ -232,59 +332,55 @@ def weights_scalogram(prices, lookback=120, n_tail=10, top_n=20):
 
         scores[i - lookback] = direction - momentum * coherence
 
-    # Mask NaN tickers
-    price_arr = prices.values
-    for i in range(lookback, n_dates):
-        has_nan = np.any(np.isnan(price_arr[i - lookback:i + 1]), axis=0)
-        scores[i - lookback, has_nan] = np.nan
+    scores = _apply_nan_mask(scores, prices.values, lookback)
+    if spread_df is not None:
+        scores = _apply_spread_mask(scores, spread_df.values, lookback, max_spread)
 
     weights = select_top_n_matrix(scores, top_n, ascending=True)
     return pd.DataFrame(weights, index=prices.index[lookback:], columns=prices.columns)
 
 
-def weights_regime(prices, lookback=120, n_tail=20, top_n=20):
+def weights_regime(prices, lookback=120, n_tail=20, top_n=20,
+                   spread_df=None, max_spread=0.02):
     """Regime detection: stocks with biggest power-spectrum shift."""
     scales = [5, 7, 10, 12, 21, 26, 50, 90]
-    print('  Computing CWT matrix...')
-    coeffs = cwt_matrix(prices.values, scales)
+    print('  Computing causal CWT matrix...')
+    coeffs = cwt_causal_matrix(prices.values, scales, lookback)
     power = coeffs ** 2
 
     n_dates, n_tickers = prices.shape
-    n_scales = len(scales)
     scores = np.full((n_dates - lookback, n_tickers), np.nan)
 
     for i in tqdm(range(lookback, n_dates), desc='Regime scores', unit='day'):
-        # Recent vs historical power distribution per scale
-        recent = np.mean(power[:, i - n_tail + 1:i + 1, :], axis=1)    # (n_scales, n_tickers)
+        recent = np.mean(power[:, i - n_tail + 1:i + 1, :], axis=1)
         historical = np.mean(power[:, i - lookback:i - n_tail + 1, :], axis=1)
 
-        # Normalize to distributions per ticker
         recent_sum = recent.sum(axis=0, keepdims=True) + 1e-9
         hist_sum = historical.sum(axis=0, keepdims=True) + 1e-9
         rd = recent / recent_sum
         hd = historical / hist_sum
 
-        # Symmetrized KL divergence per ticker
         kl = 0.5 * np.sum(rd * np.log((rd + 1e-9) / (hd + 1e-9)), axis=0)
         kl += 0.5 * np.sum(hd * np.log((hd + 1e-9) / (rd + 1e-9)), axis=0)
-
         scores[i - lookback] = kl
 
-    # Mask NaN tickers
-    price_arr = prices.values
-    for i in range(lookback, n_dates):
-        has_nan = np.any(np.isnan(price_arr[i - lookback:i + 1]), axis=0)
-        scores[i - lookback, has_nan] = np.nan
+    scores = _apply_nan_mask(scores, prices.values, lookback)
+    if spread_df is not None:
+        scores = _apply_spread_mask(scores, spread_df.values, lookback, max_spread)
 
     weights = select_top_n_matrix(scores, top_n, ascending=False)
     return pd.DataFrame(weights, index=prices.index[lookback:], columns=prices.columns)
 
 
-def weights_equal(prices, top_n=20):
-    """Benchmark: equal-weight buy-and-hold of the top_n largest stocks
-    (by last available price as a crude market-cap proxy).
-    """
+def weights_equal(prices, top_n=20, spread_df=None, max_spread=0.02):
+    """Benchmark: equal-weight buy-and-hold of the top_n largest stocks."""
     last_prices = prices.iloc[-1].sort_values(ascending=False)
+
+    if spread_df is not None:
+        last_spread = spread_df.iloc[-1]
+        liquid = last_spread[last_spread <= max_spread].index
+        last_prices = last_prices[last_prices.index.isin(liquid)]
+
     selected = last_prices.index[:top_n].tolist()
     w = 1.0 / top_n
     row = {t: w if t in selected else 0.0 for t in prices.columns}
@@ -303,13 +399,54 @@ WEIGHT_BUILDERS = {
 # bt strategy builder
 # ---------------------------------------------------------------------------
 
-def build_strategy(name, prices, weight_df, rebalance_days=5):
+def print_rebalance_events(weight_df, name, rebalance_days):
+    """Print each rebalance event: date, holdings, and changes."""
+    rebal_weights = weight_df.iloc[::rebalance_days]
+    prev_holdings = set()
+
+    for date, row in rebal_weights.iterrows():
+        held = row[row > 0].sort_values(ascending=False)
+        current = set(held.index)
+
+        added = current - prev_holdings
+        removed = prev_holdings - current
+
+        tickers_str = ', '.join(f'{t} ({w:.0%})' for t, w in held.items())
+        changes = []
+        if added:
+            changes.append(f'+{",".join(sorted(added))}')
+        if removed:
+            changes.append(f'-{",".join(sorted(removed))}')
+        change_str = f'  [{" | ".join(changes)}]' if changes else ''
+
+        print(f'  [{name}] {date.date()}  {tickers_str}{change_str}')
+        prev_holdings = current
+
+
+def make_commission_fn(spread_bps=10):
+    """Create a commission function.
+
+    Uses a flat spread cost in basis points. When per-ticker spread
+    estimates are available, use make_spread_commission_fn instead.
+    """
+    frac = spread_bps / 10000.0
+
+    def commission(q, p):
+        return abs(q) * p * frac
+
+    return commission
+
+
+def build_strategy(name, prices, weight_df, rebalance_days=5, verbose=False,
+                   commission_bps=10):
     """Build a bt.Strategy from a weight DataFrame.
 
     Subsamples weight_df to rebalance every N trading days.
     """
-    # Subsample weights to rebalance frequency
     rebal_weights = weight_df.iloc[::rebalance_days]
+
+    if verbose:
+        print_rebalance_events(weight_df, name, rebalance_days)
 
     strategy = bt.Strategy(name, [
         bt.algos.RunOnDate(*rebal_weights.index),
@@ -317,7 +454,8 @@ def build_strategy(name, prices, weight_df, rebalance_days=5):
         bt.algos.Rebalance(),
     ])
 
-    return bt.Backtest(strategy, prices)
+    return bt.Backtest(strategy, prices,
+                       commissions=make_commission_fn(commission_bps))
 
 
 # ---------------------------------------------------------------------------
@@ -337,22 +475,33 @@ if __name__ == '__main__':
                         help='Number of stocks to hold (default: 20)')
     parser.add_argument('--rebalance', type=int, default=5,
                         help='Rebalance every N trading days (default: 5)')
-    parser.add_argument('--start', default='2016-01-01',
+    parser.add_argument('--start', default='2000-01-01',
                         help='Backtest start date')
-    parser.add_argument('--end', default='2025-01-01',
+    parser.add_argument('--end', default='2025-12-31',
                         help='Backtest end date')
     parser.add_argument('--min-history', type=int, default=504,
                         help='Min trading days of history per ticker (default: 504)')
     parser.add_argument('--save', action='store_true',
                         help='Save plots to Output/')
+    parser.add_argument('--verbose', action='store_true',
+                        help='Print each rebalance event')
+    parser.add_argument('--commission-bps', type=int, default=10,
+                        help='Transaction cost in basis points per trade (default: 10)')
+    parser.add_argument('--max-spread', type=float, default=0.02,
+                        help='Max Corwin-Schultz spread fraction to include (default: 0.02 = 2%%)')
     args = parser.parse_args()
 
     # Load data
-    prices = load_price_matrix(
+    prices, highs, lows = load_price_matrix(
         args.data_dir,
         min_history=args.min_history,
         start_date=args.start,
         end_date=args.end)
+
+    print('Computing Corwin-Schultz spread estimates...')
+    spread_df = corwin_schultz_spread(highs, lows)
+    liquid_pct = (spread_df.iloc[-1] <= args.max_spread).mean()
+    print(f'Liquid tickers (spread <= {args.max_spread:.1%}): {liquid_pct:.1%} of universe')
 
     # Build weight matrices and bt strategies
     backtests = []
@@ -360,11 +509,15 @@ if __name__ == '__main__':
         print(f'\nComputing weights: {name}')
         builder = WEIGHT_BUILDERS[name]
         if name == 'equal':
-            weight_df = builder(prices, top_n=args.top_n)
+            weight_df = builder(prices, top_n=args.top_n,
+                                spread_df=spread_df, max_spread=args.max_spread)
         else:
-            weight_df = builder(prices, top_n=args.top_n)
+            weight_df = builder(prices, top_n=args.top_n,
+                                spread_df=spread_df, max_spread=args.max_spread)
 
-        test = build_strategy(name, prices, weight_df, args.rebalance)
+        test = build_strategy(name, prices, weight_df, args.rebalance,
+                              verbose=args.verbose,
+                              commission_bps=args.commission_bps)
         backtests.append(test)
 
     # Run all backtests
