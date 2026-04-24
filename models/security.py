@@ -15,7 +15,7 @@ store_dir = os.path.join(cwd, ds_path)
 
 class Security(AddTimeSpan):
     class_version = '3.0'
-    STARTDATE = datetime.datetime(2016, 6, 1)
+    STARTDATE = datetime.datetime(2017, 6, 1)
 
     def __init__(self, ticker='GLD', crypto=False):
         self.version = self.__class__.class_version
