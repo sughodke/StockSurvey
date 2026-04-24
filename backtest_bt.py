@@ -455,7 +455,8 @@ def build_strategy(name, prices, weight_df, rebalance_days=5, verbose=False,
     ])
 
     return bt.Backtest(strategy, prices,
-                       commissions=make_commission_fn(commission_bps))
+                       commissions=make_commission_fn(commission_bps),
+                       integer_positions=False)
 
 
 # ---------------------------------------------------------------------------

@@ -14,4 +14,7 @@ dependencies = [
     "tqdm",
     "bt",
     "optuna",
+    "jax<0.5",
+    "jaxlib<0.5",
+    "optax>=0.2.5",
 ]
