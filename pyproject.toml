@@ -17,4 +17,5 @@ dependencies = [
     "jax<0.5",
     "jaxlib<0.5",
     "optax>=0.2.5",
+    "alpaca-py>=0.30",
 ]
