@@ -90,10 +90,19 @@ def _add_train_args(p: argparse.ArgumentParser) -> None:
                         'into the next window\'s training.')
     p.add_argument('--start', default='2010-01-01')
     p.add_argument('--end', default='2025-12-31')
-    p.add_argument('--min-history', type=int, default=504,
-                   help='Min trading days of history per ticker. Default 504 = '
-                        '4 × max wavelet scale (126), the minimum for the '
-                        'longest-scale Ricker kernel to fit without truncation.')
+    p.add_argument('--min-history', type=int, default=252,
+                   help='Lenient panel-wide ghost filter — drops tickers with '
+                        'fewer than this many bars in the requested date range. '
+                        'Default 252 (≈1 trading year). The strict survivorship '
+                        'filter is per-walk-forward; see --per-window-min-history.')
+    p.add_argument('--per-window-min-history', type=int, default=504,
+                   help='Per-walk-forward survivorship filter — a ticker must '
+                        'have at least this many valid bars (and a valid first '
+                        'bar) within each window to be eligible for that '
+                        'window. Default 504 (≈2y, = 4 × max wavelet scale). '
+                        'This is the survivorship-bias fix: instead of '
+                        'requiring tickers to exist for the whole date range, '
+                        'each window picks its own point-in-time universe.')
     p.add_argument('--include-etfs', action='store_true',
                    help='Stooq only: include `<exchange> etfs` in addition to '
                         'stocks. Default off (regime targets equities).')
@@ -161,6 +170,7 @@ def _run_train(args: argparse.Namespace) -> None:
         train_years=args.train_years,
         val_years=args.val_years,
         step_years=args.step_years,
+        per_window_min_history=args.per_window_min_history,
     )
     print_summary(result)
 

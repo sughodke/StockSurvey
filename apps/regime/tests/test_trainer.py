@@ -102,6 +102,63 @@ def test_train_rejects_unknown_strategy():
         train(prices, strategy='nonsense', n_trials=2)
 
 
+def test_filter_window_universe_drops_leading_nan_and_short_history():
+    """Per-window survivorship filter must:
+      1. Drop tickers with NaN at the window's first bar (else CWT
+         cumsum corrupts every subsequent value for that column)
+      2. Drop tickers with fewer than `min_bars` valid observations
+         in the window (insufficient history to compute scores)
+    """
+    from regime.trainer import _filter_window_universe
+
+    dates = pd.bdate_range('2020-01-01', periods=600)
+    panel = pd.DataFrame({
+        'FULL': 100.0,                 # valid throughout
+        'LATE': 100.0,                 # IPO'd at index 100 — leading NaN
+        'SHORT': 100.0,                # valid for first 50 bars only
+    }, index=dates)
+    panel.loc[dates[:100], 'LATE'] = np.nan
+    panel.loc[dates[50:], 'SHORT'] = np.nan
+
+    keep = _filter_window_universe(panel, min_bars=200)
+    # FULL: passes both checks
+    # LATE: fails check 1 (NaN at first bar)
+    # SHORT: fails check 2 (only 50 valid bars)
+    assert list(keep) == ['FULL']
+
+
+def test_train_per_window_filtering_keeps_pit_universe():
+    """End-to-end: a panel with a late-IPO ticker should successfully
+    train, with the late-IPO ticker filtered out of windows whose
+    start predates its first bar — but kept in later windows. Verifies
+    the survivorship-bias fix doesn't break the trainer when the
+    panel has leading NaNs."""
+    pytest.importorskip('vectorbt')
+    from regime.trainer import train
+
+    prices, spread_df = _synthetic(n_days=2200, n_tickers=8)
+    # Make ticker 'T7' an IPO at bar 1500 — leading NaN in the panel.
+    prices = prices.copy()
+    prices.loc[prices.index[:1500], 'T7'] = np.nan
+    spread_df = spread_df.copy()
+    spread_df.loc[spread_df.index[:1500], 'T7'] = np.nan
+
+    result = train(
+        prices, spread_df, strategy='regime',
+        n_trials=2, rebalance_days=20, metric='sharpe',
+        commission_bps=10.0, per_window_min_history=252,
+        train_years=5, val_years=3, step_years=10,  # one window only
+    )
+    # The point of this test: the leading-NaN ticker would have
+    # propagated through the CWT cumsum and corrupted every score
+    # before this fix. Now the per-window filter excludes T7 from the
+    # train slice (whose first bar is NaN for T7) so the run completes
+    # without raising. We don't assert finite Sharpes — Optuna may not
+    # find a good config in 2 trials on a 7-ticker synthetic universe;
+    # that's not what this test is checking.
+    assert result.windows
+
+
 def test_train_walk_forward_smoke():
     """End-to-end train() with one walk-forward window + 2 Optuna trials.
 

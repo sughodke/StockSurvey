@@ -100,7 +100,7 @@ def stooq_ticker_from_path(path: Path) -> str:
 def load_stooq_matrix(
     data_dir: str | os.PathLike,
     *,
-    min_history: int = 504,
+    min_history: int = 252,
     start_date: str | None = None,
     end_date: str | None = None,
     include_etfs: bool = False,
@@ -108,16 +108,33 @@ def load_stooq_matrix(
 ) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame, pd.DataFrame]:
     """Load the Stooq daily archive into aligned wide DataFrames.
 
+    Survivorship-bias note: this loader returns a **point-in-time**
+    panel — tickers that started trading partway through the date
+    range have leading NaN; tickers that delisted during the range
+    have trailing NaN. The downstream trainer applies per-walk-forward
+    filtering (see `regime.trainer.train`'s `per_window_min_history`)
+    to define each window's tradeable universe, instead of imposing
+    a panel-wide "must exist for the entire range" rule that would
+    silently drop everything that delisted.
+
     Parameters
     ----------
     data_dir :
         Root of the unpacked archive — the directory that *contains*
         the `daily/` subtree (e.g. `./StooqData`).
     min_history :
-        Drop tickers with fewer than this many close observations.
-        Same semantic as `load_price_matrix`; default 504 = 2y.
+        Lenient panel-wide ghost filter — drops tickers with fewer
+        than this many valid close observations *anywhere in the
+        sliced date range*. Default 252 (≈1 trading year). The real
+        per-window survivorship rule is applied downstream in the
+        trainer; this is just a sanity floor to drop tickers that
+        appear in the Stooq archive but never traded meaningfully
+        in the requested range.
     start_date, end_date :
         Optional ISO date strings to slice the loaded panel to.
+        `min_history` is enforced *after* this slice, so a ticker
+        that traded heavily before `start_date` but barely during
+        the requested range still gets dropped.
     include_etfs :
         Include `<exchange> etfs` subtrees in addition to stocks.
         Default False (the regime strategy targets equities).
@@ -133,7 +150,11 @@ def load_stooq_matrix(
     (close, high, low, volume) : four wide DataFrames
         DatetimeIndex, columns are tickers, all aligned. Volume is
         available because Stooq exports it; the Kaggle Nasdaq dump
-        did not.
+        did not. NaN appears where the ticker wasn't trading on a
+        given date — the downstream causal CWT requires per-ticker
+        cumsum so the trainer must drop columns with leading NaN
+        per-window before computing scores; see
+        `regime.trainer._filter_window_universe`.
     """
     data_dir = Path(data_dir)
     cache = Path(cache_path) if cache_path else None
@@ -154,15 +175,11 @@ def load_stooq_matrix(
     lows = merged.pivot(index='date', columns='ticker', values='low').sort_index()
     volumes = merged.pivot(index='date', columns='ticker', values='volume').sort_index()
 
-    # Apply the min_history filter on the close panel; the others
-    # follow whatever survives.
-    coverage = closes.notna().sum(axis=0)
-    keep = coverage[coverage >= min_history].index
-    closes = closes[keep]
-    highs = highs[keep]
-    lows = lows[keep]
-    volumes = volumes[keep]
-
+    # Slice to the requested date range FIRST. Doing this before the
+    # min_history filter means "min_history valid bars *in this range*"
+    # rather than "min_history valid bars across all of history" — a
+    # name that traded heavily before 2000 but barely after still gets
+    # dropped from a 2000-onward run.
     if start_date:
         closes, highs, lows, volumes = (
             df.loc[start_date:] for df in (closes, highs, lows, volumes))
@@ -170,38 +187,28 @@ def load_stooq_matrix(
         closes, highs, lows, volumes = (
             df.loc[:end_date] for df in (closes, highs, lows, volumes))
 
-    # Same 80%-coverage rule the Kaggle loader applies to handle tickers
-    # that exist over the full window but only trade for part of it.
-    min_valid = int(len(closes) * 0.8)
-    closes = closes.dropna(axis=1, thresh=min_valid)
-    common = closes.columns
-    highs = highs[common]
-    lows = lows[common]
-    volumes = volumes[common]
+    # Lenient ghost filter — drop tickers with truly minimal coverage in
+    # the requested range. The trainer's per-walk-forward filter does
+    # the strict survivorship enforcement; this just trims the panel
+    # so we don't carry around 10K columns of mostly-NaN.
+    coverage = closes.notna().sum(axis=0)
+    keep = coverage[coverage >= min_history].index
+    closes = closes[keep]
+    highs = highs[keep]
+    lows = lows[keep]
+    volumes = volumes[keep]
 
     # ffill *short* gaps only (1-trading-week halts, holidays missed in
-    # the source). Longer gaps stay NaN and the downstream `apply_nan_mask`
-    # naturally excludes that ticker on those dates — preferable to
-    # unlimited ffill which papers over delistings as 5-year flat lines
-    # of synthetic returns. We keep the date axis intact so a single
-    # delisted ticker doesn't cull the universe's calendar.
+    # the source). Longer gaps stay NaN — leading NaN for tickers that
+    # IPO'd partway through the range, trailing NaN for tickers that
+    # delisted partway through. The downstream causal CWT cumsum can't
+    # tolerate leading NaN, so the trainer drops columns with leading
+    # NaN per-window before computing scores — that's where the actual
+    # point-in-time tradeable universe is constructed.
     closes = closes.ffill(limit=5)
     highs = highs.ffill(limit=5)
     lows = lows.ffill(limit=5)
-    volumes = volumes.ffill(limit=5)
-
-    # Drop tickers whose close history starts after the panel's start —
-    # the causal CWT cumsum can't tolerate leading NaN (NaN propagates
-    # forward through cumsum and corrupts every subsequent value for
-    # that column). Tickers that lose data later in the window are fine;
-    # NaN will appear only for the missing tail and the per-window
-    # `apply_nan_mask` handles it.
-    has_valid_start = closes.iloc[0].notna()
-    closes = closes.loc[:, has_valid_start]
-    common = closes.columns
-    highs = highs[common]
-    lows = lows[common]
-    volumes = volumes[common].fillna(0)
+    volumes = volumes.ffill(limit=5).fillna(0)
 
     common_idx = closes.index.intersection(highs.index).intersection(lows.index)
     closes = closes.loc[common_idx]
@@ -209,7 +216,8 @@ def load_stooq_matrix(
     lows = lows.loc[common_idx]
     volumes = volumes.loc[common_idx]
 
-    print(f'Stooq panel: {closes.shape[0]} dates x {closes.shape[1]} tickers')
+    print(f'Stooq panel: {closes.shape[0]} dates x {closes.shape[1]} tickers '
+          f'(point-in-time; per-window filter applied downstream)')
     print(f'Date range:  {closes.index[0].date()} -> {closes.index[-1].date()}')
     return closes, highs, lows, volumes
 

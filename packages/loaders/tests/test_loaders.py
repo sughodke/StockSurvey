@@ -197,3 +197,77 @@ def test_load_stooq_matrix_raises_on_empty_dir(tmp_path):
     import pytest
     with pytest.raises(RuntimeError, match='no ticker files'):
         load_stooq_matrix(str(tmp_path))
+
+
+def test_load_stooq_matrix_keeps_late_ipos(tmp_path):
+    """A ticker that started trading partway through the date range
+    (i.e., has leading NaN in the panel) must be kept — that's the
+    survivorship-bias fix. The trainer's per-window filter handles
+    the cumsum-leading-NaN issue downstream; the loader no longer
+    drops these columns."""
+    bucket = tmp_path / 'daily' / 'us' / 'nasdaq stocks' / '1'
+    bucket.mkdir(parents=True, exist_ok=True)
+    rng = np.random.default_rng(0)
+
+    # AAPL trades the whole window
+    full_dates = pd.bdate_range('2020-01-01', periods=600)
+    pd.DataFrame({
+        '<TICKER>': 'AAPL.US', '<PER>': 'D',
+        '<DATE>': full_dates.strftime('%Y%m%d').astype(int),
+        '<TIME>': '000000',
+        '<OPEN>': 100, '<HIGH>': 101, '<LOW>': 99, '<CLOSE>': 100,
+        '<VOL>': 1_000_000, '<OPENINT>': 0,
+    }).to_csv(bucket / 'aapl.us.txt', index=False)
+
+    # NEW.US "IPOs" 200 bars in. Has leading NaN in the panel.
+    late_dates = full_dates[200:]
+    prices = np.cumsum(rng.standard_normal(len(late_dates))) + 100
+    pd.DataFrame({
+        '<TICKER>': 'NEW.US', '<PER>': 'D',
+        '<DATE>': late_dates.strftime('%Y%m%d').astype(int),
+        '<TIME>': '000000',
+        '<OPEN>': prices, '<HIGH>': prices + 0.5, '<LOW>': prices - 0.5,
+        '<CLOSE>': prices, '<VOL>': 500_000, '<OPENINT>': 0,
+    }).to_csv(bucket / 'new.us.txt', index=False)
+
+    closes, _, _, _ = load_stooq_matrix(str(tmp_path), min_history=252)
+    # Both tickers survive: NEW has 400 bars in the window (>252 floor).
+    assert set(closes.columns) == {'AAPL', 'NEW'}
+    # NEW has leading NaN where it wasn't trading yet — that's the
+    # point-in-time data we want to preserve.
+    assert closes['NEW'].iloc[0:100].isna().all()
+    assert closes['NEW'].iloc[300:].notna().all()
+
+
+def test_load_stooq_matrix_keeps_delisted(tmp_path):
+    """A ticker that delisted partway through the date range (trailing
+    NaN) must be kept too — for the same survivorship-bias reason.
+    `ffill(limit=5)` lets a 1-week halt extend the last value, then
+    NaN takes over."""
+    bucket = tmp_path / 'daily' / 'us' / 'nasdaq stocks' / '1'
+    bucket.mkdir(parents=True, exist_ok=True)
+
+    full_dates = pd.bdate_range('2020-01-01', periods=600)
+    pd.DataFrame({
+        '<TICKER>': 'SURV.US', '<PER>': 'D',
+        '<DATE>': full_dates.strftime('%Y%m%d').astype(int),
+        '<TIME>': '000000',
+        '<OPEN>': 100, '<HIGH>': 101, '<LOW>': 99, '<CLOSE>': 100,
+        '<VOL>': 1_000_000, '<OPENINT>': 0,
+    }).to_csv(bucket / 'surv.us.txt', index=False)
+
+    # DEAD delists after 300 bars
+    early_dates = full_dates[:300]
+    pd.DataFrame({
+        '<TICKER>': 'DEAD.US', '<PER>': 'D',
+        '<DATE>': early_dates.strftime('%Y%m%d').astype(int),
+        '<TIME>': '000000',
+        '<OPEN>': 50, '<HIGH>': 51, '<LOW>': 49, '<CLOSE>': 50,
+        '<VOL>': 200_000, '<OPENINT>': 0,
+    }).to_csv(bucket / 'dead.us.txt', index=False)
+
+    closes, _, _, _ = load_stooq_matrix(str(tmp_path), min_history=252)
+    assert 'DEAD' in closes.columns
+    # First 300 bars valid, then ffill carries 5 more, then NaN.
+    assert closes['DEAD'].iloc[:300].notna().all()
+    assert closes['DEAD'].iloc[306:].isna().all()

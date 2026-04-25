@@ -117,6 +117,33 @@ def _resolve_scales(params: dict) -> list[int]:
     return scales or DEFAULT_SCALES
 
 
+def _filter_window_universe(panel: pd.DataFrame, *, min_bars: int) -> pd.Index:
+    """Per-walk-forward survivorship filter: keep tickers that are
+    eligible to trade for *this specific* window slice.
+
+    A ticker passes if both:
+      1. It has a valid value at the window's first bar — required by
+         the causal CWT, whose cumsum-based rolling z-norm propagates
+         NaN forward forever once it hits one. A ticker that IPO'd
+         after the window started can't be scored in this window.
+      2. It has at least `min_bars` valid observations within the
+         window — enough history for the wavelet to produce a
+         meaningful score. A ticker that delists 30 days into a 5-year
+         window doesn't have enough data to participate.
+
+    Returns the surviving column index. The caller slices `panel` and
+    any aligned auxiliary frames (spread, etc.) by this index.
+
+    This is the survivorship-bias fix: instead of a panel-wide rule
+    that requires every ticker to exist for the entire date range, each
+    walk-forward window defines its own eligible universe based on who
+    was trading during that window.
+    """
+    has_valid_start = panel.iloc[0].notna()
+    valid_count = panel.notna().sum(axis=0)
+    return panel.columns[has_valid_start & (valid_count >= min_bars)]
+
+
 def weights_regime(
     prices: pd.DataFrame,
     *,
@@ -312,6 +339,7 @@ def train(
     val_years: int = 3,
     step_years: int = 3,
     seed: int = 42,
+    per_window_min_history: int = 504,
 ) -> TrainResult:
     """Walk-forward Optuna+vectorbt search over regime hyperparameters.
 
@@ -354,6 +382,17 @@ def train(
     idea). Both share lookback / n_tail / top_n / scale-subset
     hyperparameters; regime additionally searches over divergence
     function (kl/js/cosine/l2).
+
+    `per_window_min_history` enforces the per-walk-forward
+    survivorship filter (see `_filter_window_universe`). A ticker
+    must have a valid first bar AND >= this many valid bars in each
+    window to be eligible for that window. Default 504 (≈2y); set
+    lower for shorter walk-forward windows or to widen the universe.
+    This is the survivorship-bias fix — the loader returns a
+    point-in-time panel (with leading/trailing NaN for IPO/delist
+    events) and the trainer constructs a per-window eligible universe
+    from it, instead of imposing a panel-wide "must exist for the
+    full range" rule.
     """
     if strategy not in STRATEGIES:
         raise ValueError(f'unknown strategy {strategy!r}; available: {STRATEGIES}')
@@ -368,19 +407,40 @@ def train(
         if val_end > end:
             break
 
-        prices_train = prices.loc[window_start:train_end]
-        prices_val = prices.loc[train_end:val_end]
-        spread_train = (spread_df.loc[window_start:train_end]
-                        if spread_df is not None else None)
-        spread_val = (spread_df.loc[train_end:val_end]
-                      if spread_df is not None else None)
+        prices_train_full = prices.loc[window_start:train_end]
+        prices_val_full = prices.loc[train_end:val_end]
 
-        if len(prices_train) < 252 or len(prices_val) < 126:
+        if len(prices_train_full) < 252 or len(prices_val_full) < 126:
             window_start += pd.DateOffset(years=step_years)
             continue
 
-        print(f'\nWindow: train {window_start.date()}-{train_end.date()}, '
-              f'val {train_end.date()}-{val_end.date()}')
+        # Per-window survivorship filter — each slice picks its own
+        # tradeable universe from the point-in-time panel. Train and
+        # val are filtered independently so a name that delists between
+        # them only affects the slice it stops trading in.
+        keep_train = _filter_window_universe(
+            prices_train_full, min_bars=per_window_min_history)
+        keep_val = _filter_window_universe(
+            prices_val_full, min_bars=per_window_min_history)
+
+        if len(keep_train) == 0 or len(keep_val) == 0:
+            print(f'\nWindow {window_start.date()}-{val_end.date()}: '
+                  f'empty universe (train={len(keep_train)}, '
+                  f'val={len(keep_val)}); skipping')
+            window_start += pd.DateOffset(years=step_years)
+            continue
+
+        prices_train = prices_train_full[keep_train]
+        prices_val = prices_val_full[keep_val]
+        spread_train = (spread_df.loc[window_start:train_end, keep_train]
+                        if spread_df is not None else None)
+        spread_val = (spread_df.loc[train_end:val_end, keep_val]
+                      if spread_df is not None else None)
+
+        print(f'\nWindow: train {window_start.date()}-{train_end.date()} '
+              f'({len(keep_train)} tickers), '
+              f'val {train_end.date()}-{val_end.date()} '
+              f'({len(keep_val)} tickers)')
 
         study = optuna.create_study(
             direction='maximize',
