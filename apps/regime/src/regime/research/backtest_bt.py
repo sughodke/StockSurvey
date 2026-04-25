@@ -23,67 +23,20 @@ import logging
 import warnings
 
 import bt
+import jax.numpy as jnp
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 from tqdm import tqdm
 
-from ss_indicators import corwin_schultz_spread
+from ss_indicators import corwin_schultz_spread, symmetric_kl_divergence
 from ss_indicators import rsi as rsi_indicator
 from ss_loaders import load_price_matrix
+from ss_portfolio import apply_nan_mask, apply_spread_mask, select_top_n_matrix
 from ss_wavelets import causal_cwt
 
 warnings.filterwarnings('ignore')
 logging.basicConfig(level=logging.WARNING)
-
-
-def select_top_n_matrix(
-    scores_matrix: np.ndarray,
-    top_n: int,
-    ascending: bool = True,
-) -> np.ndarray:
-    """Convert `(n_dates, n_tickers)` scores into an equal-weight allocation.
-
-    At each date allocate `1 / top_n` to the `top_n` best names. NaN
-    scores are excluded; if fewer than `top_n` valid scores exist the
-    row is left at zero (no allocation that day).
-    """
-    n_dates, n_tickers = scores_matrix.shape
-    weights = np.zeros_like(scores_matrix)
-    w = 1.0 / top_n
-
-    for i in range(n_dates):
-        row = scores_matrix[i]
-        valid = ~np.isnan(row)
-        if valid.sum() < top_n:
-            continue
-        if ascending:
-            ranked = np.argsort(np.where(valid, row, np.inf))
-        else:
-            ranked = np.argsort(np.where(valid, -row, np.inf))
-        weights[i, ranked[:top_n]] = w
-    return weights
-
-
-def _apply_spread_mask(scores, spread_arr, lookback, max_spread):
-    """NaN out scores for tickers with estimated spread > max_spread."""
-    if spread_arr is None:
-        return scores
-    n_dates_scores = scores.shape[0]
-    for i in range(n_dates_scores):
-        spread_row = spread_arr[i + lookback]
-        scores[i, spread_row > max_spread] = np.nan
-    return scores
-
-
-def _apply_nan_mask(scores, price_arr, lookback):
-    """NaN out scores for tickers with missing prices in lookback window."""
-    n_dates = price_arr.shape[0]
-    for i in range(lookback, n_dates):
-        chunk = price_arr[i - lookback:i + 1]
-        has_nan = np.any(np.isnan(chunk), axis=0)
-        scores[i - lookback, has_nan] = np.nan
-    return scores
 
 
 def weights_rsi(prices, lookback=60, n_tail=5, top_n=20,
@@ -97,9 +50,9 @@ def weights_rsi(prices, lookback=60, n_tail=5, top_n=20,
     for i in range(lookback, n_dates):
         scores[i - lookback] = np.mean(rsi[i - n_tail + 1:i + 1], axis=0)
 
-    scores = _apply_nan_mask(scores, prices.values, lookback)
+    scores = apply_nan_mask(scores, prices.values, lookback)
     if spread_df is not None:
-        scores = _apply_spread_mask(scores, spread_df.values, lookback, max_spread)
+        scores = apply_spread_mask(scores, spread_df.values, lookback, max_spread)
 
     weights = select_top_n_matrix(scores, top_n, ascending=True)
     return pd.DataFrame(weights, index=prices.index[lookback:], columns=prices.columns)
@@ -131,9 +84,9 @@ def weights_scalogram(prices, lookback=120, n_tail=10, top_n=20,
 
         scores[i - lookback] = direction - momentum * coherence
 
-    scores = _apply_nan_mask(scores, prices.values, lookback)
+    scores = apply_nan_mask(scores, prices.values, lookback)
     if spread_df is not None:
-        scores = _apply_spread_mask(scores, spread_df.values, lookback, max_spread)
+        scores = apply_spread_mask(scores, spread_df.values, lookback, max_spread)
 
     weights = select_top_n_matrix(scores, top_n, ascending=True)
     return pd.DataFrame(weights, index=prices.index[lookback:], columns=prices.columns)
@@ -149,21 +102,17 @@ def weights_regime(prices, lookback=120, n_tail=20, top_n=20,
 
     n_dates, n_tickers = prices.shape
     scores = np.full((n_dates - lookback, n_tickers), np.nan)
+    log_w = jnp.zeros(len(scales))  # uniform scale weights — softmax(0) = 1/n_scales
 
     for i in tqdm(range(lookback, n_dates), desc='Regime scores', unit='day'):
         recent = np.mean(power[:, i - n_tail + 1:i + 1, :], axis=1)
         historical = np.mean(power[:, i - lookback:i - n_tail + 1, :], axis=1)
+        kl = symmetric_kl_divergence(jnp.asarray(recent), jnp.asarray(historical), log_w)
+        scores[i - lookback] = np.asarray(kl)
 
-        rd = recent / (recent.sum(axis=0, keepdims=True) + 1e-9)
-        hd = historical / (historical.sum(axis=0, keepdims=True) + 1e-9)
-
-        kl = 0.5 * np.sum(rd * np.log((rd + 1e-9) / (hd + 1e-9)), axis=0)
-        kl += 0.5 * np.sum(hd * np.log((hd + 1e-9) / (rd + 1e-9)), axis=0)
-        scores[i - lookback] = kl
-
-    scores = _apply_nan_mask(scores, prices.values, lookback)
+    scores = apply_nan_mask(scores, prices.values, lookback)
     if spread_df is not None:
-        scores = _apply_spread_mask(scores, spread_df.values, lookback, max_spread)
+        scores = apply_spread_mask(scores, spread_df.values, lookback, max_spread)
 
     weights = select_top_n_matrix(scores, top_n, ascending=False)
     return pd.DataFrame(weights, index=prices.index[lookback:], columns=prices.columns)

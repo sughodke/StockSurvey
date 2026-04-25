@@ -18,12 +18,14 @@ import logging
 import os
 import warnings
 
+import jax.numpy as jnp
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 from tqdm import tqdm
 
 from ss_indicators import rsi as rsi_indicator
+from ss_indicators import symmetric_kl_divergence
 
 warnings.filterwarnings('ignore', category=DeprecationWarning)
 warnings.filterwarnings('ignore', category=RuntimeWarning)
@@ -133,11 +135,10 @@ def rank_regime_change(prices_dict, date, lookback=120, n_tail=20):
         power = coeffs ** 2
         recent = np.mean(power[:, -n_tail:], axis=1)
         historical = np.mean(power[:, :-n_tail], axis=1)
-        rd = recent / (recent.sum() + 1e-9)
-        hd = historical / (historical.sum() + 1e-9)
-        kl = 0.5 * np.sum(rd * np.log((rd + 1e-9) / (hd + 1e-9)))
-        kl += 0.5 * np.sum(hd * np.log((hd + 1e-9) / (rd + 1e-9)))
-        scores[ticker] = float(-kl)
+        log_w = jnp.zeros(len(scales))  # uniform scale weights
+        kl = float(symmetric_kl_divergence(
+            jnp.asarray(recent), jnp.asarray(historical), log_w))
+        scores[ticker] = -kl
     return scores
 
 
