@@ -17,7 +17,12 @@ dependencies = [
     "optax>=0.2.5",
     "flax",
     "jupyter",
+    "imageio-ffmpeg>=0.6.0",
 ]
+
+[project.scripts]
+ss-scalogram = "ss_notebook.scalogram:main"
+ss-scalogram-video = "ss_notebook.scalogram_video:main"
 
 [build-system]
 requires = ["hatchling"]
