@@ -87,6 +87,7 @@ class WindowResult:
     best_params: dict
     train_score: float
     val_score: float
+    strategy: str = 'regime'  # which weight builder produced these params
 
 
 @dataclass
@@ -96,6 +97,7 @@ class TrainResult:
     metric: str
     rebalance_days: int
     commission_bps: float
+    strategy: str = 'regime'  # which weight builder was searched
 
     @property
     def best_window(self) -> WindowResult:
@@ -115,7 +117,7 @@ def _resolve_scales(params: dict) -> list[int]:
     return scales or DEFAULT_SCALES
 
 
-def regime_weights(
+def weights_regime(
     prices: pd.DataFrame,
     *,
     lookback: int,
@@ -124,7 +126,7 @@ def regime_weights(
     scales: list[int],
     divergence: str = 'kl',
 ) -> pd.DataFrame:
-    """Compute hard-top-N regime weights for a price matrix.
+    """Hard-top-N basket ranked by CWT-power-distribution divergence.
 
     The score per (date, ticker) is the chosen divergence between the
     recent vs historical CWT-power distributions across `scales`. We
@@ -135,6 +137,10 @@ def regime_weights(
     `scale_log_weights = zeros` makes the divergence's internal softmax
     uniform — Optuna chooses *which* scales to include, but each
     included scale contributes equally (matching the legacy behavior).
+
+    Picks **highest-divergence** names (`ascending=False`): biggest
+    regime shift wins. Direction (price up vs down) doesn't enter — it's
+    a momentum-of-volatility-shift idea.
 
     Liquidity is not filtered here; it enters the objective via per-
     (date, ticker) fees in `vbt_backtest`. Wide-spread names get
@@ -159,29 +165,124 @@ def regime_weights(
         weights, index=prices.index[lookback:], columns=prices.columns)
 
 
+def weights_scalogram(
+    prices: pd.DataFrame,
+    *,
+    lookback: int,
+    n_tail: int,
+    top_n: int,
+    scales: list[int],
+) -> pd.DataFrame:
+    """Hard-top-N basket ranked by direction − momentum × coherence.
+
+    A second CWT-based ranking idea, distinct from regime divergence.
+    For each (date, ticker), the score is:
+
+        score = direction − momentum × coherence
+
+    where:
+      direction = trailing-`n_tail` mean of the **shortest-scale signed**
+        wavelet coefficient (sign matters here, unlike regime which
+        squares the coefficient). Negative = recent price weakness.
+      momentum = trailing-`n_tail` mean of |coeffs|² averaged across
+        all scales — total recent volatility magnitude.
+      coherence = Pearson correlation between shortest-scale power and
+        longest-scale power over the trailing `n_tail` window, clipped
+        to [0, 1]. High coherence = timeframes agree (confirmed move).
+        Low coherence = timeframes disagree (transition / noise).
+
+    Picks **lowest-score** names (`ascending=True`): negative direction
+    on incoherent timescales = potential mean-reversion candidates.
+    A counter-trend bet, not a momentum bet.
+
+    Vectorized via cumulative-sum trailing means; same speed
+    characteristics as `weights_regime`.
+    """
+    coeffs = causal_cwt(prices.values, scales, lookback)
+    power = (coeffs ** 2).astype(np.float32)
+    n_scales, n_dates, n_tickers = power.shape
+
+    def _trail_mean(arr: np.ndarray) -> np.ndarray:
+        """Trailing-`n_tail` mean along axis=1 for valid dates only.
+        Input shape (..., n_dates, ...), output (..., n_valid, ...) where
+        `n_valid = n_dates - lookback`."""
+        cs = np.cumsum(arr.astype(np.float64), axis=1)
+        zero = np.zeros_like(cs[:, :1])
+        cs = np.concatenate([zero, cs], axis=1)
+        end = cs[:, lookback + 1: n_dates + 1]
+        start = cs[:, lookback - n_tail + 1: n_dates - n_tail + 1]
+        return ((end - start) / n_tail).astype(np.float32)
+
+    momentum = _trail_mean(power).mean(axis=0)
+    direction = _trail_mean(coeffs[:1])[0]
+
+    short = power[:1]
+    long = power[-1:]
+    e_s = _trail_mean(short)[0]
+    e_l = _trail_mean(long)[0]
+    e_ss = _trail_mean(short ** 2)[0]
+    e_ll = _trail_mean(long ** 2)[0]
+    e_sl = _trail_mean(short * long)[0]
+    cov = e_sl - e_s * e_l
+    var_s = np.maximum(e_ss - e_s ** 2, 1e-12)
+    var_l = np.maximum(e_ll - e_l ** 2, 1e-12)
+    coherence = np.clip(cov / (np.sqrt(var_s * var_l) + 1e-9), 0.0, 1.0)
+
+    scores = (direction - momentum * coherence).astype(np.float32)
+    scores = apply_nan_mask(scores, prices.values, lookback)
+
+    weights = select_top_n_matrix(scores, top_n, ascending=True)
+    return pd.DataFrame(
+        weights, index=prices.index[lookback:], columns=prices.columns)
+
+
+# Strategy dispatch table. Each entry is the weight builder for a
+# strategy name; the trainer + inference both look it up here.
+STRATEGIES = ('regime', 'scalogram')
+
+
+def _build_weights(strategy: str, prices: pd.DataFrame, params: dict) -> pd.DataFrame:
+    """Dispatch (strategy, params) → weight matrix. Single source of truth
+    for what each strategy's hyperparameter dict means; used by both the
+    Optuna objective (train slice) and the val-window evaluation."""
+    scales = _resolve_scales(params)
+    common = dict(
+        lookback=int(params['lookback']), n_tail=int(params['n_tail']),
+        top_n=int(params['top_n']), scales=scales)
+    if strategy == 'regime':
+        return weights_regime(prices, **common, divergence=str(params['divergence']))
+    if strategy == 'scalogram':
+        return weights_scalogram(prices, **common)
+    raise ValueError(f'unknown strategy {strategy!r}; available: {STRATEGIES}')
+
+
 def _make_objective(
-    prices, *, rebalance_days, metric, commission_bps, spread_df,
+    prices, *, strategy, rebalance_days, metric, commission_bps, spread_df,
 ):
-    """Build an Optuna objective closed over the train slice."""
+    """Build an Optuna objective closed over the train slice and strategy.
+
+    Hyperparameters shared by all strategies: `lookback`, `n_tail`,
+    `top_n`, and the three scale-subset booleans. Regime adds
+    `divergence` (kl/js/cosine/l2) — scalogram has no divergence knob,
+    its score is fixed.
+    """
     def objective(trial: optuna.Trial) -> float:
         lookback = trial.suggest_int('lookback', 40, 252)
         n_tail = trial.suggest_int('n_tail', 3, lookback // 2)
         top_n = trial.suggest_int('top_n', 5, 30)
-        divergence = trial.suggest_categorical(
-            'divergence', ['kl', 'js', 'cosine', 'l2'])
         use_short = trial.suggest_categorical('use_short_scales', [True, False])
         use_mid = trial.suggest_categorical('use_mid_scales', [True, False])
         use_long = trial.suggest_categorical('use_long_scales', [True, False])
-        scales = _resolve_scales({
-            'use_short_scales': use_short,
-            'use_mid_scales': use_mid,
-            'use_long_scales': use_long,
-        })
+        params: dict = dict(
+            lookback=lookback, n_tail=n_tail, top_n=top_n,
+            use_short_scales=use_short, use_mid_scales=use_mid,
+            use_long_scales=use_long)
+        if strategy == 'regime':
+            params['divergence'] = trial.suggest_categorical(
+                'divergence', ['kl', 'js', 'cosine', 'l2'])
 
         try:
-            weight_df = regime_weights(
-                prices, lookback=lookback, n_tail=n_tail, top_n=top_n,
-                scales=scales, divergence=divergence)
+            weight_df = _build_weights(strategy, prices, params)
             if weight_df.values.sum() == 0:
                 return float('-inf')
             metrics = vbt_backtest(
@@ -201,7 +302,9 @@ def train(
     prices: pd.DataFrame,
     spread_df: pd.DataFrame | None = None,
     *,
+    strategy: str = 'regime',
     n_trials: int = 50,
+    n_jobs: int = 1,
     rebalance_days: int = 20,
     metric: str = 'sharpe',
     commission_bps: float = 10.0,
@@ -236,7 +339,24 @@ def train(
     `seed` pins Optuna's TPE sampler RNG so two runs with the same
     inputs return the same hyperparameters. Re-runs without a pinned
     seed differ by ±0.1-0.3 Sharpe per window from sampler noise alone.
+
+    `n_jobs` runs Optuna trials in parallel via joblib threads. JAX,
+    scipy FFT, and numba (vbt's hot path) all release the GIL during
+    heavy work, so threads scale close to linearly with core count.
+    Note that parallel trials breaks strict reproducibility — TPE sees
+    completed trials in non-deterministic order — but the seed still
+    keeps the search reasonably stable. Set `n_jobs=1` if you need
+    bit-for-bit reproducibility across runs.
+
+    `strategy` selects the weight builder: `'regime'` (CWT-power-
+    distribution divergence, momentum-of-volatility-shift idea) or
+    `'scalogram'` (direction − momentum × coherence, mean-reversion
+    idea). Both share lookback / n_tail / top_n / scale-subset
+    hyperparameters; regime additionally searches over divergence
+    function (kl/js/cosine/l2).
     """
+    if strategy not in STRATEGIES:
+        raise ValueError(f'unknown strategy {strategy!r}; available: {STRATEGIES}')
     optuna.logging.set_verbosity(optuna.logging.WARNING)
     start, end = prices.index[0], prices.index[-1]
     windows: list[WindowResult] = []
@@ -266,22 +386,19 @@ def train(
             direction='maximize',
             sampler=optuna.samplers.TPESampler(seed=seed))
         objective = _make_objective(
-            prices_train,
+            prices_train, strategy=strategy,
             rebalance_days=rebalance_days, metric=metric,
             commission_bps=commission_bps,
             spread_df=spread_train)
-        study.optimize(objective, n_trials=n_trials, show_progress_bar=True)
+        study.optimize(objective, n_trials=n_trials, n_jobs=n_jobs,
+                       show_progress_bar=True)
 
         best = study.best_params
         train_score = study.best_value
         print(f'  Train {metric}: {train_score:+.4f}, params: {best}')
 
         try:
-            weight_df = regime_weights(
-                prices_val,
-                lookback=best['lookback'], n_tail=best['n_tail'],
-                top_n=best['top_n'], scales=_resolve_scales(best),
-                divergence=best['divergence'])
+            weight_df = _build_weights(strategy, prices_val, best)
             metrics = vbt_backtest(
                 prices_val, weight_df,
                 rebalance_days=rebalance_days,
@@ -294,19 +411,22 @@ def train(
 
         windows.append(WindowResult(
             train_start=window_start, train_end=train_end, val_end=val_end,
-            best_params=best, train_score=train_score, val_score=val_score))
+            best_params=best, train_score=train_score, val_score=val_score,
+            strategy=strategy))
         window_start += pd.DateOffset(years=step_years)
 
     return TrainResult(
         windows=windows, metric=metric,
         rebalance_days=rebalance_days,
-        commission_bps=commission_bps)
+        commission_bps=commission_bps,
+        strategy=strategy)
 
 
 def print_summary(result: TrainResult) -> None:
     """Pretty-print the per-window summary + best-window highlight."""
     print(f'\n{"=" * 80}')
-    print(f'Walk-Forward Summary  (metric: {result.metric}, '
+    print(f'Walk-Forward Summary  (strategy: {result.strategy}, '
+          f'metric: {result.metric}, '
           f'commission: {result.commission_bps} bps + half-spread per side)')
     print('=' * 80)
     print(f'{"Window":<22} {"Train":>9} {"Val":>9} {"Div":>7} '
@@ -321,8 +441,10 @@ def print_summary(result: TrainResult) -> None:
                 ('L', p.get('use_long_scales')),
             ] if on) or 'def'
         label = f'{w.train_start.year}-{w.val_end.year}'
+        # Scalogram has no divergence knob; print '—' so the column lines up.
+        div_str = str(p.get('divergence', '—'))
         print(f'{label:<22} {w.train_score:>+9.4f} {w.val_score:>+9.4f} '
-              f'{p["divergence"]:>7} {p["lookback"]:>4} {p["n_tail"]:>4} '
+              f'{div_str:>7} {p["lookback"]:>4} {p["n_tail"]:>4} '
               f'{p["top_n"]:>5} {scales_str:>8}')
     if result.windows:
         bw = result.best_window

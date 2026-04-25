@@ -40,6 +40,12 @@ warnings.filterwarnings('ignore')
 
 
 def _add_train_args(p: argparse.ArgumentParser) -> None:
+    p.add_argument('--strategy', choices=['regime', 'scalogram'], default='regime',
+                   help='Which CWT-based ranking strategy to search/train. '
+                        '`regime`: divergence between recent vs historical CWT '
+                        'power distributions (momentum-of-volatility-shift). '
+                        '`scalogram`: direction − momentum × coherence '
+                        '(mean-reversion on incoherent timescales).')
     p.add_argument('--source', choices=['stooq', 'kaggle'], default='stooq',
                    help='Data source layout. `stooq`: bulk archive with '
                         '`daily/<country>/<exchange>/<bucket>/*.txt` (split/'
@@ -54,6 +60,10 @@ def _add_train_args(p: argparse.ArgumentParser) -> None:
                         '`<data-dir>/.cache.pkl` for stooq; unused for kaggle.')
     p.add_argument('--n-trials', type=int, default=50,
                    help='Optuna trials per walk-forward window.')
+    p.add_argument('--jobs', type=int, default=1,
+                   help='Parallel Optuna trials per window (joblib threads). '
+                        'JAX/FFT/numba release the GIL so this scales close to '
+                        'linearly with core count. Default 1 = sequential.')
     p.add_argument('--seed', type=int, default=42,
                    help='Optuna TPE sampler seed. Pinned for reproducibility; '
                         'set explicitly to compare two runs apples-to-apples.')
@@ -141,7 +151,9 @@ def _run_train(args: argparse.Namespace) -> None:
 
     result = train(
         prices, spread_df,
+        strategy=args.strategy,
         n_trials=args.n_trials,
+        n_jobs=args.jobs,
         seed=args.seed,
         rebalance_days=args.rebalance_days,
         metric=args.metric,

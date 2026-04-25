@@ -68,6 +68,10 @@ class Checkpoint:
     mode: str = 'adam'
     top_n: int | None = None
     divergence: str | None = None
+    # Which weight builder produced this checkpoint. Defaults to
+    # 'regime' so checkpoints written before scalogram was added still
+    # load correctly (they were all regime).
+    strategy: str = 'regime'
 
     def jax_params(self) -> dict[str, jnp.ndarray]:
         """Return params in the dict form expected by the JAX divergence
@@ -127,24 +131,28 @@ def save_checkpoint_from_window(
     """Serialize an Optuna `WindowResult` to a checkpoint file.
 
     Resolves the window's scale-subset booleans into an explicit
-    `scales` list. Sets `mode='optuna'`, `top_n` and `divergence` from
-    the chosen hyperparams; leaves `scale_log_weights` at zeros so the
-    inference-time divergence sees uniform per-scale weighting, which
-    is what the Optuna search itself used.
+    `scales` list. Sets `mode='optuna'` and `strategy=window.strategy`;
+    `top_n` is recorded for both strategies, `divergence` only when
+    the strategy actually uses one (regime). `scale_log_weights` stays
+    at zeros so the inference-time divergence sees uniform per-scale
+    weighting, matching what the Optuna search itself used.
     """
     from regime.trainer import _resolve_scales
 
     scales = _resolve_scales(window.best_params)
+    strategy = getattr(window, 'strategy', 'regime')
     cp = Checkpoint(
         version=CHECKPOINT_VERSION,
         mode='optuna',
+        strategy=strategy,
         scales=scales,
         scale_log_weights=[0.0] * len(scales),
         log_temperature=0.0,
         lookback=int(window.best_params['lookback']),
         n_tail=int(window.best_params['n_tail']),
         top_n=int(window.best_params['top_n']),
-        divergence=str(window.best_params['divergence']),
+        divergence=(str(window.best_params['divergence'])
+                    if 'divergence' in window.best_params else None),
         rebal_days=rebal_days,
         max_spread=max_spread,
         commission_bps=commission_bps,

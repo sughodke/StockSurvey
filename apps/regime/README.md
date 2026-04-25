@@ -1,15 +1,26 @@
 # regime
 
-CWT-regime equity portfolio strategy — search hyperparameters offline,
-trade live via Alpaca.
+A pair of CWT-based long-only equity ranking strategies — search
+hyperparameters offline, trade live via Alpaca.
 
-A long-only strategy that buys stocks whose **wavelet-power
-distribution across timescales** has shifted most over the last few
-weeks. Operates on the Kaggle `svaningelgem/nasdaq-daily-stock-prices`
-dataset (~1200 liquid US tickers, OHLC only). Production training is
-Optuna walk-forward search over discrete hyperparameters using a
-vectorbt backtest engine; an alternative gradient-descent trainer
-(JAX-Adam) lives under `research/`.
+Two strategies share the same training infrastructure and live
+trading path; the only differences are the score function and the
+ranking direction. Pick which one to train via `--strategy`.
+
+  * **regime** (default) — buys stocks whose **wavelet-power
+    distribution across timescales** has shifted most over the last
+    few weeks. Momentum-of-volatility-shift idea. Picks highest
+    divergence (descending rank).
+  * **scalogram** — buys stocks whose **direction − momentum ×
+    coherence** is most negative. Mean-reversion idea: recent
+    weakness on incoherent timescales. Picks lowest score
+    (ascending rank).
+
+Operates on the Stooq daily archive (split/dividend-adjusted, has
+volume, includes delistings) or the legacy Kaggle dump. Production
+training is Optuna walk-forward search over discrete hyperparameters
+using a vectorbt backtest engine; an alternative gradient-descent
+trainer (JAX-Adam) for regime lives under `research/`.
 
 > **Setup**: this app needs the workspace's nix devShell to provide
 > numba/llvmlite for vectorbt. See the top-level `README.md` for
@@ -191,12 +202,15 @@ ranked, top-N held.
 ### Training (Optuna + vectorbt)
 
 ```
-# Default: Stooq archive (split/div-adjusted, has volume, has delistings).
+# Default: regime strategy on Stooq archive (split/div-adjusted, has volume).
 uv run regime train --data-dir ./StooqData --n-trials 50
 
+# Train the scalogram strategy instead:
+uv run regime train --data-dir ./StooqData --strategy scalogram --n-trials 50
+
 # All knobs explicit:
-uv run regime train --source stooq --data-dir ./StooqData \
-    --n-trials 100 --metric sharpe --seed 42 \
+uv run regime train --strategy regime --source stooq --data-dir ./StooqData \
+    --n-trials 100 --metric sharpe --seed 42 --jobs 4 \
     --train-years 5 --val-years 3 --step-years 3 \
     --start 2010-01-01 --end 2025-12-31
 

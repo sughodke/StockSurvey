@@ -154,3 +154,52 @@ def test_load_legacy_adam_checkpoint_defaults_mode(tmp_path: Path):
     cp = load_checkpoint(path)
     assert cp.mode == 'adam'
     assert cp.top_n is None and cp.divergence is None
+
+
+def test_save_scalogram_checkpoint_round_trip(tmp_path: Path):
+    """Scalogram WindowResult → checkpoint records strategy='scalogram'
+    and omits the divergence field (scalogram has no divergence knob)."""
+    from regime.persist import save_checkpoint_from_window
+    from regime.trainer import WindowResult
+
+    window = WindowResult(
+        train_start=pd.Timestamp('2015-01-01'),
+        train_end=pd.Timestamp('2020-01-01'),
+        val_end=pd.Timestamp('2023-01-01'),
+        best_params={
+            'lookback': 80, 'n_tail': 12, 'top_n': 10,
+            # no 'divergence' key — scalogram doesn't search over it
+            'use_short_scales': True,
+            'use_mid_scales': True,
+            'use_long_scales': False,
+        },
+        train_score=0.9, val_score=0.4,
+        strategy='scalogram',
+    )
+    path = save_checkpoint_from_window(
+        tmp_path / 'scalo.json', window,
+        universe=['AAPL', 'MSFT'],
+        rebal_days=20, max_spread=0.02, commission_bps=10)
+
+    cp = load_checkpoint(path)
+    assert cp.mode == 'optuna'
+    assert cp.strategy == 'scalogram'
+    assert cp.divergence is None  # scalogram has no divergence
+    assert cp.top_n == 10
+    # Short + mid scales resolved together
+    assert cp.scales == [3, 5, 7, 10, 12, 15, 21, 26]
+
+
+def test_load_legacy_checkpoint_defaults_strategy_to_regime(tmp_path: Path):
+    """A checkpoint without a `strategy` field (written before scalogram
+    was added) should load as strategy='regime' for back-compat."""
+    result = _make_train_result()
+    path = save_checkpoint(
+        tmp_path / 'm.json', result,
+        universe=['A'], lookback=60, n_tail=10, rebal_days=20,
+        max_spread=0.02, commission_bps=10)
+    raw = json.loads(path.read_text())
+    raw.pop('strategy', None)
+    path.write_text(json.dumps(raw))
+    cp = load_checkpoint(path)
+    assert cp.strategy == 'regime'
