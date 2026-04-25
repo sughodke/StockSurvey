@@ -24,6 +24,7 @@ def vbt_backtest(
     *,
     rebalance_days: int = 20,
     commission_bps: float = 10.0,
+    spread_df: pd.DataFrame | None = None,
     init_cash: float = 100_000.0,
 ) -> dict[str, float]:
     """Run one backtest and return Sharpe / CAGR / max-drawdown / total return.
@@ -41,6 +42,14 @@ def vbt_backtest(
         signal; hold flat in between.
     commission_bps :
         Per-side commission as basis points of notional turnover.
+    spread_df :
+        Optional `(n_dates, n_tickers)` Corwin-Schultz relative-spread
+        estimates. When provided, per-side fees become
+        `commission_bps/10000 + spread/2`, charging each name its own
+        liquidity cost on every rebalance. The optimizer then naturally
+        prefers configs that pick tradable names instead of needing a
+        binary spread filter upstream. When `None`, fees are flat at
+        `commission_bps`.
     init_cash :
         Starting capital, in currency units. Sharpe / max-drawdown are
         scale-invariant, so this only matters if you also want absolute
@@ -68,13 +77,23 @@ def vbt_backtest(
     rebal_dates = w.index[::rebalance_days].intersection(p.index)
     rebal_w.loc[rebal_dates] = w.loc[rebal_dates].values
 
+    # Per-side fee = flat commission + half the relative spread (the
+    # canonical "cross-half-spread" cost assumption). vectorbt accepts a
+    # `(n_dates, n_tickers)` fees matrix, so this charges each ticker
+    # its own time-varying spread on entry/exit.
+    if spread_df is not None:
+        s = spread_df.reindex(index=p.index, columns=common).fillna(0.0)
+        fees = commission_bps / 10000.0 + s.values / 2.0
+    else:
+        fees = commission_bps / 10000.0
+
     # Build a single grouped portfolio. `targetpercent` size_type takes
     # the weight matrix and computes share quantities for each rebalance.
     pf = vbt.Portfolio.from_orders(
         close=p,
         size=rebal_w,
         size_type='targetpercent',
-        fees=commission_bps / 10000.0,
+        fees=fees,
         init_cash=init_cash,
         cash_sharing=True,
         group_by=True,

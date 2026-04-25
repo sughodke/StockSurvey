@@ -31,11 +31,10 @@ def test_regime_weights_smoke():
     pytest.importorskip('vectorbt')
     from regime.trainer import regime_weights
 
-    prices, spread_df = _synthetic(n_days=300, n_tickers=8)
+    prices, _ = _synthetic(n_days=300, n_tickers=8)
     weights = regime_weights(
         prices, lookback=60, n_tail=10, top_n=3,
-        scales=[5, 21, 90], divergence='kl',
-        spread_df=spread_df, max_spread=0.02)
+        scales=[5, 21, 90], divergence='kl')
 
     # Index drops the lookback warmup
     assert len(weights) == len(prices) - 60
@@ -63,7 +62,7 @@ def test_train_walk_forward_smoke():
     result = train(
         prices, spread_df,
         n_trials=2, rebalance_days=20, metric='sharpe',
-        commission_bps=10.0, max_spread=0.02,
+        commission_bps=10.0,
         train_years=5, val_years=3, step_years=10,  # one window only
     )
     assert isinstance(result, TrainResult)

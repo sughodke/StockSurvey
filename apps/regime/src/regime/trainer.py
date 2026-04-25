@@ -37,7 +37,6 @@ from ss_indicators import corwin_schultz_spread, get_divergence
 from ss_loaders import load_price_matrix
 from ss_portfolio import (
     apply_nan_mask,
-    apply_spread_mask,
     select_top_n_matrix,
     vbt_backtest,
 )
@@ -69,7 +68,6 @@ class TrainResult:
     metric: str
     rebalance_days: int
     commission_bps: float
-    max_spread: float
 
     @property
     def best_window(self) -> WindowResult:
@@ -97,8 +95,6 @@ def regime_weights(
     top_n: int,
     scales: list[int],
     divergence: str = 'kl',
-    spread_df: pd.DataFrame | None = None,
-    max_spread: float = 0.02,
 ) -> pd.DataFrame:
     """Compute hard-top-N regime weights for a price matrix.
 
@@ -111,6 +107,11 @@ def regime_weights(
     `scale_log_weights = zeros` makes the divergence's internal softmax
     uniform — Optuna chooses *which* scales to include, but each
     included scale contributes equally (matching the legacy behavior).
+
+    Liquidity is not filtered here; it enters the objective via per-
+    (date, ticker) fees in `vbt_backtest`. Wide-spread names get
+    ranked normally and then naturally tank the realized Sharpe of any
+    config that picks them.
     """
     coeffs = causal_cwt(prices.values, scales, lookback)
     power = (coeffs ** 2).astype(np.float32)
@@ -119,13 +120,11 @@ def regime_weights(
     div_fn = get_divergence(divergence)
     scale_log_weights = jnp.zeros(len(scales), dtype=jnp.float32)
     # `np.array(jnp_array)` (not `asarray`) forces a writable host copy
-    # so `apply_nan_mask`/`apply_spread_mask` can NaN cells in place.
+    # so `apply_nan_mask` can NaN cells in place.
     scores = np.array(div_fn(
         jnp.asarray(recent), jnp.asarray(historical), scale_log_weights))
 
     scores = apply_nan_mask(scores, prices.values, lookback)
-    if spread_df is not None:
-        scores = apply_spread_mask(scores, spread_df.values, lookback, max_spread)
 
     weights = select_top_n_matrix(scores, top_n, ascending=False)
     return pd.DataFrame(
@@ -133,7 +132,7 @@ def regime_weights(
 
 
 def _make_objective(
-    prices, *, rebalance_days, metric, commission_bps, spread_df, max_spread,
+    prices, *, rebalance_days, metric, commission_bps, spread_df,
 ):
     """Build an Optuna objective closed over the train slice."""
     def objective(trial: optuna.Trial) -> float:
@@ -154,14 +153,14 @@ def _make_objective(
         try:
             weight_df = regime_weights(
                 prices, lookback=lookback, n_tail=n_tail, top_n=top_n,
-                scales=scales, divergence=divergence,
-                spread_df=spread_df, max_spread=max_spread)
+                scales=scales, divergence=divergence)
             if weight_df.values.sum() == 0:
                 return float('-inf')
             metrics = vbt_backtest(
                 prices, weight_df,
                 rebalance_days=rebalance_days,
-                commission_bps=commission_bps)
+                commission_bps=commission_bps,
+                spread_df=spread_df)
             score = metrics[metric]
             return score if np.isfinite(score) else float('-inf')
         except Exception:
@@ -178,7 +177,6 @@ def train(
     rebalance_days: int = 20,
     metric: str = 'sharpe',
     commission_bps: float = 10.0,
-    max_spread: float = 0.02,
     train_years: int = 5,
     val_years: int = 3,
     step_years: int = 2,
@@ -193,6 +191,12 @@ def train(
     `metric` is the key from `vbt_backtest`'s output dict to maximize:
     `sharpe`, `cagr`, or `max_drawdown` (note max_drawdown is negative,
     so maximizing it minimizes the worst drawdown).
+
+    `spread_df` is optional but recommended: when provided, per-side
+    fees become `commission_bps/10000 + spread/2`, so wide-spread names
+    automatically depress the Sharpe of any config that picks them.
+    No upstream binary spread filter is applied — the cost matrix
+    carries the liquidity signal end-to-end.
     """
     optuna.logging.set_verbosity(optuna.logging.WARNING)
     start, end = prices.index[0], prices.index[-1]
@@ -224,7 +228,7 @@ def train(
             prices_train,
             rebalance_days=rebalance_days, metric=metric,
             commission_bps=commission_bps,
-            spread_df=spread_train, max_spread=max_spread)
+            spread_df=spread_train)
         study.optimize(objective, n_trials=n_trials, show_progress_bar=True)
 
         best = study.best_params
@@ -236,12 +240,12 @@ def train(
                 prices_val,
                 lookback=best['lookback'], n_tail=best['n_tail'],
                 top_n=best['top_n'], scales=_resolve_scales(best),
-                divergence=best['divergence'],
-                spread_df=spread_val, max_spread=max_spread)
+                divergence=best['divergence'])
             metrics = vbt_backtest(
                 prices_val, weight_df,
                 rebalance_days=rebalance_days,
-                commission_bps=commission_bps)
+                commission_bps=commission_bps,
+                spread_df=spread_val)
             val_score = metrics[metric]
         except Exception:
             val_score = float('nan')
@@ -255,15 +259,14 @@ def train(
     return TrainResult(
         windows=windows, metric=metric,
         rebalance_days=rebalance_days,
-        commission_bps=commission_bps, max_spread=max_spread)
+        commission_bps=commission_bps)
 
 
 def print_summary(result: TrainResult) -> None:
     """Pretty-print the per-window summary + best-window highlight."""
     print(f'\n{"=" * 80}')
     print(f'Walk-Forward Summary  (metric: {result.metric}, '
-          f'commission: {result.commission_bps} bps, '
-          f'max spread: {result.max_spread:.1%})')
+          f'commission: {result.commission_bps} bps + half-spread per side)')
     print('=' * 80)
     print(f'{"Window":<22} {"Train":>9} {"Val":>9} {"Div":>7} '
           f'{"LB":>4} {"NT":>4} {"TopN":>5} {"Scales":>8}')
@@ -297,7 +300,6 @@ def main(argv: list[str] | None = None) -> None:
                         choices=['sharpe', 'cagr', 'max_drawdown', 'total_return'])
     parser.add_argument('--rebalance-days', type=int, default=20)
     parser.add_argument('--commission-bps', type=float, default=10.0)
-    parser.add_argument('--max-spread', type=float, default=0.02)
     parser.add_argument('--train-years', type=int, default=5)
     parser.add_argument('--val-years', type=int, default=3)
     parser.add_argument('--step-years', type=int, default=2)
@@ -319,7 +321,6 @@ def main(argv: list[str] | None = None) -> None:
         rebalance_days=args.rebalance_days,
         metric=args.metric,
         commission_bps=args.commission_bps,
-        max_spread=args.max_spread,
         train_years=args.train_years,
         val_years=args.val_years,
         step_years=args.step_years)

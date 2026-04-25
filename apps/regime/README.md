@@ -121,10 +121,10 @@ because gradients are bad in general.
    selections Optuna tries.
 
 2. **Sharpe through real costs is non-differentiable.** Per-side
-   commissions, the spread mask, equal-weight allocation, and integer
-   rebalances all introduce kinks in the objective. Adam needs a smooth
-   surrogate (`block_sharpe_with_costs` in `ss_portfolio`) which
-   approximates daily-return Sharpe but doesn't equal it.
+   commissions, per-name spread costs, equal-weight allocation, and
+   integer rebalances all introduce kinks in the objective. Adam needs
+   a smooth surrogate (`block_sharpe_with_costs` in `ss_portfolio`)
+   which approximates daily-return Sharpe but doesn't equal it.
 
 3. **Returns are noisy; overfitting risk &gt; gradient efficiency.**
    Search with walk-forward windows naturally validates each candidate
@@ -153,6 +153,30 @@ the same rank-and-hold pipeline. Search can't enumerate over tens of
 thousands of neural-net weights; gradients are mandatory there. Adam
 is research scaffolding for *that* future, not an alternative to the
 current production path.
+
+### Liquidity handling
+
+There's no upstream liquidity filter at training time. Instead,
+Corwin-Schultz spread is folded into the per-side fee in
+`ss_portfolio.vbt_backtest`:
+
+```
+fee[t, ticker] = commission_bps / 10000 + spread[t, ticker] / 2
+```
+
+This is the canonical "cross-half-spread" assumption — each rebalance
+trade pays half the relative bid-ask spread of *that* name on *that*
+date. The optimizer doesn't have a direct gradient on liquidity (the
+optuna search ranks names purely by divergence), but it has a strong
+*indirect* signal: any hyperparameter combination that ends up holding
+wide-spread names eats the cost on every rebalance and produces a
+worse Sharpe, so TPE drifts away from those configs.
+
+Live trading still applies a binary `max_spread` gate at inference
+(default 2%). The reason it's asymmetric: the live strategy has no
+Sharpe-optimization step that can absorb a bad pick — it just submits
+the top-N names ranked by score. The gate exists as a safety floor
+against unconscionable trades, not as a strategy filter.
 
 ### Why "regime"
 

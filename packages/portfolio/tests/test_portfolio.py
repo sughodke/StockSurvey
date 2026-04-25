@@ -203,6 +203,32 @@ def test_vbt_backtest_smoke():
     assert out['max_drawdown'] <= 0
 
 
+def test_vbt_backtest_spread_increases_cost():
+    """Passing a non-zero spread_df must depress total_return vs the same
+    backtest with no spread. Confirms the per-(date, ticker) fees matrix
+    is wired into vectorbt and not silently dropped."""
+    pytest.importorskip('vectorbt')
+    from ss_portfolio import vbt_backtest
+
+    rng = np.random.default_rng(0)
+    n_days, n_tickers = 252, 5
+    dates = pd.bdate_range('2020-01-01', periods=n_days)
+    closes = pd.DataFrame(
+        np.cumprod(1 + rng.standard_normal((n_days, n_tickers)) * 0.01, axis=0) * 100,
+        index=dates, columns=[f'T{i}' for i in range(n_tickers)])
+    weights = pd.DataFrame(
+        np.full((n_days, n_tickers), 1.0 / n_tickers),
+        index=dates, columns=closes.columns)
+
+    cheap = vbt_backtest(closes, weights, rebalance_days=20, commission_bps=5)
+    spread = pd.DataFrame(0.05, index=dates, columns=closes.columns)  # 5%
+    expensive = vbt_backtest(
+        closes, weights, rebalance_days=20, commission_bps=5, spread_df=spread)
+    # 5% spread → +2.5% per-side fee on top of 5bps commission. Across
+    # ~12 rebalances over the year, this must reduce total_return.
+    assert expensive['total_return'] < cheap['total_return']
+
+
 def test_block_sharpe_with_costs_shape():
     n_blocks, n_tickers = 12, 5
     rng = np.random.default_rng(0)

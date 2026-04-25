@@ -45,7 +45,10 @@ def _add_train_args(p: argparse.ArgumentParser) -> None:
     p.add_argument('--commission-bps', type=float, default=10.0,
                    help='Per-side commission cost in basis points. Default 10.')
     p.add_argument('--max-spread', type=float, default=0.02,
-                   help='Drop tickers whose Corwin-Schultz spread exceeds this fraction.')
+                   help='Live-trading sanity gate (fraction). Recorded into the '
+                        'checkpoint so `regime live` rejects names whose spread '
+                        'exceeds this on the rebalance bar. Training itself does '
+                        'not filter on spread — costs are charged via vbt fees.')
     p.add_argument('--train-years', type=int, default=5,
                    help='Training window length, in years. Default 5.')
     p.add_argument('--val-years', type=int, default=3,
@@ -95,8 +98,9 @@ def _run_train(args: argparse.Namespace) -> None:
 
     print('Computing Corwin-Schultz spreads...')
     spread_df = corwin_schultz_spread(highs, lows)
-    liquid_pct = (spread_df.iloc[-1] <= args.max_spread).mean()
-    print(f'Liquid tickers (spread <= {args.max_spread:.1%}): {liquid_pct:.1%}')
+    median_spread = spread_df.iloc[-1].median()
+    print(f'Median latest-bar spread across universe: {median_spread:.2%} '
+          f'(passed into vbt as per-side cost = commission + spread/2)')
 
     result = train(
         prices, spread_df,
@@ -104,7 +108,6 @@ def _run_train(args: argparse.Namespace) -> None:
         rebalance_days=args.rebalance_days,
         metric=args.metric,
         commission_bps=args.commission_bps,
-        max_spread=args.max_spread,
         train_years=args.train_years,
         val_years=args.val_years,
         step_years=args.step_years,
