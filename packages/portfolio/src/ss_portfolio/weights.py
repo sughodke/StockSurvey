@@ -22,6 +22,38 @@ def softmax_weights(
     return exp_s / (exp_s.sum() + 1e-12)
 
 
+def select_top_n_matrix(
+    scores_matrix: np.ndarray,
+    top_n: int,
+    ascending: bool = True,
+) -> np.ndarray:
+    """Convert `(n_dates, n_tickers)` scores into an equal-weight allocation.
+
+    At each date allocate `1 / top_n` to the `top_n` best names. NaN
+    scores are excluded; if fewer than `top_n` valid scores exist the
+    row is left at zero (no allocation that day).
+
+    `ascending=True` selects the lowest scores (e.g. lowest RSI = most
+    oversold); `ascending=False` selects the highest (e.g. highest
+    regime divergence).
+    """
+    n_dates, n_tickers = scores_matrix.shape
+    weights = np.zeros_like(scores_matrix)
+    w = 1.0 / top_n
+
+    for i in range(n_dates):
+        row = scores_matrix[i]
+        valid = ~np.isnan(row)
+        if valid.sum() < top_n:
+            continue
+        if ascending:
+            ranked = np.argsort(np.where(valid, row, np.inf))
+        else:
+            ranked = np.argsort(np.where(valid, -row, np.inf))
+        weights[i, ranked[:top_n]] = w
+    return weights
+
+
 def apply_position_cap(weights: pd.Series, max_position: float) -> pd.Series:
     """Water-fill weights to `max_position` while preserving total mass.
 

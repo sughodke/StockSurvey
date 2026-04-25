@@ -11,7 +11,7 @@ def test_imports():
     import regime.live
     import regime.persist
     import regime.reporting
-    import regime.trainer
+    import regime.research.optimize_adam
     from regime.research import backtest_bt, backtest_ranking, optimize_regime
 
     # Public API surface
@@ -29,7 +29,8 @@ def test_cli_help_loads():
     parser = _build_parser()
     train_parser = parser._subparsers._group_actions[0].choices['train']
     train_dests = {a.dest for a in train_parser._actions if a.dest != 'help'}
-    assert {'data_dir', 'lookback', 'n_tail'}.issubset(train_dests)
+    assert {'data_dir', 'n_trials', 'metric',
+            'train_years', 'val_years', 'step_years'}.issubset(train_dests)
     live_parser = parser._subparsers._group_actions[0].choices['live']
     live_dests = {a.dest for a in live_parser._actions if a.dest != 'help'}
     assert {'params', 'dry_run', 'max_position'}.issubset(live_dests)

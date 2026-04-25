@@ -1,14 +1,21 @@
-"""regime.research: pre-trainer experiments and bt-library backtests.
+"""regime.research: optimization + backtest workbench.
 
-These scripts predate the JAX-Adam trainer in `regime.trainer` and test
-the regime signal under different lookback / top-N / divergence choices.
-Useful as a sanity check on the trained checkpoint and for exploring
-where the differentiable optimizer might be over-fitting.
+Two optimizers and two backtest harnesses, all sharing the same
+`ss_indicators` / `ss_wavelets` / `ss_portfolio` primitives:
 
+  * `optimize_adam`     — JAX-Adam gradient descent over 14 continuous
+                          model parameters (scale weights + temperature)
+                          for *fixed* hyperparameters. Used by
+                          `regime train`.
+  * `optimize_regime`   — Optuna TPE walk-forward search over 7 discrete
+                          hyperparameters (lookback, n_tail, top_n,
+                          divergence, scale subsets). Slow but robust.
   * `backtest_bt`       — bt-library portfolio backtest (rsi, scalogram,
                           regime, equal); produces equity curves + stats.
+                          No optimization — runs given parameters.
   * `backtest_ranking`  — plain-numpy long-short walk-forward eval.
-  * `optimize_regime`   — Optuna walk-forward hyperparameter search.
+                          No optimization — runs given parameters.
 
-Run as scripts: `python -m regime.research.backtest_bt --data-dir ...`
+Run as scripts: `python -m regime.research.optimize_regime --data-dir ...`
+The `regime train` CLI is a thin wrapper around `optimize_adam.train()`.
 """

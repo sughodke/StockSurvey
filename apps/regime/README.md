@@ -1,118 +1,291 @@
 # regime
 
-Differentiable CWT-regime equity portfolio strategy — train offline,
+CWT-regime equity portfolio strategy — search hyperparameters offline,
 trade live via Alpaca.
 
-A standalone implementation of a regime-divergence long-only strategy
-trained end-to-end via JAX autograd. Takes per-ticker OHLC CSVs (Kaggle
-`svaningelgem/nasdaq-daily-stock-prices` schema), computes a causal
-continuous wavelet transform across 13 scales, and learns a
-14-parameter soft-top-N strategy that maximizes annualized Sharpe net
-of transaction costs. The trained checkpoint is portable JSON and is
-consumed by a live runner that fetches recent OHLC from Alpaca,
-computes target weights, and submits market orders.
+A long-only strategy that buys stocks whose **wavelet-power
+distribution across timescales** has shifted most over the last few
+weeks. Operates on the Kaggle `svaningelgem/nasdaq-daily-stock-prices`
+dataset (~1200 liquid US tickers, OHLC only). Production training is
+Optuna walk-forward search over discrete hyperparameters using a
+vectorbt backtest engine; an alternative gradient-descent trainer
+(JAX-Adam) lives under `research/`.
+
+> **Setup**: this app needs the workspace's nix devShell to provide
+> numba/llvmlite for vectorbt. See the top-level `README.md` for
+> first-time setup. After that, `uv run regime ...` works from any
+> shell.
 
 ## Layout
 
-    regime/
-      data.py        load CSVs; Corwin-Schultz spread (no-volume liquidity proxy)
-      cwt.py         causal Ricker CWT + windowed power means
-      strategy.py    JAX regime score + portfolio Sharpe with costs
-      trainer.py     Adam loop, train/val split, TrainResult dataclass
-      reporting.py   scale-weight printout + training plot
-      persist.py     JSON checkpoint round-trip
-      inference.py   pure forward pass: prices -> target weights
-      broker.py      Alpaca adapter (account, positions, bars, orders)
-      live.py        orchestration with risk rails
-      cli.py         argparse subcommands: `train` and `live`
-      __main__.py    `python -m regime` entry
+```
+apps/regime/src/regime/
+  trainer.py           production trainer: Optuna + vectorbt walk-forward
+  cli.py               argparse subcommands `train` and `live`
+  __main__.py          `python -m regime` entry
+  inference.py         pure forward pass: Checkpoint + prices -> target weights
+  persist.py           JSON checkpoint round-trip (currently JAX-Adam format only)
+  reporting.py         TrainResult -> ss_plotting wrappers
+  broker.py            Alpaca adapter: account, positions, bars, orders
+  live.py              orchestration with risk rails
+  research/
+    optimize_adam.py    JAX-Adam gradient-descent alternative trainer
+    optimize_regime.py  legacy reference: Optuna + bt-library walk-forward
+    backtest_bt.py      bt-library multi-strategy comparison (rsi/scalogram/regime/equal)
+    backtest_ranking.py plain-numpy long/short walk-forward
+```
 
-## Usage
-
-### Training
-
-    python -m regime train --data-dir ./Nasdaq3347
-    python -m regime train --data-dir ./Nasdaq3347 --lookback 229 --n-tail 106 \
-        --n-steps 500 --save-params Output/regime-v1.json --save
-
-### Going live (paper trading)
-
-    export ALPACA_API_KEY=...        # paper-trading keys from app.alpaca.markets
-    export ALPACA_SECRET_KEY=...
-    # ALPACA_BASE_URL defaults to paper; set to https://api.alpaca.markets for real money
-
-    # Dry-run: print what would be traded.
-    python -m regime live --params Output/regime-v1.json --dry-run
-
-    # Submit orders.
-    python -m regime live --params Output/regime-v1.json --live
-
-A typical cron entry that rebalances every weekday at 09:35 ET:
-
-    35 9 * * 1-5  cd /path/to/StockSurvey && \
-        uv run python -m regime live --params Output/regime-v1.json --live \
-        >> Output/regime-live.log 2>&1
+Math primitives live in workspace packages (`ss_loaders`,
+`ss_indicators`, `ss_wavelets`, `ss_portfolio`, `ss_plotting`) so they
+can be reused outside this app.
 
 ## Method
 
-For each rebalance date, build two distributions over CWT scales for
-each ticker:
+For each ticker, the system computes a **scale fingerprint** — what
+fraction of recent price activity sits at each timescale — and ranks
+tickers by how much that fingerprint has *shifted* relative to the
+preceding history. The biggest shifts are bought.
 
-  * **recent** — mean wavelet power over the last `n_tail` days
-  * **historical** — mean wavelet power over the prior `lookback - n_tail` days
+### Pipeline
 
-The per-ticker score is the symmetric KL divergence between these two
-distributions, weighted by a learned softmax over scales. Tickers are
-ranked via temperature-scaled softmax of (score / liquidity-mask), held
-for `rebal_days`, and re-ranked. P&L is reported net of `commission_bps`
-of one-sided turnover at each rebalance.
+```
+prices                                      # (n_dates, n_tickers)
+   ↓ ss_wavelets.causal_cwt
+coefficients[scale, t, ticker]              # 13 scales: 3..126 days
+   ↓ |·|²
+power[scale, t, ticker]
+   ↓ ss_wavelets.precompute_windows
+recent[scale, t, ticker]      = mean over the last n_tail days
+historical[scale, t, ticker]  = mean over the prior (lookback - n_tail) days
+   ↓ Σ-normalize over scale axis
+rd[scale, ...]                              # discrete distribution over scales
+hd[scale, ...]                              # same, but historical
+   ↓ ss_indicators.{kl,js,cosine,l2}_divergence
+score[t, ticker]                            # bigger = bigger regime shift
+   ↓ ss_portfolio.select_top_n_matrix
+weights[t, ticker]                          # 1/top_n on the top names, 0 elsewhere
+```
 
-## Learned parameters
+### Intuition: scale fingerprints
 
-  * `scale_log_weights` (13) — pre-softmax weights over CWT scales
-  * `log_temperature`   (1)  — softmax concentration; ~0 ≈ argmax (hard top-1)
+Most of the time a stock's distribution of variance across timescales
+is roughly stable — say, 15% short / 30% mid / 55% long. A "regime
+change" is when that distribution shifts (e.g., short doubles to 45%
+while long falls to 35%). The chosen divergence quantifies "how
+different is this distribution from that one":
 
-Empirically the optimizer concentrates weight on the 26-126d band and
-drops temperature near zero, i.e. it converges to a near-discrete
-top-1-by-regime-shift policy on monthly-to-biannual horizons.
+| | Stock A (no change) | Stock B (regime shift) |
+|---|---|---|
+| Historical | 5d=15%, 21d=30%, 90d=55% | 5d=15%, 21d=30%, 90d=55% |
+| Recent     | 5d=14%, 21d=32%, 90d=54% | 5d=45%, 21d=20%, 90d=35% |
+| KL         | ≈ 0 | ~0.4 |
+
+The strategy holds Stock B. Direction (up vs down) doesn't matter to
+the score — it's a momentum-of-volatility-shift idea.
+
+### What the search optimizes
+
+Optuna searches a 7-dimensional discrete space per walk-forward window:
+
+| Hyperparameter | Range / values | Role |
+|---|---|---|
+| `lookback` | int [40, 252] | Total CWT z-norm + historical-window length, in days |
+| `n_tail` | int [3, lookback//2] | Length of the *recent* window |
+| `top_n` | int [5, 30] | Number of names held each rebalance |
+| `divergence` | `{kl, js, cosine, l2}` | Which distance metric to use |
+| `use_short_scales` | bool | Include scales [3, 5, 7]? |
+| `use_mid_scales` | bool | Include scales [10, 12, 15, 21, 26]? |
+| `use_long_scales` | bool | Include scales [42, 50, 63, 90, 126]? |
+
+Per-scale weights are *equal* within the chosen subset — Optuna picks
+which scales to include, not how to weight them. (The JAX-Adam
+trainer in `research/optimize_adam.py` does the opposite: fixed
+hyperparameters, learned per-scale weights.)
+
+The walk-forward driver rolls a 5y train / 3y val window forward by
+2y at a time (configurable), reporting per-window best params and
+their out-of-sample Sharpe.
+
+### Why search (Optuna), not optimize (Adam)?
+
+The production trainer is a Bayesian search, not gradient descent.
+Both are wired in (Adam lives at `research/optimize_adam.py`); search
+won the bake-off because of the structure of *this* problem, not
+because gradients are bad in general.
+
+1. **The decisions are discrete.** Choice of divergence (kl/js/cosine/l2),
+   choice of scale subset, choice of `top_n` — these are
+   non-differentiable. Adam can only optimize continuous knobs, so it
+   has to settle for a softmax over scales + a temperature-softened
+   top-N, which is a *different and weaker* strategy than the hard
+   selections Optuna tries.
+
+2. **Sharpe through real costs is non-differentiable.** Per-side
+   commissions, the spread mask, equal-weight allocation, and integer
+   rebalances all introduce kinks in the objective. Adam needs a smooth
+   surrogate (`block_sharpe_with_costs` in `ss_portfolio`) which
+   approximates daily-return Sharpe but doesn't equal it.
+
+3. **Returns are noisy; overfitting risk &gt; gradient efficiency.**
+   Search with walk-forward windows naturally validates each candidate
+   on held-out periods. Adam optimizes a single train/val split — one
+   chance to overfit, one chance to validate.
+
+4. **Empirical bake-off (post strict-causality fix)**:
+
+   | Trainer | Best val Sharpe | Notes |
+   |---|---|---|
+   | Optuna + vectorbt (`regime.trainer`) | **+0.46** | hard top-N, cosine, mid scales |
+   | Optuna + bt (`research/optimize_regime`) | +0.46 | reference; same math, slower engine |
+   | JAX-Adam (`research/optimize_adam`) | +0.16 | matched window, KL only |
+   | JAX-Adam, full data | -0.33 | overfits to single train slice |
+
+   Adam can't reach the search result because soft-top-N over
+   ~1000 names spreads weight across dozens of names even at low
+   temperature, while Optuna's hard top-N=5 puts 20% on each of 5
+   names. That concentration is where the alpha lives in this
+   strategy.
+
+When would Adam win? If we ever stack a **learned-feature backbone**
+on top of the regime score — e.g., a CNN on the CWT scalogram
+(`apps/notebook/notebooks/cwt_vision_multihead.ipynb`) feeding into
+the same rank-and-hold pipeline. Search can't enumerate over tens of
+thousands of neural-net weights; gradients are mandatory there. Adam
+is research scaffolding for *that* future, not an alternative to the
+current production path.
+
+### Why "regime"
+
+There's no Hidden Markov Model or Bayesian state inference here — the
+name comes from the *idea* of detecting a state change in the
+distribution of price energy across timescales. Mechanically it's
+divergence-between-two-distributions, computed every rebalance bar,
+ranked, top-N held.
+
+## Usage
+
+### Training (Optuna + vectorbt)
+
+```
+uv run regime train --data-dir ./Nasdaq3347 --n-trials 50
+uv run regime train --data-dir ./Nasdaq3347 \
+    --n-trials 100 --metric sharpe \
+    --train-years 5 --val-years 3 --step-years 2 \
+    --start 2010-01-01 --end 2025-12-31
+```
+
+The CLI prints a per-window summary like:
+
+```
+Window                     Train       Val     Div   LB   NT  TopN   Scales
+2013-2021                +1.1844   +0.3397      kl   41    5    19        S
+2015-2023                +1.1251   +0.4603  cosine  116   16     5        M
+2017-2025                +0.9598   +0.2140      kl   92   33    12        L
+```
+
+…and highlights the highest-validation-Sharpe window.
+
+### Going live (paper trading)
+
+```
+export ALPACA_API_KEY=...        # paper-trading keys from app.alpaca.markets
+export ALPACA_SECRET_KEY=...
+# ALPACA_BASE_URL defaults to paper; set to https://api.alpaca.markets for real money
+
+uv run regime live --params Output/regime-v1.json --dry-run
+uv run regime live --params Output/regime-v1.json --live
+```
+
+Cron entry that rebalances every weekday at 09:35 ET:
+
+```
+35 9 * * 1-5  cd /path/to/StockSurvey && \
+    uv run regime live --params Output/regime-v1.json --live \
+    >> Output/regime-live.log 2>&1
+```
+
+### Alternative trainers (research)
+
+```
+# JAX-Adam: gradient descent over per-scale weights and temperature.
+uv run python -c "from regime.research.optimize_adam import train; ..."
+
+# Original Optuna + bt-library reference (slower; kept for comparison).
+uv run python -m regime.research.optimize_regime --data-dir ./Nasdaq3347
+```
 
 ## Honest evaluation
 
-The first `--train-frac` of rebalance blocks (default 70%) is used to
-optimize; the remainder is held-out validation. Both Sharpes are
-reported at every log step so overfitting is visible during training.
+The recent search peaks at **val Sharpe +0.46** (cosine divergence,
+lookback=116, n_tail=16, top_n=5, mid scales) on window 2015-2023,
+with other windows landing +0.21 / +0.34. The signal is real but
+weak — and the previous CLAUDE.md headline numbers (+0.80 to +1.78
+val Sharpe) were inflated by a CWT slicing bug that let the wavelet
+peek ~`4·scale` days into the future. Strict causality cuts the
+reported Sharpe by roughly 3–4×.
+
+The search picks **different** divergence + lookback per window —
+the underlying signal is non-stationary across regimes, so any single
+"best" config is a snapshot of the most-recent fit window.
 
 ## Live-trading risk rails
 
 `regime live` enforces four checks before submitting any orders. Each
 aborts the run with a clear reason rather than silently coercing values:
 
-  1. **Kill-switch file** — if `~/.regime-killswitch` (or `--killswitch PATH`)
-     exists, the run aborts. Lets an operator halt trading without
-     touching the cron entry.
-  2. **Data freshness** — if the latest bar from Alpaca is older than
-     `--max-data-age-days` (default 3), abort. Prevents trading on a
-     frozen feed.
-  3. **Per-name cap** — `--max-position` (default 0.25) clips and
-     renormalizes target weights so no single name exceeds the cap.
-  4. **Dry-run by default** — `--dry-run` is the default; `--live` is
-     opt-in. A misconfigured cron entry never accidentally trades.
+1. **Kill-switch file** — if `~/.regime-killswitch` (or
+   `--killswitch PATH`) exists, the run aborts. Lets an operator halt
+   trading without touching the cron entry.
+2. **Data freshness** — if the latest bar from Alpaca is older than
+   `--max-data-age-days` (default 3), abort. Prevents trading on a
+   frozen feed.
+3. **Per-name cap** — `--max-position` (default 0.25) clips and
+   redistributes target weights so no single name exceeds the cap
+   (water-fill via `ss_portfolio.apply_position_cap`).
+4. **Dry-run by default** — `--dry-run` is the default; `--live` is
+   opt-in. A misconfigured cron entry never accidentally trades.
+
+`regime.broker.AlpacaBroker.submit_orders` also catches per-order
+failures (e.g., non-fractionable symbols rejecting fractional qty)
+and continues the batch instead of aborting halfway through a
+rebalance.
 
 Always paper-trade for a full rebalance cycle before pointing
 `ALPACA_BASE_URL` at the live endpoint.
 
 ## Checkpoint format
 
-The JSON written by `--save-params` captures:
+Two checkpoint *modes* share the same JSON schema, distinguished by
+the `mode` field:
 
-  * learned params (`scale_log_weights`, `log_temperature`)
-  * the scale grid (`scales`)
+  * **`adam`** — JAX-Adam output. `scale_log_weights` (13 floats,
+    softmaxed at inference) and `log_temperature` (1 float, controls
+    soft-top-N sharpness) carry the model. Produced by
+    `regime.research.optimize_adam.train()` via `save_checkpoint()`.
+  * **`optuna`** — Optuna+vectorbt output. `top_n` (int), `divergence`
+    (`kl|js|cosine|l2`), and a resolved `scales` subset carry the
+    model. Produced by `regime.trainer.train()` via
+    `save_checkpoint_from_window()` — `regime train --save-params`
+    serializes the highest-val-Sharpe window.
+
+Old checkpoints written before the `mode` field existed default to
+`adam` on load — fully backwards-compatible.
+
+`regime.inference.target_weights` dispatches on `cp.mode`:
+soft-top-N via temperature softmax for `adam`, hard-top-N
+equal-weight basket for `optuna`. `regime live` consumes either
+without caring which trainer produced it.
+
+Common fields (both modes):
+
+  * scale grid (`scales`)
   * strategy hyperparameters (`lookback`, `n_tail`, `rebal_days`,
     `max_spread`, `commission_bps`)
-  * the training-time universe (`universe`) — fetched from Alpaca at
-    inference time
+  * training-time universe (`universe`)
   * provenance (`trained_at`, `train_start/end`, `val_start/end`,
     `train_sharpe`, `val_sharpe`)
 
-It is plain JSON: human-readable, diffable, and safe to load without
-arbitrary-code-execution risk.
+It's plain JSON: human-readable, diffable, and safe to load without
+arbitrary-code-execution risk. Forward-compatible — `load_checkpoint`
+ignores unknown keys, so future schema additions don't break old
+readers.

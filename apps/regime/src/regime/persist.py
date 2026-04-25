@@ -1,8 +1,21 @@
 """Checkpoint serialization for trained regime models.
 
 A checkpoint captures everything `live.py` needs to score the universe
-at a future date: the learned params, the scale grid, the strategy
+at a future date: the model parameters, the scale grid, the strategy
 hyperparameters, and the training-time universe + metadata.
+
+Two checkpoint *modes* are supported, distinguished by the `mode`
+field:
+
+  * **`adam`** — JAX-Adam output: 13 continuous `scale_log_weights`
+    (softmaxed at inference) + a learned `log_temperature` for soft
+    top-N. Produced by `regime.research.optimize_adam.train()`.
+  * **`optuna`** — Optuna+vectorbt output: discrete `top_n` count +
+    `divergence` choice + scale subset (encoded directly in the
+    `scales` field). Produced by `regime.trainer.train()` via
+    `save_checkpoint_from_window()`.
+
+Old `mode`-less checkpoints default to `adam` so they keep loading.
 
 Stored as JSON (not pickle) so checkpoints are portable across Python
 versions, inspectable in a text editor, and safe to load from disk
@@ -19,7 +32,7 @@ from pathlib import Path
 import jax.numpy as jnp
 import numpy as np
 
-from regime.trainer import TrainResult
+from regime.research.optimize_adam import TrainResult
 
 
 CHECKPOINT_VERSION: int = 1
@@ -27,7 +40,11 @@ CHECKPOINT_VERSION: int = 1
 
 @dataclass
 class Checkpoint:
-    """In-memory representation of a saved regime model."""
+    """In-memory representation of a saved regime model.
+
+    Fields below `val_sharpe` are populated only for `mode == 'optuna'`
+    checkpoints; `adam` checkpoints leave them at the default.
+    """
 
     version: int
     scales: list[int]
@@ -46,9 +63,17 @@ class Checkpoint:
     val_end: str
     train_sharpe: float
     val_sharpe: float
+    # Optuna-mode-only fields (with defaults for back-compat with adam
+    # checkpoints written before this schema existed).
+    mode: str = 'adam'
+    top_n: int | None = None
+    divergence: str | None = None
 
     def jax_params(self) -> dict[str, jnp.ndarray]:
-        """Return params in the dict form expected by `ss_indicators.symmetric_kl_divergence`."""
+        """Return params in the dict form expected by the JAX divergence
+        functions. Used by the adam-mode inference path; for optuna mode
+        the scale weights default to zeros (uniform softmax = equal
+        per-scale weighting, which matches Optuna's search semantics)."""
         return {
             'scale_log_weights': jnp.asarray(self.scale_log_weights, dtype=jnp.float32),
             'log_temperature': jnp.asarray(self.log_temperature, dtype=jnp.float32),
@@ -66,9 +91,10 @@ def save_checkpoint(
     max_spread: float,
     commission_bps: float,
 ) -> Path:
-    """Serialize a `TrainResult` + run hyperparams to a JSON checkpoint."""
+    """Serialize a JAX-Adam `TrainResult` + run hyperparams to JSON."""
     cp = Checkpoint(
         version=CHECKPOINT_VERSION,
+        mode='adam',
         scales=list(result.scales),
         scale_log_weights=np.asarray(result.params['scale_log_weights']).tolist(),
         log_temperature=float(result.params['log_temperature']),
@@ -86,6 +112,55 @@ def save_checkpoint(
         train_sharpe=result.train_sharpe,
         val_sharpe=result.val_sharpe,
     )
+    return _write_checkpoint(path, cp)
+
+
+def save_checkpoint_from_window(
+    path: str | Path,
+    window,  # regime.trainer.WindowResult
+    *,
+    universe: list[str],
+    rebal_days: int,
+    max_spread: float,
+    commission_bps: float,
+) -> Path:
+    """Serialize an Optuna `WindowResult` to a checkpoint file.
+
+    Resolves the window's scale-subset booleans into an explicit
+    `scales` list. Sets `mode='optuna'`, `top_n` and `divergence` from
+    the chosen hyperparams; leaves `scale_log_weights` at zeros so the
+    inference-time divergence sees uniform per-scale weighting, which
+    is what the Optuna search itself used.
+    """
+    from regime.trainer import _resolve_scales
+
+    scales = _resolve_scales(window.best_params)
+    cp = Checkpoint(
+        version=CHECKPOINT_VERSION,
+        mode='optuna',
+        scales=scales,
+        scale_log_weights=[0.0] * len(scales),
+        log_temperature=0.0,
+        lookback=int(window.best_params['lookback']),
+        n_tail=int(window.best_params['n_tail']),
+        top_n=int(window.best_params['top_n']),
+        divergence=str(window.best_params['divergence']),
+        rebal_days=rebal_days,
+        max_spread=max_spread,
+        commission_bps=commission_bps,
+        universe=list(universe),
+        trained_at=datetime.now(timezone.utc).isoformat(timespec='seconds'),
+        train_start=window.train_start.date().isoformat(),
+        train_end=window.train_end.date().isoformat(),
+        val_start=window.train_end.date().isoformat(),
+        val_end=window.val_end.date().isoformat(),
+        train_sharpe=float(window.train_score),
+        val_sharpe=float(window.val_score),
+    )
+    return _write_checkpoint(path, cp)
+
+
+def _write_checkpoint(path: str | Path, cp: Checkpoint) -> Path:
     out = Path(path)
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text(json.dumps(asdict(cp), indent=2))

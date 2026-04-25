@@ -108,6 +108,101 @@ def test_apply_position_cap_zero_sum_input():
     assert (capped.values >= 0).all()
 
 
+def test_select_top_n_matrix_descending():
+    from ss_portfolio import select_top_n_matrix
+    scores = np.array([
+        [1.0, 2.0, 3.0, 4.0, 5.0],
+        [5.0, 4.0, 3.0, 2.0, 1.0],
+    ])
+    w = select_top_n_matrix(scores, top_n=2, ascending=False)
+    # Top-2 by score: [4,5] in row 0 (idx 3,4); [4,5] in row 1 (idx 0,1)
+    assert w[0, 3] == 0.5 and w[0, 4] == 0.5 and w[0, :3].sum() == 0
+    assert w[1, 0] == 0.5 and w[1, 1] == 0.5 and w[1, 2:].sum() == 0
+
+
+def test_select_top_n_matrix_ascending_with_nan():
+    from ss_portfolio import select_top_n_matrix
+    scores = np.array([
+        [1.0, np.nan, 3.0, 2.0],
+        [np.nan, np.nan, 1.0, 2.0],
+    ])
+    w = select_top_n_matrix(scores, top_n=2, ascending=True)
+    # Row 0: lowest two valid = idx 0, 3 (scores 1, 2)
+    assert w[0, 0] == 0.5 and w[0, 3] == 0.5
+    # Row 1: only 2 valid, picked
+    assert w[1, 2] == 0.5 and w[1, 3] == 0.5
+
+
+def test_select_top_n_matrix_skips_when_too_few_valid():
+    from ss_portfolio import select_top_n_matrix
+    scores = np.array([[1.0, 2.0, np.nan, np.nan]])
+    w = select_top_n_matrix(scores, top_n=3, ascending=True)
+    # Fewer than top_n valid → entire row stays zero
+    assert (w == 0).all()
+
+
+def test_apply_spread_mask():
+    from ss_portfolio import apply_spread_mask
+    scores = np.zeros((3, 4))  # n_valid=3, n_tickers=4
+    spread = np.array([
+        [0.01, 0.05, 0.01, 0.01],  # warmup
+        [0.01, 0.05, 0.01, 0.01],
+        [0.01, 0.05, 0.01, 0.01],
+        [0.01, 0.05, 0.01, 0.01],
+        [0.01, 0.05, 0.01, 0.01],
+    ])  # n_dates=5
+    out = apply_spread_mask(scores.copy(), spread, lookback=2, max_spread=0.02)
+    # Ticker 1 always has spread > 0.02 → all-NaN column in scores
+    assert np.isnan(out[:, 1]).all()
+    # Other tickers untouched
+    assert (out[:, [0, 2, 3]] == 0).all()
+
+
+def test_apply_nan_mask():
+    from ss_portfolio import apply_nan_mask
+    scores = np.zeros((3, 3))  # n_valid=3, n_tickers=3
+    prices = np.array([
+        [100, np.nan, 100],
+        [100, np.nan, 100],
+        [100, 100, 100],
+        [100, 100, 100],
+        [100, 100, 100],
+    ], dtype=float)
+    out = apply_nan_mask(scores.copy(), prices, lookback=2)
+    # At valid index 0 (date=2), lookback window is dates 0..2 — ticker 1
+    # had NaN in dates 0..1, so its score is NaN-masked.
+    assert np.isnan(out[0, 1])
+    # By valid index 2 (date=4), window dates 2..4 — ticker 1 has no NaN.
+    assert out[2, 1] == 0
+
+
+def test_vbt_backtest_smoke():
+    """End-to-end smoke against a tiny synthetic universe.
+
+    Skipped when vectorbt isn't importable (i.e., outside the nix shell
+    on Intel macOS Python 3.13). When present, verifies the returned
+    metrics dict has the expected keys with finite values.
+    """
+    pytest.importorskip('vectorbt')
+    from ss_portfolio import vbt_backtest
+
+    rng = np.random.default_rng(0)
+    n_days, n_tickers = 252, 5
+    dates = pd.bdate_range('2020-01-01', periods=n_days)
+    closes = pd.DataFrame(
+        np.cumprod(1 + rng.standard_normal((n_days, n_tickers)) * 0.01, axis=0) * 100,
+        index=dates, columns=[f'T{i}' for i in range(n_tickers)])
+    # Hold all five names equally for the whole window.
+    weights = pd.DataFrame(
+        np.full((n_days, n_tickers), 1.0 / n_tickers),
+        index=dates, columns=closes.columns)
+
+    out = vbt_backtest(closes, weights, rebalance_days=20, commission_bps=5)
+    assert set(out) == {'sharpe', 'cagr', 'max_drawdown', 'total_return'}
+    assert all(np.isfinite(v) for v in out.values())
+    assert out['max_drawdown'] <= 0
+
+
 def test_block_sharpe_with_costs_shape():
     n_blocks, n_tickers = 12, 5
     rng = np.random.default_rng(0)

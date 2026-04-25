@@ -11,7 +11,7 @@ import jax
 import jax.numpy as jnp
 import numpy as np
 
-from regime.trainer import TrainResult
+from regime.research.optimize_adam import TrainResult
 from ss_plotting import plot_training_curves, print_scale_weights
 
 

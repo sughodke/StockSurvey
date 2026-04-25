@@ -1,14 +1,20 @@
-"""ss_portfolio: portfolio metrics + weighting utilities.
+"""ss_portfolio: portfolio metrics + weighting utilities + backtester.
 
-  * `block_sharpe_with_costs` — differentiable Sharpe for the regime
-    trainer (JAX).
-  * `annualized_sharpe`       — plain numpy Sharpe of a daily return series.
-  * `cagr`, `max_drawdown`, `sortino`, `calmar` — standard performance
-    metrics on a daily return series.
+  * `block_sharpe_with_costs`   — differentiable Sharpe for the JAX-Adam
+    optimizer (autograd-friendly, block-level approximation).
+  * `annualized_sharpe`, `cagr`, `max_drawdown`, `sortino`, `calmar`
+    — standard performance metrics on a daily return series.
   * `softmax_weights`           — temperature-scaled softmax with mask.
+  * `select_top_n_matrix`       — hard top-N equal-weight allocation
+    from a `(n_dates, n_tickers)` score matrix.
   * `apply_position_cap`        — water-fill per-name weight cap.
+  * `apply_spread_mask`, `apply_nan_mask` — universe screening masks
+    for ranking strategies.
+  * `vbt_backtest`              — vectorbt-backed daily-return backtest;
+    used by the production trainer at `regime.trainer`.
 """
 
+from ss_portfolio.backtest import vbt_backtest
 from ss_portfolio.metrics import (
     annualized_sharpe,
     cagr,
@@ -16,17 +22,26 @@ from ss_portfolio.metrics import (
     max_drawdown,
     sortino,
 )
+from ss_portfolio.screening import apply_nan_mask, apply_spread_mask
 from ss_portfolio.sharpe import TRADING_DAYS, block_sharpe_with_costs
-from ss_portfolio.weights import apply_position_cap, softmax_weights
+from ss_portfolio.weights import (
+    apply_position_cap,
+    select_top_n_matrix,
+    softmax_weights,
+)
 
 __all__ = [
     'TRADING_DAYS',
     'annualized_sharpe',
+    'apply_nan_mask',
     'apply_position_cap',
+    'apply_spread_mask',
     'block_sharpe_with_costs',
     'cagr',
     'calmar',
     'max_drawdown',
+    'select_top_n_matrix',
     'softmax_weights',
     'sortino',
+    'vbt_backtest',
 ]

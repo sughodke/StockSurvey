@@ -23,7 +23,7 @@ from there directly rather than going through `regime`.
 from regime.inference import target_weights
 from regime.persist import Checkpoint, load_checkpoint, save_checkpoint
 from regime.reporting import plot_training, print_results
-from regime.trainer import TrainResult, train
+from regime.research.optimize_adam import TrainResult, train
 
 __all__ = [
     'Checkpoint',

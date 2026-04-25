@@ -18,7 +18,14 @@ Indicators
 """
 
 from ss_indicators.bbands import bbands
-from ss_indicators.divergence import symmetric_kl_divergence
+from ss_indicators.divergence import (
+    DIVERGENCES,
+    cosine_divergence,
+    get_divergence,
+    js_divergence,
+    l2_divergence,
+    symmetric_kl_divergence,
+)
 from ss_indicators.fibonacci import FIB_LEVELS, fibonacci_retracement
 from ss_indicators.macd import macd
 from ss_indicators.moving_average import ema, rolling_std, sma
@@ -26,11 +33,16 @@ from ss_indicators.rsi import rsi
 from ss_indicators.spread import corwin_schultz_spread
 
 __all__ = [
+    'DIVERGENCES',
     'FIB_LEVELS',
     'bbands',
     'corwin_schultz_spread',
+    'cosine_divergence',
     'ema',
     'fibonacci_retracement',
+    'get_divergence',
+    'js_divergence',
+    'l2_divergence',
     'macd',
     'rolling_std',
     'rsi',

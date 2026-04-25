@@ -11,7 +11,7 @@ import pandas as pd
 import pytest
 
 from regime.persist import Checkpoint, load_checkpoint, save_checkpoint
-from regime.trainer import TrainResult
+from regime.research.optimize_adam import TrainResult
 
 
 def _make_train_result(n_scales: int = 4) -> TrainResult:
@@ -103,3 +103,54 @@ def test_load_rejects_malformed_json(tmp_path: Path):
 def test_load_missing_file(tmp_path: Path):
     with pytest.raises(FileNotFoundError):
         load_checkpoint(tmp_path / 'nope.json')
+
+
+def test_save_optuna_checkpoint_round_trip(tmp_path: Path):
+    """Round-trip an optuna checkpoint via save_checkpoint_from_window."""
+    from regime.persist import save_checkpoint_from_window
+    from regime.trainer import WindowResult
+
+    window = WindowResult(
+        train_start=pd.Timestamp('2015-01-01'),
+        train_end=pd.Timestamp('2020-01-01'),
+        val_end=pd.Timestamp('2023-01-01'),
+        best_params={
+            'lookback': 116, 'n_tail': 16, 'top_n': 5,
+            'divergence': 'cosine',
+            'use_short_scales': False,
+            'use_mid_scales': True,
+            'use_long_scales': False,
+        },
+        train_score=1.13,
+        val_score=0.46,
+    )
+    path = save_checkpoint_from_window(
+        tmp_path / 'opt.json', window,
+        universe=['AAPL', 'MSFT', 'NVDA'],
+        rebal_days=20, max_spread=0.02, commission_bps=10)
+
+    cp = load_checkpoint(path)
+    assert cp.mode == 'optuna'
+    assert cp.lookback == 116 and cp.n_tail == 16 and cp.top_n == 5
+    assert cp.divergence == 'cosine'
+    assert cp.scales == [10, 12, 15, 21, 26]  # mid scales resolved
+    assert cp.scale_log_weights == [0.0] * 5  # uniform weighting flag
+    assert cp.train_sharpe == 1.13 and cp.val_sharpe == 0.46
+
+
+def test_load_legacy_adam_checkpoint_defaults_mode(tmp_path: Path):
+    """A checkpoint without a `mode` field (written before mode existed)
+    should load as adam-mode for backwards compatibility."""
+    result = _make_train_result()
+    path = save_checkpoint(
+        tmp_path / 'm.json', result,
+        universe=['A'], lookback=60, n_tail=10, rebal_days=20,
+        max_spread=0.02, commission_bps=10)
+    raw = json.loads(path.read_text())
+    raw.pop('mode', None)
+    raw.pop('top_n', None)
+    raw.pop('divergence', None)
+    path.write_text(json.dumps(raw))
+    cp = load_checkpoint(path)
+    assert cp.mode == 'adam'
+    assert cp.top_n is None and cp.divergence is None

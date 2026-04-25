@@ -23,6 +23,11 @@ dependencies = [
 research = [
     "bt",
     "optuna",
+    # vectorbt is the fast vectorized backtester. Pin to 1.0.x; uv's
+    # dependency-metadata override in the root pyproject strips numba
+    # from its requirements (numba comes from the nix devShell — see
+    # README.md "Nix dev shell" section).
+    "vectorbt>=1.0,<2.0",
 ]
 
 [project.scripts]

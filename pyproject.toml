@@ -7,6 +7,36 @@ description = "StockSurvey monorepo: regime trading, legacy v1, ML notebooks."
 [tool.uv.workspace]
 members = ["apps/*", "packages/*"]
 
+# Forge vectorbt's dependency metadata to drop its `numba` requirement.
+# Reason: PyPI has no Intel-macOS / Python 3.13 wheel for llvmlite (numba's
+# C dep), and llvmlite source builds fail (Python 3.13 broke the spawn()
+# kwargs llvmlite's build.py uses). The nix devShell at repo root provides
+# numba 0.63.1 + llvmlite 0.46.0 via `python.withPackages`, available to
+# the venv via `uv venv --system-site-packages`. Stripping `numba` from
+# vectorbt's manifest stops uv from attempting a (failing) install while
+# leaving the runtime import wired up through nix.
+[[tool.uv.dependency-metadata]]
+name = "vectorbt"
+version = "1.0.0"
+requires-dist = [
+    "numpy>=1.23",
+    "pandas<3.0,>=2.0",
+    "scipy",
+    "matplotlib",
+    "plotly>=4.12.0",
+    "ipywidgets>=7.0.0",
+    "anywidget",
+    "dill",
+    "tqdm",
+    "dateparser",
+    "imageio",
+    "scikit-learn",
+    "schedule",
+    "requests",
+    "pytz",
+    "mypy_extensions",
+]
+
 [tool.uv.sources]
 ss-loaders = { workspace = true }
 ss-indicators = { workspace = true }

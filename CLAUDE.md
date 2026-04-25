@@ -19,11 +19,13 @@ All packages target JAX (matrix form). The legacy v1 indicators in `v1/util/indi
 
 ## Workspace conventions
 
-- **uv workspace**: root `pyproject.toml` declares `apps/*` and `packages/*` as members. `uv sync --all-packages` installs the whole graph editable. Each member has its own `pyproject.toml` listing its workspace and external deps.
+- **uv workspace**: root `pyproject.toml` declares `apps/*` and `packages/*` as members. `uv sync --all-packages --inexact` installs the whole graph editable. Each member has its own `pyproject.toml` listing its workspace and external deps.
 - **Naming**: distribution names use hyphens (`ss-indicators`); import names use underscores (`ss_indicators`). The notebook app's dist name is `stocksurvey-notebook` to avoid colliding with Jupyter's `notebook` package; its import name is `ss_notebook`.
 - **App import names**: `regime`, `v1`, `ss_notebook` (the apps don't get an `ss_` prefix on their import name; only packages do).
 - **Source layout**: every member uses `src/<importname>/` with `[tool.hatch.build.targets.wheel] packages = ["src/<importname>"]`.
 - **Cross-package deps**: declare via `[tool.uv.sources] ss-foo = { workspace = true }` in the consumer's pyproject.
+- **Nix devShell**: `flake.nix` at repo root provides Python 3.13 with numba/llvmlite/numpy/scipy/pandas pre-built (PyPI has no Intel-macOS / Py3.13 wheels). One-time setup: `nix develop` → `uv venv --system-site-packages` → `uv sync --all-packages --inexact`. After that, `uv run ...` works from any shell — see README.md.
+- **vectorbt**: pinned to `>=1.0,<2.0` in `regime[research]`. The root pyproject's `[[tool.uv.dependency-metadata]]` override strips `numba` from vectorbt's declared deps so uv doesn't try to reinstall the nix-provided one.
 
 ## Running things
 

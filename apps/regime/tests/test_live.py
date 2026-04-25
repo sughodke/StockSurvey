@@ -19,7 +19,7 @@ import pytest
 from regime.broker import Account, Trade
 from regime.live import LiveRunResult, run_live
 from regime.persist import save_checkpoint
-from regime.trainer import TrainResult
+from regime.research.optimize_adam import TrainResult
 
 
 def _checkpoint(tmp_path: Path, *, lookback: int = 30, n_tail: int = 5,

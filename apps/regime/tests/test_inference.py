@@ -11,7 +11,7 @@ import pytest
 
 from regime.inference import target_weights
 from regime.persist import load_checkpoint, save_checkpoint
-from regime.trainer import TrainResult
+from regime.research.optimize_adam import TrainResult
 
 
 def _build_checkpoint(tmp_path: Path, *, lookback: int = 30, n_tail: int = 5,
@@ -78,3 +78,60 @@ def test_target_weights_requires_enough_history(tmp_path: Path):
     prices, highs, lows = _synthetic_ohlc(20, ['A', 'B'])  # too short
     with pytest.raises(ValueError, match='need at least'):
         target_weights(prices, highs, lows, cp)
+
+
+def _build_optuna_checkpoint(
+    tmp_path: Path, *, top_n: int = 2, divergence: str = 'cosine',
+    universe: list[str], lookback: int = 30, n_tail: int = 5,
+) -> Path:
+    """Write an Optuna-mode checkpoint via save_checkpoint_from_window."""
+    from regime.persist import save_checkpoint_from_window
+    from regime.trainer import WindowResult
+
+    window = WindowResult(
+        train_start=pd.Timestamp('2020-01-01'),
+        train_end=pd.Timestamp('2020-12-31'),
+        val_end=pd.Timestamp('2021-12-31'),
+        best_params={
+            'lookback': lookback, 'n_tail': n_tail, 'top_n': top_n,
+            'divergence': divergence,
+            'use_short_scales': True,   # resolves to [3, 5, 7]
+            'use_mid_scales': False,
+            'use_long_scales': False,
+        },
+        train_score=0.5, val_score=0.3,
+    )
+    return save_checkpoint_from_window(
+        tmp_path / 'opt.json', window,
+        universe=universe, rebal_days=20, max_spread=0.02, commission_bps=10)
+
+
+def test_target_weights_optuna_hard_top_n(tmp_path: Path):
+    """Optuna-mode checkpoint produces a hard-top-N basket: exactly
+    `top_n` names hold `1/top_n` each, the rest are zero."""
+    tickers = ['A', 'B', 'C', 'D', 'E']
+    cp_path = _build_optuna_checkpoint(
+        tmp_path, top_n=2, divergence='cosine', universe=tickers)
+    cp = load_checkpoint(cp_path)
+    assert cp.mode == 'optuna'
+
+    prices, highs, lows = _synthetic_ohlc(80, tickers)
+    weights = target_weights(prices, highs, lows, cp)
+
+    nonzero = weights[weights > 0]
+    assert len(nonzero) == 2  # exactly top_n names
+    assert all(w == pytest.approx(0.5) for w in nonzero)  # 1/top_n each
+    assert weights.sum() == pytest.approx(1.0)
+
+
+def test_target_weights_optuna_kl_divergence(tmp_path: Path):
+    """Different divergence string changes the dispatch; sum-to-one still holds."""
+    tickers = ['A', 'B', 'C', 'D']
+    cp_path = _build_optuna_checkpoint(
+        tmp_path, top_n=2, divergence='kl', universe=tickers)
+    cp = load_checkpoint(cp_path)
+
+    prices, highs, lows = _synthetic_ohlc(80, tickers)
+    weights = target_weights(prices, highs, lows, cp)
+    assert weights.sum() == pytest.approx(1.0)
+    assert (weights >= 0).all()
