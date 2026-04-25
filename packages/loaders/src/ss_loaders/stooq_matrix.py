@@ -39,7 +39,7 @@ _STOOQ_COLS = {
 }
 
 
-def _read_stooq_file(path: Path) -> pd.DataFrame | None:
+def read_stooq_file(path: Path) -> pd.DataFrame | None:
     """Parse one Stooq ticker file into a DataFrame indexed by date.
 
     Returns None for files that fail to parse or contain no rows —
@@ -57,13 +57,16 @@ def _read_stooq_file(path: Path) -> pd.DataFrame | None:
     return df[['open', 'high', 'low', 'close', 'volume']]
 
 
-def _iter_ticker_files(data_dir: Path, include_etfs: bool) -> list[Path]:
+def iter_stooq_ticker_files(data_dir: Path, include_etfs: bool) -> list[Path]:
     """Walk the Stooq layout and return all ticker file paths.
 
     `include_etfs=False` keeps only `<exchange> stocks` subdirectories;
-    set True to also pull in `<exchange> etfs`. Stooq's tree is exactly
-    `daily/<country>/<exchange> <type>/<bucket>/`, so we filter on the
-    second-level directory name.
+    set True to also pull in `<exchange> etfs`. Stooq's tree is
+    `daily/<country>/<exchange> <type>/[<bucket>/]*.txt`. Sections with
+    >2K tickers are sharded into numeric `1/`, `2/`, ... bucket dirs;
+    smaller sections (e.g. `nasdaq etfs`, `nysemkt stocks`) keep all
+    .txt files directly under the section dir, with no bucket level.
+    `rglob` covers both layouts.
     """
     paths: list[Path] = []
     for country_dir in sorted(data_dir.glob('daily/*')):
@@ -76,13 +79,11 @@ def _iter_ticker_files(data_dir: Path, include_etfs: bool) -> list[Path]:
             is_etf = name_lower.endswith('etfs')
             if is_etf and not include_etfs:
                 continue
-            for bucket in sorted(section_dir.iterdir()):
-                if bucket.is_dir():
-                    paths.extend(sorted(bucket.glob('*.txt')))
+            paths.extend(sorted(section_dir.rglob('*.txt')))
     return paths
 
 
-def _ticker_from_path(path: Path) -> str:
+def stooq_ticker_from_path(path: Path) -> str:
     """`aapl.us.txt` -> `AAPL`. Strips the `.us.txt` suffix and uppercases.
 
     Some Stooq tickers contain dashes (e.g. `brk-a.us.txt` -> `BRK-A`).
@@ -221,7 +222,7 @@ def _scan_archive(data_dir: Path, *, include_etfs: bool) -> pd.DataFrame:
     to 12K columns and most cells are NaN. The caller pivots once on
     load; the cache stays compact.
     """
-    paths = _iter_ticker_files(data_dir, include_etfs=include_etfs)
+    paths = iter_stooq_ticker_files(data_dir, include_etfs=include_etfs)
     if not paths:
         raise RuntimeError(
             f'no ticker files found under {data_dir} — expected a '
@@ -229,10 +230,10 @@ def _scan_archive(data_dir: Path, *, include_etfs: bool) -> pd.DataFrame:
 
     frames: list[pd.DataFrame] = []
     for path in tqdm(paths, desc='Loading Stooq', unit='file'):
-        df = _read_stooq_file(path)
+        df = read_stooq_file(path)
         if df is None or df.empty:
             continue
-        df = df.assign(ticker=_ticker_from_path(path))
+        df = df.assign(ticker=stooq_ticker_from_path(path))
         frames.append(df.reset_index())
 
     if not frames:

@@ -1,0 +1,25 @@
+[project]
+name = "ss-stream"
+version = "0.1.0"
+requires-python = ">=3.10"
+description = "Point-in-time event-stream view over a Stooq daily archive: per-ticker bars + listing/last-seen metadata, with universe-at-date queries."
+dependencies = [
+    "numpy",
+    "pandas",
+    "pyarrow",
+    "tqdm",
+    "ss-loaders",
+]
+
+[project.scripts]
+ss-stream = "ss_stream.cli:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/ss_stream"]
+
+[tool.uv.sources]
+ss-loaders = { workspace = true }

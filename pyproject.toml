@@ -43,6 +43,7 @@ ss-indicators = { workspace = true }
 ss-wavelets = { workspace = true }
 ss-portfolio = { workspace = true }
 ss-plotting = { workspace = true }
+ss-stream = { workspace = true }
 regime = { workspace = true }
 v1 = { workspace = true }
 stocksurvey-notebook = { workspace = true }

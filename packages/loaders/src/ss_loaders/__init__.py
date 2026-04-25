@@ -16,7 +16,12 @@ S&P 500 sample, and a user-curated favourites list.
 
 from ss_loaders.csv_matrix import load_price_matrix
 from ss_loaders.cryptocompare import load_cryptocompare
-from ss_loaders.stooq_matrix import load_stooq_matrix
+from ss_loaders.stooq_matrix import (
+    iter_stooq_ticker_files,
+    load_stooq_matrix,
+    read_stooq_file,
+    stooq_ticker_from_path,
+)
 from ss_loaders.symbols import (
     MY_FAVES,
     NDX_CONSTITUENTS,
@@ -32,10 +37,13 @@ __all__ = [
     'NDX_CONSTITUENTS',
     'coin100',
     'coin100_dataframe',
+    'iter_stooq_ticker_files',
     'load_cryptocompare',
     'load_price_matrix',
     'load_stooq_matrix',
     'load_yahoo',
     'nasdaq',
+    'read_stooq_file',
     'snp_500',
+    'stooq_ticker_from_path',
 ]
