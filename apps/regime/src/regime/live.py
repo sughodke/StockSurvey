@@ -96,10 +96,10 @@ def run_live(
     prices, highs, lows = broker.get_recent_bars(
         cp.universe, n_days=cp.lookback + bar_buffer_days)
     last_bar = prices.index[-1]
-    # `pd.Timestamp.utcnow()` is tz-aware on pandas >= 2.1; strip via
-    # tz_convert(None) (works in both older and newer pandas) before diffing
-    # against the tz-naive last bar.
-    now_naive = pd.Timestamp.utcnow().tz_convert(None).normalize()
+    # `pd.Timestamp.utcnow()` is deprecated in pandas 2.x; the canonical
+    # replacement is `Timestamp.now('UTC')`. Strip tz before diffing
+    # against the tz-naive bar index.
+    now_naive = pd.Timestamp.now('UTC').tz_convert(None).normalize()
     age_days = (now_naive - last_bar).days
     if age_days > max_data_age_days:
         return LiveRunResult(

@@ -22,36 +22,44 @@ def test_causal_cwt_shape():
     assert coeffs.dtype == np.float32
 
 
-def test_causal_cwt_bounded_support():
-    """Verify the actual support: perturbing inputs *beyond* the wavelet's
-    tail width (4 * scale) leaves earlier outputs unchanged.
-
-    NOTE: the docstring on `causal_cwt` claims strict causality
-    ("output[i] depends only on input[:i+1]"), but the implementation
-    slices `full[-n_dates:]` which centers the wavelet at output[t] and
-    therefore actually uses input[t .. t + 4*scale]. The rolling
-    normalization is causal, but the convolution slice is not. This test
-    locks in the implementation's true behavior so future refactors don't
-    silently change it; the broader question of whether to fix the
-    slicing belongs upstream in the regime trainer.
-    """
+def test_causal_cwt_strict_causality():
+    """Modifying input[t+1:] must not change output[..t]."""
     rng = np.random.default_rng(1)
+    prices = np.cumsum(rng.standard_normal((250, 1)), axis=0) + 100
+    coeffs_full = causal_cwt(prices, [5, 21, 90], lookback=60)
+
+    for cut in (50, 100, 150, 200):
+        perturbed = prices.copy()
+        perturbed[cut:] += 10.0
+        coeffs_pert = causal_cwt(perturbed, [5, 21, 90], lookback=60)
+        # Outputs at t in [0, cut-1] depend only on input[..cut-1] = unchanged.
+        np.testing.assert_allclose(
+            coeffs_full[:, :cut, :], coeffs_pert[:, :cut, :],
+            rtol=1e-4, atol=1e-4,
+            err_msg=f'leakage detected at perturbation cut={cut}')
+
+
+def test_causal_cwt_impulse_response_is_one_sided():
+    """An impulse at t=I should produce response only at t in [I, I+points]
+    (post-impulse), never before. Confirms the wavelet's right-edge
+    aligns with the output time index.
+    """
     scale = 10
     points = 4 * scale
-    perturbation_idx = 150
-    prices = np.cumsum(rng.standard_normal((250, 1)), axis=0) + 100
-    coeffs_full = causal_cwt(prices, [scale], lookback=60)
+    T = 80
+    impulse_at = 30
+    x = np.zeros((T, 1))
+    x[impulse_at, 0] = 1.0
+    coeffs = causal_cwt(x, [scale], lookback=20)[0, :, 0]
 
-    perturbed = prices.copy()
-    perturbed[perturbation_idx:] += 10.0
-
-    coeffs_pert = causal_cwt(perturbed, [scale], lookback=60)
-
-    # Outputs at t < perturbation_idx - points are guaranteed unaffected.
-    safe_end = perturbation_idx - points
-    np.testing.assert_allclose(
-        coeffs_full[:, :safe_end, :], coeffs_pert[:, :safe_end, :],
-        rtol=1e-4, atol=1e-4)
+    nz = np.where(np.abs(coeffs) > 1e-6)[0]
+    # Response must start at or after the impulse — nothing before.
+    assert nz.min() >= impulse_at, (
+        f'response starts at t={nz.min()}, before impulse at t={impulse_at}')
+    # And must die out within `points` samples of the impulse (kernel support).
+    # We allow a small slack because the rolling normalization smears the
+    # impulse across the lookback window.
+    assert nz.max() <= impulse_at + points + 20
 
 
 def test_precompute_windows_shape_and_arithmetic():

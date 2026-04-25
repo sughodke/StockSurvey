@@ -117,10 +117,12 @@ def _run_train(args: argparse.Namespace) -> None:
         )
         print(f'Saved checkpoint to {path}')
 
-    plot_training(
-        result,
-        save_path='Output/regime-training.png' if args.save else None,
-    )
+    # Only render the training plot when --save is requested. Calling
+    # plt.show() unconditionally pops a window in dev and warns on
+    # headless runs (cron, CI), neither of which is useful when the
+    # caller didn't ask for output.
+    if args.save:
+        plot_training(result, save_path='Output/regime-training.png')
 
 
 def _run_live(args: argparse.Namespace) -> None:

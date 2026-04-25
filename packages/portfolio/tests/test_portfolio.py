@@ -96,6 +96,18 @@ def test_apply_position_cap_invalid_max():
         apply_position_cap(pd.Series([1.0]), max_position=1.5)
 
 
+def test_apply_position_cap_zero_sum_input():
+    """All-zero input weights short-circuit to whatever the original is —
+    no division by zero, no NaN. We don't strictly require sum==1 here
+    (caller would have an empty portfolio anyway), only that the result
+    is finite and non-negative.
+    """
+    w = pd.Series([0.0, 0.0, 0.0, 0.0, 0.0], index=list('ABCDE'))
+    capped = apply_position_cap(w, max_position=0.30)
+    assert np.all(np.isfinite(capped.values))
+    assert (capped.values >= 0).all()
+
+
 def test_block_sharpe_with_costs_shape():
     n_blocks, n_tickers = 12, 5
     rng = np.random.default_rng(0)

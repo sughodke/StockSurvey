@@ -163,6 +163,24 @@ def test_corwin_schultz_spread_shape_and_range():
     assert valid.max() <= 0.20
 
 
+def test_corwin_schultz_spread_known_input():
+    """Pin the alpha/beta math against a tiny hand-checkable input.
+
+    Five bars of H/L; the regression values below are the current
+    implementation's output. They're not derived from a published
+    reference — they exist to catch silent algorithmic drift if anyone
+    edits spread.py.
+    """
+    highs = pd.DataFrame({'X': [102.0, 101.0, 101.5, 102.0, 101.0]})
+    lows = pd.DataFrame({'X': [99.0, 98.0, 98.5, 99.5, 99.0]})
+    spread = corwin_schultz_spread(highs, lows, window=3)
+    expected = [None, 0.005856, 0.011915, 0.011177, 0.010850]
+    assert pd.isna(spread.iloc[0, 0])
+    for i in range(1, 5):
+        assert spread.iloc[i, 0] == pytest.approx(expected[i], abs=1e-5), (
+            f'index {i}: got {spread.iloc[i, 0]:.6f}, expected {expected[i]}')
+
+
 def test_fibonacci_retracement():
     prices = np.array([100.0, 110.0, 95.0, 120.0, 105.0])
     t1, t2, levels = fibonacci_retracement(prices, n=5)

@@ -33,8 +33,15 @@ def causal_cwt(
     """Causal CWT over a `(n_dates, n_tickers)` price matrix.
 
     Returns `(n_scales, n_dates, n_tickers)` of float32 wavelet
-    coefficients. Each ticker is z-normalized over the trailing
-    `lookback` days before each scale's one-sided Ricker convolution.
+    coefficients. `output[t]` depends only on `input[:t+1]` (strictly
+    causal): the rolling z-normalization uses only past prices, and the
+    convolution with the one-sided Ricker kernel is sliced as `full[:T]`
+    so each output index aligns with the kernel's right edge at time t.
+
+    Warm-up note: for `t < kernel_len - 1`, the convolution sees fewer
+    than `kernel_len` past samples (zero-padded outside x's range), so
+    early outputs have reduced wavelet support. Callers typically drop
+    the first `lookback` outputs anyway via `precompute_windows`.
     """
     n_dates, n_tickers = prices.shape
 
@@ -54,5 +61,7 @@ def causal_cwt(
     for si, s in enumerate(scales):
         kernel = _ricker_causal(s, n_dates)
         full = fftconvolve(x_norm, kernel[:, None], mode='full', axes=0)
-        coeffs[si] = full[-n_dates:].astype(np.float32)
+        # full[t] = sum_k x_norm[k] * kernel[t-k] over valid k, which uses
+        # x_norm[max(0, t-points) .. t] — strictly causal at index t.
+        coeffs[si] = full[:n_dates].astype(np.float32)
     return coeffs
