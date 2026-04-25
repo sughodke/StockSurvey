@@ -1,0 +1,118 @@
+import datetime
+import logging
+import os
+
+import sys
+import joblib
+import pandas as pd
+
+# Shim for legacy cache files pickled with sklearn.externals.joblib
+if 'sklearn.externals.joblib' not in sys.modules:
+    import sklearn.externals
+    sklearn.externals.joblib = joblib
+    sys.modules['sklearn.externals.joblib'] = joblib
+    sys.modules['sklearn.externals.joblib.numpy_pickle'] = joblib.numpy_pickle
+
+from v1.models.span import Span, MACDSpan, BBandsSpan
+from v1.models.timespan import AddTimeSpan
+from v1.util import load_data, cwd, load_crypto_data
+
+ds_path = 'DataStore'
+store_dir = os.path.join(cwd, ds_path)
+
+
+class Security(AddTimeSpan):
+    class_version = '3.0'
+    STARTDATE = datetime.datetime(2017, 6, 1)
+
+    def __init__(self, ticker='GLD', crypto=False):
+        self.version = self.__class__.class_version
+
+        self.ticker = ticker
+        self.is_crypto = crypto
+        self.enddate = None
+        self.daily = None
+
+        self.sync()
+
+        # TODO: make this into a pandas view (or transform)
+        self.weekly = self.add_week(self.daily)
+        self.monthly = self.add_month(self.daily)
+
+    def upgrade(self):
+        version = float(getattr(self, 'version', 0))
+
+        if version < 3.:
+            self.version = '3.0'
+            self.is_crypto = False
+            logging.info('Upgraded {} cache to version {}'.format(self.ticker, self.version))
+
+    def sync(self):
+        today = self._today
+        if not self.enddate:
+            self.enddate = self.STARTDATE - datetime.timedelta(days=1)
+
+        staleness = datetime.timedelta(days=1)
+        if today - self.enddate >= staleness:
+            logging.info('Sync necessary, retrieving missing data')
+
+            if not self.is_crypto:
+                delta = load_data(self.enddate + datetime.timedelta(days=1), today, self.ticker)
+            else:
+                delta = load_crypto_data(self.enddate + datetime.timedelta(days=1), today, self.ticker)
+
+            if self.daily is not None:
+                self.daily = pd.concat((self.daily, delta))
+            else:
+                self.daily = delta
+
+            self.enddate = today
+
+        self.daily.sort_index(inplace=True)
+
+    @classmethod
+    def _filename(cls, ticker, is_crypto=False):
+        return os.path.join(store_dir, '{}{}'.format('coin' if is_crypto else '', ticker))
+
+    @property
+    def _today(self):
+        if self.is_crypto:
+            return datetime.datetime.utcnow()
+        return datetime.datetime.now()  # TODO: tzdata to convert to EST (intrinio)
+
+    def save(self):
+        joblib.dump(self, self._filename(self.ticker, self.is_crypto), compress=False)
+
+    @classmethod
+    def load(cls, ticker, force_fetch=False, crypto=False, offline=False):
+        try:
+            if force_fetch:
+                raise IOError('Triggering Cache Miss')
+
+            security = joblib.load(cls._filename(ticker, crypto))
+            logging.info('Security {} loaded successfully'.format(ticker))
+            security.upgrade()
+
+            if not offline:
+                try:
+                    security.sync()
+                except AttributeError as e:
+                    logging.error('Ignoring exception ({}) while syncing {} '.format(e, ticker))
+
+            return security
+        except IOError as e:
+            if offline:
+                logging.warning('Cache miss for {}, skipping (offline mode)'.format(ticker))
+                return None
+            logging.info('Cache miss, creating new Security {}'.format(ticker))
+            return Security(ticker, crypto)
+
+    def span(self, freq, klass='rsi', **kwargs):
+        """return a new Span workflow as a context manager for the freq time-window"""
+        klass_lookup = {
+            'rsi': Span,
+            'macd': MACDSpan,
+            'bbands': BBandsSpan
+        }.get(klass, Span)
+
+        return klass_lookup(self, freq, **kwargs)

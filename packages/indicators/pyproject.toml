@@ -1,0 +1,18 @@
+[project]
+name = "ss-indicators"
+version = "0.1.0"
+requires-python = ">=3.10"
+description = "JAX technical indicators: RSI, MACD, Bollinger Bands, MA, Corwin-Schultz spread, divergence."
+dependencies = [
+    "numpy",
+    "pandas",
+    "jax<0.5",
+    "jaxlib<0.5",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/ss_indicators"]

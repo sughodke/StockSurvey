@@ -2,20 +2,36 @@
 name = "stocksurvey"
 version = "0.1.0"
 requires-python = ">=3.10"
-dependencies = [
-    "joblib",
-    "matplotlib",
-    "numpy",
-    "pandas",
-    "requests",
-    "scikit-learn",
-    "scipy",
-    "yfinance",
-    "tqdm",
-    "bt",
-    "optuna",
-    "jax<0.5",
-    "jaxlib<0.5",
-    "optax>=0.2.5",
-    "alpaca-py>=0.30",
+description = "StockSurvey monorepo: regime trading, legacy v1, ML notebooks."
+
+[tool.uv.workspace]
+members = ["apps/*", "packages/*"]
+
+[tool.uv.sources]
+ss-loaders = { workspace = true }
+ss-indicators = { workspace = true }
+ss-wavelets = { workspace = true }
+ss-portfolio = { workspace = true }
+ss-plotting = { workspace = true }
+regime = { workspace = true }
+v1 = { workspace = true }
+stocksurvey-notebook = { workspace = true }
+
+[dependency-groups]
+dev = [
+    "regime[research]",
+    "v1",
+    "stocksurvey-notebook",
+    "pytest>=8",
 ]
+
+[tool.pytest.ini_options]
+testpaths = [
+    "packages/indicators/tests",
+    "packages/wavelets/tests",
+    "packages/portfolio/tests",
+    "packages/loaders/tests",
+    "apps/regime/tests",
+    "apps/v1/tests",
+]
+addopts = "-q --import-mode=importlib"

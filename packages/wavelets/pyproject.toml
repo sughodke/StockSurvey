@@ -1,0 +1,16 @@
+[project]
+name = "ss-wavelets"
+version = "0.1.0"
+requires-python = ">=3.10"
+description = "Causal continuous wavelet transform and windowed power utilities."
+dependencies = [
+    "numpy",
+    "scipy",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/ss_wavelets"]
