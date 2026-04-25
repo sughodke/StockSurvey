@@ -30,7 +30,7 @@ import warnings
 from pathlib import Path
 
 from regime.persist import save_checkpoint_from_window
-from regime.trainer import print_summary, train
+from regime.trainer import DEFAULT_PER_WINDOW_MIN_HISTORY, print_summary, train
 from ss_indicators import corwin_schultz_spread
 from ss_loaders import load_price_matrix, load_stooq_matrix
 
@@ -95,14 +95,19 @@ def _add_train_args(p: argparse.ArgumentParser) -> None:
                         'fewer than this many bars in the requested date range. '
                         'Default 252 (≈1 trading year). The strict survivorship '
                         'filter is per-walk-forward; see --per-window-min-history.')
-    p.add_argument('--per-window-min-history', type=int, default=504,
-                   help='Per-walk-forward survivorship filter — a ticker must '
-                        'have at least this many valid bars (and a valid first '
-                        'bar) within each window to be eligible for that '
-                        'window. Default 504 (≈2y, = 4 × max wavelet scale). '
-                        'This is the survivorship-bias fix: instead of '
-                        'requiring tickers to exist for the whole date range, '
-                        'each window picks its own point-in-time universe.')
+    p.add_argument('--per-window-min-history', type=int,
+                   default=DEFAULT_PER_WINDOW_MIN_HISTORY,
+                   help=f'Per-walk-forward survivorship filter — a ticker must '
+                        f'have at least this many valid bars (and a valid first '
+                        f'bar) within each window to be eligible for that '
+                        f'window. Default {DEFAULT_PER_WINDOW_MIN_HISTORY} '
+                        f'(~3y = 4 × max wavelet scale + max lookback). '
+                        f'Lower values widen the universe (include newer IPOs) '
+                        f'but admit scored bars whose underlying CWT was '
+                        f'computed on partial-window z-norms. This is the '
+                        f'survivorship-bias fix: each window picks its own '
+                        f'point-in-time universe rather than requiring '
+                        f'tickers to exist for the whole date range.')
     p.add_argument('--include-etfs', action='store_true',
                    help='Stooq only: include `<exchange> etfs` in addition to '
                         'stocks. Default off (regime targets equities).')

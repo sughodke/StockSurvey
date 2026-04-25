@@ -77,6 +77,30 @@ MID_SCALES = [10, 12, 15, 21, 26]
 LONG_SCALES = [42, 50, 63, 90, 126]
 DEFAULT_SCALES = [5, 21, 90]  # fallback when all three subsets are off
 
+# Optuna search range for the rolling z-norm + recent/historical-split
+# window. Single source of truth — also used to derive the per-window
+# survivorship floor below.
+LOOKBACK_SEARCH_MIN = 40
+LOOKBACK_SEARCH_MAX = 252
+
+# Worst-case per-window history needed for ALL scored bars to land on
+# fully-supported wavelets:
+#
+#   * causal_cwt's rolling z-norm needs `lookback` prior bars
+#   * the largest Ricker kernel needs 4 * max_scale prior bars
+#
+# Combined: 4 * max_scale + lookback. Since both lookback and the scale
+# subset are Optuna-searched, we floor on the worst case of each:
+# longest possible lookback (LOOKBACK_SEARCH_MAX) and largest possible
+# scale (max(LONG_SCALES)). At trainer defaults this is
+#   4 * 126 + 252 = 756 bars (~3 trading years).
+#
+# Earlier versions hardcoded 504, which covered only `4 * max_scale`
+# and silently passed scored bars whose underlying x_norm samples were
+# computed on partial-window z-norms (still strictly causal, but
+# under-supported and noisy).
+DEFAULT_PER_WINDOW_MIN_HISTORY = 4 * max(LONG_SCALES) + LOOKBACK_SEARCH_MAX
+
 
 @dataclass
 class WindowResult:
@@ -294,7 +318,8 @@ def _make_objective(
     its score is fixed.
     """
     def objective(trial: optuna.Trial) -> float:
-        lookback = trial.suggest_int('lookback', 40, 252)
+        lookback = trial.suggest_int(
+            'lookback', LOOKBACK_SEARCH_MIN, LOOKBACK_SEARCH_MAX)
         n_tail = trial.suggest_int('n_tail', 3, lookback // 2)
         top_n = trial.suggest_int('top_n', 5, 30)
         use_short = trial.suggest_categorical('use_short_scales', [True, False])
@@ -339,7 +364,7 @@ def train(
     val_years: int = 3,
     step_years: int = 3,
     seed: int = 42,
-    per_window_min_history: int = 504,
+    per_window_min_history: int = DEFAULT_PER_WINDOW_MIN_HISTORY,
 ) -> TrainResult:
     """Walk-forward Optuna+vectorbt search over regime hyperparameters.
 
@@ -386,13 +411,30 @@ def train(
     `per_window_min_history` enforces the per-walk-forward
     survivorship filter (see `_filter_window_universe`). A ticker
     must have a valid first bar AND >= this many valid bars in each
-    window to be eligible for that window. Default 504 (≈2y); set
-    lower for shorter walk-forward windows or to widen the universe.
-    This is the survivorship-bias fix — the loader returns a
+    window to be eligible for that window. Default
+    `DEFAULT_PER_WINDOW_MIN_HISTORY = 4 * max(LONG_SCALES) +
+    LOOKBACK_SEARCH_MAX = 756` (~3 trading years) — the worst-case
+    history needed for the largest possible (lookback, scale) Optuna
+    might pick to be fully supported. Earlier versions used 504, which
+    covered the kernel but not the rolling z-norm; scored bars in the
+    [504, 756) gap were strictly causal but computed on partial-
+    window z-norms.
+
+    This is also the survivorship-bias fix — the loader returns a
     point-in-time panel (with leading/trailing NaN for IPO/delist
     events) and the trainer constructs a per-window eligible universe
     from it, instead of imposing a panel-wide "must exist for the
     full range" rule.
+
+    Tradeoff to be aware of: raising the floor from 504 → 756
+    excludes tickers that IPO'd within the last ~3 years of each
+    window. Names like SNOW (2020), CRWD (2019), ZM (2019) post their
+    debuts had outsized scalogram-detectable runs that this filter
+    discards. The principled fix is per-trial scale-aware filtering
+    (Optuna picks scales, then universe is filtered to whoever has
+    enough bars for THAT trial's max scale + lookback) rather than
+    a global per-window worst-case floor — but that's a bigger
+    refactor not done here.
     """
     if strategy not in STRATEGIES:
         raise ValueError(f'unknown strategy {strategy!r}; available: {STRATEGIES}')
