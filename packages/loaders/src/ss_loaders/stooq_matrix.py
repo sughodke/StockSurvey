@@ -178,10 +178,29 @@ def load_stooq_matrix(
     lows = lows[common]
     volumes = volumes[common]
 
-    closes = closes.ffill().dropna()
-    highs = highs.ffill().dropna()
-    lows = lows.ffill().dropna()
-    volumes = volumes.ffill().fillna(0).loc[closes.index]
+    # ffill *short* gaps only (1-trading-week halts, holidays missed in
+    # the source). Longer gaps stay NaN and the downstream `apply_nan_mask`
+    # naturally excludes that ticker on those dates — preferable to
+    # unlimited ffill which papers over delistings as 5-year flat lines
+    # of synthetic returns. We keep the date axis intact so a single
+    # delisted ticker doesn't cull the universe's calendar.
+    closes = closes.ffill(limit=5)
+    highs = highs.ffill(limit=5)
+    lows = lows.ffill(limit=5)
+    volumes = volumes.ffill(limit=5)
+
+    # Drop tickers whose close history starts after the panel's start —
+    # the causal CWT cumsum can't tolerate leading NaN (NaN propagates
+    # forward through cumsum and corrupts every subsequent value for
+    # that column). Tickers that lose data later in the window are fine;
+    # NaN will appear only for the missing tail and the per-window
+    # `apply_nan_mask` handles it.
+    has_valid_start = closes.iloc[0].notna()
+    closes = closes.loc[:, has_valid_start]
+    common = closes.columns
+    highs = highs[common]
+    lows = lows[common]
+    volumes = volumes[common].fillna(0)
 
     common_idx = closes.index.intersection(highs.index).intersection(lows.index)
     closes = closes.loc[common_idx]

@@ -203,6 +203,31 @@ def test_vbt_backtest_smoke():
     assert out['max_drawdown'] <= 0
 
 
+def test_vbt_backtest_fill_lag_shifts_orders():
+    """`fill_lag=1` moves the rebalance fills one bar forward vs `fill_lag=0`,
+    so the two backtests on the same weights produce different total returns
+    (because they're filling at different prices). Confirms the shift is
+    actually applied, not silently ignored."""
+    pytest.importorskip('vectorbt')
+    from ss_portfolio import vbt_backtest
+
+    rng = np.random.default_rng(42)
+    n_days, n_tickers = 252, 5
+    dates = pd.bdate_range('2020-01-01', periods=n_days)
+    closes = pd.DataFrame(
+        np.cumprod(1 + rng.standard_normal((n_days, n_tickers)) * 0.02, axis=0) * 100,
+        index=dates, columns=[f'T{i}' for i in range(n_tickers)])
+    weights = pd.DataFrame(
+        np.full((n_days, n_tickers), 1.0 / n_tickers),
+        index=dates, columns=closes.columns)
+
+    same_bar = vbt_backtest(closes, weights, rebalance_days=20, fill_lag=0)
+    next_bar = vbt_backtest(closes, weights, rebalance_days=20, fill_lag=1)
+    # Different fill prices → different total return. Sign of the gap is
+    # noisy on synthetic data, so we only assert the values aren't equal.
+    assert same_bar['total_return'] != next_bar['total_return']
+
+
 def test_vbt_backtest_spread_increases_cost():
     """Passing a non-zero spread_df must depress total_return vs the same
     backtest with no spread. Confirms the per-(date, ticker) fees matrix

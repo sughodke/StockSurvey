@@ -2,12 +2,17 @@
 
 Production trainer for the regime strategy. Combines:
   * Optuna TPE search over discrete hyperparameters (lookback, n_tail,
-    top_n, divergence, scale subsets).
+    top_n, divergence, scale subsets), seeded for reproducibility.
   * Hard top-N equal-weight allocation
     (`ss_portfolio.select_top_n_matrix`).
   * vectorbt backtest engine (`ss_portfolio.vbt_backtest`) — much faster
     than bt-library, JIT-compiled by numba.
-  * Walk-forward train/val rolling windows.
+  * Walk-forward train/val rolling windows with non-overlapping val
+    periods (step_years defaults to val_years).
+  * Fill-at-next-bar execution (`fill_lag=1` in vbt_backtest) so
+    signals computed at close[t] trade at close[t+1].
+  * Per-(date, ticker) spread cost via the Corwin-Schultz panel —
+    no upstream binary liquidity filter.
 
 This is the spiritual successor to `regime.research.optimize_regime`
 (Optuna + bt-library) — same approach, faster engine, plus we
@@ -20,6 +25,29 @@ implementation, see `regime.research.optimize_regime`.
 
 Requires the nix devShell (provides numba/llvmlite for vectorbt). See
 README.md.
+
+Known limitations not yet fixed
+-------------------------------
+The pipeline below still embeds a few honest assumptions that inflate
+the reported Sharpe vs what real trading would deliver. Documented
+here so future readers don't mistake them for invariants:
+
+  * **CWT runs on raw close prices, not log-returns.** Non-stationary
+    input. The rolling z-norm in `causal_cwt` partly fixes the mean
+    drift, but persistent trend still bleeds into the long-scale
+    wavelet power. Standard practice is CWT on returns; switching is
+    a math change we haven't validated end-to-end.
+  * **Equal-weight within the top-N basket** (`select_top_n_matrix`
+    puts 1/top_n on each pick). Score-weighted allocation would be a
+    different strategy with potentially different Sharpe. Not tested.
+  * **Annualized Sharpe assumes daily-iid returns.** Universal stat
+    issue. Real returns have autocorrelation and vol clustering, both
+    of which inflate the naive Sharpe. The Lo (2002) autocorrelation
+    adjustment isn't applied.
+  * **`commission_bps=10` (default) is an opinion, not measurement.**
+    Retail Alpaca is $0; institutional is 1-3 bps; market impact
+    varies. Combined with the spread cost, we may be double-counting
+    or undercounting depending on the venue.
 """
 
 from __future__ import annotations
@@ -179,7 +207,8 @@ def train(
     commission_bps: float = 10.0,
     train_years: int = 5,
     val_years: int = 3,
-    step_years: int = 2,
+    step_years: int = 3,
+    seed: int = 42,
 ) -> TrainResult:
     """Walk-forward Optuna+vectorbt search over regime hyperparameters.
 
@@ -197,6 +226,16 @@ def train(
     automatically depress the Sharpe of any config that picks them.
     No upstream binary spread filter is applied — the cost matrix
     carries the liquidity signal end-to-end.
+
+    `step_years` defaults to `val_years` (3) so consecutive windows do
+    not overlap on the validation axis — window N's val period ends at
+    window N+1's train start. With step < val_years, val[N] would leak
+    into train[N+1], and any aggregate "average val Sharpe" would
+    double-count those bars.
+
+    `seed` pins Optuna's TPE sampler RNG so two runs with the same
+    inputs return the same hyperparameters. Re-runs without a pinned
+    seed differ by ±0.1-0.3 Sharpe per window from sampler noise alone.
     """
     optuna.logging.set_verbosity(optuna.logging.WARNING)
     start, end = prices.index[0], prices.index[-1]
@@ -223,7 +262,9 @@ def train(
         print(f'\nWindow: train {window_start.date()}-{train_end.date()}, '
               f'val {train_end.date()}-{val_end.date()}')
 
-        study = optuna.create_study(direction='maximize')
+        study = optuna.create_study(
+            direction='maximize',
+            sampler=optuna.samplers.TPESampler(seed=seed))
         objective = _make_objective(
             prices_train,
             rebalance_days=rebalance_days, metric=metric,
@@ -285,8 +326,17 @@ def print_summary(result: TrainResult) -> None:
               f'{p["top_n"]:>5} {scales_str:>8}')
     if result.windows:
         bw = result.best_window
-        print(f'\nBest window: {bw.train_start.year}-{bw.val_end.year}  '
-              f'val={bw.val_score:+.4f}, train={bw.train_score:+.4f}')
+        val_scores = np.array([w.val_score for w in result.windows
+                               if np.isfinite(w.val_score)])
+        if len(val_scores):
+            print(f'\nVal {result.metric} stats across {len(val_scores)} windows:')
+            print(f'  best   = {val_scores.max():+.4f}  '
+                  f'(window {bw.train_start.year}-{bw.val_end.year})')
+            print(f'  median = {np.median(val_scores):+.4f}')
+            print(f'  mean   = {val_scores.mean():+.4f}')
+            print(f'  worst  = {val_scores.min():+.4f}')
+            print('  (best is max-of-N; expect ~0.2-0.3σ upward bias '
+                  'vs the median, which is the more honest single-number summary)')
 
 
 def main(argv: list[str] | None = None) -> None:

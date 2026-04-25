@@ -2,12 +2,18 @@
 
 Two subcommands:
 
-    regime train --data-dir ./Nasdaq3347
+    regime train --data-dir ./StooqData
         Run an Optuna walk-forward search using vectorbt backtests.
         Optimizes 7 discrete hyperparameters (lookback, n_tail, top_n,
         divergence, scale subsets) over rolling train/val windows.
-        Reports per-window best params + Sharpes; prints the highest-
-        validation-Sharpe window at the end.
+        Reports per-window best params + Sharpes; prints summary stats
+        across windows.
+
+        --source stooq (default): bulk Stooq daily archive (split-/div-
+        adjusted, includes delistings, has volume). Pass the directory
+        that contains `daily/`.
+        --source kaggle: legacy `svaningelgem/nasdaq-daily-stock-prices`
+        per-ticker CSV layout (no volume, no adj_close).
 
     regime live --params model.json --dry-run
         Load a checkpoint, fetch recent OHLC from Alpaca, compute target
@@ -21,11 +27,12 @@ from __future__ import annotations
 
 import argparse
 import warnings
+from pathlib import Path
 
 from regime.persist import save_checkpoint_from_window
 from regime.trainer import print_summary, train
 from ss_indicators import corwin_schultz_spread
-from ss_loaders import load_price_matrix
+from ss_loaders import load_price_matrix, load_stooq_matrix
 
 DEFAULT_KILLSWITCH: str = '~/.regime-killswitch'
 
@@ -33,10 +40,23 @@ warnings.filterwarnings('ignore')
 
 
 def _add_train_args(p: argparse.ArgumentParser) -> None:
+    p.add_argument('--source', choices=['stooq', 'kaggle'], default='stooq',
+                   help='Data source layout. `stooq`: bulk archive with '
+                        '`daily/<country>/<exchange>/<bucket>/*.txt` (split/'
+                        'dividend-adjusted, has volume, includes delistings). '
+                        '`kaggle`: per-ticker CSVs (no volume, no adj_close).')
     p.add_argument('--data-dir', required=True,
-                   help='Directory of per-ticker OHLC CSVs (e.g. ./Nasdaq3347).')
+                   help='For stooq: the directory that contains `daily/`. '
+                        'For kaggle: the directory of per-ticker CSVs.')
+    p.add_argument('--cache-path',
+                   help='Pickle cache for the loaded panel. Subsequent runs '
+                        'with the same source skip the file scan. Defaults to '
+                        '`<data-dir>/.cache.pkl` for stooq; unused for kaggle.')
     p.add_argument('--n-trials', type=int, default=50,
                    help='Optuna trials per walk-forward window.')
+    p.add_argument('--seed', type=int, default=42,
+                   help='Optuna TPE sampler seed. Pinned for reproducibility; '
+                        'set explicitly to compare two runs apples-to-apples.')
     p.add_argument('--metric', default='sharpe',
                    choices=['sharpe', 'cagr', 'max_drawdown', 'total_return'],
                    help='Metric maximized by the search. Default sharpe.')
@@ -53,12 +73,20 @@ def _add_train_args(p: argparse.ArgumentParser) -> None:
                    help='Training window length, in years. Default 5.')
     p.add_argument('--val-years', type=int, default=3,
                    help='Validation window length, in years. Default 3.')
-    p.add_argument('--step-years', type=int, default=2,
-                   help='Step forward between walk-forward windows. Default 2.')
+    p.add_argument('--step-years', type=int, default=3,
+                   help='Step forward between walk-forward windows. Default 3 '
+                        '(= val-years, so val periods do not overlap successor '
+                        'train periods). Setting < val-years leaks val data '
+                        'into the next window\'s training.')
     p.add_argument('--start', default='2010-01-01')
     p.add_argument('--end', default='2025-12-31')
     p.add_argument('--min-history', type=int, default=504,
-                   help='Min trading days of history per ticker. Default 504.')
+                   help='Min trading days of history per ticker. Default 504 = '
+                        '4 × max wavelet scale (126), the minimum for the '
+                        'longest-scale Ricker kernel to fit without truncation.')
+    p.add_argument('--include-etfs', action='store_true',
+                   help='Stooq only: include `<exchange> etfs` in addition to '
+                        'stocks. Default off (regime targets equities).')
     p.add_argument('--save-params',
                    help='Write the highest-val-Sharpe window to this JSON path '
                         '(consumable by `regime live`).')
@@ -92,9 +120,18 @@ def _build_parser() -> argparse.ArgumentParser:
 
 
 def _run_train(args: argparse.Namespace) -> None:
-    prices, highs, lows = load_price_matrix(
-        args.data_dir, min_history=args.min_history,
-        start_date=args.start, end_date=args.end)
+    if args.source == 'stooq':
+        cache = args.cache_path or str(Path(args.data_dir) / '.cache.pkl')
+        prices, highs, lows, volumes = load_stooq_matrix(
+            args.data_dir, min_history=args.min_history,
+            start_date=args.start, end_date=args.end,
+            include_etfs=args.include_etfs, cache_path=cache)
+        median_vol_dollars = (prices.iloc[-1] * volumes.iloc[-1]).median()
+        print(f'Median latest-bar dollar volume: ${median_vol_dollars:,.0f}')
+    else:
+        prices, highs, lows = load_price_matrix(
+            args.data_dir, min_history=args.min_history,
+            start_date=args.start, end_date=args.end)
 
     print('Computing Corwin-Schultz spreads...')
     spread_df = corwin_schultz_spread(highs, lows)
@@ -105,6 +142,7 @@ def _run_train(args: argparse.Namespace) -> None:
     result = train(
         prices, spread_df,
         n_trials=args.n_trials,
+        seed=args.seed,
         rebalance_days=args.rebalance_days,
         metric=args.metric,
         commission_bps=args.commission_bps,

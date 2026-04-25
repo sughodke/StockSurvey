@@ -26,6 +26,7 @@ def vbt_backtest(
     commission_bps: float = 10.0,
     spread_df: pd.DataFrame | None = None,
     init_cash: float = 100_000.0,
+    fill_lag: int = 1,
 ) -> dict[str, float]:
     """Run one backtest and return Sharpe / CAGR / max-drawdown / total return.
 
@@ -54,6 +55,12 @@ def vbt_backtest(
         Starting capital, in currency units. Sharpe / max-drawdown are
         scale-invariant, so this only matters if you also want absolute
         equity-curve numbers.
+    fill_lag :
+        Bars between signal and execution. Default 1 means the signal
+        computed at close[t] fills at close[t+1] — the realistic
+        assumption that you can't trade at a price you only knew once
+        the bar closed. Set to 0 for the (optimistic) same-bar fill
+        used by most naive backtests; useful for comparison.
 
     Returns
     -------
@@ -73,9 +80,23 @@ def vbt_backtest(
     # weights every bar — a different strategy that earns a rebalancing
     # premium). bt-library's `RunOnDate + WeighTarget` only trades on
     # the listed dates, so we mirror that here.
+    #
+    # `fill_lag` shifts the chosen rebalance dates forward by N bars so
+    # a signal computed at close[t] executes at close[t+N]. Without this
+    # shift vbt would fill at the same bar that produced the signal —
+    # using a price you didn't know until the close.
     rebal_w = pd.DataFrame(np.nan, index=p.index, columns=common)
-    rebal_dates = w.index[::rebalance_days].intersection(p.index)
-    rebal_w.loc[rebal_dates] = w.loc[rebal_dates].values
+    raw_dates = w.index[::rebalance_days].intersection(p.index)
+    if fill_lag > 0:
+        positions = p.index.get_indexer(raw_dates) + fill_lag
+        positions = positions[positions < len(p.index)]
+        fill_dates = p.index[positions]
+        # Each shifted fill_date corresponds to a raw signal date that
+        # still fits in the panel — line them up by position.
+        signal_dates = raw_dates[: len(fill_dates)]
+        rebal_w.loc[fill_dates] = w.loc[signal_dates].values
+    else:
+        rebal_w.loc[raw_dates] = w.loc[raw_dates].values
 
     # Per-side fee = flat commission + half the relative spread (the
     # canonical "cross-half-spread" cost assumption). vectorbt accepts a

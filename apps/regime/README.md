@@ -191,23 +191,37 @@ ranked, top-N held.
 ### Training (Optuna + vectorbt)
 
 ```
-uv run regime train --data-dir ./Nasdaq3347 --n-trials 50
-uv run regime train --data-dir ./Nasdaq3347 \
-    --n-trials 100 --metric sharpe \
-    --train-years 5 --val-years 3 --step-years 2 \
+# Default: Stooq archive (split/div-adjusted, has volume, has delistings).
+uv run regime train --data-dir ./StooqData --n-trials 50
+
+# All knobs explicit:
+uv run regime train --source stooq --data-dir ./StooqData \
+    --n-trials 100 --metric sharpe --seed 42 \
+    --train-years 5 --val-years 3 --step-years 3 \
     --start 2010-01-01 --end 2025-12-31
+
+# Legacy Kaggle layout:
+uv run regime train --source kaggle --data-dir ./Nasdaq3347 --n-trials 50
 ```
 
-The CLI prints a per-window summary like:
+The CLI prints a per-window summary plus aggregate stats like:
 
 ```
 Window                     Train       Val     Div   LB   NT  TopN   Scales
-2013-2021                +1.1844   +0.3397      kl   41    5    19        S
-2015-2023                +1.1251   +0.4603  cosine  116   16     5        M
-2017-2025                +0.9598   +0.2140      kl   92   33    12        L
+2013-2021                +0.8835   +0.5122      js   55    9    23       ML
+2015-2023                +1.3250   -0.6641      js  153   63     6      def
+2017-2025                +1.1167   -0.0205      kl  156   52     8      SML
+
+Val sharpe stats across 3 windows:
+  best   = +0.5122  (window 2013-2021)
+  median = -0.0205
+  mean   = -0.0575
+  worst  = -0.6641
 ```
 
-…and highlights the highest-validation-Sharpe window.
+The "best" line is max-of-N and is upward-biased; the median is the
+more honest single-number summary. `--save-params` serializes the
+best window's hyperparameters into a checkpoint for `regime live`.
 
 ### Going live (paper trading)
 
@@ -251,6 +265,33 @@ reported Sharpe by roughly 3–4×.
 The search picks **different** divergence + lookback per window —
 the underlying signal is non-stationary across regimes, so any single
 "best" config is a snapshot of the most-recent fit window.
+
+### Backtest realism
+
+The pipeline has been progressively de-illusioned. What changed and
+why, in priority order:
+
+| Tier | Issue | Status | Where |
+|---|---|---|---|
+| 1 | CWT peeked `4·scale` days into the future via `full[-n:]` slice | **fixed** | `ss_wavelets.causal_cwt` uses `full[:n]` |
+| 1 | Splits / dividends not adjusted (Kaggle had no `adj_close`) | **fixed** | switched to Stooq archive (`load_stooq_matrix`); split/div-adjusted |
+| 1 | Spread filtered upstream but not charged as a cost | **fixed** | per-(date, ticker) fees in `ss_portfolio.vbt_backtest` |
+| 1 | Fill at the same close that produced the signal | **fixed** | `vbt_backtest(fill_lag=1)` shifts orders to the next close |
+| 1 | Unlimited `ffill()` papered over multi-year delistings as fake calm | **fixed** | Stooq loader uses `ffill(limit=5)`; longer gaps stay NaN |
+| 1 | Best-of-N walk-forward windows is upward-biased | **mitigated** | `print_summary` reports median + mean + worst alongside best |
+| 2 | Optuna seed not pinned → ±0.1-0.3 Sharpe noise per re-run | **fixed** | `train(seed=42)`, exposed as `--seed` |
+| 2 | Walk-forward windows overlapped (val[N] leaked into train[N+1]) | **fixed** | default `step_years=val_years=3` |
+| 2 | CWT operates on raw close prices, not log-returns | **known, unfixed** | `causal_cwt` math change, not yet validated |
+| 2 | `commission_bps=10` is an opinion, not a measurement | **known, unfixed** | venue-dependent; document and move on |
+| 3 | Equal-weight within top-N basket | **known, by design** | `select_top_n_matrix` puts 1/top_n on each pick |
+| 3 | Annualized Sharpe assumes daily-iid returns | **known, unfixed** | Lo (2002) autocorr adjustment not applied |
+
+Survivorship bias is the elephant we *partially* addressed: the Stooq
+archive includes delisted tickers, so the universe no longer
+mechanically conditions on "you only ever held survivors." It's not
+a clean point-in-time membership reconstruction (we don't have S&P
+500 / Nasdaq 100 join/leave dates), but it's substantially closer to
+honest than the prior Kaggle-survivors-only setup.
 
 ## Live-trading risk rails
 
