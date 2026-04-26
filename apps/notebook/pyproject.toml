@@ -18,11 +18,14 @@ dependencies = [
     "flax",
     "jupyter",
     "imageio-ffmpeg>=0.6.0",
+    "optuna",
 ]
 
 [project.scripts]
 ss-scalogram = "ss_notebook.scalogram:main"
 ss-scalogram-video = "ss_notebook.scalogram_video:main"
+ss-replay = "ss_notebook.replay:main"
+ss-replay-optuna = "ss_notebook.replay_optuna:main"
 
 [build-system]
 requires = ["hatchling"]
