@@ -4,8 +4,8 @@ Loads a `Checkpoint` and returns target weights for the *latest* date
 in the supplied OHLC frames. The dispatch is two-dimensional:
 
   * `checkpoint.mode` ∈ {'adam', 'optuna'} — how the model was trained.
-  * `checkpoint.strategy` ∈ {'regime', 'scalogram'} — which weight
-    builder produced the score.
+  * `checkpoint.strategy` ∈ {'regime', 'scalogram', 'rsi'} — which
+    weight builder produced the score.
 
 Combinations:
 
@@ -16,8 +16,11 @@ Combinations:
     uniform per-scale weighting.
   * **optuna + scalogram** — hard top-N equal-weight basket ranked
     ascending by `direction − momentum × coherence`.
+  * **optuna + rsi**       — hard top-N equal-weight basket ranked
+    ascending by trailing-`n_tail` mean Wilder RSI(`rsi_n`); lowest
+    score = most oversold. No CWT.
 
-There's no adam + scalogram path today — scalogram has no continuous
+Adam-mode is regime-only — scalogram and rsi have no continuous
 parameters to gradient-descend over.
 """
 
@@ -29,7 +32,7 @@ import pandas as pd
 
 from regime.persist import Checkpoint
 from regime.trainer import _log_returns
-from ss_indicators import corwin_schultz_spread, get_divergence
+from ss_indicators import corwin_schultz_spread, get_divergence, rsi
 from ss_indicators import symmetric_kl_divergence as regime_scores
 from ss_wavelets import causal_cwt, precompute_windows
 
@@ -60,11 +63,18 @@ def target_weights(
     """
     _validate_inputs(prices, highs, lows, checkpoint)
 
-    # Branch on strategy first — scalogram has its own scoring math,
-    # different ranking direction (ascending), and only exists in
-    # optuna (hard top-N) form today.
+    # Branch on strategy first — scalogram and rsi each have their own
+    # scoring math, ranking direction (both ascending: smallest score
+    # wins), and only exist in optuna (hard top-N) form today.
     if checkpoint.strategy == 'scalogram':
         scores, liquid_last = _score_latest_bar_scalogram(
+            prices, highs, lows, checkpoint)
+        weights = _hard_top_n(
+            scores, liquid_last, checkpoint.top_n, ascending=True)
+        return pd.Series(weights, index=prices.columns, name=prices.index[-1])
+
+    if checkpoint.strategy == 'rsi':
+        scores, liquid_last = _score_latest_bar_rsi(
             prices, highs, lows, checkpoint)
         weights = _hard_top_n(
             scores, liquid_last, checkpoint.top_n, ascending=True)
@@ -160,6 +170,27 @@ def _score_latest_bar_scalogram(prices, highs, lows, checkpoint):
     coherence = np.clip(cov / (np.sqrt(var_s * var_l) + 1e-9), 0.0, 1.0)
 
     scores = (direction - momentum * coherence).astype(np.float32)
+
+    spread_df = corwin_schultz_spread(highs, lows)
+    liquid_last = (spread_df.values[-1] <= checkpoint.max_spread).astype(np.float32)
+    return scores, liquid_last
+
+
+def _score_latest_bar_rsi(prices, highs, lows, checkpoint):
+    """Compute the trailing-`n_tail` mean Wilder RSI(`rsi_n`) for the
+    latest bar across all tickers, plus the liquidity mask.
+
+    Mirrors `regime.trainer.weights_rsi` but only needs the trailing
+    window ending at the last index, so we slice instead of computing
+    a full cumsum sweep over history.
+    """
+    if checkpoint.rsi_n is None:
+        raise ValueError(
+            'rsi checkpoint missing rsi_n; checkpoint may be from a '
+            'pre-rsi training run')
+    rsi_arr = np.asarray(rsi(prices.values, n=checkpoint.rsi_n))
+    tail = slice(-checkpoint.n_tail, None)
+    scores = rsi_arr[tail].mean(axis=0).astype(np.float32)
 
     spread_df = corwin_schultz_spread(highs, lows)
     liquid_last = (spread_df.values[-1] <= checkpoint.max_spread).astype(np.float32)

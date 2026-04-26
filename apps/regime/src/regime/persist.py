@@ -78,6 +78,9 @@ class Checkpoint:
     # above `regime.trainer._log_returns`. Persisted on the checkpoint
     # so live inference scores with the same input the trainer used.
     use_log_returns: bool = False
+    # RSI period — populated only for `strategy == 'rsi'`. None for the
+    # CWT-based strategies (regime, scalogram) which don't use RSI.
+    rsi_n: int | None = None
 
     def jax_params(self) -> dict[str, jnp.ndarray]:
         """Return params in the dict form expected by the JAX divergence
@@ -136,17 +139,25 @@ def save_checkpoint_from_window(
 ) -> Path:
     """Serialize an Optuna `WindowResult` to a checkpoint file.
 
-    Resolves the window's scale-subset booleans into an explicit
-    `scales` list. Sets `mode='optuna'` and `strategy=window.strategy`;
-    `top_n` is recorded for both strategies, `divergence` only when
-    the strategy actually uses one (regime). `scale_log_weights` stays
-    at zeros so the inference-time divergence sees uniform per-scale
-    weighting, matching what the Optuna search itself used.
+    Sets `mode='optuna'` and `strategy=window.strategy`. Strategy-
+    specific fields are populated only when the strategy uses them:
+
+      * regime    — `scales` (from subset flags), `divergence`
+      * scalogram — `scales` (from subset flags)
+      * rsi       — `rsi_n`; `scales` left empty, `divergence` None
+
+    `scale_log_weights` stays at zeros (length matches `scales`) so the
+    inference-time CWT divergence sees uniform per-scale weighting,
+    matching what the Optuna search used. RSI checkpoints carry an
+    empty `scale_log_weights` since they never invoke the CWT path.
     """
     from regime.trainer import _resolve_scales
 
-    scales = _resolve_scales(window.best_params)
     strategy = getattr(window, 'strategy', 'regime')
+    if strategy == 'rsi':
+        scales: list[int] = []
+    else:
+        scales = _resolve_scales(window.best_params)
     cp = Checkpoint(
         version=CHECKPOINT_VERSION,
         mode='optuna',
@@ -159,6 +170,8 @@ def save_checkpoint_from_window(
         top_n=int(window.best_params['top_n']),
         divergence=(str(window.best_params['divergence'])
                     if 'divergence' in window.best_params else None),
+        rsi_n=(int(window.best_params['rsi_n'])
+               if 'rsi_n' in window.best_params else None),
         rebal_days=rebal_days,
         max_spread=max_spread,
         commission_bps=commission_bps,

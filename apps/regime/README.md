@@ -46,6 +46,16 @@ apps/regime/src/regime/
     backtest_ranking.py plain-numpy long/short walk-forward
 ```
 
+**Productionized from `research/`:** the `weights_regime` /
+`weights_scalogram` / `weights_rsi` builders were first written in
+`research/backtest_bt.py` and the Optuna walk-forward harness was
+prototyped in `research/optimize_regime.py`; both were promoted into
+`trainer.py` (Optuna + vectorbt) as the canonical production path.
+The original `research/` files are kept as bt-library reference
+implementations for cross-checking — `optimize_regime.py` still
+imports `make_commission_fn` / `select_top_n_matrix` from
+`backtest_bt.py`, so the two are a unit.
+
 Math primitives live in workspace packages (`ss_loaders`,
 `ss_indicators`, `ss_wavelets`, `ss_portfolio`, `ss_plotting`) so they
 can be reused outside this app.

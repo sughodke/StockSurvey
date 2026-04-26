@@ -4,10 +4,11 @@ Runnable CLIs that live alongside the research notebooks in
 `apps/notebook/notebooks/`. Each module is invoked through a
 `uv run ss-*` console script defined in `apps/notebook/pyproject.toml`.
 
-All scripts are single-ticker, share `load_prices` from `scalogram.py`
-(Stooq loader by default, Kaggle Nasdaq3347 slice via `--kaggle-dir`),
-and write artifacts to `Output/` without opening an interactive
-window.
+All scripts share `load_prices` from `scalogram.py` (Stooq loader by
+default, Kaggle Nasdaq3347 slice via `--kaggle-dir`) and write
+artifacts to `Output/` without opening an interactive window. The
+scalogram/video CLIs are single-ticker; `ss-replay` accepts a pooled
+train list plus an optional held-out val ticker.
 
 ## Modules
 
@@ -38,15 +39,21 @@ recomputing per frame.
 uv run ss-scalogram-video --start 2000-01-01 --start-after-lookback AAPL
 ```
 
-### `replay.py` → `ss-replay`
+### `replay/` → `ss-replay`
 
-CWT-slice reconstruction probe. For each bar `t` we extract a
-trailing window of K columns of the causal CWT (`coeffs` and
-`power`, 26 channels per lag with the default 13 scales) and fit a
-decoder predicting RSI(7) / MACD(12,26,9) / close at the same bar.
-R², RMSE, and max-|Δ| are rendered onto the saved figure as
-right-aligned subplot titles; the suptitle records the decoder,
-window size, and feature count.
+CWT-slice reconstruction probe. Split into focused submodules:
+`cli` (argparse + figure I/O), `features` (CWT + lag-window builder
++ `TickerData` + `load_ticker`), `decoders` (OLS / JAX MLP / JAX
+Conv1D), `metrics` (R²/RMSE/max-|Δ|), `plot` (3-panel figure), and
+`reconstruct` (`fit_and_evaluate` orchestrator + a single-ticker
+`reconstruct_indicators` wrapper).
+
+For each bar `t` we extract a trailing window of K columns of the
+causal CWT (`coeffs` and `power`, 26 channels per lag with the
+default 13 scales) and fit a decoder predicting RSI(7) /
+MACD(12,26,9) / close at the same bar. R², RMSE, and max-|Δ| are
+rendered onto the saved figure as right-aligned subplot titles;
+the suptitle records the decoder, window size, and feature count.
 
 Three knobs control how close reconstruction can approach the
 information-theoretic ceiling of "full CWT is invertible":
@@ -64,23 +71,50 @@ information-theoretic ceiling of "full CWT is invertible":
   trailing-K window with shared weights across lags. CNN requires
   `--window-cols > cnn_kernel * cnn_layers`.
 
-Empirical headline (AAPL 2013-01-29 → 2025-12-11, K=64
-+ `--include-zscore-stats` + `--decoder mlp`): price R² 0.9997,
-RSI R² 0.987, MACD R² 0.9999. With single-column linear OLS the
-same targets land at 0.04 / 0.21 / 0.15 — the ceiling is high but
-the bottleneck is real.
+Two further knobs control the train/val split across tickers:
 
-The decoder is fit globally over the full valid history (not
-walk-forward). This is an in-sample expressivity probe — it
-answers "can the CWT slice encode the indicator at all," not
-"could a model trained on past data forecast it OOS."
+- `--train-tickers CSV` — pool extra tickers' valid feature rows
+  with the primary ticker's into a single decoder fit. No figures
+  are saved for these; only the primary ticker's reconstruction is
+  plotted on the train side.
+- `--val-ticker SYMBOL` — apply the pooled-train decoder zero-shot
+  to a held-out ticker, report val R²/RMSE/max-|Δ|, and save
+  `<output-dir>/<val-ticker>-replay-zeroshot-from-<train-tag>.png`.
+
+Empirical headlines (AAPL 2013-01-29 → 2025-12-11, K=64,
+`--include-zscore-stats`, `--decoder mlp`):
+
+- **In-sample (single-ticker fit, no val):** price R² 0.9997, RSI
+  R² 0.987, MACD R² 0.9999. With single-column linear OLS the same
+  targets land at 0.04 / 0.21 / 0.15 — the ceiling is high but the
+  bottleneck is real.
+- **Zero-shot val on TSLA, AAPL-only train:** price R² −0.075,
+  RSI R² −2.35, MACD R² 0.132. The "scalogram encodes everything"
+  claim is in-sample memorization, not a portable encoder. With
+  1666 features × ~3000 rows × one ticker, the MLP fits AAPL-
+  specific feature distributions; TSLA's CWT magnitudes (and
+  appended μ, σ) sit outside that distribution.
+
+The decoder is fit globally over the full valid history of the
+train pool (not walk-forward). This is an in-sample expressivity
+probe — it answers "can the CWT slice encode the indicator at
+all," not "could a model trained on past data forecast it OOS."
+Use `--val-ticker` (and ideally `--train-tickers` to broaden the
+distribution) when the question is generalization rather than
+expressivity.
 
 ```bash
-uv run ss-replay AAPL                                       # baseline
-uv run ss-replay AAPL --window-cols 64                      # +window
-uv run ss-replay AAPL --window-cols 64 --include-zscore-stats
+# In-sample expressivity (single ticker, no val):
+uv run ss-replay AAPL                                       # OLS, K=1
 uv run ss-replay AAPL --window-cols 64 --include-zscore-stats \
-    --decoder mlp                                           # all three
+    --decoder mlp                                           # max in-sample fit
+
+# Zero-shot generalization (pooled train, held-out val):
+uv run ss-replay AAPL --val-ticker TSLA --window-cols 64 \
+    --include-zscore-stats --decoder mlp                    # 1-train, 1-val
+uv run ss-replay AAPL --train-tickers MSFT,GOOGL,AMZN \
+    --val-ticker TSLA --window-cols 64 --include-zscore-stats \
+    --decoder mlp                                           # 4-train, 1-val
 ```
 
 ### `replay_optuna.py` → `ss-replay-optuna`
@@ -110,6 +144,55 @@ All four scripts accept:
 `scalogram` and `scalogram_video` write to `Output/`; `replay` and
 `replay_optuna` accept `--output-dir` (default `Output`). None of
 these scripts call `plt.show()` — they save and exit.
+
+## Design notes
+
+### Why CNN ≠ "strictly worse MLP" for the replay decoder
+
+RSI, MACD, and EMA are all sliding-window linear filters of the form
+`y_t = Σ_k w_k · x_{t-k}`. The Conv1D decoder has shared weights
+across lags, which is exactly that structure — it gets translation
+equivariance over the lag axis for free, while the MLP has to learn
+that lag-i and lag-(i+1) play similar roles independently. Layer-1
+parameter counts at K=64 / 13 scales: MLP hidden=128 ≈ 213k params;
+CNN kernel=5 hidden=64 ≈ 8k params. The CNN is forced to find the
+filter structure rather than memorize, which should help cross-ticker
+generalization on the indicator targets specifically.
+
+The catch: `--include-zscore-stats` is incompatible with
+`--decoder cnn` (features.py raises) — the appended μ, σ aren't
+lag-windowed and would break the reshape. Without those stats, the
+CWT has stripped the price level out and price R² is bounded near 0
+no matter how good the decoder is. So the meaningful comparison is
+**CNN vs MLP without zscore-stats** on RSI/MACD; if the question is
+"how high can price R² climb in-sample," that's the MLP+zscore
+regime and CNN can't enter it.
+
+### Why the regime trainer's CWT input is raw close, not log-returns
+
+A natural-feeling alternative: CWT of log-returns, since Stooq is
+already split-/dividend-adjusted so log-returns has no artificial
+discontinuities and is the textbook stationary transform. A
+controlled walk-forward eval (Stooq 2010–2024, 20 trials/window,
+kernel half-extent 3 fixed in both arms) showed raw close beats
+log-returns on val Sharpe in every window — log-returns has higher
+*train* and lower *val* Sharpe across the board, the canonical
+overfitting signature.
+
+Mechanism: `causal_cwt` does a rolling z-norm before the Ricker
+convolution. With raw close that z-norm centers but doesn't detrend
+within the window — a steadily rising price has a steadily rising
+z-score, so long-scale Ricker power is essentially smoothed
+momentum. With log-returns the z-norm gives "today's return divided
+by recent return std," and long-scale power on that captures vol-
+regime concentration, which is not a known cross-sectional return
+predictor. The "dirtiness" of using raw close is load-bearing — it's
+what bleeds the momentum factor into the divergence score the
+trainer ranks on. Log-returns is the right input if the goal ever
+shifts to vol forecasting or regime-break detection, but not for
+the cross-sectional ranking this trainer does. The
+`--use-log-returns` flag stays on `regime train` for that future
+use case; default is raw close.
 
 ## Where to look next
 

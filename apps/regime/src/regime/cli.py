@@ -40,12 +40,17 @@ warnings.filterwarnings('ignore')
 
 
 def _add_train_args(p: argparse.ArgumentParser) -> None:
-    p.add_argument('--strategy', choices=['regime', 'scalogram'], default='regime',
-                   help='Which CWT-based ranking strategy to search/train. '
+    p.add_argument('--strategy', choices=['regime', 'scalogram', 'rsi'],
+                   default='regime',
+                   help='Which ranking strategy to search/train. '
                         '`regime`: divergence between recent vs historical CWT '
                         'power distributions (momentum-of-volatility-shift). '
                         '`scalogram`: direction − momentum × coherence '
-                        '(mean-reversion on incoherent timescales).')
+                        '(mean-reversion on incoherent timescales). '
+                        '`rsi`: trailing-mean Wilder RSI, lowest = most '
+                        'oversold (counter-trend mean-reversion, no CWT). '
+                        '`rsi` ignores `--use-log-returns` since RSI is '
+                        'computed directly from prices.')
     p.add_argument('--source', choices=['stooq', 'kaggle'], default='stooq',
                    help='Data source layout. `stooq`: bulk archive with '
                         '`daily/<country>/<exchange>/<bucket>/*.txt` (split/'

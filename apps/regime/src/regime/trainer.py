@@ -56,7 +56,7 @@ import numpy as np
 import optuna
 import pandas as pd
 
-from ss_indicators import corwin_schultz_spread, get_divergence
+from ss_indicators import corwin_schultz_spread, get_divergence, rsi
 from ss_loaders import load_price_matrix
 from ss_portfolio import (
     apply_nan_mask,
@@ -355,9 +355,54 @@ def weights_scalogram(
         weights, index=prices.index[lookback:], columns=prices.columns)
 
 
+def weights_rsi(
+    prices: pd.DataFrame,
+    *,
+    lookback: int,
+    n_tail: int,
+    top_n: int,
+    rsi_n: int,
+) -> pd.DataFrame:
+    """Hard-top-N basket of the most-oversold names by mean RSI.
+
+    Per (date, ticker) score = mean of Wilder RSI(`rsi_n`) over the
+    trailing `n_tail` bars. Picks **lowest-score** names
+    (`ascending=True`): smallest mean RSI = most persistently oversold,
+    a counter-trend mean-reversion bet.
+
+    No CWT, no scales, no divergence — `rsi_n` is the only strategy-
+    specific scalar. `lookback` plays the same alignment role as in the
+    other strategies (output starts at `prices.index[lookback:]` so
+    `apply_nan_mask` and downstream allocation match the other
+    strategies' shapes); the actual RSI computation only needs `rsi_n`
+    bars of warm-up.
+
+    Vectorized via cumulative-sum trailing means — same compute pattern
+    as `weights_scalogram`, but on a 1-D RSI panel instead of a CWT
+    cube, so an order of magnitude cheaper.
+    """
+    rsi_arr = np.asarray(rsi(prices.values, n=rsi_n))
+    n_dates = rsi_arr.shape[0]
+
+    # Trailing-`n_tail` mean via cumsum: end - start = sum over n_tail
+    # rows; divide by n_tail to get the mean. Output rows align to
+    # `prices.index[lookback:]`, matching the other strategies.
+    cs = np.cumsum(rsi_arr.astype(np.float64), axis=0)
+    cs = np.concatenate([np.zeros_like(cs[:1]), cs], axis=0)
+    end = cs[lookback + 1: n_dates + 1]
+    start = cs[lookback - n_tail + 1: n_dates - n_tail + 1]
+    scores = ((end - start) / n_tail).astype(np.float32)
+
+    scores = apply_nan_mask(scores, prices.values, lookback)
+
+    weights = select_top_n_matrix(scores, top_n, ascending=True)
+    return pd.DataFrame(
+        weights, index=prices.index[lookback:], columns=prices.columns)
+
+
 # Strategy dispatch table. Each entry is the weight builder for a
 # strategy name; the trainer + inference both look it up here.
-STRATEGIES = ('regime', 'scalogram')
+STRATEGIES = ('regime', 'scalogram', 'rsi')
 
 
 def _build_weights(
@@ -370,17 +415,22 @@ def _build_weights(
 
     `use_log_returns` is a run-time flag (not an Optuna-searched
     hyperparameter) that toggles the CWT input. See the comment block
-    above `_log_returns` for why this defaults to False.
+    above `_log_returns` for why this defaults to False. RSI ignores it
+    — RSI is a price-percentile statistic, not a wavelet input.
     """
-    scales = _resolve_scales(params)
-    common = dict(
+    base = dict(
         lookback=int(params['lookback']), n_tail=int(params['n_tail']),
-        top_n=int(params['top_n']), scales=scales,
+        top_n=int(params['top_n']))
+    if strategy == 'rsi':
+        return weights_rsi(prices, **base, rsi_n=int(params['rsi_n']))
+    cwt_common = dict(
+        **base, scales=_resolve_scales(params),
         use_log_returns=use_log_returns)
     if strategy == 'regime':
-        return weights_regime(prices, **common, divergence=str(params['divergence']))
+        return weights_regime(prices, **cwt_common,
+                              divergence=str(params['divergence']))
     if strategy == 'scalogram':
-        return weights_scalogram(prices, **common)
+        return weights_scalogram(prices, **cwt_common)
     raise ValueError(f'unknown strategy {strategy!r}; available: {STRATEGIES}')
 
 
@@ -391,25 +441,30 @@ def _make_objective(
     """Build an Optuna objective closed over the train slice and strategy.
 
     Hyperparameters shared by all strategies: `lookback`, `n_tail`,
-    `top_n`, and the three scale-subset booleans. Regime adds
-    `divergence` (kl/js/cosine/l2) — scalogram has no divergence knob,
-    its score is fixed.
+    `top_n`. CWT-based strategies (regime, scalogram) additionally
+    search the three scale-subset booleans; regime adds `divergence`
+    (kl/js/cosine/l2). RSI skips scales entirely and instead searches
+    `rsi_n` ∈ {5, 7, 10, 14}.
     """
     def objective(trial: optuna.Trial) -> float:
         lookback = trial.suggest_int(
             'lookback', LOOKBACK_SEARCH_MIN, LOOKBACK_SEARCH_MAX)
         n_tail = trial.suggest_int('n_tail', 3, lookback // 2)
         top_n = trial.suggest_int('top_n', 5, 30)
-        use_short = trial.suggest_categorical('use_short_scales', [True, False])
-        use_mid = trial.suggest_categorical('use_mid_scales', [True, False])
-        use_long = trial.suggest_categorical('use_long_scales', [True, False])
-        params: dict = dict(
-            lookback=lookback, n_tail=n_tail, top_n=top_n,
-            use_short_scales=use_short, use_mid_scales=use_mid,
-            use_long_scales=use_long)
-        if strategy == 'regime':
-            params['divergence'] = trial.suggest_categorical(
-                'divergence', ['kl', 'js', 'cosine', 'l2'])
+        params: dict = dict(lookback=lookback, n_tail=n_tail, top_n=top_n)
+
+        if strategy == 'rsi':
+            params['rsi_n'] = trial.suggest_categorical('rsi_n', [5, 7, 10, 14])
+        else:
+            params['use_short_scales'] = trial.suggest_categorical(
+                'use_short_scales', [True, False])
+            params['use_mid_scales'] = trial.suggest_categorical(
+                'use_mid_scales', [True, False])
+            params['use_long_scales'] = trial.suggest_categorical(
+                'use_long_scales', [True, False])
+            if strategy == 'regime':
+                params['divergence'] = trial.suggest_categorical(
+                    'divergence', ['kl', 'js', 'cosine', 'l2'])
 
         try:
             weight_df = _build_weights(
@@ -612,7 +667,7 @@ def print_summary(result: TrainResult) -> None:
           f'metric: {result.metric}, '
           f'commission: {result.commission_bps} bps + half-spread per side)')
     print('=' * 80)
-    print(f'{"Window":<22} {"Train":>9} {"Val":>9} {"Div":>7} '
+    print(f'{"Window":<22} {"Train":>9} {"Val":>9} {"Knob":>9} '
           f'{"LB":>4} {"NT":>4} {"TopN":>5} {"Scales":>8}')
     print('-' * 80)
     for w in result.windows:
@@ -622,12 +677,18 @@ def print_summary(result: TrainResult) -> None:
                 ('S', p.get('use_short_scales')),
                 ('M', p.get('use_mid_scales')),
                 ('L', p.get('use_long_scales')),
-            ] if on) or 'def'
+            ] if on) or ('—' if 'rsi_n' in p else 'def')
         label = f'{w.train_start.year}-{w.val_end.year}'
-        # Scalogram has no divergence knob; print '—' so the column lines up.
-        div_str = str(p.get('divergence', '—'))
+        # Strategy-specific scalar (Knob column): regime → divergence,
+        # rsi → rsi_n, scalogram → '—'.
+        if 'divergence' in p:
+            knob_str = str(p['divergence'])
+        elif 'rsi_n' in p:
+            knob_str = f'rsi({p["rsi_n"]})'
+        else:
+            knob_str = '—'
         print(f'{label:<22} {w.train_score:>+9.4f} {w.val_score:>+9.4f} '
-              f'{div_str:>7} {p["lookback"]:>4} {p["n_tail"]:>4} '
+              f'{knob_str:>9} {p["lookback"]:>4} {p["n_tail"]:>4} '
               f'{p["top_n"]:>5} {scales_str:>8}')
     if result.windows:
         bw = result.best_window
