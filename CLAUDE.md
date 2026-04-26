@@ -6,12 +6,13 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 StockSurvey is a uv-workspace monorepo containing trading-strategy research and live execution. Layout:
 
-- `apps/regime/`   — differentiable CWT-regime portfolio strategy. Trains a JAX-Adam model offline, persists a JSON checkpoint, and trades it live via Alpaca. Contains a `research/` sub-package with bt-library backtests and Optuna walk-forward search. Active development.
+- `apps/regime/`   — CWT-regime portfolio strategy. Optuna+vectorbt walk-forward search by default; `research/optimize_adam.py` is the JAX-Adam differentiable variant. Persists a JSON checkpoint, trades live via Alpaca. Active development.
 - `apps/v1/`       — legacy single-ticker workflow (`Security` → `Span` → `Decider` → `Evaluator` → `Plot`) plus the aiohttp web service. Parked. Imports JAX only when calling `ss_indicators` for the first time.
-- `apps/notebook/` — Jupyter notebooks for cross-cutting research (e.g. CWT-vision multi-head decoder).
-- `packages/loaders/`    (`ss_loaders`)    — Kaggle CSV matrix, Yahoo, CryptoCompare, symbol lists.
+- `apps/notebook/` — Jupyter notebooks for cross-cutting research **plus** runnable scalogram CLIs: `ss-scalogram` (static composite figure) and `ss-scalogram-video` (day-by-day animation showing what the trainer's causal CWT sees per rebalance). Source in `src/ss_notebook/`.
+- `packages/loaders/`    (`ss_loaders`)    — Kaggle CSV matrix, Stooq archive, Yahoo, CryptoCompare, symbol lists.
 - `packages/indicators/` (`ss_indicators`) — JAX matrix-form RSI/MACD/BBands/SMA/EMA, Corwin-Schultz spread, symmetric-KL divergence, Fibonacci levels.
-- `packages/wavelets/`   (`ss_wavelets`)   — causal Ricker CWT + windowed power means.
+- `packages/wavelets/`   (`ss_wavelets`)   — causal Ricker CWT + windowed power means. `KERNEL_HALF_EXTENT=3` and `ALL_SCALES` exposed.
+- `packages/stream/`     (`ss_stream`)     — point-in-time universe iterator over the Stooq archive (incremental loader for live trading).
 - `packages/portfolio/`  (`ss_portfolio`)  — JAX block-Sharpe with costs, CAGR/drawdown/Sortino/Calmar, water-fill weight cap, masked softmax.
 - `packages/plotting/`   (`ss_plotting`)   — training-curve, equity-comparison, scalogram-heatmap helpers.
 
@@ -32,22 +33,29 @@ All packages target JAX (matrix form). The legacy v1 indicators in `v1/util/indi
 ```bash
 uv sync --all-packages                              # install everything editable
 
-# Regime app — training + live trading
+# Regime app — training + live trading (Stooq is the default --source)
 uv run regime --help
-uv run regime train --data-dir ./Nasdaq3347 --save-params Output/regime-v1.json --save
+uv run regime train --data-dir ./StooqData --save-params Output/regime-v1.json
+uv run regime train --data-dir ./StooqData --use-log-returns   # opt-in: see "Key findings"
 uv run regime live  --params Output/regime-v1.json --dry-run
 
-# Regime research scripts (bt backtests, Optuna)
+# Regime research scripts (bt backtests, Optuna, Adam)
 uv run python -m regime.research.backtest_bt        --data-dir ./Nasdaq3347 --top-n 20
 uv run python -m regime.research.backtest_ranking   --data-dir ./Nasdaq3347 --top-n 10
 uv run python -m regime.research.optimize_regime    --data-dir ./Nasdaq3347 --n-trials 50
+uv run python -m regime.research.optimize_adam      --data-dir ./Nasdaq3347
+
+# Scalogram tools (apps/notebook)
+uv run ss-scalogram --stooq-dir ./StooqData TSLA                    # static composite figure
+uv run ss-scalogram-video --stooq-dir ./StooqData --start 2000-01-01 \
+       --start-after-lookback AAPL                                  # day-by-day mp4
 
 # Legacy v1
 uv run python -m v1.scripts.webservice              # aiohttp on :8080
 uv run python -m v1.scripts.evaluate_securities AAPL
 uv run python -m v1.scripts.sort_securities
 
-# Notebook
+# Notebooks
 uv run jupyter notebook apps/notebook/notebooks/
 ```
 
@@ -56,14 +64,14 @@ Run `jupyter notebook` from the workspace root so the notebook's `data_dir = './
 ## Regime app architecture
 
 `apps/regime/src/regime/`:
-- `trainer.py`   — JAX-Adam loop returning a `TrainResult`. Calls `ss_wavelets.causal_cwt` + `precompute_windows` once up-front, then iterates a small `(n_blocks, n_tickers)` JIT'd forward pass through `ss_indicators.symmetric_kl_divergence` + `ss_portfolio.block_sharpe_with_costs`.
-- `persist.py`   — JSON checkpoint serialization (no pickle). `Checkpoint` dataclass captures params + scales + hyperparams + universe + provenance.
-- `inference.py` — pure forward pass that loads a `Checkpoint` and returns soft top-N target weights for the latest bar.
+- `trainer.py`   — Optuna+vectorbt walk-forward search. `weights_regime` ranks by recent-vs-historical CWT-power divergence (KL/JS/cosine/L2); `weights_scalogram` ranks by direction−momentum×coherence. Both call `ss_wavelets.causal_cwt` + `precompute_windows`. CWT input is **raw close by default**; `_log_returns` is opt-in via `use_log_returns=True` (preserved as a flag — see "Key findings"). `DEFAULT_PER_WINDOW_MIN_HISTORY = KERNEL_HALF_EXTENT * max(LONG_SCALES) + LOOKBACK_SEARCH_MAX = 630` is the survivorship floor — derived, not hardcoded, so it follows kernel/lookback constants.
+- `persist.py`   — JSON checkpoint serialization (no pickle). `Checkpoint` dataclass captures params + scales + hyperparams + universe + provenance + `use_log_returns` (so live inference matches train-time input).
+- `inference.py` — pure forward pass that loads a `Checkpoint` and returns soft top-N target weights for the latest bar. Reads `checkpoint.use_log_returns` to mirror the trainer's input mode.
 - `broker.py`    — `AlpacaBroker` adapter (account, positions, recent bars, build trades, submit orders). Reads `ALPACA_API_KEY` / `ALPACA_SECRET_KEY` / `ALPACA_BASE_URL` from env; defaults to paper-trading endpoint.
 - `live.py`      — orchestration: load checkpoint → fetch bars → score universe → cap weights via `ss_portfolio.apply_position_cap` → diff vs current positions → submit. Risk rails: kill-switch file, data-freshness check, per-name cap, dry-run by default.
-- `cli.py`       — argparse subcommands `train` and `live`.
+- `cli.py`       — argparse subcommands `train` and `live`. `--use-log-returns` flag exposed on `train` (off by default).
 - `reporting.py` — thin adapters from `TrainResult` to `ss_plotting.plot_training_curves` / `print_scale_weights`.
-- `research/`    — pre-trainer experiments (`backtest_bt.py`, `backtest_ranking.py`, `optimize_regime.py`).
+- `research/`    — alternative search/eval (`backtest_bt.py`, `backtest_ranking.py`, `optimize_regime.py`, `optimize_adam.py` — JAX-Adam differentiable optimizer).
 
 ## Key findings from past runs (2013-01-29 → 2025-12-11, 10bps commission, 20-day rebal)
 
@@ -72,10 +80,14 @@ Run `jupyter notebook` from the workspace root so the notebook's `data_dir = './
 - **Optuna walk-forward best params vary wildly across windows** (lookback 144–246, n_tail 3–110, top_n 6–24, divergence bounces cosine/js/kl) — the signal is unstable. Val Sharpe in later windows reaches ~1.36–1.63.
 - **JAX differentiable optimizer** (lookback=229, n_tail=106, 500 Adam steps, train 70% / val 30%): train Sharpe +1.22, val Sharpe **+0.80** out-of-sample. Learned scale weights collapse to long horizons: **126d (48%), 90d (18%), 26d (16%), 42d (15%)** — all short scales (≤21d) drop to <1%. Temperature drops to 0.005 (near-hard top-1 concentration).
 - **The regime signal works on monthly-to-biannual horizons, not short-term noise.**
+- **Log-returns CWT input degrades Sharpe (controlled walk-forward eval, Stooq 2010-2024, 20 trials/window, kernel half-extent 3 fixed in both arms):** raw close beats log-returns on val Sharpe in every window. Median val Sharpe `+0.15` (raw) vs `+0.03` (log-returns); mean `+0.07` vs `-0.29`; worst window `-0.41` vs `-1.06`. Per-window: log-returns has **higher train but lower val** Sharpe — overfitting signature. Theory: raw close bleeds price-level trend into long-scale wavelet power, embedding an implicit cross-sectional momentum factor; log-returns purifies trend out, leaving only "vol regime shift" which is not a known cross-sectional return predictor. Default is therefore raw close; `--use-log-returns` flag preserved for non-ranking research (vol forecasting, regime-break detection). Eval artifacts: `Output/regime-eval-{rawclose-kernel3,logreturns}.{log,json}`.
 
-## Dataset: `Nasdaq3347/`
+## Datasets
 
-Per-ticker CSV dump from Kaggle **svaningelgem/nasdaq-daily-stock-prices** (3347 tickers). Schema: `ticker,date,open,high,low,close` — **no volume, no adj_close**. This shapes the rest of the pipeline: volume-based liquidity filters (ADV, dollar volume, VWAP) are not available, so `ss_indicators.corwin_schultz_spread` is the liquidity proxy. After `min_history=504` filtering, effective usable date range is roughly **2013-01-29 → today** with ~1190 liquid tickers.
+Two on-disk sources, picked via `regime train --source {stooq,kaggle} --data-dir DIR`:
+
+- **`StooqData/`** (default for the trainer) — Stooq daily archive bulk dump, layout `daily/<country>/<exchange>/<bucket>/*.txt`. Has volume, split-/dividend-adjusted prices, and includes delisted tickers. Loaded via `ss_loaders.load_stooq_matrix` (with optional `cache_path` to skip the 12K-file scan after the first run).
+- **`Nasdaq3347/`** — per-ticker CSV dump from Kaggle **svaningelgem/nasdaq-daily-stock-prices** (3347 tickers). Schema: `ticker,date,open,high,low,close` — **no volume, no adj_close**. After `min_history=504` filtering, effective usable date range is roughly **2013-01-29 → today** with ~1190 liquid tickers. Volume-based liquidity filters (ADV, dollar volume, VWAP) are not available regardless of source — `ss_indicators.corwin_schultz_spread` is the liquidity proxy used end-to-end.
 
 ## Platform constraints
 
@@ -112,13 +124,21 @@ Per-ticker CSV dump from Kaggle **svaningelgem/nasdaq-daily-stock-prices** (3347
 ### Live broker swap
 - Subclass or replace `AlpacaBroker` in `apps/regime/src/regime/broker.py`. Keep the public surface (`get_account`, `get_positions`, `get_recent_bars`, `build_trades`, `submit_orders`) so `live.py` doesn't need to change.
 
+### Visualizing what the trainer sees
+- `ss-scalogram TSLA` renders a static composite figure (price strip + scalogram heatmap + RSI/MACD/BBands comparison strips) for one ticker.
+- `ss-scalogram-video --start 2000-01-01 AAPL` renders an mp4 walking `t` forward one bar at a time. Each frame shows the causal CWT through day `t` plus three vertical guides marking the current bar, the recent-window left edge (`t - n_tail + 1`), and the historical-window left edge (`t - lookback + 1`). Useful for sanity-checking that the trainer's per-rebalance view matches expectations. Implementation precomputes the full scalogram once and animates only an `axvspan` "fog of war" rectangle masking the future — `causal_cwt` strict causality makes that bit-identical to recomputing per-frame.
+
 ## Important implementation notes
 
 - **JAX returns**: `ss_indicators` and `ss_portfolio` JAX functions return `jnp.ndarray`. Cast with `np.asarray(...)` at numpy/pandas boundaries.
+- **`ss_wavelets.causal_cwt` is numpy + scipy**, not JAX. It's a one-shot precompute (no autograd flows through wavelet coefficients). Cast to `jnp.asarray(...)` at the JAX boundary if a downstream JAX op needs it.
+- **`KERNEL_HALF_EXTENT = 3`** in `ss_wavelets.cwt` truncates the Ricker at |t|=3 in scale-normalized time (under 0.3% energy loss vs |t|=4). Single source of truth — `regime.trainer.DEFAULT_PER_WINDOW_MIN_HISTORY` derives from it.
+- **Per-day data dependency for `coeffs[scale, t]`** is `KERNEL_HALF_EXTENT * scale + lookback` bars. At trainer defaults that's `3 * 126 + 252 = 630` for the largest scale — also the universe-filter floor. Smaller scales (and shorter Optuna-chosen lookbacks) saturate sooner per element, but `weights_regime` requires *all* scales to be populated, so the largest scale gates everything.
 - **Symbol prefix for crypto** (legacy v1): tickers starting with `coin` are treated as cryptocurrencies (`coinBTC`).
-- **DataFrame columns**: lowercase `open`, `high`, `low`, `close`, `adj_close`, `volume`. Kaggle Nasdaq dataset omits `volume` and `adj_close`.
+- **DataFrame columns**: lowercase `open`, `high`, `low`, `close`, `adj_close`, `volume`. Kaggle Nasdaq dataset omits `volume` and `adj_close`; Stooq has volume but no separate `adj_close` (close is already split-/dividend-adjusted).
 - **Index**: all DataFrames must have a `DatetimeIndex` for resampling.
 - **`integer_positions=False`** is required in `bt.Backtest(...)` or the rebalance solver diverges on the full universe ("commission fn not smooth" error).
+- **ffmpeg compatibility on Intel macOS**: nix `ffmpeg_7+` links macOS-14 SDK symbols and crashes with a `_AVCaptureDeviceTypeContinuityCamera` dyld error on older hosts. Pin `ffmpeg_6` (works) or fall back to the bundled `imageio-ffmpeg` binary — `ss_notebook.scalogram_video._configure_ffmpeg` probes both.
 
 ## Known limitations and TODOs
 
