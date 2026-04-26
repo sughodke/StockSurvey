@@ -127,14 +127,33 @@ def load_prices(
 def compute_scalogram_power(
     prices: np.ndarray,
     scales: np.ndarray,
-    lookback: int = 252,
+    lookback: int = 90,
+    use_log_returns: bool = True,
 ) -> tuple[np.ndarray, np.ndarray]:
     """`(power, coeffs)` shaped `(n_scales, n_dates)`.
 
-    `causal_cwt` expects `(T, N)` input — we add a singleton ticker
-    axis and squeeze it back out.
+    Default transforms `prices` to log returns before convolution.
+    Daily log returns are roughly stationary (zero-mean, vol-clustered
+    but not trended), so the rolling z-norm becomes a light vol
+    normalization rather than a trend remover, and `lookback` can drop
+    from ~252 to ~90 without losing meaningful context. This pulls
+    the per-day data dependency from `KERNEL_HALF_EXTENT * max_scale +
+    252` down to `KERNEL_HALF_EXTENT * max_scale + 90` ≈ 690 days for
+    our 200-day max scale (vs ~1052 with raw close + lookback=252).
+
+    Pass `use_log_returns=False` for raw-close behavior matching the
+    regime trainer's current pipeline. `causal_cwt` expects `(T, N)`
+    input — we add a singleton ticker axis and squeeze it back out.
     """
-    px = prices.astype(np.float32).reshape(-1, 1)
+    if use_log_returns:
+        # First bar has no prior; pad with 0 so we keep the array shape.
+        # The first bar's CWT is meaningless either way (covered by
+        # warm-up).
+        signal = np.zeros_like(prices, dtype=np.float64)
+        signal[1:] = np.log(prices[1:] / prices[:-1])
+    else:
+        signal = prices.astype(np.float64)
+    px = signal.astype(np.float32).reshape(-1, 1)
     coeffs_3d = causal_cwt(px, list(map(int, scales)), lookback=lookback)
     coeffs = coeffs_3d[:, :, 0]
     return coeffs ** 2, coeffs
@@ -158,7 +177,7 @@ def plot_scalogram(
     prices: np.ndarray,
     dates: np.ndarray,
     *,
-    lookback: int = 252,
+    lookback: int = 90,
 ) -> plt.Figure:
     """Composite figure: price + scalogram heatmap + 3 comparison strips."""
     scales = _scalogram_scales()
@@ -262,8 +281,10 @@ def main() -> None:
                              'matrix instead of using Stooq.')
     parser.add_argument('--start', default=None, help='YYYY-MM-DD')
     parser.add_argument('--end', default=None, help='YYYY-MM-DD')
-    parser.add_argument('--lookback', type=int, default=252,
-                        help='Causal z-norm window for the CWT (default 252).')
+    parser.add_argument('--lookback', type=int, default=90,
+                        help='Causal z-norm window for the CWT (default 90, '
+                             'sized for log-returns input). Use 252 for raw-'
+                             'close input.')
     parser.add_argument('--save', action='store_true',
                         help='Save to Output/ instead of showing.')
     parser.add_argument('--output-dir', default='Output')

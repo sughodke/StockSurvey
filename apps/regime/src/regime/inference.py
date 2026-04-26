@@ -28,6 +28,7 @@ import numpy as np
 import pandas as pd
 
 from regime.persist import Checkpoint
+from regime.trainer import _log_returns
 from ss_indicators import corwin_schultz_spread, get_divergence
 from ss_indicators import symmetric_kl_divergence as regime_scores
 from ss_wavelets import causal_cwt, precompute_windows
@@ -97,7 +98,8 @@ def _score_latest_bar(prices, highs, lows, checkpoint):
     both 1-D arrays over tickers.
     """
     prices_np = prices.values.astype(np.float64)
-    coeffs = causal_cwt(prices_np, checkpoint.scales, checkpoint.lookback)
+    coeffs = causal_cwt(
+        _log_returns(prices_np), checkpoint.scales, checkpoint.lookback)
     power = (coeffs ** 2).astype(np.float32)
     recent, historical = precompute_windows(
         power, checkpoint.lookback, checkpoint.n_tail)
@@ -130,7 +132,8 @@ def _score_latest_bar_scalogram(prices, highs, lows, checkpoint):
     avoid the full cumsum sweep.
     """
     prices_np = prices.values.astype(np.float64)
-    coeffs = causal_cwt(prices_np, checkpoint.scales, checkpoint.lookback)
+    coeffs = causal_cwt(
+        _log_returns(prices_np), checkpoint.scales, checkpoint.lookback)
     power = (coeffs ** 2).astype(np.float32)
 
     # Slice the trailing n_tail bars ending at the last index.

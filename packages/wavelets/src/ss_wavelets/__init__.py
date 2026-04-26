@@ -18,11 +18,12 @@ at the JAX boundary in your training loop.
 to 126 days for equity strategies.
 """
 
-from ss_wavelets.cwt import ALL_SCALES, causal_cwt
+from ss_wavelets.cwt import ALL_SCALES, KERNEL_HALF_EXTENT, causal_cwt
 from ss_wavelets.windowing import precompute_windows
 
 __all__ = [
     'ALL_SCALES',
+    'KERNEL_HALF_EXTENT',
     'causal_cwt',
     'precompute_windows',
 ]

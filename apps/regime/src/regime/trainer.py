@@ -32,11 +32,6 @@ The pipeline below still embeds a few honest assumptions that inflate
 the reported Sharpe vs what real trading would deliver. Documented
 here so future readers don't mistake them for invariants:
 
-  * **CWT runs on raw close prices, not log-returns.** Non-stationary
-    input. The rolling z-norm in `causal_cwt` partly fixes the mean
-    drift, but persistent trend still bleeds into the long-scale
-    wavelet power. Standard practice is CWT on returns; switching is
-    a math change we haven't validated end-to-end.
   * **Equal-weight within the top-N basket** (`select_top_n_matrix`
     puts 1/top_n on each pick). Score-weighted allocation would be a
     different strategy with potentially different Sharpe. Not tested.
@@ -68,7 +63,7 @@ from ss_portfolio import (
     select_top_n_matrix,
     vbt_backtest,
 )
-from ss_wavelets import causal_cwt, precompute_windows
+from ss_wavelets import KERNEL_HALF_EXTENT, causal_cwt, precompute_windows
 
 
 # Scale-subset groups Optuna picks among via 3 boolean flags.
@@ -87,19 +82,19 @@ LOOKBACK_SEARCH_MAX = 252
 # fully-supported wavelets:
 #
 #   * causal_cwt's rolling z-norm needs `lookback` prior bars
-#   * the largest Ricker kernel needs 4 * max_scale prior bars
+#   * the largest Ricker kernel needs `KERNEL_HALF_EXTENT * max_scale`
+#     prior bars (=3 * max_scale post the |t|=3 truncation; was 4 *
+#     max_scale before)
 #
-# Combined: 4 * max_scale + lookback. Since both lookback and the scale
-# subset are Optuna-searched, we floor on the worst case of each:
-# longest possible lookback (LOOKBACK_SEARCH_MAX) and largest possible
-# scale (max(LONG_SCALES)). At trainer defaults this is
-#   4 * 126 + 252 = 756 bars (~3 trading years).
-#
-# Earlier versions hardcoded 504, which covered only `4 * max_scale`
-# and silently passed scored bars whose underlying x_norm samples were
-# computed on partial-window z-norms (still strictly causal, but
-# under-supported and noisy).
-DEFAULT_PER_WINDOW_MIN_HISTORY = 4 * max(LONG_SCALES) + LOOKBACK_SEARCH_MAX
+# Combined: KERNEL_HALF_EXTENT * max_scale + lookback. Since both
+# lookback and the scale subset are Optuna-searched, we floor on the
+# worst case of each: longest possible lookback (LOOKBACK_SEARCH_MAX)
+# and largest possible scale (max(LONG_SCALES)). At trainer defaults
+# this is 3 * 126 + 252 = 630 bars (~2.5 trading years), down from
+# 756 when KERNEL_HALF_EXTENT was 4.
+DEFAULT_PER_WINDOW_MIN_HISTORY = (
+    KERNEL_HALF_EXTENT * max(LONG_SCALES) + LOOKBACK_SEARCH_MAX
+)
 
 
 @dataclass
@@ -139,6 +134,27 @@ def _resolve_scales(params: dict) -> list[int]:
     if params.get('use_long_scales', False):
         scales += LONG_SCALES
     return scales or DEFAULT_SCALES
+
+
+def _log_returns(prices_arr: np.ndarray) -> np.ndarray:
+    """`(T, N) -> (T, N)` log-returns; first row padded with 0.
+
+    Daily log returns are roughly stationary (zero-mean, vol-clustered
+    but not trended), so feeding them to `causal_cwt` instead of raw
+    close prices means the rolling z-norm is doing vol normalization
+    rather than trend removal — the long-scale wavelet power is no
+    longer dominated by persistent multi-year drift in the price level.
+
+    NaN propagation: a NaN at price index k makes log-returns NaN at
+    indices k and k+1 (both `np.log(NaN/x)` and `np.log(x/NaN)` resolve
+    to NaN). `apply_nan_mask` downstream still keys off the original
+    `prices.values`, so masking still happens at the right cells; the
+    transform doesn't introduce NEW NaN regions, only widens existing
+    ones by one bar.
+    """
+    out = np.zeros_like(prices_arr, dtype=np.float64)
+    out[1:] = np.log(prices_arr[1:] / prices_arr[:-1])
+    return out
 
 
 def _filter_window_universe(panel: pd.DataFrame, *, min_bars: int) -> pd.Index:
@@ -197,8 +213,11 @@ def weights_regime(
     (date, ticker) fees in `vbt_backtest`. Wide-spread names get
     ranked normally and then naturally tank the realized Sharpe of any
     config that picks them.
+
+    CWT input is **log returns**, not raw close — see `_log_returns`
+    for the reasoning.
     """
-    coeffs = causal_cwt(prices.values, scales, lookback)
+    coeffs = causal_cwt(_log_returns(prices.values), scales, lookback)
     power = (coeffs ** 2).astype(np.float32)
     recent, historical = precompute_windows(power, lookback, n_tail)
 
@@ -248,8 +267,10 @@ def weights_scalogram(
 
     Vectorized via cumulative-sum trailing means; same speed
     characteristics as `weights_regime`.
+
+    CWT input is **log returns**, not raw close — see `_log_returns`.
     """
-    coeffs = causal_cwt(prices.values, scales, lookback)
+    coeffs = causal_cwt(_log_returns(prices.values), scales, lookback)
     power = (coeffs ** 2).astype(np.float32)
     n_scales, n_dates, n_tickers = power.shape
 
@@ -412,13 +433,12 @@ def train(
     survivorship filter (see `_filter_window_universe`). A ticker
     must have a valid first bar AND >= this many valid bars in each
     window to be eligible for that window. Default
-    `DEFAULT_PER_WINDOW_MIN_HISTORY = 4 * max(LONG_SCALES) +
-    LOOKBACK_SEARCH_MAX = 756` (~3 trading years) — the worst-case
-    history needed for the largest possible (lookback, scale) Optuna
-    might pick to be fully supported. Earlier versions used 504, which
-    covered the kernel but not the rolling z-norm; scored bars in the
-    [504, 756) gap were strictly causal but computed on partial-
-    window z-norms.
+    `DEFAULT_PER_WINDOW_MIN_HISTORY = KERNEL_HALF_EXTENT *
+    max(LONG_SCALES) + LOOKBACK_SEARCH_MAX = 630` (~2.5 trading
+    years) — the worst-case history needed for the largest possible
+    (lookback, scale) Optuna might pick to be fully supported. The
+    floor moved from 756 → 630 when the Ricker kernel half-extent
+    dropped from 4 to 3 (negligible energy past |t|=3).
 
     This is also the survivorship-bias fix — the loader returns a
     point-in-time panel (with leading/trailing NaN for IPO/delist

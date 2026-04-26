@@ -17,10 +17,20 @@ from scipy.signal import fftconvolve
 # the 26-126 day band.
 ALL_SCALES: list[int] = [3, 5, 7, 10, 12, 15, 21, 26, 42, 50, 63, 90, 126]
 
+# Half-extent of the Ricker kernel in scale-normalized time. Numerically
+# `(1 - t^2) * exp(-t^2 / 2)` has under 0.3% of its squared energy past
+# |t| = 3 — captured fraction 0.997 vs 0.99996 at |t| = 4. Truncating
+# at 3 instead of the textbook 4 saves 25% of the per-scale kernel
+# size and the same fraction of the per-day data dependency budget,
+# at negligible loss of wavelet response. Single source of truth shared
+# by `_ricker_causal` and downstream callers that need to compute
+# warm-up requirements (e.g. `regime.trainer.DEFAULT_PER_WINDOW_MIN_HISTORY`).
+KERNEL_HALF_EXTENT: int = 3
+
 
 def _ricker_causal(scale: int, n_dates: int) -> np.ndarray:
     """One-sided Ricker (Mexican-hat) wavelet on t in [-points, 0]."""
-    points = min(4 * scale, n_dates - 1)
+    points = min(KERNEL_HALF_EXTENT * scale, n_dates - 1)
     t = np.arange(-points, 1) / scale
     return (1.0 - t ** 2) * np.exp(-t ** 2 / 2.0) / np.sqrt(scale)
 
