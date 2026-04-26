@@ -109,21 +109,24 @@ def _setup_figure(
 
     ax_price = fig.add_axes([0.08, 0.78, 0.86, 0.16])
     ax_price.plot(dates, prices, color='lightgray', linewidth=0.6, zorder=1)
-    line_seen, = ax_price.plot([], [], color='black', linewidth=0.9, zorder=2)
+    line_seen, = ax_price.plot([], [], color='black', linewidth=0.9,
+                               zorder=2, animated=True)
     marker_now, = ax_price.plot([], [], 'o', color='red',
-                                markersize=4, zorder=3)
+                                markersize=4, zorder=3, animated=True)
     ax_price.set_ylabel('Price', fontsize=9)
     ax_price.set_xlim(dates[0], dates[-1])
     ax_price.set_ylim(prices.min() * 0.95, prices.max() * 1.05)
     ax_price.tick_params(labelbottom=False)
-    title_txt = ax_price.set_title('', fontsize=10)
+    title_txt = ax_price.set_title('', fontsize=10, animated=True)
 
     ax_sg = fig.add_axes([0.08, 0.10, 0.86, 0.62])
-    masked = np.full_like(log_power, np.nan)
     cmap = plt.get_cmap('inferno').copy()
     cmap.set_bad(color='#1a1a1a')
+    # Render the full heatmap ONCE — never updated per-frame. Future
+    # cells get masked by the moving fog rectangle below, so the
+    # expensive `pcolormesh.set_array` call is gone from the hot loop.
     mesh = ax_sg.pcolormesh(
-        dates, scales, masked,
+        dates, scales, log_power,
         cmap=cmap, shading='nearest',
         vmin=np.nanpercentile(log_power, 2),
         vmax=np.nanpercentile(log_power, 98))
@@ -139,15 +142,27 @@ def _setup_figure(
             ax_sg.axhline(scale, color='white', linewidth=0.4,
                           alpha=0.4, linestyle='--')
 
+    # Fog-of-war: an opaque rectangle covering [t+1 .. n_dates-1] that
+    # hides future scalogram cells. Colored to match `cmap.set_bad` so
+    # the visual matches the older "NaN-mask the future" approach.
+    # Initially covers the whole heatmap (so the price line at frame 0
+    # sees no spoilers).
+    fog = ax_sg.axvspan(
+        dates[0], dates[-1], facecolor='#1a1a1a',
+        edgecolor='none', zorder=2.5, animated=True)
+
     # Three vertical guides that move with t:
     # red   = current bar (t)          — what the trainer is scoring
     # cyan  = recent window left edge  (t - n_tail + 1)
     # blue  = historical left edge     (t - lookback + 1)
-    vline_now = ax_sg.axvline(dates[0], color='red', linewidth=1.0, alpha=0.9)
-    vline_recent = ax_sg.axvline(dates[0], color='cyan',
-                                 linewidth=0.8, alpha=0.7, linestyle='--')
-    vline_hist = ax_sg.axvline(dates[0], color='deepskyblue',
-                               linewidth=0.8, alpha=0.7, linestyle=':')
+    vline_now = ax_sg.axvline(dates[0], color='red', linewidth=1.0,
+                              alpha=0.9, animated=True)
+    vline_recent = ax_sg.axvline(
+        dates[0], color='cyan', linewidth=0.8, alpha=0.7,
+        linestyle='--', animated=True)
+    vline_hist = ax_sg.axvline(
+        dates[0], color='deepskyblue', linewidth=0.8, alpha=0.7,
+        linestyle=':', animated=True)
 
     ax_sg.text(0.99, 1.02,
                f'recent={n_tail}d (cyan)   historical={lookback}d (blue)',
@@ -158,8 +173,7 @@ def _setup_figure(
         tick.set_horizontalalignment('right')
 
     return fig, {
-        'mesh': mesh,
-        'log_power': log_power,
+        'fog': fog,
         'line_seen': line_seen,
         'marker_now': marker_now,
         'title': title_txt,
@@ -170,19 +184,28 @@ def _setup_figure(
         'prices': prices,
         'lookback': lookback,
         'n_tail': n_tail,
+        'n_dates': log_power.shape[1],
     }
 
 
 def _update_frame(t: int, art: dict):
-    """Reveal columns 0..t of the precomputed scalogram and shift the guides."""
-    log_power = art['log_power']
-    n_dates = log_power.shape[1]
-    visible = np.where(
-        np.arange(n_dates)[None, :] <= t, log_power, np.nan)
-    art['mesh'].set_array(visible.ravel())
-
+    """Per-frame: shift the fog rectangle, the guides, and the price line.
+    No mesh redraw — that was the slow path."""
     dates = art['dates']
     prices = art['prices']
+    n_dates = art['n_dates']
+
+    # `axvspan` returns a `Rectangle` with bbox geometry: x is in data
+    # space (matplotlib date ordinals) and y is in axes-fraction. We
+    # move its left edge to dates[t+1] and rescale its width to reach
+    # dates[-1]. On the final frame the rectangle collapses to zero
+    # width — still a valid artist, blitting handles it fine.
+    next_idx = t + 1 if t + 1 < n_dates else n_dates - 1
+    x_left = mpl.dates.date2num(dates[next_idx].astype('datetime64[D]'))
+    x_right = mpl.dates.date2num(dates[-1].astype('datetime64[D]'))
+    art['fog'].set_x(x_left)
+    art['fog'].set_width(max(x_right - x_left, 0.0))
+
     art['line_seen'].set_data(dates[:t + 1], prices[:t + 1])
     art['marker_now'].set_data([dates[t]], [prices[t]])
 
@@ -196,7 +219,7 @@ def _update_frame(t: int, art: dict):
     art['title'].set_text(
         f'{date_str}   bar {t + 1}/{n_dates}   '
         f'price={prices[t]:.2f}')
-    return (art['mesh'], art['line_seen'], art['marker_now'],
+    return (art['fog'], art['line_seen'], art['marker_now'],
             art['vline_now'], art['vline_recent'], art['vline_hist'],
             art['title'])
 
@@ -236,7 +259,7 @@ def render_video(
 
     anim = animation.FuncAnimation(
         fig, _update_frame, frames=frames, fargs=(art,),
-        interval=1000 / fps, blit=False, repeat=False)
+        interval=1000 / fps, blit=True, repeat=False)
 
     if writer_name == 'ffmpeg':
         source = _configure_ffmpeg()
@@ -274,9 +297,10 @@ def main() -> None:
                         help='Use Nasdaq3347-style CSV matrix instead.')
     parser.add_argument('--start', default=None, help='YYYY-MM-DD')
     parser.add_argument('--end', default=None, help='YYYY-MM-DD')
-    parser.add_argument('--lookback', type=int, default=252,
+    parser.add_argument('--lookback', type=int, default=90,
                         help='Causal z-norm + historical window length '
-                             '(default 252, matches regime trainer typical).')
+                             '(default 90, sized for log-returns input — '
+                             'see ss_notebook.scalogram.compute_scalogram_power).')
     parser.add_argument('--n-tail', type=int, default=21,
                         help='Recent window length for the moving split '
                              '(default 21).')
