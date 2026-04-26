@@ -20,7 +20,17 @@ def plot_reconstruction(
     window_cols: int,
     include_zscore_stats: bool,
 ) -> plt.Figure:
-    fig, axes = plt.subplots(3, 1, figsize=(13, 9), sharex=True)
+    panel_specs = {
+        'price': ('Close', None),
+        'rsi': (f'RSI({rsi_n})', (30, 70)),
+        'macd': (f'MACD({macd_fast},{macd_slow},{macd_signal}) line', (0,)),
+    }
+    panels = [(key, *panel_specs[key]) for key in panel_specs if key in gt]
+
+    fig, axes = plt.subplots(
+        len(panels), 1, figsize=(13, 3 * len(panels)),
+        sharex=True, squeeze=False)
+    axes = axes.flatten()
     zstats = ' +zscore-stats' if include_zscore_stats else ''
     fig.suptitle(
         f'{title_subject} — CWT-slice reconstruction vs full-series '
@@ -28,13 +38,7 @@ def plot_reconstruction(
         f'{n_features} features)',
         fontsize=13, fontweight='bold')
 
-    panels = [
-        ('price', 'Close'),
-        ('rsi', f'RSI({rsi_n})'),
-        ('macd', f'MACD({macd_fast},{macd_slow},{macd_signal}) line'),
-    ]
-
-    for ax, (key, label) in zip(axes, panels):
+    for ax, (key, label, hlines) in zip(axes, panels):
         s = stats[key]
         title = (f'{label}    '
                  f'R²={s["r2"]:.4f}  RMSE={s["rmse"]:.3e}  '
@@ -48,9 +52,9 @@ def plot_reconstruction(
         ax.set_title(title, fontsize=9, loc='right')
         ax.legend(loc='upper left', fontsize=8)
         ax.set_xlim(dates[0], dates[-1])
+        if hlines is not None:
+            for y in hlines:
+                ax.axhline(y, color='gray', linestyle=':', alpha=0.4)
 
-    axes[1].axhline(70, color='gray', linestyle=':', alpha=0.4)
-    axes[1].axhline(30, color='gray', linestyle=':', alpha=0.4)
-    axes[2].axhline(0, color='gray', linewidth=0.5)
     fig.tight_layout()
     return fig

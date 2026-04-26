@@ -32,10 +32,13 @@ def fit_mlp(
     n_steps: int = 2000,
     lr: float = 1e-3,
     seed: int = 0,
-) -> np.ndarray:
+) -> tuple[np.ndarray, dict[str, np.ndarray]]:
     """Tiny JAX MLP regressor — `n_layers` hidden ReLU blocks of width
-    `hidden`, fit with Adam for `n_steps`. Returns the prediction over
-    `X_full` as numpy, lined up with the input row order.
+    `hidden`, fit with Adam for `n_steps`. Returns
+    `(yhat_full, params_dict)`. `params_dict` is flat numpy arrays
+    (`feat_mu`, `feat_sd`, `layer{i}_W`, `layer{i}_b`) suitable for
+    `np.savez`; it's everything you need to rerun `forward` from the
+    saved file.
 
     Features are z-normalized with stats from `X_train` only.
     """
@@ -82,7 +85,14 @@ def fit_mlp(
         params, opt_state, _ = step(params, opt_state, X_j, y_j)
 
     yhat = forward(params, jnp.asarray(X_fl))
-    return np.asarray(yhat, dtype=np.float64)
+    params_dict: dict[str, np.ndarray] = {
+        'feat_mu': np.asarray(mu, dtype=np.float32).reshape(-1),
+        'feat_sd': np.asarray(sd, dtype=np.float32).reshape(-1),
+    }
+    for i, (W, b) in enumerate(params):
+        params_dict[f'layer{i}_W'] = np.asarray(W, dtype=np.float32)
+        params_dict[f'layer{i}_b'] = np.asarray(b, dtype=np.float32)
+    return np.asarray(yhat, dtype=np.float64), params_dict
 
 
 def fit_cnn(
@@ -97,8 +107,11 @@ def fit_cnn(
     n_steps: int = 2000,
     lr: float = 1e-3,
     seed: int = 0,
-) -> np.ndarray:
-    """1-D CNN over the trailing-window features.
+) -> tuple[np.ndarray, dict[str, np.ndarray]]:
+    """1-D CNN over the trailing-window features. Returns
+    `(yhat_full, params_dict)`; `params_dict` carries `feat_mu/feat_sd`
+    (per `(K, F)` cell), every `conv{i}_W/b`, and the linear head's
+    `head_W/head_b` — flat numpy arrays for `np.savez`.
 
     Reshapes X from `(n, K * F)` to `(n, K, F)` (lag-axis = sequence,
     F = `n_channels_per_lag` = 2 * n_scales = channels) and applies
@@ -190,4 +203,15 @@ def fit_cnn(
         params, opt_state, _ = step(params, opt_state, Xj, yj)
 
     yhat = forward(params, jnp.asarray(X_fl))
-    return np.asarray(yhat, dtype=np.float64)
+    conv_p, head_p = params
+    params_dict: dict[str, np.ndarray] = {
+        'feat_mu': np.asarray(mu, dtype=np.float32),
+        'feat_sd': np.asarray(sd, dtype=np.float32),
+    }
+    for i, (W, b) in enumerate(conv_p):
+        params_dict[f'conv{i}_W'] = np.asarray(W, dtype=np.float32)
+        params_dict[f'conv{i}_b'] = np.asarray(b, dtype=np.float32)
+    Wh, bh = head_p
+    params_dict['head_W'] = np.asarray(Wh, dtype=np.float32)
+    params_dict['head_b'] = np.asarray(bh, dtype=np.float32)
+    return np.asarray(yhat, dtype=np.float64), params_dict

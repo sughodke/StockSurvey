@@ -19,7 +19,9 @@ Examples
 from __future__ import annotations
 
 import argparse
+import json
 import os
+import subprocess
 from pathlib import Path
 
 import matplotlib.pyplot as plt
@@ -32,6 +34,24 @@ from ss_notebook.scalogram import DEFAULT_STOOQ_DIR
 from ss_wavelets import ALL_SCALES
 
 
+def _git_sha_and_dirty() -> tuple[str, bool]:
+    """Short git SHA + dirty-tree flag for the current working dir.
+    Returns `('nogit', False)` outside a git repo."""
+    try:
+        sha = subprocess.check_output(
+            ['git', 'rev-parse', '--short', 'HEAD'],
+            stderr=subprocess.DEVNULL).decode().strip()
+    except Exception:
+        return 'nogit', False
+    try:
+        dirty = subprocess.run(
+            ['git', 'diff', '--quiet', 'HEAD'],
+            stderr=subprocess.DEVNULL).returncode != 0
+    except Exception:
+        dirty = False
+    return sha, dirty
+
+
 def _split_tickers(value: str | None) -> list[str]:
     """Split a comma-separated ticker list, ignoring empty entries."""
     if not value:
@@ -40,8 +60,7 @@ def _split_tickers(value: str | None) -> list[str]:
 
 
 def _print_target_stats(label: str, stats: dict[str, dict[str, float]]) -> None:
-    for name in TARGET_NAMES:
-        s = stats[name]
+    for name, s in stats.items():
         print(f'  {label} {name:5s}  R²={s["r2"]:.6f}  '
               f'RMSE={s["rmse"]:.3e}  max|Δ|={s["max_abs"]:.3e}')
 
@@ -119,7 +138,20 @@ def main() -> None:
     parser.add_argument('--output-dir', default='Output',
                         help='Where reconstruction figures are saved. '
                              'matplotlib never opens an interactive window.')
+    parser.add_argument('--targets', default=','.join(TARGET_NAMES),
+                        help='Comma-separated subset of '
+                             f'{",".join(TARGET_NAMES)}. Each target = one '
+                             'extra decoder fit, so dropping unused ones '
+                             'is a real compute lever (each fit is a full '
+                             'Adam pass).')
     args = parser.parse_args()
+    targets = tuple(_split_tickers(args.targets))
+    unknown = set(targets) - set(TARGET_NAMES)
+    if unknown:
+        parser.error(f'unknown targets {sorted(unknown)!r}; '
+                     f'valid: {TARGET_NAMES}')
+    if not targets:
+        parser.error('--targets must list at least one target')
 
     scales = list(ALL_SCALES)
     load_kwargs = dict(
@@ -143,9 +175,10 @@ def main() -> None:
         val_data = [load_ticker(args.val_ticker, **load_kwargs)]
 
     cnn_channels_per_lag = 2 * len(scales)
-    results = fit_and_evaluate(
+    results, params_per_target = fit_and_evaluate(
         train_data, val_data,
         decoder=args.decoder, cnn_channels_per_lag=cnn_channels_per_lag,
+        targets=targets,
         mlp_hidden=args.mlp_hidden, mlp_layers=args.mlp_layers,
         mlp_steps=args.mlp_steps,
         cnn_hidden=args.cnn_hidden, cnn_kernel=args.cnn_kernel,
@@ -159,25 +192,29 @@ def main() -> None:
           f'{len(scales)} scales, lookback={args.lookback}, '
           f'window_cols={args.window_cols}, '
           f'zscore_stats={args.include_zscore_stats}, '
-          f'decoder={args.decoder}, n_features={n_features}')
+          f'decoder={args.decoder}, targets={",".join(targets)}, '
+          f'n_features={n_features}')
 
     for d in train_data:
-        per_target = {n: results[d.name][n]['stats'] for n in TARGET_NAMES}
+        per_target = {n: results[d.name][n]['stats'] for n in targets}
         print(f'\n{d.name} (train, {d.valid.sum()} valid bars):')
         _print_target_stats('train', per_target)
     for d in val_data:
-        per_target = {n: results[d.name][n]['stats'] for n in TARGET_NAMES}
+        per_target = {n: results[d.name][n]['stats'] for n in targets}
         print(f'\n{d.name} (zero-shot val, {d.valid.sum()} valid bars):')
         _print_target_stats('val  ', per_target)
 
     os.makedirs(args.output_dir, exist_ok=True)
 
-    primary_recon = {n: results[primary.name][n]['recon']
-                     for n in TARGET_NAMES}
-    primary_stats = {n: results[primary.name][n]['stats']
-                     for n in TARGET_NAMES}
+    train_tag = primary.name
+    if extra_train:
+        train_tag += '+' + '+'.join(t.name for t in extra_train)
+
+    primary_targets = {n: primary.targets[n] for n in targets}
+    primary_recon = {n: results[primary.name][n]['recon'] for n in targets}
+    primary_stats = {n: results[primary.name][n]['stats'] for n in targets}
     fig = plot_reconstruction(
-        primary.name, primary.dates, primary.targets, primary_recon,
+        primary.name, primary.dates, primary_targets, primary_recon,
         primary_stats,
         rsi_n=args.rsi_n, macd_fast=args.macd_fast,
         macd_slow=args.macd_slow, macd_signal=args.macd_signal,
@@ -190,27 +227,72 @@ def main() -> None:
     print(f'\nSaved {fname}')
 
     for d in val_data:
-        v_recon = {n: results[d.name][n]['recon'] for n in TARGET_NAMES}
-        v_stats = {n: results[d.name][n]['stats'] for n in TARGET_NAMES}
-        title = f'{d.name} (zero-shot from {primary.name}'
-        if extra_train:
-            title += '+' + '+'.join(t.name for t in extra_train)
-        title += ')'
+        v_targets = {n: d.targets[n] for n in targets}
+        v_recon = {n: results[d.name][n]['recon'] for n in targets}
+        v_stats = {n: results[d.name][n]['stats'] for n in targets}
+        title = f'{d.name} (zero-shot from {train_tag})'
         val_fig = plot_reconstruction(
-            title, d.dates, d.targets, v_recon, v_stats,
+            title, d.dates, v_targets, v_recon, v_stats,
             rsi_n=args.rsi_n, macd_fast=args.macd_fast,
             macd_slow=args.macd_slow, macd_signal=args.macd_signal,
             n_features=n_features, decoder=args.decoder,
             window_cols=args.window_cols,
             include_zscore_stats=args.include_zscore_stats)
-        train_tag = primary.name
-        if extra_train:
-            train_tag += '+' + '+'.join(t.name for t in extra_train)
         val_fname = (Path(args.output_dir) /
                      f'{d.name}-replay-zeroshot-from-{train_tag}.png')
         val_fig.savefig(val_fname, dpi=150)
         plt.close(val_fig)
         print(f'Saved {val_fname}')
+
+    sha, dirty = _git_sha_and_dirty()
+    sha_tag = sha + ('-dirty' if dirty else '')
+    targets_tag = '+'.join(targets)
+    weights_arrays: dict[str, np.ndarray] = {}
+    for target_name, params in params_per_target.items():
+        for key, arr in params.items():
+            weights_arrays[f'{target_name}__{key}'] = arr
+    metadata = {
+        'train_tickers': [d.name for d in train_data],
+        'val_tickers': [d.name for d in val_data],
+        'targets': list(targets),
+        'decoder': args.decoder,
+        'window_cols': args.window_cols,
+        'include_zscore_stats': args.include_zscore_stats,
+        'lookback': args.lookback,
+        'scales': scales,
+        'n_features': n_features,
+        'rsi_n': args.rsi_n,
+        'macd_fast': args.macd_fast,
+        'macd_slow': args.macd_slow,
+        'macd_signal': args.macd_signal,
+        'mlp_hidden': args.mlp_hidden,
+        'mlp_layers': args.mlp_layers,
+        'mlp_steps': args.mlp_steps,
+        'cnn_hidden': args.cnn_hidden,
+        'cnn_kernel': args.cnn_kernel,
+        'cnn_layers': args.cnn_layers,
+        'cnn_steps': args.cnn_steps,
+        'start': args.start,
+        'end': args.end,
+        'git_sha': sha,
+        'git_dirty': dirty,
+        'train_stats': {
+            d.name: {
+                t: results[d.name][t]['stats'] for t in targets
+            } for d in train_data
+        },
+        'val_stats': {
+            d.name: {
+                t: results[d.name][t]['stats'] for t in targets
+            } for d in val_data
+        },
+    }
+    weights_arrays['_meta'] = np.array(json.dumps(metadata, default=float))
+    weights_fname = (Path(args.output_dir) /
+                     f'{train_tag}-{targets_tag}-{args.decoder}-'
+                     f'{sha_tag}.npz')
+    np.savez(weights_fname, **weights_arrays)
+    print(f'Saved {weights_fname}')
 
 
 if __name__ == '__main__':
