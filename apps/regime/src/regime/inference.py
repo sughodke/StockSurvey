@@ -98,8 +98,16 @@ def _score_latest_bar(prices, highs, lows, checkpoint):
     both 1-D arrays over tickers.
     """
     prices_np = prices.values.astype(np.float64)
-    coeffs = causal_cwt(
-        _log_returns(prices_np), checkpoint.scales, checkpoint.lookback)
+    # Score with the SAME CWT input the trainer used. The empirical
+    # finding (see comment in regime.trainer above `_log_returns`) is
+    # that raw close beats log-returns for cross-sectional ranking, so
+    # `checkpoint.use_log_returns` defaults to False on new training
+    # runs. Older checkpoints predating this field also default to
+    # False thanks to the dataclass default — that matches their actual
+    # train-time behavior (raw close was the only option then).
+    cwt_input = (_log_returns(prices_np)
+                 if checkpoint.use_log_returns else prices_np)
+    coeffs = causal_cwt(cwt_input, checkpoint.scales, checkpoint.lookback)
     power = (coeffs ** 2).astype(np.float32)
     recent, historical = precompute_windows(
         power, checkpoint.lookback, checkpoint.n_tail)
@@ -132,8 +140,9 @@ def _score_latest_bar_scalogram(prices, highs, lows, checkpoint):
     avoid the full cumsum sweep.
     """
     prices_np = prices.values.astype(np.float64)
-    coeffs = causal_cwt(
-        _log_returns(prices_np), checkpoint.scales, checkpoint.lookback)
+    cwt_input = (_log_returns(prices_np)
+                 if checkpoint.use_log_returns else prices_np)
+    coeffs = causal_cwt(cwt_input, checkpoint.scales, checkpoint.lookback)
     power = (coeffs ** 2).astype(np.float32)
 
     # Slice the trailing n_tail bars ending at the last index.

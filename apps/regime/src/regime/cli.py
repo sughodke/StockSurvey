@@ -111,6 +111,16 @@ def _add_train_args(p: argparse.ArgumentParser) -> None:
     p.add_argument('--include-etfs', action='store_true',
                    help='Stooq only: include `<exchange> etfs` in addition to '
                         'stocks. Default off (regime targets equities).')
+    p.add_argument('--use-log-returns', action='store_true',
+                   help='Run the CWT on log returns instead of raw close. '
+                        'Off by default — controlled walk-forward eval '
+                        '(Output/regime-eval-{rawclose-kernel3,logreturns}.log) '
+                        'showed log-returns lowers val Sharpe across all '
+                        'three windows tested (raw close wins by +0.31 / '
+                        '+0.12 / +0.66 on the 3 walk-forward val periods). '
+                        'Kept as a flag for non-ranking research objectives '
+                        '(vol forecasting, regime-break detection) where '
+                        'stationary input matters more than momentum-bleed.')
     p.add_argument('--save-params',
                    help='Write the highest-val-Sharpe window to this JSON path '
                         '(consumable by `regime live`).')
@@ -176,6 +186,7 @@ def _run_train(args: argparse.Namespace) -> None:
         val_years=args.val_years,
         step_years=args.step_years,
         per_window_min_history=args.per_window_min_history,
+        use_log_returns=args.use_log_returns,
     )
     print_summary(result)
 

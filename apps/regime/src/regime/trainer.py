@@ -107,6 +107,7 @@ class WindowResult:
     train_score: float
     val_score: float
     strategy: str = 'regime'  # which weight builder produced these params
+    use_log_returns: bool = False  # CWT input mode at train time
 
 
 @dataclass
@@ -117,6 +118,7 @@ class TrainResult:
     rebalance_days: int
     commission_bps: float
     strategy: str = 'regime'  # which weight builder was searched
+    use_log_returns: bool = False  # CWT input mode used by this run
 
     @property
     def best_window(self) -> WindowResult:
@@ -139,11 +141,13 @@ def _resolve_scales(params: dict) -> list[int]:
 def _log_returns(prices_arr: np.ndarray) -> np.ndarray:
     """`(T, N) -> (T, N)` log-returns; first row padded with 0.
 
-    Daily log returns are roughly stationary (zero-mean, vol-clustered
-    but not trended), so feeding them to `causal_cwt` instead of raw
-    close prices means the rolling z-norm is doing vol normalization
-    rather than trend removal — the long-scale wavelet power is no
-    longer dominated by persistent multi-year drift in the price level.
+    Available behind the `use_log_returns` flag (default OFF on this
+    strategy — see comment block below). Daily log returns are roughly
+    stationary (zero-mean, vol-clustered but not trended), so feeding
+    them to `causal_cwt` instead of raw close prices means the rolling
+    z-norm is doing vol normalization rather than trend removal — the
+    long-scale wavelet power is no longer dominated by persistent
+    multi-year drift in the price level.
 
     NaN propagation: a NaN at price index k makes log-returns NaN at
     indices k and k+1 (both `np.log(NaN/x)` and `np.log(x/NaN)` resolve
@@ -155,6 +159,40 @@ def _log_returns(prices_arr: np.ndarray) -> np.ndarray:
     out = np.zeros_like(prices_arr, dtype=np.float64)
     out[1:] = np.log(prices_arr[1:] / prices_arr[:-1])
     return out
+
+
+# Why `use_log_returns` defaults to False
+# ---------------------------------------
+# Mathematically, log-returns is the "right" CWT input — it's stationary,
+# the rolling z-norm becomes a clean vol normalizer, and the wavelet
+# power is a pure regime-change signal. Empirically, for THIS strategy
+# (cross-sectional equity ranking via top-N), it hurt out-of-sample
+# performance.
+#
+# Controlled walk-forward eval, Stooq 2010-2024, 20 trials/window,
+# kernel half-extent 3 fixed, only the CWT input changed:
+#
+#                       log-returns      raw close
+#   best   val sharpe    +0.16           +0.46
+#   median val sharpe    +0.03           +0.15
+#   mean   val sharpe    -0.29           +0.07
+#   worst  val sharpe    -1.06           -0.41
+#
+# Per window: log-returns had HIGHER train sharpe but LOWER val sharpe
+# in every window — classic overfitting signature. Raw close artifacts
+# in `Output/regime-eval-rawclose-kernel3.{log,json}`; log-returns
+# artifacts in `Output/regime-eval-logreturns.{log,json}`.
+#
+# Theory: the raw-close CWT bleeds price-level trend into long-scale
+# wavelet power, embedding an implicit cross-sectional momentum factor
+# (Jegadeesh-Titman). Log-returns purifies trend out, leaving only
+# "vol regime shift" — direction-agnostic and not a known cross-
+# sectional return predictor. We were getting momentum for free; log-
+# returns took it away.
+#
+# The flag is preserved (not reverted) so future research can re-enable
+# it for non-ranking objectives — vol forecasting, regime-break
+# detection, etc. — where stationarity actually matters.
 
 
 def _filter_window_universe(panel: pd.DataFrame, *, min_bars: int) -> pd.Index:
@@ -192,6 +230,7 @@ def weights_regime(
     top_n: int,
     scales: list[int],
     divergence: str = 'kl',
+    use_log_returns: bool = False,
 ) -> pd.DataFrame:
     """Hard-top-N basket ranked by CWT-power-distribution divergence.
 
@@ -214,10 +253,13 @@ def weights_regime(
     ranked normally and then naturally tank the realized Sharpe of any
     config that picks them.
 
-    CWT input is **log returns**, not raw close — see `_log_returns`
-    for the reasoning.
+    CWT input is **raw close** by default. `use_log_returns=True` runs
+    on log returns — preserved as a flag for future research, but
+    empirically worse on this objective. See the comment block above
+    `_log_returns` for the eval evidence and theory.
     """
-    coeffs = causal_cwt(_log_returns(prices.values), scales, lookback)
+    cwt_input = _log_returns(prices.values) if use_log_returns else prices.values
+    coeffs = causal_cwt(cwt_input, scales, lookback)
     power = (coeffs ** 2).astype(np.float32)
     recent, historical = precompute_windows(power, lookback, n_tail)
 
@@ -242,6 +284,7 @@ def weights_scalogram(
     n_tail: int,
     top_n: int,
     scales: list[int],
+    use_log_returns: bool = False,
 ) -> pd.DataFrame:
     """Hard-top-N basket ranked by direction − momentum × coherence.
 
@@ -268,9 +311,13 @@ def weights_scalogram(
     Vectorized via cumulative-sum trailing means; same speed
     characteristics as `weights_regime`.
 
-    CWT input is **log returns**, not raw close — see `_log_returns`.
+    CWT input is **raw close** by default; `use_log_returns=True`
+    is preserved for symmetry with `weights_regime` but has the same
+    out-of-sample drawback documented in the comment above
+    `_log_returns`.
     """
-    coeffs = causal_cwt(_log_returns(prices.values), scales, lookback)
+    cwt_input = _log_returns(prices.values) if use_log_returns else prices.values
+    coeffs = causal_cwt(cwt_input, scales, lookback)
     power = (coeffs ** 2).astype(np.float32)
     n_scales, n_dates, n_tickers = power.shape
 
@@ -313,14 +360,23 @@ def weights_scalogram(
 STRATEGIES = ('regime', 'scalogram')
 
 
-def _build_weights(strategy: str, prices: pd.DataFrame, params: dict) -> pd.DataFrame:
+def _build_weights(
+    strategy: str, prices: pd.DataFrame, params: dict, *,
+    use_log_returns: bool = False,
+) -> pd.DataFrame:
     """Dispatch (strategy, params) → weight matrix. Single source of truth
     for what each strategy's hyperparameter dict means; used by both the
-    Optuna objective (train slice) and the val-window evaluation."""
+    Optuna objective (train slice) and the val-window evaluation.
+
+    `use_log_returns` is a run-time flag (not an Optuna-searched
+    hyperparameter) that toggles the CWT input. See the comment block
+    above `_log_returns` for why this defaults to False.
+    """
     scales = _resolve_scales(params)
     common = dict(
         lookback=int(params['lookback']), n_tail=int(params['n_tail']),
-        top_n=int(params['top_n']), scales=scales)
+        top_n=int(params['top_n']), scales=scales,
+        use_log_returns=use_log_returns)
     if strategy == 'regime':
         return weights_regime(prices, **common, divergence=str(params['divergence']))
     if strategy == 'scalogram':
@@ -330,6 +386,7 @@ def _build_weights(strategy: str, prices: pd.DataFrame, params: dict) -> pd.Data
 
 def _make_objective(
     prices, *, strategy, rebalance_days, metric, commission_bps, spread_df,
+    use_log_returns: bool = False,
 ):
     """Build an Optuna objective closed over the train slice and strategy.
 
@@ -355,7 +412,8 @@ def _make_objective(
                 'divergence', ['kl', 'js', 'cosine', 'l2'])
 
         try:
-            weight_df = _build_weights(strategy, prices, params)
+            weight_df = _build_weights(
+                strategy, prices, params, use_log_returns=use_log_returns)
             if weight_df.values.sum() == 0:
                 return float('-inf')
             metrics = vbt_backtest(
@@ -386,6 +444,7 @@ def train(
     step_years: int = 3,
     seed: int = 42,
     per_window_min_history: int = DEFAULT_PER_WINDOW_MIN_HISTORY,
+    use_log_returns: bool = False,
 ) -> TrainResult:
     """Walk-forward Optuna+vectorbt search over regime hyperparameters.
 
@@ -511,7 +570,8 @@ def train(
             prices_train, strategy=strategy,
             rebalance_days=rebalance_days, metric=metric,
             commission_bps=commission_bps,
-            spread_df=spread_train)
+            spread_df=spread_train,
+            use_log_returns=use_log_returns)
         study.optimize(objective, n_trials=n_trials, n_jobs=n_jobs,
                        show_progress_bar=True)
 
@@ -520,7 +580,8 @@ def train(
         print(f'  Train {metric}: {train_score:+.4f}, params: {best}')
 
         try:
-            weight_df = _build_weights(strategy, prices_val, best)
+            weight_df = _build_weights(
+                strategy, prices_val, best, use_log_returns=use_log_returns)
             metrics = vbt_backtest(
                 prices_val, weight_df,
                 rebalance_days=rebalance_days,
@@ -534,14 +595,14 @@ def train(
         windows.append(WindowResult(
             train_start=window_start, train_end=train_end, val_end=val_end,
             best_params=best, train_score=train_score, val_score=val_score,
-            strategy=strategy))
+            strategy=strategy, use_log_returns=use_log_returns))
         window_start += pd.DateOffset(years=step_years)
 
     return TrainResult(
         windows=windows, metric=metric,
         rebalance_days=rebalance_days,
         commission_bps=commission_bps,
-        strategy=strategy)
+        strategy=strategy, use_log_returns=use_log_returns)
 
 
 def print_summary(result: TrainResult) -> None:

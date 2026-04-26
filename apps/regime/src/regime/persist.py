@@ -72,6 +72,12 @@ class Checkpoint:
     # 'regime' so checkpoints written before scalogram was added still
     # load correctly (they were all regime).
     strategy: str = 'regime'
+    # Whether CWT input was log-returns (vs raw close) at train time.
+    # Defaults to False — empirically raw close has higher val Sharpe
+    # for the cross-sectional ranking objective; see the comment block
+    # above `regime.trainer._log_returns`. Persisted on the checkpoint
+    # so live inference scores with the same input the trainer used.
+    use_log_returns: bool = False
 
     def jax_params(self) -> dict[str, jnp.ndarray]:
         """Return params in the dict form expected by the JAX divergence
@@ -164,6 +170,7 @@ def save_checkpoint_from_window(
         val_end=window.val_end.date().isoformat(),
         train_sharpe=float(window.train_score),
         val_sharpe=float(window.val_score),
+        use_log_returns=bool(getattr(window, 'use_log_returns', False)),
     )
     return _write_checkpoint(path, cp)
 
