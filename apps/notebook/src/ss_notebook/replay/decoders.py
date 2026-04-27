@@ -130,6 +130,8 @@ def fit_cnn(
     n_steps: int = 2000,
     lr: float = 1e-3,
     seed: int = 0,
+    batch_size: int | None = None,
+    predict_chunk: int = 32_768,
 ) -> tuple[np.ndarray, dict[str, np.ndarray]]:
     """1-D CNN over the trailing-window features. Returns
     `(yhat_full, params_dict)`; `params_dict` carries `feat_mu/feat_sd`
@@ -220,12 +222,26 @@ def fit_cnn(
         updates, st = opt.update(grads, st, p)
         return optax.apply_updates(p, updates), st, loss
 
-    Xj = jnp.asarray(X_tr)
-    yj = jnp.asarray(y_train.astype(np.float32))
-    for _ in range(n_steps):
-        params, opt_state, _ = step(params, opt_state, Xj, yj)
+    n_train = X_tr.shape[0]
+    y_train32 = y_train.astype(np.float32)
+    if batch_size is None or batch_size >= n_train:
+        Xj = jnp.asarray(X_tr)
+        yj = jnp.asarray(y_train32)
+        for _ in range(n_steps):
+            params, opt_state, _ = step(params, opt_state, Xj, yj)
+    else:
+        rng = np.random.default_rng(seed)
+        for _ in range(n_steps):
+            idx = rng.integers(0, n_train, size=batch_size)
+            xb = jnp.asarray(X_tr[idx])
+            yb = jnp.asarray(y_train32[idx])
+            params, opt_state, _ = step(params, opt_state, xb, yb)
 
-    yhat = forward(params, jnp.asarray(X_fl))
+    yhat_chunks: list[np.ndarray] = []
+    for start in range(0, X_fl.shape[0], predict_chunk):
+        chunk = jnp.asarray(X_fl[start:start + predict_chunk])
+        yhat_chunks.append(np.asarray(forward(params, chunk)))
+    yhat = np.concatenate(yhat_chunks)
     conv_p, head_p = params
     params_dict: dict[str, np.ndarray] = {
         'feat_mu': np.asarray(mu, dtype=np.float32),

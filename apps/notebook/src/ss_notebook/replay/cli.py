@@ -143,6 +143,12 @@ def main() -> None:
                              'Default 2.')
     parser.add_argument('--cnn-steps', type=int, default=2000,
                         help='Adam steps for the CNN fit. Default 2000.')
+    parser.add_argument('--cnn-batch-size', type=int, default=None,
+                        help='Stochastic Adam batch size for CNN. Default = '
+                             'full-batch GD. Set when the train pool is too '
+                             'large for full-batch device memory; CNN is '
+                             'more activation-heavy than MLP, so this kicks '
+                             'in at smaller pool sizes. 8192 works at K=64.')
     parser.add_argument('--rsi-n', type=int, default=7)
     parser.add_argument('--macd-fast', type=int, default=12)
     parser.add_argument('--macd-slow', type=int, default=26)
@@ -196,6 +202,7 @@ def main() -> None:
         mlp_steps=args.mlp_steps, mlp_batch_size=args.mlp_batch_size,
         cnn_hidden=args.cnn_hidden, cnn_kernel=args.cnn_kernel,
         cnn_layers=args.cnn_layers, cnn_steps=args.cnn_steps,
+        cnn_batch_size=args.cnn_batch_size,
     )
 
     n_features = primary.features.shape[1]
@@ -286,6 +293,7 @@ def main() -> None:
         'cnn_kernel': args.cnn_kernel,
         'cnn_layers': args.cnn_layers,
         'cnn_steps': args.cnn_steps,
+        'cnn_batch_size': args.cnn_batch_size,
         'start': args.start,
         'end': args.end,
         'git_sha': sha,

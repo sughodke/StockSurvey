@@ -35,6 +35,7 @@ def fit_and_evaluate(
     cnn_kernel: int = 5,
     cnn_layers: int = 2,
     cnn_steps: int = 2000,
+    cnn_batch_size: int | None = None,
 ) -> tuple[dict[str, dict[str, dict]], dict[str, dict[str, np.ndarray]]]:
     """Pool train tickers into one decoder fit, predict per-ticker.
 
@@ -102,7 +103,8 @@ def fit_and_evaluate(
                 X_train, y, X_predict,
                 n_channels_per_lag=cnn_channels_per_lag,
                 hidden=cnn_hidden, kernel=cnn_kernel,
-                n_layers=cnn_layers, n_steps=cnn_steps)
+                n_layers=cnn_layers, n_steps=cnn_steps,
+                batch_size=cnn_batch_size)
         else:
             raise ValueError(f'unknown decoder: {decoder!r}')
 
