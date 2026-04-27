@@ -89,6 +89,11 @@ def main() -> None:
     parser.add_argument('--kaggle-dir', default=None,
                         help='Slice columns from a Nasdaq3347-style CSV '
                              'matrix instead of using Stooq.')
+    parser.add_argument('--yahoo', action='store_true',
+                        help='Fetch each ticker via yfinance instead of '
+                             'Stooq/Kaggle. No on-disk archive needed; '
+                             'use on Colab or any environment without '
+                             'the Stooq dump.')
     parser.add_argument('--start', default=None,
                         help='Trim every loaded ticker to start at this date.')
     parser.add_argument('--end', default=None,
@@ -163,6 +168,7 @@ def main() -> None:
     scales = list(ALL_SCALES)
     load_kwargs = dict(
         stooq_dir=args.stooq_dir, kaggle_dir=args.kaggle_dir,
+        use_yahoo=args.yahoo,
         start=args.start, end=args.end,
         scales=scales, lookback=args.lookback,
         window_cols=args.window_cols,

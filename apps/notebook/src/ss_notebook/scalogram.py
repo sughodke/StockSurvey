@@ -84,6 +84,7 @@ def load_prices(
     *,
     stooq_dir: str | None = None,
     kaggle_dir: str | None = None,
+    use_yahoo: bool = False,
     start: str | None = None,
     end: str | None = None,
 ) -> pd.Series:
@@ -94,10 +95,30 @@ def load_prices(
     one CSV. Stooq close is already split-/dividend-adjusted, so no
     separate `adj_close` column is needed.
 
-    Kaggle path (`--kaggle-dir`): slice one column from the wide
+    Kaggle path (`kaggle_dir`): slice one column from the wide
     Nasdaq3347 close matrix. Note: that dataset has no adjustments
     or volume; `close` is raw.
+
+    Yahoo path (`use_yahoo=True`): on-the-fly fetch via yfinance
+    (`ss_loaders.load_yahoo`) — no on-disk archive needed. Returns
+    `adj_close`. Use on Colab or any environment where the Stooq
+    archive isn't present.
     """
+    if use_yahoo:
+        import datetime as _dt
+
+        from ss_loaders import load_yahoo
+
+        start_dt = (_dt.datetime.fromisoformat(start) if start
+                    else _dt.datetime(1990, 1, 1))
+        end_dt = (_dt.datetime.fromisoformat(end) if end
+                  else _dt.datetime.now())
+        df = load_yahoo(start_dt, end_dt, ticker)
+        if df.empty or 'adj_close' not in df.columns:
+            raise KeyError(
+                f'{ticker} returned no usable rows from yfinance')
+        return df['adj_close'].dropna().rename('adj_close')
+
     if kaggle_dir:
         end_date = end or '2099-12-31'
         prices, _, _ = load_price_matrix(

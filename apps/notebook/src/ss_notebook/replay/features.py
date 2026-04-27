@@ -135,6 +135,7 @@ class TickerData:
 def load_ticker(
     name: str, *,
     stooq_dir: str | None, kaggle_dir: str | None,
+    use_yahoo: bool = False,
     start: str | None, end: str | None,
     scales: list[int], lookback: int, window_cols: int,
     include_zscore_stats: bool, decoder: str,
@@ -143,6 +144,7 @@ def load_ticker(
     """Load one ticker and pre-compute features + targets + valid mask."""
     series = load_prices(
         name, stooq_dir=stooq_dir, kaggle_dir=kaggle_dir,
+        use_yahoo=use_yahoo,
         start=start, end=end)
     prices = series.values.astype(np.float64)
     dates = np.asarray(series.index)
