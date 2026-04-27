@@ -30,6 +30,7 @@ def fit_and_evaluate(
     mlp_hidden: int = 128,
     mlp_layers: int = 2,
     mlp_steps: int = 2000,
+    mlp_batch_size: int | None = None,
     cnn_hidden: int = 64,
     cnn_kernel: int = 5,
     cnn_layers: int = 2,
@@ -94,7 +95,8 @@ def fit_and_evaluate(
         elif decoder == 'mlp':
             yhat_all, params_per_target[target_name] = fit_mlp(
                 X_train, y, X_predict,
-                hidden=mlp_hidden, n_layers=mlp_layers, n_steps=mlp_steps)
+                hidden=mlp_hidden, n_layers=mlp_layers, n_steps=mlp_steps,
+                batch_size=mlp_batch_size)
         elif decoder == 'cnn':
             yhat_all, params_per_target[target_name] = fit_cnn(
                 X_train, y, X_predict,

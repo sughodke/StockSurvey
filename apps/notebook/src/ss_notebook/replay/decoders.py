@@ -32,6 +32,8 @@ def fit_mlp(
     n_steps: int = 2000,
     lr: float = 1e-3,
     seed: int = 0,
+    batch_size: int | None = None,
+    predict_chunk: int = 32_768,
 ) -> tuple[np.ndarray, dict[str, np.ndarray]]:
     """Tiny JAX MLP regressor — `n_layers` hidden ReLU blocks of width
     `hidden`, fit with Adam for `n_steps`. Returns
@@ -41,6 +43,13 @@ def fit_mlp(
     saved file.
 
     Features are z-normalized with stats from `X_train` only.
+
+    `batch_size=None` is full-batch GD (default — fastest when it fits).
+    Set `batch_size=B` for stochastic Adam with batches of size B sampled
+    with replacement; needed for large pools where the full feature
+    matrix and its activations blow past device memory. Predictions are
+    streamed in `predict_chunk`-row pieces regardless of batch_size, so
+    the predict pass also stays bounded.
     """
     import jax
     import jax.numpy as jnp
@@ -79,12 +88,26 @@ def fit_mlp(
         updates, st = opt.update(grads, st, p)
         return optax.apply_updates(p, updates), st, loss
 
-    X_j = jnp.asarray(X_tr)
-    y_j = jnp.asarray(y_train.astype(np.float32))
-    for _ in range(n_steps):
-        params, opt_state, _ = step(params, opt_state, X_j, y_j)
+    n_train = X_tr.shape[0]
+    y_train32 = y_train.astype(np.float32)
+    if batch_size is None or batch_size >= n_train:
+        X_j = jnp.asarray(X_tr)
+        y_j = jnp.asarray(y_train32)
+        for _ in range(n_steps):
+            params, opt_state, _ = step(params, opt_state, X_j, y_j)
+    else:
+        rng = np.random.default_rng(seed)
+        for _ in range(n_steps):
+            idx = rng.integers(0, n_train, size=batch_size)
+            xb = jnp.asarray(X_tr[idx])
+            yb = jnp.asarray(y_train32[idx])
+            params, opt_state, _ = step(params, opt_state, xb, yb)
 
-    yhat = forward(params, jnp.asarray(X_fl))
+    yhat_chunks: list[np.ndarray] = []
+    for start in range(0, X_fl.shape[0], predict_chunk):
+        chunk = jnp.asarray(X_fl[start:start + predict_chunk])
+        yhat_chunks.append(np.asarray(forward(params, chunk)))
+    yhat = np.concatenate(yhat_chunks)
     params_dict: dict[str, np.ndarray] = {
         'feat_mu': np.asarray(mu, dtype=np.float32).reshape(-1),
         'feat_sd': np.asarray(sd, dtype=np.float32).reshape(-1),

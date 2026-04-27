@@ -122,6 +122,13 @@ def main() -> None:
     parser.add_argument('--mlp-hidden', type=int, default=128)
     parser.add_argument('--mlp-layers', type=int, default=2)
     parser.add_argument('--mlp-steps', type=int, default=2000)
+    parser.add_argument('--mlp-batch-size', type=int, default=None,
+                        help='Stochastic Adam batch size. Default = '
+                             'full-batch GD. Set when the train pool '
+                             'is too large for full-batch device memory '
+                             '(rule of thumb: needed past ~30k pooled '
+                             'rows at K=64). 8192 is a good starting '
+                             'point.')
     parser.add_argument('--cnn-hidden', type=int, default=64,
                         help='CNN channel width per conv layer. Default 64.')
     parser.add_argument('--cnn-kernel', type=int, default=5,
@@ -180,7 +187,7 @@ def main() -> None:
         decoder=args.decoder, cnn_channels_per_lag=cnn_channels_per_lag,
         targets=targets,
         mlp_hidden=args.mlp_hidden, mlp_layers=args.mlp_layers,
-        mlp_steps=args.mlp_steps,
+        mlp_steps=args.mlp_steps, mlp_batch_size=args.mlp_batch_size,
         cnn_hidden=args.cnn_hidden, cnn_kernel=args.cnn_kernel,
         cnn_layers=args.cnn_layers, cnn_steps=args.cnn_steps,
     )
@@ -268,6 +275,7 @@ def main() -> None:
         'mlp_hidden': args.mlp_hidden,
         'mlp_layers': args.mlp_layers,
         'mlp_steps': args.mlp_steps,
+        'mlp_batch_size': args.mlp_batch_size,
         'cnn_hidden': args.cnn_hidden,
         'cnn_kernel': args.cnn_kernel,
         'cnn_layers': args.cnn_layers,
