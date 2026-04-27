@@ -129,6 +129,7 @@ def reconstruct_indicators(
     rsi_n: int, macd_fast: int, macd_slow: int, macd_signal: int,
     window_cols: int = 1,
     include_zscore_stats: bool = False,
+    include_returns: bool = False,
     decoder: str = 'linear',
     mlp_hidden: int = 128, mlp_layers: int = 2, mlp_steps: int = 2000,
     cnn_hidden: int = 64, cnn_kernel: int = 5,
@@ -146,7 +147,8 @@ def reconstruct_indicators(
     """
     feat_kwargs = dict(
         scales=scales, lookback=lookback, window_cols=window_cols,
-        include_zscore_stats=include_zscore_stats, decoder=decoder,
+        include_zscore_stats=include_zscore_stats,
+        include_returns=include_returns, decoder=decoder,
         rsi_n=rsi_n, macd_fast=macd_fast, macd_slow=macd_slow,
         macd_signal=macd_signal)
     train_features, train_gt, train_valid = build_features_and_targets(
@@ -168,7 +170,7 @@ def reconstruct_indicators(
         val_list = [val_td]
         val_gt = v_gt
 
-    cnn_channels_per_lag = 2 * len(scales)
+    cnn_channels_per_lag = train_features.shape[1] // window_cols
     results, _params = fit_and_evaluate(
         train_list, val_list,
         decoder=decoder, cnn_channels_per_lag=cnn_channels_per_lag,

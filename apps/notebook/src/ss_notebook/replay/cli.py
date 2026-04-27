@@ -127,10 +127,24 @@ def main() -> None:
     parser.add_argument('--include-zscore-stats', action='store_true',
                         help='Append the causal rolling mean and std (the same '
                              'rolling z-norm stats `causal_cwt` strips out '
-                             'before convolution) as 2 extra features per '
-                             'date. Restores level information that the CWT '
+                             'before convolution) as 2 extra channels per lag. '
+                             'Restores level information that the CWT '
                              'discards — turns price R² from ~0 into '
-                             'near-perfect.')
+                             'near-perfect, and recovers level-dependent '
+                             'indicators (Bollinger middle band, SMAs, Fib '
+                             'levels). Lag-windowed so works with --decoder cnn.')
+    parser.add_argument('--include-returns', action='store_true',
+                        help='Append per-bar log returns as one extra channel '
+                             'per lag. Bypasses the CWT band-limit at the '
+                             'high-frequency end — daily-resolution sign info '
+                             'the wavelet basis can\'t represent. Closes the '
+                             'short-RSI / Corwin-Schultz encoding gap.')
+    parser.add_argument('--extra-high-freq-scales', default='',
+                        help='Comma-separated extra scales to prepend to '
+                             '`ALL_SCALES` (e.g. "1,2"). Adds finer-grained '
+                             'wavelets at the high-frequency end. Default '
+                             'empty (use ALL_SCALES as-is). Each added scale '
+                             'is +2 channels per lag.')
     parser.add_argument('--decoder',
                         choices=['linear', 'mlp', 'cnn'], default='linear',
                         help='`linear` = OLS via `np.linalg.lstsq`. `mlp` = '
@@ -197,7 +211,10 @@ def main() -> None:
     if not targets:
         parser.error('--targets must list at least one target')
 
-    scales = list(ALL_SCALES)
+    extra_scales = [int(s) for s in _split_tickers(args.extra_high_freq_scales)]
+    if any(s < 1 for s in extra_scales):
+        parser.error('--extra-high-freq-scales must be positive integers')
+    scales = sorted(set(extra_scales) | set(ALL_SCALES))
     load_kwargs = dict(
         stooq_dir=args.stooq_dir, kaggle_dir=args.kaggle_dir,
         use_yahoo=args.yahoo,
@@ -205,6 +222,7 @@ def main() -> None:
         scales=scales, lookback=args.lookback,
         window_cols=args.window_cols,
         include_zscore_stats=args.include_zscore_stats,
+        include_returns=args.include_returns,
         decoder=args.decoder,
         rsi_n=args.rsi_n, macd_fast=args.macd_fast,
         macd_slow=args.macd_slow, macd_signal=args.macd_signal,
@@ -221,7 +239,7 @@ def main() -> None:
 
     _log_jax_devices(args.decoder)
 
-    cnn_channels_per_lag = 2 * len(scales)
+    cnn_channels_per_lag = primary.features.shape[1] // args.window_cols
     results, params_per_target = fit_and_evaluate(
         train_data, val_data,
         decoder=args.decoder, cnn_channels_per_lag=cnn_channels_per_lag,
@@ -240,8 +258,10 @@ def main() -> None:
           f'{len(scales)} scales, lookback={args.lookback}, '
           f'window_cols={args.window_cols}, '
           f'zscore_stats={args.include_zscore_stats}, '
+          f'returns={args.include_returns}, '
           f'decoder={args.decoder}, targets={",".join(targets)}, '
-          f'n_features={n_features}')
+          f'n_features={n_features} '
+          f'(channels_per_lag={cnn_channels_per_lag})')
 
     for d in train_data:
         per_target = {n: results[d.name][n]['stats'] for n in targets}
@@ -268,7 +288,8 @@ def main() -> None:
         macd_slow=args.macd_slow, macd_signal=args.macd_signal,
         n_features=n_features, decoder=args.decoder,
         window_cols=args.window_cols,
-        include_zscore_stats=args.include_zscore_stats)
+        include_zscore_stats=args.include_zscore_stats,
+        include_returns=args.include_returns)
     fname = Path(args.output_dir) / f'{primary.name}-replay.png'
     fig.savefig(fname, dpi=150)
     plt.close(fig)
@@ -306,8 +327,10 @@ def main() -> None:
         'decoder': args.decoder,
         'window_cols': args.window_cols,
         'include_zscore_stats': args.include_zscore_stats,
+        'include_returns': args.include_returns,
         'lookback': args.lookback,
         'scales': scales,
+        'extra_high_freq_scales': sorted(extra_scales),
         'n_features': n_features,
         'rsi_n': args.rsi_n,
         'macd_fast': args.macd_fast,

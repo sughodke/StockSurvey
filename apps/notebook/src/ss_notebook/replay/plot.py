@@ -19,6 +19,7 @@ def plot_reconstruction(
     decoder: str,
     window_cols: int,
     include_zscore_stats: bool,
+    include_returns: bool = False,
 ) -> plt.Figure:
     panel_specs = {
         'price': ('Close', None),
@@ -31,10 +32,13 @@ def plot_reconstruction(
         len(panels), 1, figsize=(13, 3 * len(panels)),
         sharex=True, squeeze=False)
     axes = axes.flatten()
-    zstats = ' +zscore-stats' if include_zscore_stats else ''
+    extras = ''.join([
+        ' +zscore-stats' if include_zscore_stats else '',
+        ' +returns' if include_returns else '',
+    ])
     fig.suptitle(
         f'{title_subject} — CWT-slice reconstruction vs full-series '
-        f'ground truth ({decoder}, K={window_cols}{zstats}, '
+        f'ground truth ({decoder}, K={window_cols}{extras}, '
         f'{n_features} features)',
         fontsize=13, fontweight='bold')
 
