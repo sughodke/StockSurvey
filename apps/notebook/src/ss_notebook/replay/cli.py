@@ -34,6 +34,22 @@ from ss_notebook.scalogram import DEFAULT_STOOQ_DIR
 from ss_wavelets import ALL_SCALES
 
 
+def _log_jax_devices(decoder: str) -> None:
+    """Surface which device(s) JAX picked. Only relevant for the JAX
+    decoders. Prints once before the fit so a Colab runtime that
+    silently fell back to CPU is visible immediately rather than after
+    a multi-minute wait."""
+    if decoder not in ('mlp', 'cnn'):
+        return
+    try:
+        import jax
+        devs = jax.devices()
+        kinds = sorted({d.platform for d in devs})
+        print(f'jax devices: {len(devs)} × {kinds} (default={devs[0]})')
+    except Exception as e:
+        print(f'jax device probe failed: {e}')
+
+
 def _git_sha_and_dirty() -> tuple[str, bool]:
     """Short git SHA + dirty-tree flag for the current working dir.
     Returns `('nogit', False)` outside a git repo."""
@@ -162,7 +178,17 @@ def main() -> None:
                              'extra decoder fit, so dropping unused ones '
                              'is a real compute lever (each fit is a full '
                              'Adam pass).')
+    parser.add_argument('--device', choices=['auto', 'cpu', 'gpu'],
+                        default='auto',
+                        help='`auto` (default) lets JAX pick — uses GPU if '
+                             'jaxlib has the CUDA plugin, else CPU. `cpu` '
+                             'forces CPU via JAX_PLATFORMS=cpu. `gpu` forces '
+                             'GPU and errors out if none is available.')
     args = parser.parse_args()
+    if args.device == 'cpu':
+        os.environ['JAX_PLATFORMS'] = 'cpu'
+    elif args.device == 'gpu':
+        os.environ['JAX_PLATFORMS'] = 'cuda'
     targets = tuple(_split_tickers(args.targets))
     unknown = set(targets) - set(TARGET_NAMES)
     if unknown:
@@ -192,6 +218,8 @@ def main() -> None:
     val_data = []
     if args.val_ticker is not None:
         val_data = [load_ticker(args.val_ticker, **load_kwargs)]
+
+    _log_jax_devices(args.decoder)
 
     cnn_channels_per_lag = 2 * len(scales)
     results, params_per_target = fit_and_evaluate(
