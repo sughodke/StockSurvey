@@ -272,6 +272,7 @@ def fit_cnn_multihead(
     predict_chunk: int = 32_768,
     head_conditioning_train: dict[str, np.ndarray] | None = None,
     head_conditioning_predict: dict[str, np.ndarray] | None = None,
+    train_pool_idx: np.ndarray | None = None,
 ) -> tuple[dict[str, np.ndarray], dict[str, dict[str, np.ndarray]]]:
     """Multi-head 1-D CNN — one shared conv backbone, per-target linear
     heads. Targets are standardized internally (per-target mean/std on
@@ -288,6 +289,16 @@ def fit_cnn_multihead(
     agnostic so the frozen latent stays clean for downstream scoring.
     Targets without conditioning entries fall back to the latent-only
     head input.
+
+    `train_pool_idx` enables lazy training-row augmentation. When
+    provided, `X_train` is treated as a small *pool* of unique input
+    rows and `train_pool_idx[i]` maps logical training row `i` to its
+    pool row. `Y_train[t]` and `head_conditioning_train[t]` must have
+    length `len(train_pool_idx)` (the logical training set size). Used
+    when the same pool row is paired with several target/conditioning
+    values (e.g. RSI period grid) — avoids materializing the augmented
+    feature matrix, which can be many GB. When `None`, defaults to the
+    identity mapping.
 
     Returns `(yhats, params_per_target)` where:
       - `yhats[target]` is the prediction over `X_full` for that target,
@@ -320,6 +331,24 @@ def fit_cnn_multihead(
     if not Y_train:
         raise ValueError('fit_cnn_multihead needs at least one target')
 
+    n_pool = X_train.shape[0]
+    if train_pool_idx is None:
+        pool_idx = np.arange(n_pool, dtype=np.int64)
+    else:
+        pool_idx = np.asarray(train_pool_idx, dtype=np.int64)
+        if pool_idx.ndim != 1:
+            raise ValueError(
+                f'train_pool_idx must be 1-D; got shape {pool_idx.shape}')
+        if pool_idx.size and (pool_idx.min() < 0 or pool_idx.max() >= n_pool):
+            raise ValueError(
+                f'train_pool_idx values must be in [0, n_pool={n_pool})')
+    n_train = pool_idx.size
+    for t, y in Y_train.items():
+        if y.shape[0] != n_train:
+            raise ValueError(
+                f'Y_train[{t!r}] has length {y.shape[0]} but logical '
+                f'n_train={n_train} (X_train pool size n_pool={n_pool}).')
+
     cond_train = head_conditioning_train or {}
     cond_predict = head_conditioning_predict or {}
     cond_dim: dict[str, int] = {}
@@ -327,10 +356,10 @@ def fit_cnn_multihead(
         if t not in Y_train:
             raise ValueError(
                 f'head_conditioning_train target {t!r} not in Y_train')
-        if arr.ndim != 2 or arr.shape[0] != X_train.shape[0]:
+        if arr.ndim != 2 or arr.shape[0] != n_train:
             raise ValueError(
                 f'head_conditioning_train[{t!r}] must be (n_train, p_dim); '
-                f'got {arr.shape}, n_train={X_train.shape[0]}')
+                f'got {arr.shape}, n_train={n_train}')
         if t not in cond_predict:
             raise ValueError(
                 f'head_conditioning_train[{t!r}] given but no matching '
@@ -432,9 +461,17 @@ def fit_cnn_multihead(
         updates, st = opt.update(grads, st, p)
         return optax.apply_updates(p, updates), st, loss
 
-    n_train = X_tr.shape[0]
+    # `n_train` here is the *logical* training-row count — equal to
+    # `len(pool_idx)`, which is `n_pool * n_replicas` when the caller is
+    # augmenting (e.g. RSI period grid). `X_tr` always has only `n_pool`
+    # unique rows; we never materialize the augmented feature matrix.
     if batch_size is None or batch_size >= n_train:
-        Xj = jnp.asarray(X_tr)
+        # Full-batch path. Materializes one (n_train, K, F) gather of the
+        # pool — for the augmenting cases this is the only large copy and
+        # it lives only as long as the loop. If this OOMs the caller
+        # should pass `batch_size` to switch to the stochastic path,
+        # which never materializes more than `batch_size` augmented rows.
+        Xj = jnp.asarray(X_tr[pool_idx])
         Yj = {t: jnp.asarray(Y_std[t]) for t in target_names}
         Cj = {t: jnp.asarray(arr) for t, arr in cond_tr.items()}
         for _ in range(n_steps):
@@ -443,7 +480,7 @@ def fit_cnn_multihead(
         rng = np.random.default_rng(seed)
         for _ in range(n_steps):
             idx = rng.integers(0, n_train, size=batch_size)
-            Xb = jnp.asarray(X_tr[idx])
+            Xb = jnp.asarray(X_tr[pool_idx[idx]])
             Yb = {t: jnp.asarray(Y_std[t][idx]) for t in target_names}
             Cb = {t: jnp.asarray(arr[idx]) for t, arr in cond_tr.items()}
             params, opt_state, _ = step(params, opt_state, Xb, Yb, Cb)

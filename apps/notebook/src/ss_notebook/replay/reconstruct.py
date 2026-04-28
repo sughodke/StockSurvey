@@ -85,13 +85,18 @@ def fit_and_evaluate(
         for n in targets
     }
 
-    # RSI period conditioning. When `rsi_n_grid` is set we replicate every
-    # pooled row once per grid value, override y_train['rsi'] with the
-    # grid-indexed RSI, and build a per-row conditioning vector. Other
-    # targets get their values tiled so the heads stay aligned. The
-    # conditioning width is 1 (just the normalized n).
+    # RSI period conditioning. When `rsi_n_grid` is set we *logically*
+    # replicate every pooled row once per grid value: each logical row
+    # maps to its physical pool row via `train_pool_idx`, while the 1-D
+    # target / conditioning arrays carry the grid-indexed values. The
+    # large `X_train` feature matrix is never materialized in augmented
+    # form — `fit_cnn_multihead` gathers `X_train[pool_idx[idx]]` per
+    # minibatch from the small unique-pool buffer. Memory cost of the
+    # augmentation is therefore O(n_pool * n_grid) for 1-D arrays, not
+    # O(n_pool * n_grid * K * F).
     head_cond_train: dict[str, np.ndarray] = {}
     head_cond_predict: dict[str, np.ndarray] = {}
+    train_pool_idx: np.ndarray | None = None
     rsi_grid_active = bool(rsi_n_grid) and 'rsi' in targets and decoder == 'cnn'
     if rsi_grid_active:
         for d in train_data:
@@ -108,20 +113,19 @@ def fit_and_evaluate(
         n_grid = len(rsi_n_grid)
         n_max = float(max(rsi_n_grid))   # normalize grid values to [0, 1]
         # Stack grid-indexed RSI values matching X_train's pooled row order.
+        # Shape (n_grid, n_pool); reshape(-1) lays out as
+        # [grid[0]_pool[0..n_pool-1], grid[1]_pool[0..n_pool-1], ...].
         rsi_grid_pooled = np.concatenate(
             [d.target_grids['rsi'][:, d.valid] for d in train_data], axis=1)
-        # rsi_grid_pooled shape: (n_grid, n_pooled).
-        n_pooled = X_train.shape[0]
-        # Augment by repeating each pooled row n_grid times. Layout:
-        # row 0..n_pooled-1 = grid[0], n_pooled..2*n_pooled-1 = grid[1], ...
-        X_train = np.tile(X_train, (n_grid, 1))
+        n_pool = X_train.shape[0]
+        train_pool_idx = np.tile(np.arange(n_pool, dtype=np.int64), n_grid)
         for t in targets:
             if t == 'rsi':
                 y_train[t] = rsi_grid_pooled.reshape(-1)
             else:
                 y_train[t] = np.tile(y_train[t], n_grid)
         n_values = np.array(rsi_n_grid, dtype=np.float32) / n_max
-        head_cond_train['rsi'] = np.repeat(n_values, n_pooled)[:, None]
+        head_cond_train['rsi'] = np.repeat(n_values, n_pool)[:, None]
 
     # Concatenate every ticker's full feature block for one prediction pass.
     all_data = list(train_data) + list(val_data)
@@ -150,7 +154,8 @@ def fit_and_evaluate(
             n_layers=cnn_layers, n_steps=cnn_steps,
             batch_size=cnn_batch_size,
             head_conditioning_train=head_cond_train,
-            head_conditioning_predict=head_cond_predict)
+            head_conditioning_predict=head_cond_predict,
+            train_pool_idx=train_pool_idx)
     else:
         for target_name in targets:
             y = y_train[target_name]
