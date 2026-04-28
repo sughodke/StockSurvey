@@ -14,7 +14,9 @@ from __future__ import annotations
 
 import numpy as np
 
-from ss_notebook.replay.decoders import fit_cnn, fit_mlp, fit_ols
+from ss_notebook.replay.decoders import (
+    fit_cnn, fit_cnn_multihead, fit_mlp, fit_ols,
+)
 from ss_notebook.replay.features import (
     TARGET_NAMES, TickerData, build_features_and_targets,
 )
@@ -40,9 +42,13 @@ def fit_and_evaluate(
     """Pool train tickers into one decoder fit, predict per-ticker.
 
     `targets` selects which targets to fit/predict; defaults to all of
-    `TARGET_NAMES`. Restricting to a subset (e.g. just `('rsi',)`) skips
-    the unused decoder fits — meaningful when iterating, since each
-    fit is one full Adam pass.
+    `TARGET_NAMES`. For `linear` and `mlp` each target gets its own
+    independent fit. For `cnn` all targets share one conv backbone with
+    per-target linear heads (multi-head, joint Adam fit) — see
+    `fit_cnn_multihead`. The on-disk `params_per_target` shape is the
+    same in both modes; the cnn case duplicates shared backbone weights
+    under each target so each per-target dict is self-contained at
+    inference time.
 
     Returns
     -------
@@ -51,8 +57,8 @@ def fit_and_evaluate(
         'stats': dict}}}`. `recon` is full-length (NaN outside that
         ticker's valid mask); `stats` holds R²/RMSE/max-|Δ|.
       - `params_per_target` = `{target_name: {array_name: ndarray}}` —
-        flat numpy params from the (single, pool-fit) decoder, suitable
-        for `np.savez`. One entry per fitted target.
+        flat numpy params suitable for `np.savez`. One entry per
+        fitted target.
     """
     if not train_data:
         raise ValueError('fit_and_evaluate needs at least one train ticker')
@@ -84,30 +90,36 @@ def fit_and_evaluate(
 
     results: dict[str, dict[str, dict]] = {d.name: {} for d in all_data}
     params_per_target: dict[str, dict[str, np.ndarray]] = {}
-    for target_name in targets:
-        y = y_train[target_name]
-        if decoder == 'linear':
-            w, b = fit_ols(X_train, y)
-            yhat_all = X_predict @ w + b
-            params_per_target[target_name] = {
-                'w': np.asarray(w, dtype=np.float64),
-                'b': np.array([b], dtype=np.float64),
-            }
-        elif decoder == 'mlp':
-            yhat_all, params_per_target[target_name] = fit_mlp(
-                X_train, y, X_predict,
-                hidden=mlp_hidden, n_layers=mlp_layers, n_steps=mlp_steps,
-                batch_size=mlp_batch_size)
-        elif decoder == 'cnn':
-            yhat_all, params_per_target[target_name] = fit_cnn(
-                X_train, y, X_predict,
-                n_channels_per_lag=cnn_channels_per_lag,
-                hidden=cnn_hidden, kernel=cnn_kernel,
-                n_layers=cnn_layers, n_steps=cnn_steps,
-                batch_size=cnn_batch_size)
-        else:
-            raise ValueError(f'unknown decoder: {decoder!r}')
+    yhats_all: dict[str, np.ndarray] = {}
 
+    if decoder == 'cnn':
+        # One shared backbone, per-target heads, joint Adam fit.
+        yhats_all, params_per_target = fit_cnn_multihead(
+            X_train, {t: y_train[t] for t in targets}, X_predict,
+            n_channels_per_lag=cnn_channels_per_lag,
+            hidden=cnn_hidden, kernel=cnn_kernel,
+            n_layers=cnn_layers, n_steps=cnn_steps,
+            batch_size=cnn_batch_size)
+    else:
+        for target_name in targets:
+            y = y_train[target_name]
+            if decoder == 'linear':
+                w, b = fit_ols(X_train, y)
+                yhats_all[target_name] = X_predict @ w + b
+                params_per_target[target_name] = {
+                    'w': np.asarray(w, dtype=np.float64),
+                    'b': np.array([b], dtype=np.float64),
+                }
+            elif decoder == 'mlp':
+                yhats_all[target_name], params_per_target[target_name] = fit_mlp(
+                    X_train, y, X_predict,
+                    hidden=mlp_hidden, n_layers=mlp_layers, n_steps=mlp_steps,
+                    batch_size=mlp_batch_size)
+            else:
+                raise ValueError(f'unknown decoder: {decoder!r}')
+
+    for target_name in targets:
+        yhat_all = yhats_all[target_name]
         offset = 0
         for d, n in zip(all_data, n_per):
             yhat_t = yhat_all[offset:offset + n]

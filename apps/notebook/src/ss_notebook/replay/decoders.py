@@ -254,3 +254,171 @@ def fit_cnn(
     params_dict['head_W'] = np.asarray(Wh, dtype=np.float32)
     params_dict['head_b'] = np.asarray(bh, dtype=np.float32)
     return np.asarray(yhat, dtype=np.float64), params_dict
+
+
+def fit_cnn_multihead(
+    X_train: np.ndarray,
+    Y_train: dict[str, np.ndarray],
+    X_full: np.ndarray,
+    *,
+    n_channels_per_lag: int,
+    hidden: int = 64,
+    kernel: int = 5,
+    n_layers: int = 2,
+    n_steps: int = 2000,
+    lr: float = 1e-3,
+    seed: int = 0,
+    batch_size: int | None = None,
+    predict_chunk: int = 32_768,
+) -> tuple[dict[str, np.ndarray], dict[str, dict[str, np.ndarray]]]:
+    """Multi-head 1-D CNN — one shared conv backbone, per-target linear
+    heads. Targets are standardized internally (per-target mean/std on
+    train) so heads with different output ranges (RSI 0–100, MACD ±10,
+    price 10–500) contribute equally to the loss; predictions are
+    returned unstandardized.
+
+    Returns `(yhats, params_per_target)` where:
+      - `yhats[target]` is the prediction over `X_full` for that target,
+        unstandardized.
+      - `params_per_target[target]` is a flat numpy dict with the
+        shared input z-norm (`feat_mu/sd`), the shared conv backbone
+        (`conv{i}_W/b`), this target's head (`head_W/b`), and this
+        target's output unstandardizer (`target_mu/sd`). Suitable for
+        `np.savez`. The shared keys are duplicated across targets so
+        each per-target dict is self-contained at inference time —
+        callers don't need to know whether a key is shared or per-head.
+    """
+    if X_train.shape[1] % n_channels_per_lag != 0:
+        raise ValueError(
+            f'feature count {X_train.shape[1]} not divisible by '
+            f'{n_channels_per_lag} (channels per lag).')
+    K = X_train.shape[1] // n_channels_per_lag
+    if K <= kernel * n_layers:
+        raise ValueError(
+            f'window_cols K={K} too small for {n_layers} conv layers of '
+            f'kernel size {kernel} (need K > kernel * n_layers).')
+    if not Y_train:
+        raise ValueError('fit_cnn_multihead needs at least one target')
+
+    import jax
+    import jax.numpy as jnp
+    import optax
+
+    F = n_channels_per_lag
+    X_tr = X_train.reshape(-1, K, F).astype(np.float32)
+    X_fl = X_full.reshape(-1, K, F).astype(np.float32)
+    feat_mu = X_tr.mean(axis=0, keepdims=True)
+    feat_sd = X_tr.std(axis=0, keepdims=True) + 1e-8
+    X_tr = (X_tr - feat_mu) / feat_sd
+    X_fl = (X_fl - feat_mu) / feat_sd
+
+    target_names = list(Y_train.keys())
+    target_mu = {t: float(np.mean(Y_train[t])) for t in target_names}
+    target_sd = {t: float(np.std(Y_train[t]) + 1e-8) for t in target_names}
+    Y_std = {t: ((Y_train[t] - target_mu[t]) / target_sd[t]).astype(np.float32)
+             for t in target_names}
+
+    key = jax.random.PRNGKey(seed)
+    chs = [F] + [hidden] * n_layers
+    conv_params = []
+    for in_c, out_c in zip(chs[:-1], chs[1:]):
+        key, sub = jax.random.split(key)
+        W = jax.random.normal(
+            sub, (kernel, in_c, out_c),
+            dtype=jnp.float32) * jnp.sqrt(2.0 / (kernel * in_c))
+        b = jnp.zeros(out_c, dtype=jnp.float32)
+        conv_params.append((W, b))
+
+    out_K = K - n_layers * (kernel - 1)
+    head_in = out_K * hidden
+    head_params: dict[str, tuple[jnp.ndarray, jnp.ndarray]] = {}
+    for t in target_names:
+        key, sub = jax.random.split(key)
+        Wh = jax.random.normal(
+            sub, (head_in, 1),
+            dtype=jnp.float32) * jnp.sqrt(2.0 / head_in)
+        bh = jnp.zeros(1, dtype=jnp.float32)
+        head_params[t] = (Wh, bh)
+
+    params = (conv_params, head_params)
+
+    def conv1d(x, W, b):
+        return jax.lax.conv_general_dilated(
+            x, W,
+            window_strides=(1,),
+            padding='VALID',
+            dimension_numbers=('NHC', 'HIO', 'NHC'),
+        ) + b
+
+    def backbone(conv_p, x):
+        h = x
+        for W, b in conv_p:
+            h = jax.nn.relu(conv1d(h, W, b))
+        return h.reshape(h.shape[0], -1)
+
+    def forward(p, x):
+        conv_p, head_p = p
+        h = backbone(conv_p, x)
+        return {t: (h @ Wh + bh).squeeze(-1)
+                for t, (Wh, bh) in head_p.items()}
+
+    def loss_fn(p, X, Y):
+        preds = forward(p, X)
+        per_target = jnp.stack([
+            jnp.mean((preds[t] - Y[t]) ** 2) for t in target_names
+        ])
+        return jnp.mean(per_target)
+
+    opt = optax.adam(lr)
+    opt_state = opt.init(params)
+
+    @jax.jit
+    def step(p, st, X, Y):
+        loss, grads = jax.value_and_grad(loss_fn)(p, X, Y)
+        updates, st = opt.update(grads, st, p)
+        return optax.apply_updates(p, updates), st, loss
+
+    n_train = X_tr.shape[0]
+    if batch_size is None or batch_size >= n_train:
+        Xj = jnp.asarray(X_tr)
+        Yj = {t: jnp.asarray(Y_std[t]) for t in target_names}
+        for _ in range(n_steps):
+            params, opt_state, _ = step(params, opt_state, Xj, Yj)
+    else:
+        rng = np.random.default_rng(seed)
+        for _ in range(n_steps):
+            idx = rng.integers(0, n_train, size=batch_size)
+            Xb = jnp.asarray(X_tr[idx])
+            Yb = {t: jnp.asarray(Y_std[t][idx]) for t in target_names}
+            params, opt_state, _ = step(params, opt_state, Xb, Yb)
+
+    yhat_chunks: dict[str, list[np.ndarray]] = {t: [] for t in target_names}
+    for start in range(0, X_fl.shape[0], predict_chunk):
+        chunk = jnp.asarray(X_fl[start:start + predict_chunk])
+        preds = forward(params, chunk)
+        for t in target_names:
+            yhat_chunks[t].append(np.asarray(preds[t]))
+    yhats: dict[str, np.ndarray] = {}
+    for t in target_names:
+        yhat_std = np.concatenate(yhat_chunks[t]).astype(np.float64)
+        yhats[t] = yhat_std * target_sd[t] + target_mu[t]
+
+    conv_p_final, head_p_final = params
+    shared = {
+        'feat_mu': np.asarray(feat_mu, dtype=np.float32),
+        'feat_sd': np.asarray(feat_sd, dtype=np.float32),
+    }
+    for i, (W, b) in enumerate(conv_p_final):
+        shared[f'conv{i}_W'] = np.asarray(W, dtype=np.float32)
+        shared[f'conv{i}_b'] = np.asarray(b, dtype=np.float32)
+    params_per_target: dict[str, dict[str, np.ndarray]] = {}
+    for t in target_names:
+        Wh, bh = head_p_final[t]
+        params_per_target[t] = {
+            **shared,
+            'head_W': np.asarray(Wh, dtype=np.float32),
+            'head_b': np.asarray(bh, dtype=np.float32),
+            'target_mu': np.array([target_mu[t]], dtype=np.float32),
+            'target_sd': np.array([target_sd[t]], dtype=np.float32),
+        }
+    return yhats, params_per_target

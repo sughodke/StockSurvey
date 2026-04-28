@@ -8,12 +8,16 @@ Public API
 - `TickerData`, `load_ticker` : data bundle + loader for one ticker.
 - `build_features_and_targets`, `compute_scalogram`,
   `build_lagged_features`, `rolling_zscore_stats` : feature builders.
-- `fit_ols`, `fit_mlp`, `fit_cnn` : decoder fits.
+- `fit_ols`, `fit_mlp`, `fit_cnn`, `fit_cnn_multihead` : decoder fits.
+  `fit_cnn_multihead` is what `fit_and_evaluate` actually calls when
+  `decoder='cnn'` — shared backbone, per-target heads.
 - `fit_stats`           : R²/RMSE/max-|Δ| metric.
 - `plot_reconstruction` : 3-panel reconstruction figure.
 """
 from ss_notebook.replay.cli import main
-from ss_notebook.replay.decoders import fit_cnn, fit_mlp, fit_ols
+from ss_notebook.replay.decoders import (
+    fit_cnn, fit_cnn_multihead, fit_mlp, fit_ols,
+)
 from ss_notebook.replay.features import (
     TARGET_NAMES,
     TickerData,
@@ -38,6 +42,7 @@ __all__ = [
     'compute_scalogram',
     'fit_and_evaluate',
     'fit_cnn',
+    'fit_cnn_multihead',
     'fit_mlp',
     'fit_ols',
     'fit_stats',
