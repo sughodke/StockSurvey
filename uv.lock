@@ -4667,6 +4667,7 @@ dependencies = [
     { name = "ss-plotting" },
     { name = "ss-portfolio" },
     { name = "ss-wavelets" },
+    { name = "tqdm" },
 ]
 
 [package.metadata]
@@ -4686,6 +4687,7 @@ requires-dist = [
     { name = "ss-plotting", editable = "packages/plotting" },
     { name = "ss-portfolio", editable = "packages/portfolio" },
     { name = "ss-wavelets", editable = "packages/wavelets" },
+    { name = "tqdm" },
 ]
 
 [[package]]
