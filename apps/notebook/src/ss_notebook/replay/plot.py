@@ -20,11 +20,13 @@ def plot_reconstruction(
     window_cols: int,
     include_zscore_stats: bool,
     include_returns: bool = False,
+    vol_window: int = 20,
 ) -> plt.Figure:
     panel_specs = {
         'price': ('Close', None),
         'rsi': (f'RSI({rsi_n})', (30, 70)),
         'macd': (f'MACD({macd_fast},{macd_slow},{macd_signal}) line', (0,)),
+        'vol': (f'RealizedVol({vol_window})', None),
     }
     panels = [(key, *panel_specs[key]) for key in panel_specs if key in gt]
 

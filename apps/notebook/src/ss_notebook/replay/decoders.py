@@ -270,6 +270,8 @@ def fit_cnn_multihead(
     seed: int = 0,
     batch_size: int | None = None,
     predict_chunk: int = 32_768,
+    head_conditioning_train: dict[str, np.ndarray] | None = None,
+    head_conditioning_predict: dict[str, np.ndarray] | None = None,
 ) -> tuple[dict[str, np.ndarray], dict[str, dict[str, np.ndarray]]]:
     """Multi-head 1-D CNN — one shared conv backbone, per-target linear
     heads. Targets are standardized internally (per-target mean/std on
@@ -277,16 +279,34 @@ def fit_cnn_multihead(
     price 10–500) contribute equally to the loss; predictions are
     returned unstandardized.
 
+    For period/parameter-conditioned heads (e.g. RSI(n) trained over
+    multiple n), pass `head_conditioning_train[target]` shape
+    `(n_train, p_dim)` (typically `p_dim=1`) and the matching
+    `head_conditioning_predict[target]` shape `(n_full, p_dim)`. The
+    conditioning vector is concatenated to the flattened backbone latent
+    *before* the linear head — keeps the shared backbone parameter-
+    agnostic so the frozen latent stays clean for downstream scoring.
+    Targets without conditioning entries fall back to the latent-only
+    head input.
+
     Returns `(yhats, params_per_target)` where:
       - `yhats[target]` is the prediction over `X_full` for that target,
         unstandardized.
       - `params_per_target[target]` is a flat numpy dict with the
         shared input z-norm (`feat_mu/sd`), the shared conv backbone
-        (`conv{i}_W/b`), this target's head (`head_W/b`), and this
-        target's output unstandardizer (`target_mu/sd`). Suitable for
-        `np.savez`. The shared keys are duplicated across targets so
-        each per-target dict is self-contained at inference time —
+        (`conv{i}_W/b`), this target's head (`head_W/b`,
+        `head_cond_dim`), and this target's output unstandardizer
+        (`target_mu/sd`). For conditioned heads, `head_cond_dim`
+        records the conditioning width (the head's first
+        `head_in - head_cond_dim` weights map the latent; the trailing
+        `head_cond_dim` weights map the conditioning vector). Suitable
+        for `np.savez`. The shared keys are duplicated across targets
+        so each per-target dict is self-contained at inference time —
         callers don't need to know whether a key is shared or per-head.
+        All conditioning bookkeeping is under the `head_` prefix so
+        downstream loaders that strip per-head artifacts (e.g.
+        `ss_notebook.scoring.backbone.load_backbone`) see only the
+        shared backbone.
     """
     if X_train.shape[1] % n_channels_per_lag != 0:
         raise ValueError(
@@ -299,6 +319,30 @@ def fit_cnn_multihead(
             f'kernel size {kernel} (need K > kernel * n_layers).')
     if not Y_train:
         raise ValueError('fit_cnn_multihead needs at least one target')
+
+    cond_train = head_conditioning_train or {}
+    cond_predict = head_conditioning_predict or {}
+    cond_dim: dict[str, int] = {}
+    for t, arr in cond_train.items():
+        if t not in Y_train:
+            raise ValueError(
+                f'head_conditioning_train target {t!r} not in Y_train')
+        if arr.ndim != 2 or arr.shape[0] != X_train.shape[0]:
+            raise ValueError(
+                f'head_conditioning_train[{t!r}] must be (n_train, p_dim); '
+                f'got {arr.shape}, n_train={X_train.shape[0]}')
+        if t not in cond_predict:
+            raise ValueError(
+                f'head_conditioning_train[{t!r}] given but no matching '
+                f'head_conditioning_predict entry — predictor needs a '
+                'parameter to evaluate at.')
+        cp = cond_predict[t]
+        if cp.ndim != 2 or cp.shape[0] != X_full.shape[0] or \
+           cp.shape[1] != arr.shape[1]:
+            raise ValueError(
+                f'head_conditioning_predict[{t!r}] shape {cp.shape} does '
+                f'not match (n_full={X_full.shape[0]}, p_dim={arr.shape[1]}).')
+        cond_dim[t] = arr.shape[1]
 
     import jax
     import jax.numpy as jnp
@@ -317,6 +361,8 @@ def fit_cnn_multihead(
     target_sd = {t: float(np.std(Y_train[t]) + 1e-8) for t in target_names}
     Y_std = {t: ((Y_train[t] - target_mu[t]) / target_sd[t]).astype(np.float32)
              for t in target_names}
+    cond_tr = {t: arr.astype(np.float32) for t, arr in cond_train.items()}
+    cond_fl = {t: arr.astype(np.float32) for t, arr in cond_predict.items()}
 
     key = jax.random.PRNGKey(seed)
     chs = [F] + [hidden] * n_layers
@@ -330,9 +376,10 @@ def fit_cnn_multihead(
         conv_params.append((W, b))
 
     out_K = K - n_layers * (kernel - 1)
-    head_in = out_K * hidden
+    latent_dim = out_K * hidden
     head_params: dict[str, tuple[jnp.ndarray, jnp.ndarray]] = {}
     for t in target_names:
+        head_in = latent_dim + cond_dim.get(t, 0)
         key, sub = jax.random.split(key)
         Wh = jax.random.normal(
             sub, (head_in, 1),
@@ -356,14 +403,21 @@ def fit_cnn_multihead(
             h = jax.nn.relu(conv1d(h, W, b))
         return h.reshape(h.shape[0], -1)
 
-    def forward(p, x):
+    # Note: `cond` is a dict-of-arrays that lives outside `params` — they
+    # are training/eval-time *inputs*, not learnable. JAX treats them as
+    # part of the traced function's static structure (keys) + dynamic
+    # values (arrays), so the per-target concat is jit-friendly.
+    def forward(p, x, cond):
         conv_p, head_p = p
         h = backbone(conv_p, x)
-        return {t: (h @ Wh + bh).squeeze(-1)
-                for t, (Wh, bh) in head_p.items()}
+        out: dict[str, jax.Array] = {}
+        for t, (Wh, bh) in head_p.items():
+            head_in = jnp.concatenate([h, cond[t]], axis=-1) if t in cond else h
+            out[t] = (head_in @ Wh + bh).squeeze(-1)
+        return out
 
-    def loss_fn(p, X, Y):
-        preds = forward(p, X)
+    def loss_fn(p, X, Y, C):
+        preds = forward(p, X, C)
         per_target = jnp.stack([
             jnp.mean((preds[t] - Y[t]) ** 2) for t in target_names
         ])
@@ -373,8 +427,8 @@ def fit_cnn_multihead(
     opt_state = opt.init(params)
 
     @jax.jit
-    def step(p, st, X, Y):
-        loss, grads = jax.value_and_grad(loss_fn)(p, X, Y)
+    def step(p, st, X, Y, C):
+        loss, grads = jax.value_and_grad(loss_fn)(p, X, Y, C)
         updates, st = opt.update(grads, st, p)
         return optax.apply_updates(p, updates), st, loss
 
@@ -382,20 +436,26 @@ def fit_cnn_multihead(
     if batch_size is None or batch_size >= n_train:
         Xj = jnp.asarray(X_tr)
         Yj = {t: jnp.asarray(Y_std[t]) for t in target_names}
+        Cj = {t: jnp.asarray(arr) for t, arr in cond_tr.items()}
         for _ in range(n_steps):
-            params, opt_state, _ = step(params, opt_state, Xj, Yj)
+            params, opt_state, _ = step(params, opt_state, Xj, Yj, Cj)
     else:
         rng = np.random.default_rng(seed)
         for _ in range(n_steps):
             idx = rng.integers(0, n_train, size=batch_size)
             Xb = jnp.asarray(X_tr[idx])
             Yb = {t: jnp.asarray(Y_std[t][idx]) for t in target_names}
-            params, opt_state, _ = step(params, opt_state, Xb, Yb)
+            Cb = {t: jnp.asarray(arr[idx]) for t, arr in cond_tr.items()}
+            params, opt_state, _ = step(params, opt_state, Xb, Yb, Cb)
 
     yhat_chunks: dict[str, list[np.ndarray]] = {t: [] for t in target_names}
     for start in range(0, X_fl.shape[0], predict_chunk):
         chunk = jnp.asarray(X_fl[start:start + predict_chunk])
-        preds = forward(params, chunk)
+        chunk_cond = {
+            t: jnp.asarray(arr[start:start + predict_chunk])
+            for t, arr in cond_fl.items()
+        }
+        preds = forward(params, chunk, chunk_cond)
         for t in target_names:
             yhat_chunks[t].append(np.asarray(preds[t]))
     yhats: dict[str, np.ndarray] = {}
@@ -420,5 +480,6 @@ def fit_cnn_multihead(
             'head_b': np.asarray(bh, dtype=np.float32),
             'target_mu': np.array([target_mu[t]], dtype=np.float32),
             'target_sd': np.array([target_sd[t]], dtype=np.float32),
+            'head_cond_dim': np.array([cond_dim.get(t, 0)], dtype=np.int32),
         }
     return yhats, params_per_target

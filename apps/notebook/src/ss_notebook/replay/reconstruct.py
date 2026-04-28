@@ -38,6 +38,8 @@ def fit_and_evaluate(
     cnn_layers: int = 2,
     cnn_steps: int = 2000,
     cnn_batch_size: int | None = None,
+    rsi_n_grid: tuple[int, ...] = (),
+    rsi_anchor_n: int | None = None,
 ) -> tuple[dict[str, dict[str, dict]], dict[str, dict[str, np.ndarray]]]:
     """Pool train tickers into one decoder fit, predict per-ticker.
 
@@ -83,10 +85,57 @@ def fit_and_evaluate(
         for n in targets
     }
 
+    # RSI period conditioning. When `rsi_n_grid` is set we replicate every
+    # pooled row once per grid value, override y_train['rsi'] with the
+    # grid-indexed RSI, and build a per-row conditioning vector. Other
+    # targets get their values tiled so the heads stay aligned. The
+    # conditioning width is 1 (just the normalized n).
+    head_cond_train: dict[str, np.ndarray] = {}
+    head_cond_predict: dict[str, np.ndarray] = {}
+    rsi_grid_active = bool(rsi_n_grid) and 'rsi' in targets and decoder == 'cnn'
+    if rsi_grid_active:
+        for d in train_data:
+            if 'rsi' not in d.target_grids:
+                raise ValueError(
+                    f'rsi_n_grid={rsi_n_grid!r} requested but train ticker '
+                    f'{d.name!r} has no target_grids["rsi"] — was load_ticker '
+                    'called with rsi_n_grid?')
+            if d.target_grids['rsi'].shape[0] != len(rsi_n_grid):
+                raise ValueError(
+                    f'train ticker {d.name!r} target_grids["rsi"] shape '
+                    f'{d.target_grids["rsi"].shape} disagrees with '
+                    f'len(rsi_n_grid)={len(rsi_n_grid)}.')
+        n_grid = len(rsi_n_grid)
+        n_max = float(max(rsi_n_grid))   # normalize grid values to [0, 1]
+        # Stack grid-indexed RSI values matching X_train's pooled row order.
+        rsi_grid_pooled = np.concatenate(
+            [d.target_grids['rsi'][:, d.valid] for d in train_data], axis=1)
+        # rsi_grid_pooled shape: (n_grid, n_pooled).
+        n_pooled = X_train.shape[0]
+        # Augment by repeating each pooled row n_grid times. Layout:
+        # row 0..n_pooled-1 = grid[0], n_pooled..2*n_pooled-1 = grid[1], ...
+        X_train = np.tile(X_train, (n_grid, 1))
+        for t in targets:
+            if t == 'rsi':
+                y_train[t] = rsi_grid_pooled.reshape(-1)
+            else:
+                y_train[t] = np.tile(y_train[t], n_grid)
+        n_values = np.array(rsi_n_grid, dtype=np.float32) / n_max
+        head_cond_train['rsi'] = np.repeat(n_values, n_pooled)[:, None]
+
     # Concatenate every ticker's full feature block for one prediction pass.
     all_data = list(train_data) + list(val_data)
     n_per = [d.features.shape[0] for d in all_data]
     X_predict = np.vstack([d.features for d in all_data])
+
+    if rsi_grid_active:
+        # Predict at the anchor period — defaults to median of the grid.
+        anchor = (rsi_anchor_n if rsi_anchor_n is not None
+                  else int(sorted(rsi_n_grid)[len(rsi_n_grid) // 2]))
+        head_cond_predict['rsi'] = np.full(
+            (X_predict.shape[0], 1),
+            anchor / float(max(rsi_n_grid)),
+            dtype=np.float32)
 
     results: dict[str, dict[str, dict]] = {d.name: {} for d in all_data}
     params_per_target: dict[str, dict[str, np.ndarray]] = {}
@@ -99,7 +148,9 @@ def fit_and_evaluate(
             n_channels_per_lag=cnn_channels_per_lag,
             hidden=cnn_hidden, kernel=cnn_kernel,
             n_layers=cnn_layers, n_steps=cnn_steps,
-            batch_size=cnn_batch_size)
+            batch_size=cnn_batch_size,
+            head_conditioning_train=head_cond_train,
+            head_conditioning_predict=head_cond_predict)
     else:
         for target_name in targets:
             y = y_train[target_name]
@@ -163,22 +214,24 @@ def reconstruct_indicators(
         include_returns=include_returns, decoder=decoder,
         rsi_n=rsi_n, macd_fast=macd_fast, macd_slow=macd_slow,
         macd_signal=macd_signal)
-    train_features, train_gt, train_valid = build_features_and_targets(
-        prices, **feat_kwargs)
+    train_features, train_gt, train_valid, train_grids = (
+        build_features_and_targets(prices, **feat_kwargs))
     train_td = TickerData(
         name='train', prices=prices, dates=np.arange(len(prices)),
-        features=train_features, targets=train_gt, valid=train_valid)
+        features=train_features, targets=train_gt, valid=train_valid,
+        target_grids=train_grids)
     train_list = [train_td]
 
     val_list: list[TickerData] = []
     val_gt: dict[str, np.ndarray] | None = None
     if val_prices is not None:
-        val_features, v_gt, v_valid = build_features_and_targets(
+        val_features, v_gt, v_valid, v_grids = build_features_and_targets(
             val_prices, **feat_kwargs)
         val_td = TickerData(
             name='val', prices=val_prices,
             dates=np.arange(len(val_prices)),
-            features=val_features, targets=v_gt, valid=v_valid)
+            features=val_features, targets=v_gt, valid=v_valid,
+            target_grids=v_grids)
         val_list = [val_td]
         val_gt = v_gt
 

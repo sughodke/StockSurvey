@@ -9,7 +9,7 @@ and one extra entry in the channel stack, so the CNN reshape from
 """
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 import numpy as np
 
@@ -18,7 +18,7 @@ from ss_notebook.scalogram import _to_np, load_prices
 from ss_wavelets import causal_cwt
 
 
-TARGET_NAMES = ('price', 'rsi', 'macd')
+TARGET_NAMES = ('price', 'rsi', 'macd', 'vol')
 
 
 def compute_scalogram(
@@ -66,6 +66,32 @@ def log_returns(prices: np.ndarray) -> np.ndarray:
     return np.concatenate([[np.nan], np.diff(log_p)])
 
 
+def realized_vol(prices: np.ndarray, window: int) -> np.ndarray:
+    """Causal rolling std of log returns over the trailing `window` bars.
+
+    Output is NaN until the window is full. Used as a backbone-pretraining
+    target — it's what the rolling-z-normed scalogram is best positioned
+    to recover (squared-coefficient structure survives the z-norm) and
+    a known cross-sectional return predictor in its own right.
+    """
+    if window < 2:
+        raise ValueError(f'realized_vol window must be >= 2, got {window}')
+    rets = log_returns(prices)  # (n,) with rets[0] = NaN
+    n = len(prices)
+    out = np.full(n, np.nan, dtype=np.float64)
+    rets_clean = np.where(np.isnan(rets), 0.0, rets)
+    cs = np.cumsum(np.concatenate([[0.0], rets_clean]))
+    cs2 = np.cumsum(np.concatenate([[0.0], rets_clean ** 2]))
+    # First valid return is index 1; first full window ends at index `window`.
+    for i in range(window, n):
+        s = cs[i + 1] - cs[i + 1 - window]
+        s2 = cs2[i + 1] - cs2[i + 1 - window]
+        m = s / window
+        v = max(s2 / window - m * m, 0.0)
+        out[i] = np.sqrt(v)
+    return out
+
+
 def channels_per_lag(
     n_scales: int, *, include_zscore_stats: bool, include_returns: bool,
 ) -> int:
@@ -100,12 +126,24 @@ def build_features_and_targets(
     scales: list[int], lookback: int, window_cols: int,
     include_zscore_stats: bool, include_returns: bool, decoder: str,
     rsi_n: int, macd_fast: int, macd_slow: int, macd_signal: int,
-) -> tuple[np.ndarray, dict[str, np.ndarray], np.ndarray]:
-    """Returns `(features, gt-by-target, valid-mask)` for one price series.
+    vol_window: int = 20,
+    rsi_n_grid: tuple[int, ...] = (),
+) -> tuple[np.ndarray, dict[str, np.ndarray], np.ndarray,
+           dict[str, np.ndarray]]:
+    """Returns `(features, gt-by-target, valid-mask, target-grids)` for
+    one price series.
 
     `valid` is the AND of: warm-up complete (max of CWT lookback and
     window-cols), feature row finite, and every target finite at that
     bar.
+
+    `target_grids` carries the period-conditioning auxiliary arrays for
+    parameter-conditioned targets: `target_grids['rsi']` is a 2D array
+    of shape `(len(rsi_n_grid), n_dates)` holding RSI(n) for every n in
+    the grid, used by `fit_and_evaluate` to augment training rows. Empty
+    dict when no grid is provided. The 1D anchor target in `gt['rsi']`
+    (computed at `rsi_n`) is what plotting/stats compare against, so the
+    head must be evaluated at the anchor n during prediction.
 
     `decoder` is accepted for backwards compatibility but no longer
     gates which channels can be combined — every channel is now lag-
@@ -132,26 +170,46 @@ def build_features_and_targets(
                           signal=macd_signal)
     macd_gt = _to_np(macd_line).astype(np.float64)
     price_gt = prices.astype(np.float64)
-    gt = {'price': price_gt, 'rsi': rsi_gt, 'macd': macd_gt}
+    vol_gt = realized_vol(prices, window=vol_window)
+    gt = {'price': price_gt, 'rsi': rsi_gt, 'macd': macd_gt, 'vol': vol_gt}
+
+    target_grids: dict[str, np.ndarray] = {}
+    if rsi_n_grid:
+        # (n_grid, n_dates). Each row is RSI(n) for one grid value. Aligned
+        # with `prices` on the time axis so callers can index by date.
+        target_grids['rsi'] = np.stack(
+            [_to_np(rsi(prices, n=int(n))).astype(np.float64)
+             for n in rsi_n_grid],
+            axis=0)
 
     valid = np.zeros(len(prices), dtype=bool)
     valid[max(lookback, window_cols - 1):] = True
     valid &= np.isfinite(features).all(axis=1)
     for arr in gt.values():
         valid &= np.isfinite(arr)
-    return features, gt, valid
+    # When grid mode is active, every grid row must also be finite at a bar
+    # for the augmented training row to be usable.
+    for grid_arr in target_grids.values():
+        valid &= np.isfinite(grid_arr).all(axis=0)
+    return features, gt, valid, target_grids
 
 
 @dataclass
 class TickerData:
     """One ticker's loaded prices, dates, features, ground-truth indicators,
-    and the warm-up-aware valid mask. Constructed by `load_ticker`."""
+    and the warm-up-aware valid mask. Constructed by `load_ticker`.
+
+    `target_grids` carries `(n_grid, n_dates)` arrays for parameter-
+    conditioned targets; empty dict when no conditioning is in use. The
+    1D anchor array in `targets` is what plotting/stats compare against.
+    """
     name: str
     prices: np.ndarray
     dates: np.ndarray
     features: np.ndarray
     targets: dict[str, np.ndarray]
     valid: np.ndarray
+    target_grids: dict[str, np.ndarray] = field(default_factory=dict)
 
 
 def load_ticker(
@@ -162,6 +220,8 @@ def load_ticker(
     scales: list[int], lookback: int, window_cols: int,
     include_zscore_stats: bool, include_returns: bool, decoder: str,
     rsi_n: int, macd_fast: int, macd_slow: int, macd_signal: int,
+    vol_window: int = 20,
+    rsi_n_grid: tuple[int, ...] = (),
 ) -> TickerData:
     """Load one ticker and pre-compute features + targets + valid mask."""
     series = load_prices(
@@ -170,10 +230,12 @@ def load_ticker(
         start=start, end=end)
     prices = series.values.astype(np.float64)
     dates = np.asarray(series.index)
-    features, targets, valid = build_features_and_targets(
+    features, targets, valid, target_grids = build_features_and_targets(
         prices, scales=scales, lookback=lookback, window_cols=window_cols,
         include_zscore_stats=include_zscore_stats,
         include_returns=include_returns, decoder=decoder,
         rsi_n=rsi_n, macd_fast=macd_fast, macd_slow=macd_slow,
-        macd_signal=macd_signal)
-    return TickerData(name, prices, dates, features, targets, valid)
+        macd_signal=macd_signal,
+        vol_window=vol_window, rsi_n_grid=rsi_n_grid)
+    return TickerData(name, prices, dates, features, targets, valid,
+                      target_grids=target_grids)

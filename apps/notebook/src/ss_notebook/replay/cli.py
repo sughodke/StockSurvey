@@ -179,10 +179,29 @@ def main() -> None:
                              'large for full-batch device memory; CNN is '
                              'more activation-heavy than MLP, so this kicks '
                              'in at smaller pool sizes. 8192 works at K=64.')
-    parser.add_argument('--rsi-n', type=int, default=7)
+    parser.add_argument('--rsi-n', type=int, default=7,
+                        help='Anchor RSI period. Used for the 1-D ground-'
+                             'truth target (what plotting/stats compare '
+                             'against) and as the conditioning value at '
+                             'prediction time when --rsi-n-grid is empty.')
+    parser.add_argument('--rsi-n-grid', default='',
+                        help='Comma-separated periods (e.g. "5,7,9,13,21") '
+                             'enabling RSI head period conditioning. Each '
+                             'pooled training row is replicated per grid '
+                             'value with the matching RSI(n) target and the '
+                             'normalized n is concatenated to the latent '
+                             'before the linear head. Backbone latent stays '
+                             'parameter-agnostic so the frozen features keep '
+                             'the same shape downstream. Empty (default) = '
+                             'fixed-period RSI from --rsi-n. Only --decoder '
+                             'cnn supports this.')
     parser.add_argument('--macd-fast', type=int, default=12)
     parser.add_argument('--macd-slow', type=int, default=26)
     parser.add_argument('--macd-signal', type=int, default=9)
+    parser.add_argument('--vol-window', type=int, default=20,
+                        help='Window size for the realized-volatility target '
+                             '(rolling std of daily log returns). Default 20 '
+                             'matches the regime trainer rebalance horizon.')
     parser.add_argument('--output-dir', default='Output',
                         help='Where reconstruction figures are saved. '
                              'matplotlib never opens an interactive window.')
@@ -215,6 +234,12 @@ def main() -> None:
     if any(s < 1 for s in extra_scales):
         parser.error('--extra-high-freq-scales must be positive integers')
     scales = sorted(set(extra_scales) | set(ALL_SCALES))
+    rsi_n_grid = tuple(int(s) for s in _split_tickers(args.rsi_n_grid))
+    if rsi_n_grid and any(n < 2 for n in rsi_n_grid):
+        parser.error('--rsi-n-grid values must be >= 2')
+    if rsi_n_grid and args.decoder != 'cnn':
+        parser.error('--rsi-n-grid requires --decoder cnn '
+                     '(head conditioning is only wired into the CNN trainer)')
     load_kwargs = dict(
         stooq_dir=args.stooq_dir, kaggle_dir=args.kaggle_dir,
         use_yahoo=args.yahoo,
@@ -226,6 +251,7 @@ def main() -> None:
         decoder=args.decoder,
         rsi_n=args.rsi_n, macd_fast=args.macd_fast,
         macd_slow=args.macd_slow, macd_signal=args.macd_signal,
+        vol_window=args.vol_window, rsi_n_grid=rsi_n_grid,
     )
 
     primary = load_ticker(args.ticker, **load_kwargs)
@@ -249,6 +275,7 @@ def main() -> None:
         cnn_hidden=args.cnn_hidden, cnn_kernel=args.cnn_kernel,
         cnn_layers=args.cnn_layers, cnn_steps=args.cnn_steps,
         cnn_batch_size=args.cnn_batch_size,
+        rsi_n_grid=rsi_n_grid, rsi_anchor_n=args.rsi_n,
     )
 
     n_features = primary.features.shape[1]
@@ -289,7 +316,8 @@ def main() -> None:
         n_features=n_features, decoder=args.decoder,
         window_cols=args.window_cols,
         include_zscore_stats=args.include_zscore_stats,
-        include_returns=args.include_returns)
+        include_returns=args.include_returns,
+        vol_window=args.vol_window)
     fname = Path(args.output_dir) / f'{primary.name}-replay.png'
     fig.savefig(fname, dpi=150)
     plt.close(fig)
@@ -306,7 +334,9 @@ def main() -> None:
             macd_slow=args.macd_slow, macd_signal=args.macd_signal,
             n_features=n_features, decoder=args.decoder,
             window_cols=args.window_cols,
-            include_zscore_stats=args.include_zscore_stats)
+            include_zscore_stats=args.include_zscore_stats,
+            include_returns=args.include_returns,
+            vol_window=args.vol_window)
         val_fname = (Path(args.output_dir) /
                      f'{d.name}-replay-zeroshot-from-{train_tag}.png')
         val_fig.savefig(val_fname, dpi=150)
@@ -333,9 +363,11 @@ def main() -> None:
         'extra_high_freq_scales': sorted(extra_scales),
         'n_features': n_features,
         'rsi_n': args.rsi_n,
+        'rsi_n_grid': list(rsi_n_grid),
         'macd_fast': args.macd_fast,
         'macd_slow': args.macd_slow,
         'macd_signal': args.macd_signal,
+        'vol_window': args.vol_window,
         'mlp_hidden': args.mlp_hidden,
         'mlp_layers': args.mlp_layers,
         'mlp_steps': args.mlp_steps,
