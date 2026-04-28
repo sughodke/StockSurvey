@@ -9,14 +9,19 @@ Pipeline
    load_ticker` with the *same* scales / window_cols / include_zscore_
    stats / include_returns / lookback / rsi_n / etc. recorded in the
    backbone's `_meta` blob — otherwise the input shape won't match.
-3. Call `train_scorer(tickers, backbone, ...)`. The frozen backbone
-   forward pass runs once up front; only the small head is updated.
+3. Call `train_scorer(tickers, backbone, ...)`. **Stage 1** runs the
+   frozen backbone forward once up front and trains only the head. If
+   `finetune_steps > 0`, **Stage 2** unfreezes the backbone, minibatches
+   over rebalance bars, and updates head + backbone jointly (backbone
+   at `learning_rate * finetune_lr_scale`). The fine-tuned backbone
+   weights come back on `TrainResult.backbone_params`.
 4. Training objective is per-rebalance Pearson IC against forward
    log-returns; Sharpe is tracked on val as an eval-only signal.
 
 Public surface
 --------------
-- `Backbone`, `load_backbone`, `apply_backbone` — backbone module.
+- `Backbone`, `load_backbone`, `apply_backbone`, `apply_backbone_pytree`,
+  `backbone_to_pytree` — backbone module.
 - `AlignedTickers`, `align_tickers`, `forward_log_returns` — data prep.
 - `init_linear`, `apply_linear`, `init_mlp`, `apply_mlp`, `get_scorer`,
   `SCORERS` — scoring heads.
@@ -25,7 +30,8 @@ Public surface
   — training loop + helpers.
 """
 from ss_notebook.scoring.backbone import (
-    Backbone, apply_backbone, load_backbone,
+    Backbone, apply_backbone, apply_backbone_pytree, backbone_to_pytree,
+    load_backbone,
 )
 from ss_notebook.scoring.data import (
     AlignedTickers, align_tickers, forward_log_returns,
@@ -45,8 +51,10 @@ __all__ = [
     'TrainResult',
     'align_tickers',
     'apply_backbone',
+    'apply_backbone_pytree',
     'apply_linear',
     'apply_mlp',
+    'backbone_to_pytree',
     'block_sharpe',
     'forward_log_returns',
     'get_scorer',

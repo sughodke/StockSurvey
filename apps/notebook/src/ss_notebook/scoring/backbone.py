@@ -135,3 +135,34 @@ def apply_backbone(bb: Backbone, X: jax.Array) -> jax.Array:
     for W, b in bb.conv_params:
         h = jax.nn.relu(_conv1d(h, W, b))
     return h.reshape(h.shape[0], -1)
+
+
+def backbone_to_pytree(bb: Backbone) -> dict:
+    """Pack a `Backbone` into a JAX-trackable pytree of arrays.
+
+    Used by the fine-tuning path in `scoring.train` so the optimizer
+    can update backbone weights through `jax.value_and_grad`. Layout:
+      - `'feat_mu'`, `'feat_sd'`: input z-norm, NOT optimized (kept
+        fixed across fine-tuning so the backbone keeps seeing inputs
+        with the same distribution it was pretrained on).
+      - `'conv'`: list of `{'W', 'b'}` dicts, one per conv layer.
+    Treat `feat_mu/sd` as constants (mask them out of the optimizer).
+    """
+    return {
+        'feat_mu': bb.feat_mu,
+        'feat_sd': bb.feat_sd,
+        'conv': [{'W': W, 'b': b} for W, b in bb.conv_params],
+    }
+
+
+def apply_backbone_pytree(bb_params: dict, X: jax.Array) -> jax.Array:
+    """Differentiable backbone forward over `X` of shape `(n, K, F)`.
+
+    Same forward as `apply_backbone` but reads weights from a pytree
+    dict so JAX can take gradients w.r.t. them. Returns a flattened
+    `(n, K_post * hidden)` representation matrix.
+    """
+    h = (X - bb_params['feat_mu']) / bb_params['feat_sd']
+    for layer in bb_params['conv']:
+        h = jax.nn.relu(_conv1d(h, layer['W'], layer['b']))
+    return h.reshape(h.shape[0], -1)
