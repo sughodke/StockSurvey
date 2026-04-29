@@ -179,6 +179,22 @@ def main() -> None:
                              'large for full-batch device memory; CNN is '
                              'more activation-heavy than MLP, so this kicks '
                              'in at smaller pool sizes. 8192 works at K=64.')
+    parser.add_argument('--cnn-film-hidden', type=int, default=32,
+                        help='Hidden width for the FiLM gamma/beta MLPs that '
+                             'modulate the latent for conditioned heads. '
+                             'Each conditioned head gets two MLPs (cond_dim '
+                             '-> film_hidden -> latent_dim); the modulated '
+                             'latent then feeds the linear head. 32 (default) '
+                             'gives true latent x cond interaction without '
+                             'memorization risk (the latent -> output map '
+                             'stays linear; only the cond -> {gamma, beta} '
+                             'maps are non-linear, and they never see the '
+                             'latent). 0 disables FiLM and falls back to the '
+                             'legacy additive-concat path (cond appended to '
+                             'latent, absorbed by linear head weights — only '
+                             'works when grid targets are highly correlated '
+                             'across cond, which fails for the (w, n) RSI '
+                             'cross-product).')
     parser.add_argument('--rsi-n', type=int, default=7,
                         help='Anchor RSI period. Used for the 1-D ground-'
                              'truth target (what plotting/stats compare '
@@ -301,6 +317,7 @@ def main() -> None:
         cnn_hidden=args.cnn_hidden, cnn_kernel=args.cnn_kernel,
         cnn_layers=args.cnn_layers, cnn_steps=args.cnn_steps,
         cnn_batch_size=args.cnn_batch_size,
+        cnn_film_hidden=args.cnn_film_hidden,
         rsi_n_grid=rsi_n_grid, rsi_w_grid=rsi_w_grid,
         rsi_anchor_n=args.rsi_n, rsi_anchor_w=args.rsi_anchor_w,
     )
@@ -406,6 +423,7 @@ def main() -> None:
         'cnn_layers': args.cnn_layers,
         'cnn_steps': args.cnn_steps,
         'cnn_batch_size': args.cnn_batch_size,
+        'cnn_film_hidden': args.cnn_film_hidden,
         'start': args.start,
         'end': args.end,
         'git_sha': sha,

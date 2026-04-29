@@ -38,6 +38,7 @@ def fit_and_evaluate(
     cnn_layers: int = 2,
     cnn_steps: int = 2000,
     cnn_batch_size: int | None = None,
+    cnn_film_hidden: int = 32,
     rsi_n_grid: tuple[int, ...] = (),
     rsi_w_grid: tuple[int, ...] = (),
     rsi_anchor_n: int | None = None,
@@ -194,6 +195,7 @@ def fit_and_evaluate(
             hidden=cnn_hidden, kernel=cnn_kernel,
             n_layers=cnn_layers, n_steps=cnn_steps,
             batch_size=cnn_batch_size,
+            film_hidden=cnn_film_hidden,
             head_conditioning_train=head_cond_train,
             head_conditioning_predict=head_cond_predict,
             train_pool_idx=train_pool_idx)

@@ -273,6 +273,7 @@ def fit_cnn_multihead(
     head_conditioning_train: dict[str, np.ndarray] | None = None,
     head_conditioning_predict: dict[str, np.ndarray] | None = None,
     train_pool_idx: np.ndarray | None = None,
+    film_hidden: int = 32,
 ) -> tuple[dict[str, np.ndarray], dict[str, dict[str, np.ndarray]]]:
     """Multi-head 1-D CNN — one shared conv backbone, per-target linear
     heads. Targets are standardized internally (per-target mean/std on
@@ -283,12 +284,25 @@ def fit_cnn_multihead(
     For period/parameter-conditioned heads (e.g. RSI(n) trained over
     multiple n), pass `head_conditioning_train[target]` shape
     `(n_train, p_dim)` (typically `p_dim=1`) and the matching
-    `head_conditioning_predict[target]` shape `(n_full, p_dim)`. The
-    conditioning vector is concatenated to the flattened backbone latent
-    *before* the linear head — keeps the shared backbone parameter-
-    agnostic so the frozen latent stays clean for downstream scoring.
+    `head_conditioning_predict[target]` shape `(n_full, p_dim)`.
     Targets without conditioning entries fall back to the latent-only
     head input.
+
+    Conditioned heads use FiLM modulation when `film_hidden > 0`
+    (default 32): two 2-layer MLPs take the conditioning vector and
+    produce per-latent-feature scale `gamma` and shift `beta`; the
+    backbone latent is modulated `gamma * h + beta` before the linear
+    head. This gives true latent×cond interaction (each cond value can
+    re-weight latent features differently) while keeping the
+    `latent -> output` projection linear — same per-ticker memorization
+    risk as a plain linear head, since the only path that sees
+    per-sample latent stays linear, and the MLPs only ever see the
+    cond vector (which carries no ticker info). At init, the last
+    layer of both MLPs is zero so `gamma = 1`, `beta = 0` — head is
+    identity wrt cond at step 0. With `film_hidden = 0`, falls back
+    to the legacy additive-concat path: cond is concatenated to the
+    latent and the head's linear weights absorb it (older behavior;
+    cannot represent latent×cond interactions).
 
     `train_pool_idx` enables lazy training-row augmentation. When
     provided, `X_train` is treated as a small *pool* of unique input
@@ -406,9 +420,22 @@ def fit_cnn_multihead(
 
     out_K = K - n_layers * (kernel - 1)
     latent_dim = out_K * hidden
+    # `use_film[t]` decides per-target whether the conditioning is
+    # delivered via FiLM (modulates latent before linear head) or via
+    # legacy additive concat (cond appended to latent, absorbed by the
+    # head's linear weights). FiLM is on whenever `film_hidden > 0`
+    # *and* the head actually has conditioning to apply.
+    use_film: dict[str, bool] = {
+        t: (film_hidden > 0 and cond_dim.get(t, 0) > 0)
+        for t in target_names
+    }
     head_params: dict[str, tuple[jnp.ndarray, jnp.ndarray]] = {}
     for t in target_names:
-        head_in = latent_dim + cond_dim.get(t, 0)
+        # FiLM modulates the latent in-place, so the linear head reads
+        # `latent_dim` inputs regardless of cond_dim. The legacy concat
+        # path expands the head's input dim by cond_dim.
+        head_in = latent_dim if use_film[t] else (
+            latent_dim + cond_dim.get(t, 0))
         key, sub = jax.random.split(key)
         Wh = jax.random.normal(
             sub, (head_in, 1),
@@ -416,7 +443,29 @@ def fit_cnn_multihead(
         bh = jnp.zeros(1, dtype=jnp.float32)
         head_params[t] = (Wh, bh)
 
-    params = (conv_params, head_params)
+    # FiLM gamma/beta MLPs: 2-layer ReLU, cond_dim -> film_hidden ->
+    # latent_dim. Last layer initialized to zero so gamma starts at 1
+    # (we add 1.0 in forward) and beta starts at 0 — identity wrt cond.
+    # Each conditioned target gets its own gamma & beta MLPs since
+    # different targets generally want different modulation patterns.
+    film_params: dict[str, tuple] = {}
+    for t in target_names:
+        if not use_film[t]:
+            continue
+        c_dim = cond_dim[t]
+        layers = []
+        for _which in ('gamma', 'beta'):
+            key, sub = jax.random.split(key)
+            W0 = jax.random.normal(
+                sub, (c_dim, film_hidden),
+                dtype=jnp.float32) * jnp.sqrt(2.0 / c_dim)
+            b0 = jnp.zeros(film_hidden, dtype=jnp.float32)
+            W1 = jnp.zeros((film_hidden, latent_dim), dtype=jnp.float32)
+            b1 = jnp.zeros(latent_dim, dtype=jnp.float32)
+            layers.append((W0, b0, W1, b1))
+        film_params[t] = tuple(layers)  # ((g_W0,g_b0,g_W1,g_b1), (b_W0,...))
+
+    params = (conv_params, head_params, film_params)
 
     def conv1d(x, W, b):
         return jax.lax.conv_general_dilated(
@@ -432,17 +481,30 @@ def fit_cnn_multihead(
             h = jax.nn.relu(conv1d(h, W, b))
         return h.reshape(h.shape[0], -1)
 
+    def _film_mlp(layers, c):
+        W0, b0, W1, b1 = layers
+        return jax.nn.relu(c @ W0 + b0) @ W1 + b1
+
     # Note: `cond` is a dict-of-arrays that lives outside `params` — they
     # are training/eval-time *inputs*, not learnable. JAX treats them as
     # part of the traced function's static structure (keys) + dynamic
-    # values (arrays), so the per-target concat is jit-friendly.
+    # values (arrays), so the per-target film/concat is jit-friendly.
     def forward(p, x, cond):
-        conv_p, head_p = p
+        conv_p, head_p, film_p = p
         h = backbone(conv_p, x)
         out: dict[str, jax.Array] = {}
         for t, (Wh, bh) in head_p.items():
-            head_in = jnp.concatenate([h, cond[t]], axis=-1) if t in cond else h
-            out[t] = (head_in @ Wh + bh).squeeze(-1)
+            if t in film_p:
+                g_layers, b_layers = film_p[t]
+                gamma = _film_mlp(g_layers, cond[t]) + 1.0
+                beta = _film_mlp(b_layers, cond[t])
+                h_t = gamma * h + beta
+                out[t] = (h_t @ Wh + bh).squeeze(-1)
+            elif t in cond:
+                h_t = jnp.concatenate([h, cond[t]], axis=-1)
+                out[t] = (h_t @ Wh + bh).squeeze(-1)
+            else:
+                out[t] = (h @ Wh + bh).squeeze(-1)
         return out
 
     def loss_fn(p, X, Y, C):
@@ -500,7 +562,7 @@ def fit_cnn_multihead(
         yhat_std = np.concatenate(yhat_chunks[t]).astype(np.float64)
         yhats[t] = yhat_std * target_sd[t] + target_mu[t]
 
-    conv_p_final, head_p_final = params
+    conv_p_final, head_p_final, film_p_final = params
     shared = {
         'feat_mu': np.asarray(feat_mu, dtype=np.float32),
         'feat_sd': np.asarray(feat_sd, dtype=np.float32),
@@ -511,7 +573,7 @@ def fit_cnn_multihead(
     params_per_target: dict[str, dict[str, np.ndarray]] = {}
     for t in target_names:
         Wh, bh = head_p_final[t]
-        params_per_target[t] = {
+        pp = {
             **shared,
             'head_W': np.asarray(Wh, dtype=np.float32),
             'head_b': np.asarray(bh, dtype=np.float32),
@@ -519,4 +581,14 @@ def fit_cnn_multihead(
             'target_sd': np.array([target_sd[t]], dtype=np.float32),
             'head_cond_dim': np.array([cond_dim.get(t, 0)], dtype=np.int32),
         }
+        if t in film_p_final:
+            (g_layers, b_layers) = film_p_final[t]
+            for tag, layers in (('gamma', g_layers), ('beta', b_layers)):
+                W0, b0, W1, b1 = layers
+                pp[f'head_film_{tag}_W0'] = np.asarray(W0, dtype=np.float32)
+                pp[f'head_film_{tag}_b0'] = np.asarray(b0, dtype=np.float32)
+                pp[f'head_film_{tag}_W1'] = np.asarray(W1, dtype=np.float32)
+                pp[f'head_film_{tag}_b1'] = np.asarray(b1, dtype=np.float32)
+            pp['head_film_hidden'] = np.array([film_hidden], dtype=np.int32)
+        params_per_target[t] = pp
     return yhats, params_per_target
