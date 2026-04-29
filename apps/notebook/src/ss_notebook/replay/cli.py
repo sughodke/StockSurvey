@@ -195,6 +195,22 @@ def main() -> None:
                              'the same shape downstream. Empty (default) = '
                              'fixed-period RSI from --rsi-n. Only --decoder '
                              'cnn supports this.')
+    parser.add_argument('--rsi-w-grid', default='',
+                        help='Comma-separated resampling strides (e.g. '
+                             '"1,5,10,21") extending RSI head conditioning '
+                             'to the (w, n) cross-product. RSI is computed '
+                             'on stride-w price changes (w=1 reduces to '
+                             'standard daily RSI; w=5 ~ rolling weekly RSI; '
+                             'w=21 ~ monthly). Conditioning becomes p_dim=2 '
+                             '= (n_norm, w_norm). Each pool row is then '
+                             'replicated len(n_grid) * len(w_grid) times. '
+                             'Requires --rsi-n-grid to also be set.')
+    parser.add_argument('--rsi-anchor-w', type=int, default=1,
+                        help='Stride used when applying the conditioned '
+                             'RSI head at prediction time. Default 1 '
+                             '(daily RSI), matching the 1-D ground-truth '
+                             'panel. Set to a value in --rsi-w-grid to '
+                             'render reconstructions at a longer horizon.')
     parser.add_argument('--macd-fast', type=int, default=12)
     parser.add_argument('--macd-slow', type=int, default=26)
     parser.add_argument('--macd-signal', type=int, default=9)
@@ -240,6 +256,15 @@ def main() -> None:
     if rsi_n_grid and args.decoder != 'cnn':
         parser.error('--rsi-n-grid requires --decoder cnn '
                      '(head conditioning is only wired into the CNN trainer)')
+    rsi_w_grid = tuple(int(s) for s in _split_tickers(args.rsi_w_grid))
+    if rsi_w_grid and any(w < 1 for w in rsi_w_grid):
+        parser.error('--rsi-w-grid values must be >= 1')
+    if rsi_w_grid and not rsi_n_grid:
+        parser.error('--rsi-w-grid requires --rsi-n-grid (w-conditioning '
+                     'extends n-conditioning to the (w, n) cross-product)')
+    if rsi_w_grid and args.rsi_anchor_w not in rsi_w_grid:
+        parser.error(f'--rsi-anchor-w={args.rsi_anchor_w} not in '
+                     f'--rsi-w-grid={list(rsi_w_grid)}')
     load_kwargs = dict(
         stooq_dir=args.stooq_dir, kaggle_dir=args.kaggle_dir,
         use_yahoo=args.yahoo,
@@ -251,7 +276,8 @@ def main() -> None:
         decoder=args.decoder,
         rsi_n=args.rsi_n, macd_fast=args.macd_fast,
         macd_slow=args.macd_slow, macd_signal=args.macd_signal,
-        vol_window=args.vol_window, rsi_n_grid=rsi_n_grid,
+        vol_window=args.vol_window,
+        rsi_n_grid=rsi_n_grid, rsi_w_grid=rsi_w_grid,
     )
 
     primary = load_ticker(args.ticker, **load_kwargs)
@@ -275,7 +301,8 @@ def main() -> None:
         cnn_hidden=args.cnn_hidden, cnn_kernel=args.cnn_kernel,
         cnn_layers=args.cnn_layers, cnn_steps=args.cnn_steps,
         cnn_batch_size=args.cnn_batch_size,
-        rsi_n_grid=rsi_n_grid, rsi_anchor_n=args.rsi_n,
+        rsi_n_grid=rsi_n_grid, rsi_w_grid=rsi_w_grid,
+        rsi_anchor_n=args.rsi_n, rsi_anchor_w=args.rsi_anchor_w,
     )
 
     n_features = primary.features.shape[1]
@@ -364,6 +391,8 @@ def main() -> None:
         'n_features': n_features,
         'rsi_n': args.rsi_n,
         'rsi_n_grid': list(rsi_n_grid),
+        'rsi_w_grid': list(rsi_w_grid),
+        'rsi_anchor_w': args.rsi_anchor_w,
         'macd_fast': args.macd_fast,
         'macd_slow': args.macd_slow,
         'macd_signal': args.macd_signal,

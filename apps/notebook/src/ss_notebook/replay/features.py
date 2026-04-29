@@ -66,6 +66,48 @@ def log_returns(prices: np.ndarray) -> np.ndarray:
     return np.concatenate([[np.nan], np.diff(log_p)])
 
 
+def rsi_strided(prices: np.ndarray, n: int, w: int = 1) -> np.ndarray:
+    """Wilder RSI(n) computed over stride-`w` price changes.
+
+    At every bar `t` uses `Δ_i = price[i] - price[i-w]` instead of the
+    standard 1-bar `Δ_i = price[i] - price[i-1]`. Wilder-smoothes the
+    gains and losses over `n` strided observations. Output is a 1-D
+    numpy array aligned with `prices`; positions before the warmup
+    (`w + n - 1` bars) are NaN.
+
+    `w=1` reduces to the canonical daily RSI(n) (matches
+    `ss_indicators.rsi` for indices ≥ n). `w>1` is the rolling
+    weekly/biweekly/monthly view evaluated at every bar — equals the
+    discretely-resampled RSI(n) on the resampled-bar boundaries and
+    smoothly interpolates off-boundary, giving dense supervision.
+    """
+    if w < 1:
+        raise ValueError(f'rsi_strided w must be >= 1, got {w}')
+    if n < 2:
+        raise ValueError(f'rsi_strided n must be >= 2, got {n}')
+    prices = np.asarray(prices, dtype=np.float64)
+    T = len(prices)
+    out = np.full(T, np.nan, dtype=np.float64)
+    if T < w + n:
+        return out
+    deltas = np.empty(T, dtype=np.float64)
+    deltas[:w] = 0.0
+    deltas[w:] = prices[w:] - prices[:-w]
+    up = np.where(deltas > 0, deltas, 0.0)
+    down = np.where(deltas < 0, -deltas, 0.0)
+    # Seed Wilder smoothing on the first n strided deltas (bars w..w+n-1).
+    avg_up = up[w:w + n].mean()
+    avg_down = down[w:w + n].mean()
+    rs = avg_up / (avg_down + 1e-9)
+    out[w + n - 1] = 100.0 - 100.0 / (1.0 + rs)
+    for t in range(w + n, T):
+        avg_up = (avg_up * (n - 1) + up[t]) / n
+        avg_down = (avg_down * (n - 1) + down[t]) / n
+        rs = avg_up / (avg_down + 1e-9)
+        out[t] = 100.0 - 100.0 / (1.0 + rs)
+    return out
+
+
 def realized_vol(prices: np.ndarray, window: int) -> np.ndarray:
     """Causal rolling std of log returns over the trailing `window` bars.
 
@@ -128,6 +170,7 @@ def build_features_and_targets(
     rsi_n: int, macd_fast: int, macd_slow: int, macd_signal: int,
     vol_window: int = 20,
     rsi_n_grid: tuple[int, ...] = (),
+    rsi_w_grid: tuple[int, ...] = (),
 ) -> tuple[np.ndarray, dict[str, np.ndarray], np.ndarray,
            dict[str, np.ndarray]]:
     """Returns `(features, gt-by-target, valid-mask, target-grids)` for
@@ -137,13 +180,20 @@ def build_features_and_targets(
     window-cols), feature row finite, and every target finite at that
     bar.
 
-    `target_grids` carries the period-conditioning auxiliary arrays for
-    parameter-conditioned targets: `target_grids['rsi']` is a 2D array
-    of shape `(len(rsi_n_grid), n_dates)` holding RSI(n) for every n in
-    the grid, used by `fit_and_evaluate` to augment training rows. Empty
-    dict when no grid is provided. The 1D anchor target in `gt['rsi']`
-    (computed at `rsi_n`) is what plotting/stats compare against, so the
-    head must be evaluated at the anchor n during prediction.
+    `target_grids` carries the parameter-conditioning auxiliary arrays
+    for conditioned targets:
+      - `rsi_n_grid` only — `target_grids['rsi']` is shape
+        `(n_n, n_dates)` holding RSI(n) for every n in the grid.
+        Conditioning width p_dim=1.
+      - `rsi_n_grid` + `rsi_w_grid` (both non-empty) —
+        `target_grids['rsi']` is shape `(n_w * n_n, n_dates)`
+        holding RSI on stride-w price changes for every (w, n) pair,
+        flattened with row index `w_idx * n_n + n_idx`. Conditioning
+        width p_dim=2 = `(n / max_n, w / max_w)`.
+    Empty dict when no grid is provided. The 1-D anchor target in
+    `gt['rsi']` (computed at `rsi_n`, w=1 implicitly) is what plotting/
+    stats compare against, so the head must be evaluated at the anchor
+    `(w=1, n=rsi_n)` during prediction.
 
     `decoder` is accepted for backwards compatibility but no longer
     gates which channels can be combined — every channel is now lag-
@@ -175,12 +225,24 @@ def build_features_and_targets(
 
     target_grids: dict[str, np.ndarray] = {}
     if rsi_n_grid:
-        # (n_grid, n_dates). Each row is RSI(n) for one grid value. Aligned
-        # with `prices` on the time axis so callers can index by date.
-        target_grids['rsi'] = np.stack(
-            [_to_np(rsi(prices, n=int(n))).astype(np.float64)
-             for n in rsi_n_grid],
-            axis=0)
+        if rsi_w_grid:
+            # (n_w * n_n, n_dates) flattened. Row layout: outer = w,
+            # inner = n, so row `w_idx * n_n + n_idx` holds the strided
+            # RSI for (w_grid[w_idx], n_grid[n_idx]). RSI on stride-w
+            # price changes; w=1 gives the canonical daily RSI(n).
+            n_n = len(rsi_n_grid)
+            grid_rows = []
+            for w in rsi_w_grid:
+                for n in rsi_n_grid:
+                    grid_rows.append(rsi_strided(prices, n=int(n), w=int(w)))
+            target_grids['rsi'] = np.stack(grid_rows, axis=0)
+            assert target_grids['rsi'].shape[0] == len(rsi_w_grid) * n_n
+        else:
+            # (n_n, n_dates) — single-axis (n) conditioning, p_dim=1.
+            target_grids['rsi'] = np.stack(
+                [_to_np(rsi(prices, n=int(n))).astype(np.float64)
+                 for n in rsi_n_grid],
+                axis=0)
 
     valid = np.zeros(len(prices), dtype=bool)
     valid[max(lookback, window_cols - 1):] = True
@@ -222,6 +284,7 @@ def load_ticker(
     rsi_n: int, macd_fast: int, macd_slow: int, macd_signal: int,
     vol_window: int = 20,
     rsi_n_grid: tuple[int, ...] = (),
+    rsi_w_grid: tuple[int, ...] = (),
 ) -> TickerData:
     """Load one ticker and pre-compute features + targets + valid mask."""
     series = load_prices(
@@ -236,6 +299,7 @@ def load_ticker(
         include_returns=include_returns, decoder=decoder,
         rsi_n=rsi_n, macd_fast=macd_fast, macd_slow=macd_slow,
         macd_signal=macd_signal,
-        vol_window=vol_window, rsi_n_grid=rsi_n_grid)
+        vol_window=vol_window,
+        rsi_n_grid=rsi_n_grid, rsi_w_grid=rsi_w_grid)
     return TickerData(name, prices, dates, features, targets, valid,
                       target_grids=target_grids)

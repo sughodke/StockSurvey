@@ -39,7 +39,9 @@ def fit_and_evaluate(
     cnn_steps: int = 2000,
     cnn_batch_size: int | None = None,
     rsi_n_grid: tuple[int, ...] = (),
+    rsi_w_grid: tuple[int, ...] = (),
     rsi_anchor_n: int | None = None,
+    rsi_anchor_w: int = 1,
 ) -> tuple[dict[str, dict[str, dict]], dict[str, dict[str, np.ndarray]]]:
     """Pool train tickers into one decoder fit, predict per-ticker.
 
@@ -85,47 +87,79 @@ def fit_and_evaluate(
         for n in targets
     }
 
-    # RSI period conditioning. When `rsi_n_grid` is set we *logically*
+    # RSI parameter conditioning. When `rsi_n_grid` is set we *logically*
     # replicate every pooled row once per grid value: each logical row
     # maps to its physical pool row via `train_pool_idx`, while the 1-D
     # target / conditioning arrays carry the grid-indexed values. The
     # large `X_train` feature matrix is never materialized in augmented
     # form — `fit_cnn_multihead` gathers `X_train[pool_idx[idx]]` per
     # minibatch from the small unique-pool buffer. Memory cost of the
-    # augmentation is therefore O(n_pool * n_grid) for 1-D arrays, not
-    # O(n_pool * n_grid * K * F).
+    # augmentation is O(n_pool * n_replicas) for 1-D arrays, not
+    # O(n_pool * n_replicas * K * F).
+    #
+    # `rsi_w_grid` (resampling stride) extends conditioning to the
+    # cross product (w, n) — `n_replicas = n_w * n_n` and the
+    # conditioning vector becomes p_dim=2 = `(n_norm, w_norm)`. Row
+    # layout of the flattened target_grids matches: outer = w,
+    # inner = n, so `rsi_grid_pooled[w_idx * n_n + n_idx]` is the
+    # series for that (w, n) pair.
     head_cond_train: dict[str, np.ndarray] = {}
     head_cond_predict: dict[str, np.ndarray] = {}
     train_pool_idx: np.ndarray | None = None
     rsi_grid_active = bool(rsi_n_grid) and 'rsi' in targets and decoder == 'cnn'
+    if rsi_w_grid and not rsi_grid_active:
+        raise ValueError(
+            'rsi_w_grid given but rsi_n_grid is empty — w-conditioning '
+            'requires the n-conditioning to be active too.')
     if rsi_grid_active:
+        n_n = len(rsi_n_grid)
+        n_w = len(rsi_w_grid) if rsi_w_grid else 1
+        n_replicas = n_n * n_w
         for d in train_data:
             if 'rsi' not in d.target_grids:
                 raise ValueError(
                     f'rsi_n_grid={rsi_n_grid!r} requested but train ticker '
                     f'{d.name!r} has no target_grids["rsi"] — was load_ticker '
                     'called with rsi_n_grid?')
-            if d.target_grids['rsi'].shape[0] != len(rsi_n_grid):
+            if d.target_grids['rsi'].shape[0] != n_replicas:
                 raise ValueError(
                     f'train ticker {d.name!r} target_grids["rsi"] shape '
                     f'{d.target_grids["rsi"].shape} disagrees with '
-                    f'len(rsi_n_grid)={len(rsi_n_grid)}.')
-        n_grid = len(rsi_n_grid)
-        n_max = float(max(rsi_n_grid))   # normalize grid values to [0, 1]
-        # Stack grid-indexed RSI values matching X_train's pooled row order.
-        # Shape (n_grid, n_pool); reshape(-1) lays out as
-        # [grid[0]_pool[0..n_pool-1], grid[1]_pool[0..n_pool-1], ...].
+                    f'expected n_replicas={n_replicas} '
+                    f'(n_w={n_w} * n_n={n_n}).')
+        # Stack grid-indexed RSI values matching X_train's pooled row
+        # order. Shape (n_replicas, n_pool); reshape(-1) lays out as
+        # [replica[0]_pool[0..n_pool-1], replica[1]_pool[0..], ...].
         rsi_grid_pooled = np.concatenate(
             [d.target_grids['rsi'][:, d.valid] for d in train_data], axis=1)
         n_pool = X_train.shape[0]
-        train_pool_idx = np.tile(np.arange(n_pool, dtype=np.int64), n_grid)
+        train_pool_idx = np.tile(np.arange(n_pool, dtype=np.int64), n_replicas)
         for t in targets:
             if t == 'rsi':
                 y_train[t] = rsi_grid_pooled.reshape(-1)
             else:
-                y_train[t] = np.tile(y_train[t], n_grid)
+                y_train[t] = np.tile(y_train[t], n_replicas)
+        # Build conditioning vector. Row order matches replica layout
+        # (outer w, inner n): for replica = w_idx * n_n + n_idx the
+        # conditioning is (n_grid[n_idx]/max_n, w_grid[w_idx]/max_w).
+        n_max = float(max(rsi_n_grid))
         n_values = np.array(rsi_n_grid, dtype=np.float32) / n_max
-        head_cond_train['rsi'] = np.repeat(n_values, n_pool)[:, None]
+        if rsi_w_grid:
+            w_max = float(max(rsi_w_grid))
+            w_values = np.array(rsi_w_grid, dtype=np.float32) / w_max
+            # Cross product, outer w / inner n. Per replica replicate
+            # n_pool times to match the augmented training row count.
+            n_col = np.tile(n_values, n_w)             # (n_replicas,)
+            w_col = np.repeat(w_values, n_n)           # (n_replicas,)
+            cond_per_replica = np.stack([n_col, w_col], axis=1)  # (n_replicas, 2)
+        else:
+            cond_per_replica = n_values[:, None]       # (n_replicas, 1)
+        # Replicate per replica across n_pool rows. `np.repeat` along
+        # axis=0 expands (n_replicas, p_dim) -> (n_replicas * n_pool,
+        # p_dim) with each replica row repeated n_pool times — matches
+        # the train_pool_idx layout (replica[0] occupies the first
+        # n_pool augmented rows, etc.).
+        head_cond_train['rsi'] = np.repeat(cond_per_replica, n_pool, axis=0)
 
     # Concatenate every ticker's full feature block for one prediction pass.
     all_data = list(train_data) + list(val_data)
@@ -133,13 +167,20 @@ def fit_and_evaluate(
     X_predict = np.vstack([d.features for d in all_data])
 
     if rsi_grid_active:
-        # Predict at the anchor period — defaults to median of the grid.
-        anchor = (rsi_anchor_n if rsi_anchor_n is not None
-                  else int(sorted(rsi_n_grid)[len(rsi_n_grid) // 2]))
-        head_cond_predict['rsi'] = np.full(
-            (X_predict.shape[0], 1),
-            anchor / float(max(rsi_n_grid)),
-            dtype=np.float32)
+        # Predict at the anchor (w, n). The 1-D `gt['rsi']` ground-truth
+        # the figure compares against was computed at (w=1, n=rsi_n) in
+        # features.py, so the default anchor reproduces that.
+        anchor_n = (rsi_anchor_n if rsi_anchor_n is not None
+                    else int(sorted(rsi_n_grid)[len(rsi_n_grid) // 2]))
+        n_norm = anchor_n / float(max(rsi_n_grid))
+        if rsi_w_grid:
+            w_norm = rsi_anchor_w / float(max(rsi_w_grid))
+            head_cond_predict['rsi'] = np.tile(
+                np.array([[n_norm, w_norm]], dtype=np.float32),
+                (X_predict.shape[0], 1))
+        else:
+            head_cond_predict['rsi'] = np.full(
+                (X_predict.shape[0], 1), n_norm, dtype=np.float32)
 
     results: dict[str, dict[str, dict]] = {d.name: {} for d in all_data}
     params_per_target: dict[str, dict[str, np.ndarray]] = {}
