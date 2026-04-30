@@ -53,7 +53,21 @@ set -euo pipefail
 
 cd /content
 
-JAX_PLATFORMS=tpu JAX_DEFAULT_MATMUL_PRECISION=highest \
+# Accelerator notes:
+#   --cnn-batch-size 2048 (was 8192 on TPU). At K=96, kernel=5, hidden=64
+#     cuDNN conv autotune requests >130 GiB workspace at batch 8192 on
+#     T4 (16 GB HBM) and OOMs at JIT compile. Batch 2048 keeps the
+#     autotune workspace under the budget. If you switch to L4/V100/A100
+#     or back to TPU v5e-1, bump back to 8192.
+#   JAX_PLATFORMS=cuda picks the GPU backend.
+#   JAX_DEFAULT_MATMUL_PRECISION not needed on GPU — GPU defaults to f32
+#     matmul so the bf16-quantization issue that motivated it on TPU is moot.
+
+# --- TPU PATH (inactive — uncomment + change runtime to v5e-1 to use) ---
+# JAX_PLATFORMS=tpu JAX_DEFAULT_MATMUL_PRECISION=highest \
+
+# --- GPU PATH (active — T4) ---
+JAX_PLATFORMS=cuda \
 ss-replay AAPL --yahoo \
     --train-tickers MSFT,GOOGL,AMZN,META,NVDA,JPM,BAC,GE,BA,XOM,KO,WMT,JNJ,UNH,T,NFLX,CRM,DIS \
     --val-ticker TSLA \
@@ -66,7 +80,7 @@ ss-replay AAPL --yahoo \
     --mask-ratio 0.25 \
     --ssl-decoder-hidden 1024 \
     --ssl-decoder-layers 2 \
-    --cnn-batch-size 8192 \
+    --cnn-batch-size 2048 \
     --cnn-steps 20000 \
     --device auto \
     --output-dir /content/Output

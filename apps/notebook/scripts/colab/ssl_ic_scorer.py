@@ -28,8 +28,13 @@ Reference floor to beat (from NOTES.md):
 """
 import os
 
-os.environ.setdefault('JAX_PLATFORMS', 'tpu')
-os.environ.setdefault('JAX_DEFAULT_MATMUL_PRECISION', 'highest')
+# --- TPU PATH (inactive — uncomment + change runtime to v5e-1 to use) ---
+# os.environ.setdefault('JAX_PLATFORMS', 'tpu')
+# os.environ.setdefault('JAX_DEFAULT_MATMUL_PRECISION', 'highest')
+
+# --- GPU PATH (active — T4) ---
+# CUDA matmul defaults to f32 so JAX_DEFAULT_MATMUL_PRECISION is unnecessary;
+# JAX auto-detects the GPU backend so JAX_PLATFORMS is unnecessary.
 
 import glob
 

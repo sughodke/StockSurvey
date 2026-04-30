@@ -33,7 +33,17 @@ cd /content
 SSL_NPZ=$(ls -t /content/Output/*-ssl-masked-ae-*.npz | head -1)
 echo "Probing SSL backbone: $SSL_NPZ"
 
-JAX_PLATFORMS=tpu JAX_DEFAULT_MATMUL_PRECISION=highest \
+# Accelerator notes (same as train_ssl.sh): batch 2048 instead of 8192,
+# JAX_PLATFORMS=cuda, JAX_DEFAULT_MATMUL_PRECISION dropped. The
+# FiLM rsi head DOES carry small per-sample latent contributions —
+# but on GPU f32 matmul is the default so the bf16-quantization
+# pathology from the TPU run does not apply.
+
+# --- TPU PATH (inactive — uncomment + change runtime to v5e-1 to use) ---
+# JAX_PLATFORMS=tpu JAX_DEFAULT_MATMUL_PRECISION=highest \
+
+# --- GPU PATH (active — T4) ---
+JAX_PLATFORMS=cuda \
 ss-replay AAPL --yahoo \
     --train-tickers MSFT,GOOGL,AMZN,META,NVDA,JPM,BAC,GE,BA,XOM,KO,WMT,JNJ,UNH,T,NFLX,CRM,DIS \
     --val-ticker TSLA \
@@ -46,7 +56,7 @@ ss-replay AAPL --yahoo \
     --rsi-n 7 --rsi-n-grid 5,7,9,13,17,21,25 \
     --rsi-w-grid 1,5,10,21 --rsi-anchor-w 1 \
     --vol-window 20 \
-    --cnn-batch-size 8192 --cnn-steps 2000 \
+    --cnn-batch-size 2048 --cnn-steps 2000 \
     --freeze-backbone "$SSL_NPZ" \
     --device auto \
     --output-dir /content/Output
