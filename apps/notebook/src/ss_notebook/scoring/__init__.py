@@ -31,7 +31,7 @@ Public surface
 """
 from ss_notebook.scoring.backbone import (
     Backbone, apply_backbone, apply_backbone_pytree, backbone_to_pytree,
-    load_backbone,
+    compute_input_stats, identity_backbone, load_backbone,
 )
 from ss_notebook.scoring.data import (
     AlignedTickers, align_tickers, forward_log_returns,
@@ -56,8 +56,10 @@ __all__ = [
     'apply_mlp',
     'backbone_to_pytree',
     'block_sharpe',
+    'compute_input_stats',
     'forward_log_returns',
     'get_scorer',
+    'identity_backbone',
     'init_linear',
     'init_mlp',
     'load_backbone',

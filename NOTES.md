@@ -1,3 +1,70 @@
+## No-backbone IC baseline — encoder vs raw at matched setup (2026-04-30)
+
+Built `identity_backbone(K, F)` in `scoring/backbone.py` — a synthetic
+`Backbone` whose `apply` is z-norm + flatten (empty `conv_params`). Lets
+`train_scorer` ride directly on flat raw CWT bundles, no encoder. Tested
+against the Colab supervised-pretrained backbone at matched topology and
+date window (the apples-to-apples comparison the encoder-vs-raw question
+demanded).
+
+**Setup (identical between Colab encoder run and local raw run):**
+- K=96 lag window, F=33 channels (`ALL_SCALES + extras [1,2]` →
+  15 scales × 2 + zscore_stats(2) + returns(1)).
+- Date range: 2013-01-29 to 2025-12-11.
+- 30-ticker universe (Yahoo close-only).
+- `train_frac=0.7`, `rebal_days=5`, `scorer='linear'`, `n_steps=500`,
+  `learning_rate=1e-3`, `weight_decay=0`.
+- 452 train / 195 val rebalance blocks (exact match — confirms the
+  date filtering is identical).
+
+**Results:**
+
+| Metric                       | Encoder (5632-d head) | Raw (3168-d head) |
+|------------------------------|----------------------:|------------------:|
+| Initial train IC             | -0.0395               | +0.0223           |
+| Initial val IC               | +0.0143               | +0.0404           |
+| Initial val Sharpe           | +0.645                | +1.190            |
+| **Final train IC**           | +0.7226 (overfit)     | +0.3165           |
+| **Final val IC**             | +0.0039               | -0.0050           |
+| **Final val Sharpe**         | +0.554                | +0.628            |
+| Peak val IC during run       | not tracked           | +0.038 @ step 0   |
+
+**Read:** at matched setup, **encoder and raw are essentially tied at
+the noise floor** — both end with val IC ≈ 0 and val Sharpe in the
++0.55..+0.63 band. The encoder has more parameters (5632 vs 3168) and
+overfits train harder (+0.72 vs +0.32) but neither converts that to
+val signal. The raw run's "best" peak is at step 0 — random init
+projecting z-normed features happens to correlate slightly with
+returns; training degrades it. Not a real learned signal.
+
+**An earlier local run had raw beating encoder by 46% on val Sharpe**
+at K=64/F=29/2010-2024 (val Sharpe +0.81 vs Colab's +0.55) — that
+gap **does not survive matching** to K=96/F=33/2013-2025. The 2010-2024
+result was specific to that date range / smaller feature count. Don't
+re-cite it as evidence the encoder is harmful.
+
+**Reusable conclusions:**
+- Cross-sectional IC supervision at this scale (30 tickers × ~450
+  train rebal bars) is the binding constraint, not the encoder choice.
+  Both methods plateau at the noise floor regardless of head capacity.
+- Floor at this setup: val IC ≈ 0, val Sharpe ≈ 0.55..0.63 with linear
+  scoring. Future architectural changes (SSL pretrain, MLP scorer,
+  different conditioning) need to clearly beat this floor to count as
+  real progress.
+- Don't conclude "the encoder is harmful" or "skip the SSL plan" from
+  these numbers — they say neither encoder nor raw helps, which is
+  consistent with the supervision being the bottleneck.
+
+**Cheaper levers to try before more architecture work:**
+- Larger universe (50-100 tickers, more cross-sectional samples per bar).
+- Longer rebal horizon (5d → 21d, closer to classical alpha horizons).
+- Cross-sectional demean of forward returns before IC fit
+  (Pearson-on-residuals strips out the market beta that no per-ticker
+  scorer can predict).
+
+Local script archived at `/tmp/no_backbone_baseline_matched.py`;
+reproducing costs ~2 min on CPU (no GPU needed for any of these runs).
+
 ## Self Supervised
 
 Yes — and this is where the multi-head replay infrastructure shifts from "the pretrain task" to "the probe that validates the pretrain task." That's actually a cleaner separation of concerns.

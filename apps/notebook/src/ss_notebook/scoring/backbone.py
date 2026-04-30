@@ -115,6 +115,66 @@ def load_backbone(npz_path: str | Path) -> tuple[Backbone, dict]:
     )
 
 
+def identity_backbone(
+    K: int, F: int, *,
+    feat_mu: np.ndarray | None = None,
+    feat_sd: np.ndarray | None = None,
+) -> Backbone:
+    """Synthetic backbone whose `apply` is z-norm + flatten — no conv stack.
+
+    Use as a no-encoder baseline: the scoring head reads directly off the
+    flattened raw CWT bundle (`K * F` per bar), no learned compression.
+    Tells you the floor — if SSL+linear can't beat it, the encoder
+    isn't earning its keep.
+
+    `feat_mu` / `feat_sd` default to 0 / 1 (skip z-norm). Pass per-cell
+    stats `(1, K, F)` computed from the training pool to z-norm the
+    input — Adam trains more cleanly when feature scales are matched.
+    """
+    if feat_mu is None:
+        mu = jnp.zeros((1, K, F), dtype=jnp.float32)
+    else:
+        mu = jnp.asarray(feat_mu, dtype=jnp.float32).reshape(1, K, F)
+    if feat_sd is None:
+        sd = jnp.ones((1, K, F), dtype=jnp.float32)
+    else:
+        sd = jnp.asarray(feat_sd, dtype=jnp.float32).reshape(1, K, F)
+    return Backbone(
+        feat_mu=mu,
+        feat_sd=sd,
+        conv_params=(),     # empty — apply_backbone's conv loop is a no-op
+        K=K,
+        F=F,
+        hidden=F,           # set so K_post * hidden = K * F
+        K_post=K,
+        kernel=1,           # unused (no conv layers)
+        n_layers=0,
+    )
+
+
+def compute_input_stats(
+    tickers, K: int, F: int,
+) -> tuple[np.ndarray, np.ndarray]:
+    """Pool every ticker's valid feature rows and return per-cell
+    `(feat_mu, feat_sd)` of shape `(1, K, F)`. Mirrors what
+    `fit_cnn_multihead` does internally so the no-backbone baseline
+    sees the same input distribution treatment as the supervised path.
+    """
+    rows = []
+    for d in tickers:
+        feats = d.features[d.valid]
+        if feats.size == 0:
+            continue
+        rows.append(feats.reshape(-1, K, F))
+    if not rows:
+        raise ValueError('compute_input_stats: no valid feature rows across '
+                         'the supplied ticker list')
+    pool = np.vstack(rows).astype(np.float32)
+    mu = pool.mean(axis=0, keepdims=True)
+    sd = pool.std(axis=0, keepdims=True) + 1e-8
+    return mu, sd
+
+
 def _conv1d(x: jax.Array, W: jax.Array, b: jax.Array) -> jax.Array:
     return jax.lax.conv_general_dilated(
         x, W,
