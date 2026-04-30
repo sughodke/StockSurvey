@@ -1,2 +1,7 @@
 *.pyc
 .idea
+.claude/
+DataStore/
+Nasdaq3347/
+Output/
+StooqData/
