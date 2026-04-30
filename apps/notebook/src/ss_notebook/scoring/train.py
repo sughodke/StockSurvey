@@ -151,6 +151,7 @@ def train_scorer(
     mlp_layers: int = 1,
     n_steps: int = 500,
     learning_rate: float = 1e-3,
+    weight_decay: float = 0.0,
     finetune_steps: int = 0,
     finetune_lr_scale: float = 0.1,
     finetune_batch_bars: int = 8,
@@ -188,6 +189,14 @@ def train_scorer(
     `train_temperature` lets Adam adjust the softmax temperature used
     inside `block_sharpe`; rank IC itself is scale-invariant so this
     only matters for the Sharpe eval signal.
+
+    `weight_decay > 0` switches the Adam variant to AdamW (decoupled L2
+    on params). The 5632-dim flattened latent → 1 linear head is wildly
+    under-determined on a few hundred rebalance bars; without decay the
+    head memorizes train-cell noise and val IC collapses to ~0. 1e-2 is
+    a reasonable starting point. Applied to both Stage 1 head and Stage
+    2 backbone — log_temperature gets decayed too but that's a benign
+    pull toward the init (softmax temp 1.0).
     """
     pre = precompute_inputs(
         tickers, backbone, rebal_days=rebal_days,
@@ -246,12 +255,12 @@ def train_scorer(
         labels = jax.tree_util.tree_map(lambda _: 'head', params['head'])
         labels = {'head': labels, 'log_temperature': 'frozen'}
         optimizer = optax.multi_transform(
-            {'head': optax.adam(learning_rate),
+            {'head': optax.adamw(learning_rate, weight_decay=weight_decay),
              'frozen': optax.set_to_zero()},
             labels,
         )
     else:
-        optimizer = optax.adam(learning_rate)
+        optimizer = optax.adamw(learning_rate, weight_decay=weight_decay)
     opt_state = optimizer.init(params)
 
     if verbose:
@@ -340,7 +349,7 @@ def train_scorer(
         ft_optimizer = optax.multi_transform(
             {'trainable': optax.chain(
                 optax.clip_by_global_norm(1.0),
-                optax.adam(ft_lr)),
+                optax.adamw(ft_lr, weight_decay=weight_decay)),
              'frozen': optax.set_to_zero()},
             labels,
         )
