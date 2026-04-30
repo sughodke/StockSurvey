@@ -256,6 +256,214 @@ def fit_cnn(
     return np.asarray(yhat, dtype=np.float64), params_dict
 
 
+def fit_cnn_masked_ae(
+    X_train: np.ndarray,
+    X_full: np.ndarray,
+    *,
+    n_channels_per_lag: int,
+    hidden: int = 64,
+    kernel: int = 5,
+    n_layers: int = 2,
+    decoder_hidden: int = 256,
+    decoder_layers: int = 2,
+    n_steps: int = 10_000,
+    lr: float = 1e-3,
+    seed: int = 0,
+    batch_size: int | None = None,
+    mask_ratio: float = 0.4,
+    predict_chunk: int = 32_768,
+) -> tuple[dict[str, np.ndarray], dict[str, float]]:
+    """Self-supervised pretrain — masked CWT autoencoding.
+
+    Encoder is the same conv stack as `fit_cnn_multihead` (same shape on
+    disk so `ss_notebook.scoring.backbone.load_backbone` reads it). A
+    small MLP decoder maps the flattened backbone latent
+    `(n, K_post * hidden)` back to the full `(n, K * F)` z-normed input.
+
+    Per training step a fresh random mask of shape `(n, K, F)` covers
+    `mask_ratio` of the cells in each row. Masked cells are replaced
+    with 0 (the z-normed mean) before feeding the encoder; the decoder
+    must recover the masked cells from the visible context. Loss is MSE
+    over the masked positions only — visible positions don't contribute
+    a gradient.
+
+    The encoder doesn't see any per-target supervision, so it has to
+    learn whatever statistical structure lets it reconstruct any cell
+    from the rest. That includes the multi-scale CWT power dependencies
+    that RSI/MACD/vol crudely summarize, plus everything else they
+    throw away.
+
+    Returns
+    -------
+    `(params_dict, train_stats)` where:
+      - `params_dict` carries `feat_mu/sd`, `conv{i}_W/b` (the backbone),
+        and `head_dec{i}_W/b` (the decoder under the `head_` prefix that
+        `load_backbone` strips). Suitable for `np.savez` after
+        prefixing with a synthetic target name (`ssl__`).
+      - `train_stats` reports final masked + unmasked train MSE
+        (post-z-norm units) for diagnostic logging.
+    """
+    if not 0.0 < mask_ratio < 1.0:
+        raise ValueError(f'mask_ratio must be in (0, 1); got {mask_ratio}')
+    if X_train.shape[1] % n_channels_per_lag != 0:
+        raise ValueError(
+            f'feature count {X_train.shape[1]} not divisible by '
+            f'{n_channels_per_lag} (channels per lag).')
+    K = X_train.shape[1] // n_channels_per_lag
+    if K <= kernel * n_layers:
+        raise ValueError(
+            f'window_cols K={K} too small for {n_layers} conv layers of '
+            f'kernel size {kernel} (need K > kernel * n_layers).')
+    if decoder_layers < 1:
+        raise ValueError(f'decoder_layers must be >= 1, got {decoder_layers}')
+
+    import jax
+    import jax.numpy as jnp
+    import optax
+
+    F = n_channels_per_lag
+    X_tr = X_train.reshape(-1, K, F).astype(np.float32)
+    X_fl = X_full.reshape(-1, K, F).astype(np.float32)
+    feat_mu = X_tr.mean(axis=0, keepdims=True)
+    feat_sd = X_tr.std(axis=0, keepdims=True) + 1e-8
+    X_tr = (X_tr - feat_mu) / feat_sd
+    X_fl = (X_fl - feat_mu) / feat_sd
+
+    key = jax.random.PRNGKey(seed)
+    chs = [F] + [hidden] * n_layers
+    conv_params = []
+    for in_c, out_c in zip(chs[:-1], chs[1:]):
+        key, sub = jax.random.split(key)
+        W = jax.random.normal(
+            sub, (kernel, in_c, out_c),
+            dtype=jnp.float32) * jnp.sqrt(2.0 / (kernel * in_c))
+        b = jnp.zeros(out_c, dtype=jnp.float32)
+        conv_params.append((W, b))
+
+    out_K = K - n_layers * (kernel - 1)
+    latent_flat = out_K * hidden
+    out_flat = K * F
+    dec_sizes = [latent_flat] + [decoder_hidden] * (decoder_layers - 1) + [out_flat]
+    dec_params: list[tuple[jnp.ndarray, jnp.ndarray]] = []
+    for fan_in, fan_out in zip(dec_sizes[:-1], dec_sizes[1:]):
+        key, sub = jax.random.split(key)
+        W = jax.random.normal(
+            sub, (fan_in, fan_out),
+            dtype=jnp.float32) * jnp.sqrt(2.0 / fan_in)
+        b = jnp.zeros(fan_out, dtype=jnp.float32)
+        dec_params.append((W, b))
+
+    params = (conv_params, dec_params)
+
+    def conv1d(x, W, b):
+        return jax.lax.conv_general_dilated(
+            x, W,
+            window_strides=(1,),
+            padding='VALID',
+            dimension_numbers=('NHC', 'HIO', 'NHC'),
+        ) + b
+
+    def encoder(conv_p, x):
+        h = x
+        for W, b in conv_p:
+            h = jax.nn.relu(conv1d(h, W, b))
+        return h.reshape(h.shape[0], -1)
+
+    def decoder(dec_p, z):
+        h = z
+        for W, b in dec_p[:-1]:
+            h = jax.nn.relu(h @ W + b)
+        Wf, bf = dec_p[-1]
+        return h @ Wf + bf
+
+    def forward_masked(p, x_full, mask):
+        """`x_full` is z-normed `(n, K, F)`, `mask` is `(n, K, F)` float
+        in {0, 1} where 1 = masked. Encoder sees the masked input;
+        decoder predicts the full flattened input."""
+        conv_p, dec_p = p
+        x_masked = x_full * (1.0 - mask)  # mask token = 0
+        z = encoder(conv_p, x_masked)
+        return decoder(dec_p, z)
+
+    def masked_mse(p, x_full, mask):
+        x_flat = x_full.reshape(x_full.shape[0], -1)
+        mask_flat = mask.reshape(mask.shape[0], -1)
+        yhat = forward_masked(p, x_full, mask)
+        err = (yhat - x_flat) ** 2
+        denom = jnp.sum(mask_flat) + 1e-8
+        return jnp.sum(err * mask_flat) / denom
+
+    opt = optax.adam(lr)
+    opt_state = opt.init(params)
+
+    @jax.jit
+    def step(p, st, X, key_step):
+        m = (jax.random.uniform(key_step, X.shape, dtype=jnp.float32)
+             < mask_ratio).astype(jnp.float32)
+        loss, grads = jax.value_and_grad(masked_mse)(p, X, m)
+        updates, st = opt.update(grads, st, p)
+        return optax.apply_updates(p, updates), st, loss
+
+    n_train = X_tr.shape[0]
+    rng = np.random.default_rng(seed)
+    if batch_size is None or batch_size >= n_train:
+        Xj = jnp.asarray(X_tr)
+        for _ in range(n_steps):
+            key, sub = jax.random.split(key)
+            params, opt_state, _ = step(params, opt_state, Xj, sub)
+    else:
+        for _ in range(n_steps):
+            idx = rng.integers(0, n_train, size=batch_size)
+            Xb = jnp.asarray(X_tr[idx])
+            key, sub = jax.random.split(key)
+            params, opt_state, _ = step(params, opt_state, Xb, sub)
+
+    # Final diagnostic stats: masked + unmasked recon MSE on X_train.
+    @jax.jit
+    def eval_unmasked(p, X):
+        zero_mask = jnp.zeros_like(X)
+        x_flat = X.reshape(X.shape[0], -1)
+        yhat = forward_masked(p, X, zero_mask)
+        return jnp.mean((yhat - x_flat) ** 2)
+
+    @jax.jit
+    def eval_masked(p, X, key_step):
+        m = (jax.random.uniform(key_step, X.shape, dtype=jnp.float32)
+             < mask_ratio).astype(jnp.float32)
+        return masked_mse(p, X, m)
+
+    train_jnp = jnp.asarray(X_tr)
+    key, sub = jax.random.split(key)
+    train_stats = {
+        'train_mse_masked': float(eval_masked(params, train_jnp, sub)),
+        'train_mse_unmasked': float(eval_unmasked(params, train_jnp)),
+        'mask_ratio': float(mask_ratio),
+        'n_train_rows': int(n_train),
+        'n_steps': int(n_steps),
+    }
+    # `X_fl` here is concat(train, val); we surface val stats separately
+    # if the caller chose to split. For now we report the pooled MSE so
+    # the CLI can subset by ticker offsets.
+    if X_fl.shape[0] != X_tr.shape[0]:
+        full_jnp = jnp.asarray(X_fl)
+        train_stats['full_mse_unmasked'] = float(eval_unmasked(params, full_jnp))
+
+    conv_p_final, dec_p_final = params
+    params_dict: dict[str, np.ndarray] = {
+        'feat_mu': np.asarray(feat_mu, dtype=np.float32),
+        'feat_sd': np.asarray(feat_sd, dtype=np.float32),
+    }
+    for i, (W, b) in enumerate(conv_p_final):
+        params_dict[f'conv{i}_W'] = np.asarray(W, dtype=np.float32)
+        params_dict[f'conv{i}_b'] = np.asarray(b, dtype=np.float32)
+    # Decoder under `head_` prefix so `load_backbone` skips it (matches
+    # the existing per-target head filter convention).
+    for i, (W, b) in enumerate(dec_p_final):
+        params_dict[f'head_dec{i}_W'] = np.asarray(W, dtype=np.float32)
+        params_dict[f'head_dec{i}_b'] = np.asarray(b, dtype=np.float32)
+    return params_dict, train_stats
+
+
 def fit_cnn_multihead(
     X_train: np.ndarray,
     Y_train: dict[str, np.ndarray],
@@ -274,6 +482,7 @@ def fit_cnn_multihead(
     head_conditioning_predict: dict[str, np.ndarray] | None = None,
     train_pool_idx: np.ndarray | None = None,
     film_hidden: int = 32,
+    frozen_backbone: 'object | None' = None,
 ) -> tuple[dict[str, np.ndarray], dict[str, dict[str, np.ndarray]]]:
     """Multi-head 1-D CNN — one shared conv backbone, per-target linear
     heads. Targets are standardized internally (per-target mean/std on
@@ -394,8 +603,40 @@ def fit_cnn_multihead(
     F = n_channels_per_lag
     X_tr = X_train.reshape(-1, K, F).astype(np.float32)
     X_fl = X_full.reshape(-1, K, F).astype(np.float32)
-    feat_mu = X_tr.mean(axis=0, keepdims=True)
-    feat_sd = X_tr.std(axis=0, keepdims=True) + 1e-8
+
+    # When `frozen_backbone` is given, we use *its* feat_mu/sd and conv
+    # weights instead of recomputing/initializing. This keeps the
+    # frozen encoder at the exact distribution it saw during pretrain.
+    # The backbone forward pass below wraps activations in
+    # `jax.lax.stop_gradient`, so gradients don't flow into conv params
+    # and adam's updates for them are no-ops (m, v stay at zero
+    # forever -> update = 0). Per-target heads + FiLM still train.
+    freeze_backbone_flag = frozen_backbone is not None
+    if freeze_backbone_flag:
+        bb = frozen_backbone
+        if bb.K != K:
+            raise ValueError(
+                f'frozen_backbone K={bb.K} does not match input K={K}')
+        if bb.F != F:
+            raise ValueError(
+                f'frozen_backbone F={bb.F} does not match input F={F}')
+        if bb.hidden != hidden:
+            raise ValueError(
+                f'frozen_backbone hidden={bb.hidden} does not match '
+                f'hidden={hidden}')
+        if bb.kernel != kernel:
+            raise ValueError(
+                f'frozen_backbone kernel={bb.kernel} does not match '
+                f'kernel={kernel}')
+        if bb.n_layers != n_layers:
+            raise ValueError(
+                f'frozen_backbone n_layers={bb.n_layers} does not match '
+                f'n_layers={n_layers}')
+        feat_mu = np.asarray(bb.feat_mu, dtype=np.float32)
+        feat_sd = np.asarray(bb.feat_sd, dtype=np.float32)
+    else:
+        feat_mu = X_tr.mean(axis=0, keepdims=True)
+        feat_sd = X_tr.std(axis=0, keepdims=True) + 1e-8
     X_tr = (X_tr - feat_mu) / feat_sd
     X_fl = (X_fl - feat_mu) / feat_sd
 
@@ -408,15 +649,24 @@ def fit_cnn_multihead(
     cond_fl = {t: arr.astype(np.float32) for t, arr in cond_predict.items()}
 
     key = jax.random.PRNGKey(seed)
-    chs = [F] + [hidden] * n_layers
-    conv_params = []
-    for in_c, out_c in zip(chs[:-1], chs[1:]):
-        key, sub = jax.random.split(key)
-        W = jax.random.normal(
-            sub, (kernel, in_c, out_c),
-            dtype=jnp.float32) * jnp.sqrt(2.0 / (kernel * in_c))
-        b = jnp.zeros(out_c, dtype=jnp.float32)
-        conv_params.append((W, b))
+    if freeze_backbone_flag:
+        # Reuse the frozen weights verbatim; head/FiLM init still uses
+        # `key` below.
+        conv_params = [
+            (jnp.asarray(W, dtype=jnp.float32),
+             jnp.asarray(b, dtype=jnp.float32))
+            for W, b in frozen_backbone.conv_params
+        ]
+    else:
+        chs = [F] + [hidden] * n_layers
+        conv_params = []
+        for in_c, out_c in zip(chs[:-1], chs[1:]):
+            key, sub = jax.random.split(key)
+            W = jax.random.normal(
+                sub, (kernel, in_c, out_c),
+                dtype=jnp.float32) * jnp.sqrt(2.0 / (kernel * in_c))
+            b = jnp.zeros(out_c, dtype=jnp.float32)
+            conv_params.append((W, b))
 
     out_K = K - n_layers * (kernel - 1)
     latent_dim = out_K * hidden
@@ -479,7 +729,13 @@ def fit_cnn_multihead(
         h = x
         for W, b in conv_p:
             h = jax.nn.relu(conv1d(h, W, b))
-        return h.reshape(h.shape[0], -1)
+        h = h.reshape(h.shape[0], -1)
+        if freeze_backbone_flag:
+            # Cuts gradient back into conv weights (and into x, but x is
+            # also non-trainable input so that's a no-op). Head + FiLM
+            # remain fully trainable since they live downstream of `h`.
+            h = jax.lax.stop_gradient(h)
+        return h
 
     def _film_mlp(layers, c):
         W0, b0, W1, b1 = layers

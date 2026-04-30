@@ -143,6 +143,48 @@ matched to the longest target parametrization.
 - Re-running with the (w, n) 2D conditioning — that's a separate
   capability test, not a disentanglement of the existing failure.
 
+## No-backbone IC baseline — does the CNN encoder help or hurt?
+
+The SSL pretrain path (masked CWT autoencoding → frozen-backbone probe →
+IC scorer) tests whether *better pretraining* lifts the scorer. It does
+not test whether the CNN encoder is helping at all. If the CWT bundle
+has return-predictive structure but the CNN is killing it during
+encoding (lossy compression, wrong inductive bias, etc.), bypassing the
+encoder entirely could win.
+
+**Baseline:** linear scorer on the flattened raw CWT bundle (shape
+`K * F = 64 * 29 ≈ 1856` per bar). Linear because capacity then matches
+supervision (~13.5k cross-sectional cells) — no overfitting risk the
+way the 5632-d head on the SSL latent had. Pearson IC objective, same
+training loop as `scoring.train`.
+
+**Three outcomes, each diagnostic:**
+
+| Outcome                     | Interpretation                              | Next step                                                                 |
+|-----------------------------|---------------------------------------------|---------------------------------------------------------------------------|
+| `linear-raw > SSL+linear`   | Encoder kills useful info even with SSL.    | Drop the CNN; try transformer over scales, deep set over lags, or flat.   |
+| `linear-raw ≈ SSL+linear`   | Encoder neither helps nor hurts.            | Supervision is the bottleneck — more data, better objective (Spearman).   |
+| `linear-raw < SSL+linear`   | SSL latent is a genuinely better basis.     | Continue SSL, push capacity.                                              |
+
+**Implementation:**
+- Cleanest: build a synthetic `Backbone` in `scoring/backbone.py` whose
+  `apply_backbone` is identity-flatten — `K_post * hidden = K * F`.
+  Loaded via `Backbone.identity(meta_dict)` constructor that takes the
+  same metadata blob a real npz would carry. Zero changes to
+  `scoring/train.py` or `scoring/scorers.py`.
+- Or: add `--no-backbone` flag to the scoring training entry point
+  that swaps `apply_backbone(bb, X)` for `X.reshape(n, -1)` and sets
+  `hidden_flat = K * F`. ~30 lines.
+
+**Out of scope:**
+- MLP scorer on raw CWT — re-introduces the same head-capacity / IC-noise
+  overfitting we already documented; tells us nothing about the encoder.
+- Full hyperparameter sweep on the linear baseline; only one number is
+  needed (val IC) and the standard scorer setup applies.
+- Replacing the encoder with a different architecture (transformer over
+  scales, deep set over lags) — only worth doing if `linear-raw` wins
+  decisively over `SSL+linear`, since architecture-search is expensive.
+
 ## Diagnose why w=1 row underperforms in the FiLM (w, n) head
 
 The FiLM-conditioned (w, n) RSI head trained on

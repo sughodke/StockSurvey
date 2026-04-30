@@ -16,7 +16,7 @@ Public API
 """
 from ss_notebook.replay.cli import main
 from ss_notebook.replay.decoders import (
-    fit_cnn, fit_cnn_multihead, fit_mlp, fit_ols,
+    fit_cnn, fit_cnn_masked_ae, fit_cnn_multihead, fit_mlp, fit_ols,
 )
 from ss_notebook.replay.features import (
     TARGET_NAMES,
@@ -31,6 +31,7 @@ from ss_notebook.replay.metrics import fit_stats
 from ss_notebook.replay.plot import plot_reconstruction
 from ss_notebook.replay.reconstruct import (
     fit_and_evaluate,
+    fit_and_evaluate_ssl,
     reconstruct_indicators,
 )
 
@@ -41,7 +42,9 @@ __all__ = [
     'build_lagged_features',
     'compute_scalogram',
     'fit_and_evaluate',
+    'fit_and_evaluate_ssl',
     'fit_cnn',
+    'fit_cnn_masked_ae',
     'fit_cnn_multihead',
     'fit_mlp',
     'fit_ols',

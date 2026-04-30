@@ -29,7 +29,7 @@ import numpy as np
 
 from ss_notebook.replay.features import TARGET_NAMES, load_ticker
 from ss_notebook.replay.plot import plot_reconstruction
-from ss_notebook.replay.reconstruct import fit_and_evaluate
+from ss_notebook.replay.reconstruct import fit_and_evaluate, fit_and_evaluate_ssl
 from ss_notebook.scalogram import DEFAULT_STOOQ_DIR
 from ss_wavelets import ALL_SCALES
 
@@ -39,7 +39,7 @@ def _log_jax_devices(decoder: str) -> None:
     decoders. Prints once before the fit so a Colab runtime that
     silently fell back to CPU is visible immediately rather than after
     a multi-minute wait."""
-    if decoder not in ('mlp', 'cnn'):
+    if decoder not in ('mlp', 'cnn', 'masked-ae'):
         return
     try:
         import jax
@@ -79,6 +79,94 @@ def _print_target_stats(label: str, stats: dict[str, dict[str, float]]) -> None:
     for name, s in stats.items():
         print(f'  {label} {name:5s}  R²={s["r2"]:.6f}  '
               f'RMSE={s["rmse"]:.3e}  max|Δ|={s["max_abs"]:.3e}')
+
+
+def _run_ssl(args, train_data, val_data, *,
+             cnn_channels_per_lag: int, scales: list[int],
+             extra_scales: list[int]) -> None:
+    """Self-supervised pretrain entry point — masked CWT autoencoding.
+
+    Skips per-target plotting/stats since the SSL fit has no targets.
+    Saves an npz with `ssl__feat_mu/sd`, `ssl__conv{i}_W/b`, and the
+    decoder under `ssl__head_dec*` (skipped by `load_backbone`'s `head_`
+    filter so the file works as a frozen-backbone source for the probe).
+    """
+    n_features = train_data[0].features.shape[1]
+    train_names = ', '.join(d.name for d in train_data)
+    print(f'train pool: {train_names}  |  '
+          f'{sum(d.valid.sum() for d in train_data)} valid rows  |  '
+          f'{len(scales)} scales, lookback={args.lookback}, '
+          f'window_cols={args.window_cols}, '
+          f'zscore_stats={args.include_zscore_stats}, '
+          f'returns={args.include_returns}, '
+          f'decoder=masked-ae, mask_ratio={args.mask_ratio}, '
+          f'n_features={n_features} '
+          f'(channels_per_lag={cnn_channels_per_lag})')
+
+    params_per_target, ssl_stats = fit_and_evaluate_ssl(
+        train_data, val_data,
+        cnn_channels_per_lag=cnn_channels_per_lag,
+        cnn_hidden=args.cnn_hidden, cnn_kernel=args.cnn_kernel,
+        cnn_layers=args.cnn_layers, cnn_steps=args.cnn_steps,
+        cnn_batch_size=args.cnn_batch_size,
+        ssl_decoder_hidden=args.ssl_decoder_hidden,
+        ssl_decoder_layers=args.ssl_decoder_layers,
+        mask_ratio=args.mask_ratio)
+
+    print('\nSSL pretrain stats (z-norm space):')
+    for k, v in ssl_stats.items():
+        if isinstance(v, float):
+            print(f'  {k}: {v:.6f}')
+        else:
+            print(f'  {k}: {v}')
+
+    os.makedirs(args.output_dir, exist_ok=True)
+    train_tag = train_data[0].name
+    if len(train_data) > 1:
+        train_tag += '+' + '+'.join(t.name for t in train_data[1:])
+
+    sha, dirty = _git_sha_and_dirty()
+    sha_tag = sha + ('-dirty' if dirty else '')
+    weights_arrays: dict[str, np.ndarray] = {}
+    for target_name, params in params_per_target.items():
+        for key, arr in params.items():
+            weights_arrays[f'{target_name}__{key}'] = arr
+    metadata = {
+        'train_tickers': [d.name for d in train_data],
+        'val_tickers': [d.name for d in val_data],
+        'targets': [],            # SSL has no per-target supervision
+        'decoder': 'masked-ae',
+        'window_cols': args.window_cols,
+        'include_zscore_stats': args.include_zscore_stats,
+        'include_returns': args.include_returns,
+        'lookback': args.lookback,
+        'scales': scales,
+        'extra_high_freq_scales': sorted(extra_scales),
+        'n_features': n_features,
+        'rsi_n': args.rsi_n,
+        'macd_fast': args.macd_fast,
+        'macd_slow': args.macd_slow,
+        'macd_signal': args.macd_signal,
+        'vol_window': args.vol_window,
+        'cnn_hidden': args.cnn_hidden,
+        'cnn_kernel': args.cnn_kernel,
+        'cnn_layers': args.cnn_layers,
+        'cnn_steps': args.cnn_steps,
+        'cnn_batch_size': args.cnn_batch_size,
+        'ssl_decoder_hidden': args.ssl_decoder_hidden,
+        'ssl_decoder_layers': args.ssl_decoder_layers,
+        'mask_ratio': args.mask_ratio,
+        'start': args.start,
+        'end': args.end,
+        'git_sha': sha,
+        'git_dirty': dirty,
+        'ssl_stats': ssl_stats,
+    }
+    weights_arrays['_meta'] = np.array(json.dumps(metadata, default=float))
+    weights_fname = (Path(args.output_dir) /
+                     f'{train_tag}-ssl-masked-ae-{sha_tag}.npz')
+    np.savez(weights_fname, **weights_arrays)
+    print(f'\nSaved {weights_fname}')
 
 
 def main() -> None:
@@ -146,14 +234,21 @@ def main() -> None:
                              'empty (use ALL_SCALES as-is). Each added scale '
                              'is +2 channels per lag.')
     parser.add_argument('--decoder',
-                        choices=['linear', 'mlp', 'cnn'], default='linear',
+                        choices=['linear', 'mlp', 'cnn', 'masked-ae'],
+                        default='linear',
                         help='`linear` = OLS via `np.linalg.lstsq`. `mlp` = '
                              'tiny JAX MLP (Adam) — captures the RSI sigmoid '
                              'nonlinearity that OLS can\'t. `cnn` = 1-D '
                              'Conv1D over the trailing-K window with '
                              'shared weights across lags — the right '
                              'inductive bias for fixed linear filters like '
-                             'Wilder/EMA. Requires --window-cols > 1.')
+                             'Wilder/EMA. Requires --window-cols > 1. '
+                             '`masked-ae` = self-supervised pretrain via '
+                             'masked CWT autoencoding (no per-target '
+                             'supervision). Encoder shape matches `cnn` so '
+                             'the saved npz is loadable by '
+                             '`scoring.backbone.load_backbone`. Validate '
+                             'with `--decoder cnn --freeze-backbone <npz>`.')
     parser.add_argument('--mlp-hidden', type=int, default=128)
     parser.add_argument('--mlp-layers', type=int, default=2)
     parser.add_argument('--mlp-steps', type=int, default=2000)
@@ -195,6 +290,36 @@ def main() -> None:
                              'works when grid targets are highly correlated '
                              'across cond, which fails for the (w, n) RSI '
                              'cross-product).')
+    parser.add_argument('--mask-ratio', type=float, default=0.4,
+                        help='Fraction of (lag, channel) input cells masked '
+                             'per training row in `--decoder masked-ae`. '
+                             'Default 0.4. Lower (~0.2) is too easy — the '
+                             'encoder doesn\'t have to compress; higher '
+                             '(~0.7) is too hard — gradient is noisy. The '
+                             'MAE literature sweet spot for vision is '
+                             '0.4–0.75; for time series 0.3–0.5 is more '
+                             'common.')
+    parser.add_argument('--ssl-decoder-hidden', type=int, default=256,
+                        help='MLP decoder hidden width for `--decoder '
+                             'masked-ae`. Default 256. Decoder maps the '
+                             'flattened backbone latent (K_post * hidden) '
+                             'back to the K * F z-normed input. Symmetric '
+                             'to encoder is the standard default; weaker '
+                             'starves the encoder of useful gradient, '
+                             'stronger lets the decoder do the work and '
+                             'the encoder learns less.')
+    parser.add_argument('--ssl-decoder-layers', type=int, default=2,
+                        help='Number of MLP layers in the masked-AE '
+                             'decoder. Default 2.')
+    parser.add_argument('--freeze-backbone', default=None,
+                        help='Path to a previously-trained npz (typically '
+                             'from `--decoder masked-ae` or another '
+                             '`--decoder cnn` run). Loads the conv '
+                             'backbone weights and holds them fixed; only '
+                             'per-target heads + FiLM train. This is the '
+                             'probe protocol — read off per-target R² to '
+                             'see what the SSL latent encoded. Requires '
+                             '`--decoder cnn`.')
     parser.add_argument('--rsi-n', type=int, default=7,
                         help='Anchor RSI period. Used for the 1-D ground-'
                              'truth target (what plotting/stats compare '
@@ -281,6 +406,30 @@ def main() -> None:
     if rsi_w_grid and args.rsi_anchor_w not in rsi_w_grid:
         parser.error(f'--rsi-anchor-w={args.rsi_anchor_w} not in '
                      f'--rsi-w-grid={list(rsi_w_grid)}')
+
+    # SSL / freeze-backbone validation.
+    if args.decoder == 'masked-ae':
+        if rsi_n_grid or rsi_w_grid:
+            parser.error('--rsi-n-grid / --rsi-w-grid not supported with '
+                         '--decoder masked-ae (SSL has no per-target heads)')
+        if args.freeze_backbone is not None:
+            parser.error('--freeze-backbone is for the supervised CNN '
+                         'probe, not --decoder masked-ae')
+        if args.window_cols <= args.cnn_kernel * args.cnn_layers:
+            parser.error(f'--decoder masked-ae needs --window-cols > '
+                         f'cnn_kernel * cnn_layers ({args.cnn_kernel} * '
+                         f'{args.cnn_layers}); got {args.window_cols}')
+        if not (0.0 < args.mask_ratio < 1.0):
+            parser.error(f'--mask-ratio must be in (0, 1); got '
+                         f'{args.mask_ratio}')
+    if args.freeze_backbone is not None:
+        if args.decoder != 'cnn':
+            parser.error('--freeze-backbone requires --decoder cnn '
+                         '(probe protocol trains heads on a frozen backbone)')
+        if not Path(args.freeze_backbone).is_file():
+            parser.error(f'--freeze-backbone path does not exist: '
+                         f'{args.freeze_backbone}')
+
     load_kwargs = dict(
         stooq_dir=args.stooq_dir, kaggle_dir=args.kaggle_dir,
         use_yahoo=args.yahoo,
@@ -308,6 +457,14 @@ def main() -> None:
     _log_jax_devices(args.decoder)
 
     cnn_channels_per_lag = primary.features.shape[1] // args.window_cols
+
+    if args.decoder == 'masked-ae':
+        _run_ssl(
+            args, train_data, val_data,
+            cnn_channels_per_lag=cnn_channels_per_lag,
+            scales=scales, extra_scales=extra_scales)
+        return
+
     results, params_per_target = fit_and_evaluate(
         train_data, val_data,
         decoder=args.decoder, cnn_channels_per_lag=cnn_channels_per_lag,
@@ -320,6 +477,7 @@ def main() -> None:
         cnn_film_hidden=args.cnn_film_hidden,
         rsi_n_grid=rsi_n_grid, rsi_w_grid=rsi_w_grid,
         rsi_anchor_n=args.rsi_n, rsi_anchor_w=args.rsi_anchor_w,
+        frozen_backbone_path=args.freeze_backbone,
     )
 
     n_features = primary.features.shape[1]
@@ -424,6 +582,7 @@ def main() -> None:
         'cnn_steps': args.cnn_steps,
         'cnn_batch_size': args.cnn_batch_size,
         'cnn_film_hidden': args.cnn_film_hidden,
+        'freeze_backbone': args.freeze_backbone,
         'start': args.start,
         'end': args.end,
         'git_sha': sha,

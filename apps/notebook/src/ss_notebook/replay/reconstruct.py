@@ -15,7 +15,7 @@ from __future__ import annotations
 import numpy as np
 
 from ss_notebook.replay.decoders import (
-    fit_cnn, fit_cnn_multihead, fit_mlp, fit_ols,
+    fit_cnn, fit_cnn_masked_ae, fit_cnn_multihead, fit_mlp, fit_ols,
 )
 from ss_notebook.replay.features import (
     TARGET_NAMES, TickerData, build_features_and_targets,
@@ -43,6 +43,7 @@ def fit_and_evaluate(
     rsi_w_grid: tuple[int, ...] = (),
     rsi_anchor_n: int | None = None,
     rsi_anchor_w: int = 1,
+    frozen_backbone_path: str | None = None,
 ) -> tuple[dict[str, dict[str, dict]], dict[str, dict[str, np.ndarray]]]:
     """Pool train tickers into one decoder fit, predict per-ticker.
 
@@ -189,6 +190,13 @@ def fit_and_evaluate(
 
     if decoder == 'cnn':
         # One shared backbone, per-target heads, joint Adam fit.
+        # Optional `frozen_backbone_path` flips this into the SSL probe:
+        # backbone weights are loaded from a previously-trained npz and
+        # held fixed; only heads + FiLM train.
+        frozen_backbone = None
+        if frozen_backbone_path is not None:
+            from ss_notebook.scoring.backbone import load_backbone
+            frozen_backbone, _bb_meta = load_backbone(frozen_backbone_path)
         yhats_all, params_per_target = fit_cnn_multihead(
             X_train, {t: y_train[t] for t in targets}, X_predict,
             n_channels_per_lag=cnn_channels_per_lag,
@@ -198,7 +206,8 @@ def fit_and_evaluate(
             film_hidden=cnn_film_hidden,
             head_conditioning_train=head_cond_train,
             head_conditioning_predict=head_cond_predict,
-            train_pool_idx=train_pool_idx)
+            train_pool_idx=train_pool_idx,
+            frozen_backbone=frozen_backbone)
     else:
         for target_name in targets:
             y = y_train[target_name]
@@ -230,6 +239,63 @@ def fit_and_evaluate(
             offset += n
 
     return results, params_per_target
+
+
+def fit_and_evaluate_ssl(
+    train_data: list[TickerData],
+    val_data: list[TickerData],
+    *,
+    cnn_channels_per_lag: int,
+    cnn_hidden: int = 64,
+    cnn_kernel: int = 5,
+    cnn_layers: int = 2,
+    cnn_steps: int = 10_000,
+    cnn_batch_size: int | None = None,
+    ssl_decoder_hidden: int = 256,
+    ssl_decoder_layers: int = 2,
+    mask_ratio: float = 0.4,
+    seed: int = 0,
+) -> tuple[dict[str, dict[str, np.ndarray]], dict[str, float]]:
+    """Self-supervised pretrain entry point — masked CWT autoencoding.
+
+    Pools `train_data` features (no targets used) and trains the conv
+    backbone via masked-cell reconstruction. `val_data` is *not* used
+    for training; if non-empty, its full reconstruction MSE is reported
+    so the caller can spot generalization gaps.
+
+    Returns `(params_per_target, stats)` where:
+      - `params_per_target = {'ssl': params_dict}` so the CLI's existing
+        npz writer (which prefixes by target name) drops everything
+        under `ssl__` — matching what `load_backbone` expects (≥1
+        prefix containing `feat_mu`, `feat_sd`, `conv{i}_W/b`; the
+        decoder is stored under `head_dec*` and skipped by the loader).
+      - `stats` holds final masked + unmasked train MSE plus an
+        optional unmasked val MSE.
+    """
+    if not train_data:
+        raise ValueError('fit_and_evaluate_ssl needs at least one train ticker')
+    n_features = train_data[0].features.shape[1]
+    for d in train_data + val_data:
+        if d.features.shape[1] != n_features:
+            raise ValueError(
+                f'ticker {d.name!r} has {d.features.shape[1]} features but '
+                f'train ticker {train_data[0].name!r} has {n_features}; '
+                'feature shapes must match.')
+
+    X_train = np.vstack([d.features[d.valid] for d in train_data])
+    X_full = np.vstack(
+        [d.features[d.valid] for d in train_data]
+        + [d.features[d.valid] for d in val_data])
+
+    params, stats = fit_cnn_masked_ae(
+        X_train, X_full,
+        n_channels_per_lag=cnn_channels_per_lag,
+        hidden=cnn_hidden, kernel=cnn_kernel, n_layers=cnn_layers,
+        decoder_hidden=ssl_decoder_hidden,
+        decoder_layers=ssl_decoder_layers,
+        n_steps=cnn_steps, batch_size=cnn_batch_size,
+        mask_ratio=mask_ratio, seed=seed)
+    return {'ssl': params}, stats
 
 
 def reconstruct_indicators(
