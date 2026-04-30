@@ -51,6 +51,13 @@
 
 set -euo pipefail
 
+# Hard-override any inherited JAX env vars from the parent kernel (the
+# old supervised cell used to do `os.environ['JAX_PLATFORMS'] = 'tpu'`,
+# which gets inherited by !bash subprocesses and would otherwise make
+# JAX try to load libtpu.so even on a CUDA-only install). Unset first
+# so this script's choice is the sole source of truth.
+unset JAX_PLATFORMS JAX_DEFAULT_MATMUL_PRECISION
+
 cd /content
 
 # Accelerator notes:

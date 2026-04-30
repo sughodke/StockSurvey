@@ -27,6 +27,9 @@
 
 set -euo pipefail
 
+# Hard-override any inherited JAX env vars (see train_ssl.sh for why).
+unset JAX_PLATFORMS JAX_DEFAULT_MATMUL_PRECISION
+
 cd /content
 
 # Pick the most recent SSL npz; edit if you want a specific one.
