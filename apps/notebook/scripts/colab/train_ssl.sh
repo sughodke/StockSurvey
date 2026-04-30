@@ -22,8 +22,22 @@
 #
 # Compute budget:
 #   Supervised baseline ran 2000 steps. SSL needs ~5-10x more (per
-#   NOTES.md / SSL plan). 10000 steps below; bump to 20000 if val
-#   loss is still trending down.
+#   NOTES.md / SSL plan). Currently set to 20000 steps.
+#
+# Tuning vs the first attempt (2026-04-30, ~30-60min on v5e-1):
+#   First run reported train_mse_masked=0.891 in z-norm space — only
+#   ~11% of input variance explained, with masked vs unmasked MSE
+#   barely differing (0.891 vs 0.899). Symptom of decoder under-
+#   capacity + insufficient compute, not future leakage (audit
+#   confirmed strict causality wrt the downstream IC task).
+#
+#   Three changes vs that run:
+#     * --ssl-decoder-hidden 1024 (was 256). Latent (~5632) -> bundle
+#       (3168) through one ReLU at width 256 was a hard bottleneck.
+#     * --mask-ratio 0.25 (was 0.4). 0.4 is the upper edge of the
+#       time-series MAE range; backing off so the reconstruction
+#       task is tractable enough to train cleanly first.
+#     * --cnn-steps 20000 (was 10000). 2x compute for SSL convergence.
 #
 # Run order:
 #   1. THIS SCRIPT          -> trains the SSL backbone
@@ -49,10 +63,10 @@ ss-replay AAPL --yahoo \
     --include-zscore-stats \
     --include-returns \
     --decoder masked-ae \
-    --mask-ratio 0.4 \
-    --ssl-decoder-hidden 256 \
+    --mask-ratio 0.25 \
+    --ssl-decoder-hidden 1024 \
     --ssl-decoder-layers 2 \
     --cnn-batch-size 8192 \
-    --cnn-steps 10000 \
+    --cnn-steps 20000 \
     --device auto \
     --output-dir /content/Output
