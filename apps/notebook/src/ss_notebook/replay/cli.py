@@ -99,6 +99,7 @@ def _run_ssl(args, train_data, val_data, *,
           f'window_cols={args.window_cols}, '
           f'zscore_stats={args.include_zscore_stats}, '
           f'returns={args.include_returns}, '
+          f'return_sign={args.include_return_sign}, '
           f'decoder=masked-ae, mask_ratio={args.mask_ratio}, '
           f'n_features={n_features} '
           f'(channels_per_lag={cnn_channels_per_lag})')
@@ -139,6 +140,7 @@ def _run_ssl(args, train_data, val_data, *,
         'window_cols': args.window_cols,
         'include_zscore_stats': args.include_zscore_stats,
         'include_returns': args.include_returns,
+        'include_return_sign': args.include_return_sign,
         'lookback': args.lookback,
         'scales': scales,
         'extra_high_freq_scales': sorted(extra_scales),
@@ -227,6 +229,16 @@ def main() -> None:
                              'high-frequency end — daily-resolution sign info '
                              'the wavelet basis can\'t represent. Closes the '
                              'short-RSI / Corwin-Schultz encoding gap.')
+    parser.add_argument('--include-return-sign', action='store_true',
+                        help='Append per-bar SIGN of log return ({-1, 0, +1}) '
+                             'as one channel per lag, in the SAME slot as '
+                             '--include-returns (mutually exclusive). Strips '
+                             'magnitude so the model still has a directional '
+                             'anchor but is forced to extract magnitude from '
+                             'the wavelets. Use to test whether the indicator-'
+                             'shape bias (heads collapse onto the raw `return` '
+                             'channel; see attention plot 2026-05-01) goes '
+                             'away when the magnitude shortcut is removed.')
     parser.add_argument('--extra-high-freq-scales', default='',
                         help='Comma-separated extra scales to prepend to '
                              '`ALL_SCALES` (e.g. "1,2"). Adds finer-grained '
@@ -390,6 +402,9 @@ def main() -> None:
     extra_scales = [int(s) for s in _split_tickers(args.extra_high_freq_scales)]
     if any(s < 1 for s in extra_scales):
         parser.error('--extra-high-freq-scales must be positive integers')
+    if args.include_returns and args.include_return_sign:
+        parser.error('--include-returns and --include-return-sign are '
+                     'mutually exclusive — they share the same channel slot.')
     scales = sorted(set(extra_scales) | set(ALL_SCALES))
     rsi_n_grid = tuple(int(s) for s in _split_tickers(args.rsi_n_grid))
     if rsi_n_grid and any(n < 2 for n in rsi_n_grid):
@@ -438,6 +453,7 @@ def main() -> None:
         window_cols=args.window_cols,
         include_zscore_stats=args.include_zscore_stats,
         include_returns=args.include_returns,
+        include_return_sign=args.include_return_sign,
         decoder=args.decoder,
         rsi_n=args.rsi_n, macd_fast=args.macd_fast,
         macd_slow=args.macd_slow, macd_signal=args.macd_signal,
@@ -488,6 +504,7 @@ def main() -> None:
           f'window_cols={args.window_cols}, '
           f'zscore_stats={args.include_zscore_stats}, '
           f'returns={args.include_returns}, '
+          f'return_sign={args.include_return_sign}, '
           f'decoder={args.decoder}, targets={",".join(targets)}, '
           f'n_features={n_features} '
           f'(channels_per_lag={cnn_channels_per_lag})')
@@ -519,6 +536,7 @@ def main() -> None:
         window_cols=args.window_cols,
         include_zscore_stats=args.include_zscore_stats,
         include_returns=args.include_returns,
+        include_return_sign=args.include_return_sign,
         vol_window=args.vol_window)
     fname = Path(args.output_dir) / f'{primary.name}-replay.png'
     fig.savefig(fname, dpi=150)
@@ -538,6 +556,7 @@ def main() -> None:
             window_cols=args.window_cols,
             include_zscore_stats=args.include_zscore_stats,
             include_returns=args.include_returns,
+            include_return_sign=args.include_return_sign,
             vol_window=args.vol_window)
         val_fname = (Path(args.output_dir) /
                      f'{d.name}-replay-zeroshot-from-{train_tag}.png')
@@ -560,6 +579,7 @@ def main() -> None:
         'window_cols': args.window_cols,
         'include_zscore_stats': args.include_zscore_stats,
         'include_returns': args.include_returns,
+        'include_return_sign': args.include_return_sign,
         'lookback': args.lookback,
         'scales': scales,
         'extra_high_freq_scales': sorted(extra_scales),

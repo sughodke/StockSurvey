@@ -66,6 +66,20 @@ def log_returns(prices: np.ndarray) -> np.ndarray:
     return np.concatenate([[np.nan], np.diff(log_p)])
 
 
+def log_return_signs(prices: np.ndarray) -> np.ndarray:
+    """Per-bar sign of log return ∈ {-1, 0, +1} aligned to `prices`.
+
+    Diagnostic alternative input channel to `log_returns`: gives the
+    model directional anchor without leaking magnitude. Per the
+    attention plot finding (2026-05-01) all four supervised heads
+    learned to live ~entirely on the raw `return` channel because that
+    channel was the lazy shortcut to indicator reconstruction; sign-
+    only forces the model to derive magnitude from the wavelets while
+    keeping a direction crutch.
+    """
+    return np.sign(log_returns(prices))
+
+
 def rsi_strided(prices: np.ndarray, n: int, w: int = 1) -> np.ndarray:
     """Wilder RSI(n) computed over stride-`w` price changes.
 
@@ -136,11 +150,21 @@ def realized_vol(prices: np.ndarray, window: int) -> np.ndarray:
 
 def channels_per_lag(
     n_scales: int, *, include_zscore_stats: bool, include_returns: bool,
+    include_return_sign: bool = False,
 ) -> int:
-    """Per-lag channel count used by the CNN reshape `(n, K, C)`."""
+    """Per-lag channel count used by the CNN reshape `(n, K, C)`.
+
+    `include_returns` and `include_return_sign` are mutually exclusive
+    — they occupy the same channel slot but with different content
+    (raw log return vs sign-of-return). At most one may be True.
+    """
+    if include_returns and include_return_sign:
+        raise ValueError('include_returns and include_return_sign are '
+                         'mutually exclusive — they share a channel slot.')
     return (2 * n_scales
             + (2 if include_zscore_stats else 0)
-            + (1 if include_returns else 0))
+            + (1 if include_returns else 0)
+            + (1 if include_return_sign else 0))
 
 
 def build_lagged_features(
@@ -171,6 +195,7 @@ def build_features_and_targets(
     vol_window: int = 20,
     rsi_n_grid: tuple[int, ...] = (),
     rsi_w_grid: tuple[int, ...] = (),
+    include_return_sign: bool = False,
 ) -> tuple[np.ndarray, dict[str, np.ndarray], np.ndarray,
            dict[str, np.ndarray]]:
     """Returns `(features, gt-by-target, valid-mask, target-grids)` for
@@ -201,6 +226,9 @@ def build_features_and_targets(
     channels are active.
     """
     del decoder  # all channel combinations are CNN-compatible
+    if include_returns and include_return_sign:
+        raise ValueError('include_returns and include_return_sign are '
+                         'mutually exclusive — they share a channel slot.')
     coeffs, power = compute_scalogram(prices, scales, lookback=lookback)
     channels: list[np.ndarray] = [
         coeffs.astype(np.float64),
@@ -212,6 +240,8 @@ def build_features_and_targets(
         channels.append(std[None, :])
     if include_returns:
         channels.append(log_returns(prices)[None, :])
+    elif include_return_sign:
+        channels.append(log_return_signs(prices)[None, :])
     channels_cn = np.vstack(channels)
     features = build_lagged_features(channels_cn, window_cols)
 
@@ -285,6 +315,7 @@ def load_ticker(
     vol_window: int = 20,
     rsi_n_grid: tuple[int, ...] = (),
     rsi_w_grid: tuple[int, ...] = (),
+    include_return_sign: bool = False,
 ) -> TickerData:
     """Load one ticker and pre-compute features + targets + valid mask."""
     series = load_prices(
@@ -300,6 +331,7 @@ def load_ticker(
         rsi_n=rsi_n, macd_fast=macd_fast, macd_slow=macd_slow,
         macd_signal=macd_signal,
         vol_window=vol_window,
+        include_return_sign=include_return_sign,
         rsi_n_grid=rsi_n_grid, rsi_w_grid=rsi_w_grid)
     return TickerData(name, prices, dates, features, targets, valid,
                       target_grids=target_grids)

@@ -20,6 +20,7 @@ def plot_reconstruction(
     window_cols: int,
     include_zscore_stats: bool,
     include_returns: bool = False,
+    include_return_sign: bool = False,
     vol_window: int = 20,
 ) -> plt.Figure:
     panel_specs = {
@@ -37,6 +38,7 @@ def plot_reconstruction(
     extras = ''.join([
         ' +zscore-stats' if include_zscore_stats else '',
         ' +returns' if include_returns else '',
+        ' +return-sign' if include_return_sign else '',
     ])
     fig.suptitle(
         f'{title_subject} — CWT-slice reconstruction vs full-series '
