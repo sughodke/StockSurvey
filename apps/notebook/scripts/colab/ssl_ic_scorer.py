@@ -90,15 +90,27 @@ for name in UNIVERSE:
     try:
         tickers.append(load_ticker(name, **load_kwargs))
     except Exception as e:
-        print(f'  skip {name}: {e}')
-print(f'Loaded {len(tickers)} tickers')
+        print(f'  skip {name}: {e}', flush=True)
+print(f'Loaded {len(tickers)} tickers', flush=True)
 
-# 3. Stage 1 — frozen SSL backbone + linear head trained on rank IC.
+# 3. Stage 1 — frozen SSL backbone + MLP head trained on rank IC.
+# MLP head (Linear -> ReLU -> Linear) tests the hypothesis that the SSL
+# latent encodes return-relevant structure non-linearly (the probe
+# showed indicators are NOT linearly recoverable from the SSL latent —
+# yet the underlying info is in there per the masked-AE reconstruction).
+# A linear scorer can only see linearly-aligned subspaces of the latent
+# and therefore underrepresents SSL's value. MLP scorer adds one ReLU
+# hidden layer of width 64 (Linear(5632, 64) -> ReLU -> Linear(64, 1)),
+# letting the head extract a non-linear projection of the latent.
+print('Calling train_scorer (this triggers JIT compile of value_and_grad — '
+      'first iteration can be slow on T4 with cuDNN workspace overhead)...', flush=True)
+import sys
+sys.stdout.flush()
 result = train_scorer(
     tickers, backbone,
     rebal_days=5,
     train_frac=0.7,
-    scorer='linear',
+    scorer='mlp',
     n_steps=500,
     learning_rate=1e-3,
     finetune_steps=0,        # frozen backbone (no Stage 2 fine-tune)
