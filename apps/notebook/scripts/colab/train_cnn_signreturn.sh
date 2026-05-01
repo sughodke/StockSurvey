@@ -25,10 +25,9 @@
 #      (random mask of return during training, raw at eval) would
 #      recover the rest.
 #
-# T4 GPU notes (same as train_ssl.sh): batch 2048 instead of 8192,
-# JAX_PLATFORMS=cuda. Channel count drops by 0 vs the include-returns
-# baseline (sign occupies the same slot), so memory pressure is
-# unchanged.
+# Accelerator notes: small CNN, 2000 steps, batch 2048 → expect a few
+# minutes on T4, ~30-60 min on CPU. Channel count is unchanged vs the
+# raw-returns baseline (sign occupies the same slot).
 
 set -euo pipefail
 
@@ -40,8 +39,10 @@ cd /content
 # --- TPU PATH (inactive — uncomment + change runtime to v5e-1 to use) ---
 # JAX_PLATFORMS=tpu JAX_DEFAULT_MATMUL_PRECISION=highest \
 
-# --- GPU PATH (active — T4) ---
-JAX_PLATFORMS=cuda \
+# --- GPU PATH (inactive — uncomment + use a CUDA Colab runtime to use) ---
+# JAX_PLATFORMS=cuda \
+
+# --- CPU PATH (active) — JAX auto-detects, no platform pin needed.
 ss-replay AAPL --yahoo \
     --train-tickers MSFT,GOOGL,AMZN,META,NVDA,JPM,BAC,GE,BA,XOM,KO,WMT,JNJ,UNH,T,NFLX,CRM,DIS \
     --val-ticker TSLA \
