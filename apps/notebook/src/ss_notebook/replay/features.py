@@ -181,7 +181,7 @@ def build_lagged_features(
     if window_cols < 1:
         raise ValueError(f'window_cols must be >= 1, got {window_cols}')
     C, n_dates = channels_cn.shape
-    feats = np.full((n_dates, window_cols, C), np.nan, dtype=np.float64)
+    feats = np.full((n_dates, window_cols, C), np.nan, dtype=np.float32)
     for k in range(window_cols):
         feats[k:, k] = channels_cn[:, :n_dates - k].T
     return feats.reshape(n_dates, window_cols * C)
@@ -230,18 +230,20 @@ def build_features_and_targets(
         raise ValueError('include_returns and include_return_sign are '
                          'mutually exclusive — they share a channel slot.')
     coeffs, power = compute_scalogram(prices, scales, lookback=lookback)
+    # All channels kept in float32 — float64 was a 2x memory tax with no
+    # accuracy benefit (downstream JAX trainer casts to float32 anyway).
     channels: list[np.ndarray] = [
-        coeffs.astype(np.float64),
-        power.astype(np.float64),
+        coeffs.astype(np.float32),
+        power.astype(np.float32),
     ]
     if include_zscore_stats:
         mu, std = rolling_zscore_stats(prices, lookback=lookback)
-        channels.append(mu[None, :])
-        channels.append(std[None, :])
+        channels.append(mu[None, :].astype(np.float32))
+        channels.append(std[None, :].astype(np.float32))
     if include_returns:
-        channels.append(log_returns(prices)[None, :])
+        channels.append(log_returns(prices)[None, :].astype(np.float32))
     elif include_return_sign:
-        channels.append(log_return_signs(prices)[None, :])
+        channels.append(log_return_signs(prices)[None, :].astype(np.float32))
     channels_cn = np.vstack(channels)
     features = build_lagged_features(channels_cn, window_cols)
 
