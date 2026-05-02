@@ -563,15 +563,27 @@ def _zeroshot_eval(
     fig.suptitle(f'{ticker} zero-shot — unconditioned heads '
                  f'(K={K}, scales={len(meta["scales"])}, n_features={K*F})',
                  fontsize=12, fontweight='bold')
+    from scipy.stats import spearmanr
     for ax, target in zip(axes, uncond):
         yhat = apply_head(target)
         gt = td.targets[target]
         v = td.valid
-        stats = fit_stats(yhat[v], gt[v])
+        stats = dict(fit_stats(yhat[v], gt[v]))
+        # Scale-invariant companions to R²: rank IC catches "right shape,
+        # wrong scale" (R² penalizes hard but trading signal is fine);
+        # sign_acc catches "right direction, wrong magnitude" (relevant
+        # for macd which is the trade-on-zero-cross signal). For all-
+        # positive targets like vol, sign_acc trivially saturates near
+        # 1.0 and is uninformative — interpret with care per target.
+        rho, _ = spearmanr(yhat[v], gt[v])
+        stats['rank_ic'] = float(rho) if np.isfinite(rho) else 0.0
+        stats['sign_acc'] = float(
+            (np.sign(yhat[v]) == np.sign(gt[v])).mean())
         out_stats['unconditioned'][target] = stats
         print(f'  {ticker} zero-shot {target:>5s}: '
-              f'R²={stats["r2"]:.4f}  RMSE={stats["rmse"]:.3e}  '
-              f'max|Δ|={stats["max_abs"]:.3e}')
+              f'R²={stats["r2"]:>7.4f}  rank_IC={stats["rank_ic"]:>+6.3f}  '
+              f'sign_acc={stats["sign_acc"]:.3f}  '
+              f'RMSE={stats["rmse"]:.3e}  max|Δ|={stats["max_abs"]:.3e}')
         yhat_full = np.full_like(gt, np.nan)
         yhat_full[v] = yhat[v]
         label, hlines = panel_specs[target]
