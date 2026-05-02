@@ -13,7 +13,7 @@ from dataclasses import dataclass, field
 
 import numpy as np
 
-from ss_indicators import macd, rsi
+from ss_indicators import macd, rsi, rsi_strided
 from ss_notebook.scalogram import _to_np, load_prices
 from ss_wavelets import causal_cwt
 
@@ -78,48 +78,6 @@ def log_return_signs(prices: np.ndarray) -> np.ndarray:
     keeping a direction crutch.
     """
     return np.sign(log_returns(prices))
-
-
-def rsi_strided(prices: np.ndarray, n: int, w: int = 1) -> np.ndarray:
-    """Wilder RSI(n) computed over stride-`w` price changes.
-
-    At every bar `t` uses `Δ_i = price[i] - price[i-w]` instead of the
-    standard 1-bar `Δ_i = price[i] - price[i-1]`. Wilder-smoothes the
-    gains and losses over `n` strided observations. Output is a 1-D
-    numpy array aligned with `prices`; positions before the warmup
-    (`w + n - 1` bars) are NaN.
-
-    `w=1` reduces to the canonical daily RSI(n) (matches
-    `ss_indicators.rsi` for indices ≥ n). `w>1` is the rolling
-    weekly/biweekly/monthly view evaluated at every bar — equals the
-    discretely-resampled RSI(n) on the resampled-bar boundaries and
-    smoothly interpolates off-boundary, giving dense supervision.
-    """
-    if w < 1:
-        raise ValueError(f'rsi_strided w must be >= 1, got {w}')
-    if n < 2:
-        raise ValueError(f'rsi_strided n must be >= 2, got {n}')
-    prices = np.asarray(prices, dtype=np.float64)
-    T = len(prices)
-    out = np.full(T, np.nan, dtype=np.float64)
-    if T < w + n:
-        return out
-    deltas = np.empty(T, dtype=np.float64)
-    deltas[:w] = 0.0
-    deltas[w:] = prices[w:] - prices[:-w]
-    up = np.where(deltas > 0, deltas, 0.0)
-    down = np.where(deltas < 0, -deltas, 0.0)
-    # Seed Wilder smoothing on the first n strided deltas (bars w..w+n-1).
-    avg_up = up[w:w + n].mean()
-    avg_down = down[w:w + n].mean()
-    rs = avg_up / (avg_down + 1e-9)
-    out[w + n - 1] = 100.0 - 100.0 / (1.0 + rs)
-    for t in range(w + n, T):
-        avg_up = (avg_up * (n - 1) + up[t]) / n
-        avg_down = (avg_down * (n - 1) + down[t]) / n
-        rs = avg_up / (avg_down + 1e-9)
-        out[t] = 100.0 - 100.0 / (1.0 + rs)
-    return out
 
 
 def realized_vol(prices: np.ndarray, window: int) -> np.ndarray:

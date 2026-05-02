@@ -4289,16 +4289,12 @@ name = "ss-indicators"
 version = "0.1.0"
 source = { editable = "packages/indicators" }
 dependencies = [
-    { name = "jax" },
-    { name = "jaxlib" },
     { name = "numpy" },
     { name = "pandas" },
 ]
 
 [package.metadata]
 requires-dist = [
-    { name = "jax", specifier = "<0.5" },
-    { name = "jaxlib", specifier = "<0.5" },
     { name = "numpy" },
     { name = "pandas" },
 ]

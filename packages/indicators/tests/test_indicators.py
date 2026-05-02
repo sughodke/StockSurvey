@@ -1,21 +1,22 @@
-"""Numerical tests for ss_indicators."""
+"""Numerical tests for ss_indicators (numpy)."""
 
 from __future__ import annotations
 
-import jax
-import jax.numpy as jnp
 import numpy as np
 import pandas as pd
 import pytest
 
 from ss_indicators import (
     bbands,
+    cci,
+    cci_strided,
     corwin_schultz_spread,
     ema,
     fibonacci_retracement,
     macd,
     rolling_std,
     rsi,
+    rsi_strided,
     sma,
     symmetric_kl_divergence,
 )
@@ -24,9 +25,6 @@ from ss_indicators import (
 @pytest.fixture
 def prices_1d() -> np.ndarray:
     rng = np.random.default_rng(42)
-    # JAX defaults to float32, so generate the test fixture there too —
-    # otherwise pandas (float64) and JAX (float32) outputs diverge in the
-    # relative tolerance we'd want for a meaningful regression check.
     return (np.cumsum(rng.standard_normal(200)) + 100.0).astype(np.float32)
 
 
@@ -58,9 +56,7 @@ def test_ema_seed_and_recurrence(prices_1d):
 def test_rolling_std_population(prices_1d):
     out = np.asarray(rolling_std(prices_1d, 21))
     expected = pd.Series(prices_1d).rolling(21, min_periods=1).std(ddof=0).values
-    # Float32 catastrophic cancellation in mu2 - mu^2 limits us to ~1e-2
-    # relative; this is acceptable for the JAX-only path the trainer uses.
-    np.testing.assert_allclose(out, expected, rtol=1e-2, atol=1e-3)
+    np.testing.assert_allclose(out, expected, rtol=1e-4, atol=1e-5)
 
 
 def test_rsi_in_range_and_neutral_seed(prices_2d):
@@ -96,11 +92,32 @@ def test_rsi_matches_wilder_reference():
 
 
 def test_rsi_constant_prices_is_neutral():
-    out = np.asarray(rsi(jnp.full(50, 100.0), n=7))
+    out = np.asarray(rsi(np.full(50, 100.0), n=7))
     # No movement -> avg_up = avg_down = 0; impl falls back to RS = 0/0 + eps
     # which yields RSI ~ 0; we accept either 0 or 50 but the key invariant
     # is that it doesn't crash and stays inside [0, 100].
     assert np.all((out >= 0) & (out <= 100))
+
+
+def test_rsi_strided_w1_matches_matrix_rsi():
+    """rsi_strided(prices, n, w=1) should match rsi(prices, n) on the
+    overlap region (index >= n)."""
+    rng = np.random.default_rng(7)
+    prices = (np.cumsum(rng.standard_normal(300)) + 100).astype(np.float64)
+    matrix = rsi(prices, n=14)
+    strided = rsi_strided(prices, n=14, w=1)
+    # rsi fills [:n] with 50; rsi_strided fills [:w+n-1] with NaN.
+    # Compare on the overlap region.
+    assert np.allclose(matrix[14:], strided[14:], atol=1e-9)
+    assert np.isnan(strided[:14]).all()
+
+
+def test_rsi_strided_validates_args():
+    p = np.arange(100, dtype=np.float64)
+    with pytest.raises(ValueError, match='w must be >= 1'):
+        rsi_strided(p, n=7, w=0)
+    with pytest.raises(ValueError, match='n must be >= 2'):
+        rsi_strided(p, n=1, w=5)
 
 
 def test_macd_identity(prices_1d):
@@ -120,34 +137,71 @@ def test_bbands_ordering(prices_1d):
     np.testing.assert_allclose(up - mid, mid - low, rtol=1e-5, atol=1e-7)
 
 
+def test_cci_warmup_and_zero_signal():
+    """CCI of constant prices is exactly 0 after warmup (close == SMA, MAD == 0
+    triggers the safe-mad branch). Warmup is `n - 1` NaNs."""
+    n = 14
+    out = cci(np.full(50, 100.0, dtype=np.float64), n=n)
+    assert np.isnan(out[:n - 1]).all()
+    assert (out[n - 1:] == 0.0).all()
+
+
+def test_cci_centered_and_typical_range():
+    """CCI on a random walk: ~zero mean, most values within ±300 (>~99% within
+    Lambert's empirical band; the function is only roughly bounded)."""
+    rng = np.random.default_rng(11)
+    prices = np.cumsum(rng.standard_normal(2000)) + 100.0
+    out = cci(prices, n=20)
+    valid = out[~np.isnan(out)]
+    assert len(valid) == 1981
+    assert abs(np.mean(valid)) < 5.0           # near-zero mean
+    assert np.quantile(np.abs(valid), 0.99) < 300.0
+
+
+def test_cci_strided_w1_matches_matrix_cci():
+    """cci_strided(prices, n, w=1) should match cci(prices, n) on the
+    overlap region (index >= n - 1)."""
+    rng = np.random.default_rng(13)
+    prices = (np.cumsum(rng.standard_normal(300)) + 100).astype(np.float64)
+    matrix = cci(prices, n=14)
+    strided = cci_strided(prices, n=14, w=1)
+    valid = ~(np.isnan(matrix) | np.isnan(strided))
+    np.testing.assert_allclose(matrix[valid], strided[valid], rtol=1e-9, atol=1e-9)
+
+
+def test_cci_strided_w_warmup():
+    """Stride-w CCI needs (n-1)*w bars before the first valid output."""
+    n, w = 5, 7
+    prices = np.arange(100, dtype=np.float64) ** 0.5  # arbitrary smooth series
+    out = cci_strided(prices, n=n, w=w)
+    span = (n - 1) * w + 1  # 29
+    assert np.isnan(out[:span - 1]).all()
+    assert not np.isnan(out[span - 1:]).any()
+
+
+def test_cci_strided_validates_args():
+    p = np.arange(100, dtype=np.float64)
+    with pytest.raises(ValueError, match='w must be >= 1'):
+        cci_strided(p, n=14, w=0)
+    with pytest.raises(ValueError, match='n must be >= 2'):
+        cci_strided(p, n=1, w=5)
+
+
 def test_symmetric_kl_zero_when_distributions_match():
     n_scales, n_blocks, n_tickers = 6, 4, 3
     rng = np.random.default_rng(0)
-    p = jnp.asarray(rng.uniform(0.1, 1.0, (n_scales, n_blocks, n_tickers)))
-    score = np.asarray(symmetric_kl_divergence(p, p, jnp.zeros(n_scales)))
+    p = rng.uniform(0.1, 1.0, (n_scales, n_blocks, n_tickers))
+    score = np.asarray(symmetric_kl_divergence(p, p, np.zeros(n_scales)))
     assert score.shape == (n_blocks, n_tickers)
     np.testing.assert_allclose(score, 0.0, atol=1e-6)
 
 
 def test_symmetric_kl_positive_when_distributions_differ():
     rng = np.random.default_rng(1)
-    p = jnp.asarray(rng.uniform(0.1, 1.0, (5, 2, 4)))
-    q = jnp.asarray(rng.uniform(0.1, 1.0, (5, 2, 4)))
-    score = np.asarray(symmetric_kl_divergence(p, q, jnp.zeros(5)))
+    p = rng.uniform(0.1, 1.0, (5, 2, 4))
+    q = rng.uniform(0.1, 1.0, (5, 2, 4))
+    score = np.asarray(symmetric_kl_divergence(p, q, np.zeros(5)))
     assert np.all(score > 0)
-
-
-def test_symmetric_kl_differentiable():
-    rng = np.random.default_rng(2)
-    p = jnp.asarray(rng.uniform(0.1, 1.0, (5, 3, 4)))
-    q = jnp.asarray(rng.uniform(0.1, 1.0, (5, 3, 4)))
-
-    def loss(w):
-        return symmetric_kl_divergence(p, q, w).sum()
-
-    g = jax.grad(loss)(jnp.zeros(5))
-    assert g.shape == (5,)
-    assert np.isfinite(np.asarray(g)).all()
 
 
 def test_corwin_schultz_spread_shape_and_range():
@@ -196,8 +250,6 @@ def test_fibonacci_retracement_non_default_n_offset():
     # for the returned absolute indices must use `n`, not a hardcoded 90.
     prices = np.concatenate([np.full(50, 100.0), np.linspace(100, 200, 30)])
     t1, t2, _ = fibonacci_retracement(prices, n=30)
-    # The min in the last 30 should be index 50 (start of the rising segment),
-    # max at index 79 (end). Both indices must point into the actual array.
     assert 0 <= t1 < len(prices)
     assert 0 <= t2 < len(prices)
     assert prices[t1] == pytest.approx(100.0)

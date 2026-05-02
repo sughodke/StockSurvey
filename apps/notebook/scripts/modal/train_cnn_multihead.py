@@ -457,7 +457,7 @@ def _zeroshot_eval(
     import numpy as np
     import matplotlib.pyplot as plt
 
-    from ss_notebook.replay.features import rsi_strided
+    from ss_indicators import rsi_strided
     from ss_notebook.replay.metrics import fit_stats
 
     (data, meta, K, scales, rsi_n_grid, rsi_w_grid,

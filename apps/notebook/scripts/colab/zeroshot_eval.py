@@ -46,7 +46,8 @@ import jax.numpy as jnp
 import matplotlib.pyplot as plt
 import numpy as np
 
-from ss_notebook.replay.features import load_ticker, rsi_strided
+from ss_indicators import rsi_strided
+from ss_notebook.replay.features import load_ticker
 from ss_notebook.replay.metrics import fit_stats
 
 
