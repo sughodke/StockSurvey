@@ -55,6 +55,42 @@ TRAIN_POOL_EXTRA = ('MSFT,GOOGL,AMZN,META,NVDA,JPM,BAC,GE,BA,XOM,KO,WMT,'
 STOOQ_SUBSET_REL = 'apps/notebook/data/stooq_phase2'
 STOOQ_SUBSET = f'{REMOTE_REPO}/{STOOQ_SUBSET_REL}'
 
+# Input-bundle configurations. Maps a single named experimental cell to the
+# ss-replay flags + target subset + artifact prefix. The 4 cells span the
+# experimentally meaningful subset of the (zscore on/off) x (returns mode in
+# {none, raw, sign}) cross-product:
+#
+#   full       — zscore + raw returns + CWT (winning documented recipe)
+#   full-sign  — zscore + sign returns + CWT (magnitude-shortcut diagnostic)
+#   cwt-only   — CWT only (purest "scalogram alone" test)
+#   cwt-sign   — sign returns + CWT (direction anchor, no price level)
+#
+# `price` head is dropped for the no-zscore cells: without rolling mu/sd,
+# level info is genuinely gone from the input, so the price head would
+# train to a useless ~0-R² constant and just waste the head's gradient.
+BUNDLE_CONFIGS: dict[str, dict] = {
+    'full': {
+        'flags': ['--include-zscore-stats', '--include-returns'],
+        'targets': 'rsi,macd,price,vol',
+        'prefix': '',
+    },
+    'full-sign': {
+        'flags': ['--include-zscore-stats', '--include-return-sign'],
+        'targets': 'rsi,macd,price,vol',
+        'prefix': 'fullsign-',
+    },
+    'cwt-only': {
+        'flags': [],
+        'targets': 'rsi,macd,vol',
+        'prefix': 'cwtonly-',
+    },
+    'cwt-sign': {
+        'flags': ['--include-return-sign'],
+        'targets': 'rsi,macd,vol',
+        'prefix': 'cwtsign-',
+    },
+}
+
 # Image: NVIDIA CUDA devel (provides nvcc, which tinygrad's CUDA backend
 # needs to JIT-compile kernels — debian_slim only has the runtime libs)
 # + uv + the repo source. uv sync runs at function cold start (cached for
@@ -95,20 +131,22 @@ def train_and_eval(
     train_extra: str,
     start: str,
     end: str,
-    sign_returns: bool = False,
+    bundle: str = 'full',
 ) -> dict[str, bytes]:
     """Run multi-head CNN training, then (n, w) RSI eval on `eval_ticker`.
 
-    `sign_returns=True` swaps the raw-magnitude `--include-returns` channel
-    for `--include-return-sign` ({-1, 0, +1} only). This is the documented
-    diagnostic for the indicator-shape bias: it removes the magnitude
-    shortcut into RSI/MACD reconstruction so the heads must extract
-    magnitude info from the wavelets instead. Tagged artifacts get a
-    `sign-` prefix on return so they don't collide with a raw-returns run.
+    `bundle` selects the input channel mix and target set — see
+    BUNDLE_CONFIGS at module top for the 4 cells. Each non-`full` bundle
+    tags returned artifacts with its prefix so multiple bundles can
+    coexist in the caller's Output/.
 
     Returns every file under Output/ as a dict of {filename: bytes} so
     the local entrypoint can mirror them back to the caller's disk.
     """
+    if bundle not in BUNDLE_CONFIGS:
+        raise ValueError(
+            f'unknown bundle {bundle!r}; valid: {list(BUNDLE_CONFIGS)}')
+    cfg = BUNDLE_CONFIGS[bundle]
     import os
     os.environ['CUDA'] = '1'   # tinygrad: pin CUDA backend on Modal T4
 
@@ -136,9 +174,8 @@ def train_and_eval(
         '--start', start, '--end', end,
         '--window-cols', '96',
         '--extra-high-freq-scales', '1,2',
-        '--include-zscore-stats',
-        ('--include-return-sign' if sign_returns else '--include-returns'),
-        '--decoder', 'cnn', '--targets', 'rsi,macd,price,vol',
+        *cfg['flags'],
+        '--decoder', 'cnn', '--targets', cfg['targets'],
         '--rsi-n', '7',
         '--rsi-n-grid', '5,7,9,13,17,21,25',
         '--rsi-w-grid', '1,5,10,21',
@@ -177,21 +214,28 @@ def train_and_eval(
     (Path(output) / f'{eval_ticker}-zeroshot-stats.json').write_text(
         json.dumps(eval_stats, indent=2, default=float))
 
-    print(f'\n=== Step 4/4: FiLM rsi-head input-attention on {primary} ===',
+    print(f'\n=== Step 4/4: input-attention saliency on {primary} ===',
           flush=True)
-    attn_stats = _film_attention(
+    print('  -- FiLM rsi head (cond_a vs cond_b) --', flush=True)
+    film_stats = _film_attention(
         npz_path=npz_path, ticker=primary, output_dir=Path(output))
     (Path(output) / f'{primary}-film-attention-stats.json').write_text(
-        json.dumps(attn_stats, indent=2, default=float))
+        json.dumps(film_stats, indent=2, default=float))
+    print('  -- unconditioned heads (macd vs vol) --', flush=True)
+    uncond_stats = _uncond_attention(
+        npz_path=npz_path, ticker=primary, output_dir=Path(output))
+    (Path(output) / f'{primary}-uncond-attention-stats.json').write_text(
+        json.dumps(uncond_stats, indent=2, default=float))
 
-    # Tag returned filenames so two runs (raw-returns vs sign-returns)
-    # don't overwrite each other in the caller's local Output/.
-    name_prefix = 'sign-' if sign_returns else ''
+    # Tag returned filenames so different bundles' artifacts coexist in
+    # the caller's local Output/ (per BUNDLE_CONFIGS prefix).
+    name_prefix = cfg['prefix']
     artifacts: dict[str, bytes] = {}
     for p in sorted(Path(output).iterdir()):
         if p.is_file():
             artifacts[f'{name_prefix}{p.name}'] = p.read_bytes()
-    print(f'\nbundling {len(artifacts)} artifacts for return', flush=True)
+    print(f'\nbundling {len(artifacts)} artifacts (prefix={name_prefix!r})',
+          flush=True)
     return artifacts
 
 
@@ -251,6 +295,150 @@ def _channel_labels(meta: dict, scales: list[int]) -> list[str]:
         + (['z-mu', 'z-std'] if meta.get('include_zscore_stats') else [])
         + ([return_label] if return_label else [])
     )
+
+
+def _tinygrad_backbone(data, ref: str = 'rsi'):
+    """Load shared backbone tensors (identical across per-target prefixes)
+    as frozen tinygrad Tensors. Returns (feat_mu, feat_sd, conv_params).
+
+    All returned tensors have `requires_grad=False`; the only autograd
+    leaf in the attention computation is the input `X`, which is what we
+    take gradients with respect to.
+    """
+    import numpy as np
+    from tinygrad.tensor import Tensor
+    feat_mu = Tensor(np.asarray(data[f'{ref}__feat_mu'], dtype=np.float32),
+                     requires_grad=False)
+    feat_sd = Tensor(np.asarray(data[f'{ref}__feat_sd'], dtype=np.float32),
+                     requires_grad=False)
+    n_layers = sum(1 for k in data.files
+                   if k.startswith(f'{ref}__conv') and k.endswith('_W'))
+    conv_params = [
+        (Tensor(np.asarray(data[f'{ref}__conv{i}_W'], dtype=np.float32),
+                requires_grad=False),
+         Tensor(np.asarray(data[f'{ref}__conv{i}_b'], dtype=np.float32),
+                requires_grad=False))
+        for i in range(n_layers)
+    ]
+    return feat_mu, feat_sd, conv_params
+
+
+def _conv1d_tg(x, W, b):
+    """Canonical NHC/HIO/NHC stride-1 valid convolution mirroring
+    `ss_notebook.replay.decoders._conv1d`. Tinygrad's `conv2d` is NCHW
+    so we permute in/out to keep the npz tensor layout identical to the
+    legacy JAX path (and to what the trainer wrote)."""
+    x_bcl = x.permute(0, 2, 1)
+    W_oik = W.permute(2, 1, 0)
+    y_bcl = x_bcl.conv2d(W_oik)
+    return y_bcl.permute(0, 2, 1) + b
+
+
+def _batched_saliency(forward_fn, X_batch_np, K: int, F: int):
+    """Run a single batched forward + backward through `forward_fn`,
+    return the mean of `|d output / d X|` across the batch as `(K, F)`.
+
+    `forward_fn` takes a Tensor of shape `(B, K, F)` and returns a
+    `(B,)`-shaped scalar-per-row tensor. We sum and backward once: the
+    gradient of `sum(output)` wrt `X[i]` equals `d output[i] / d X[i]`
+    because the per-row forwards have no cross-batch interaction.
+    Replaces the JAX/jit-grad per-bar Python loop with one tinygrad
+    kernel — much faster on CPU, same numerics."""
+    import numpy as np
+    from tinygrad.tensor import Tensor
+    X = Tensor(X_batch_np.astype(np.float32), requires_grad=True)
+    output = forward_fn(X)            # (B,)
+    output.sum().backward()
+    grads = X.grad.numpy()            # (B, K, F)
+    return np.mean(np.abs(grads), axis=0)
+
+
+def _topk_stats(sal, chan_labels: list[str], F: int, k: int = 8) -> dict:
+    """Top-k (lag, channel) cells + per-channel sum-of-|grad| from a
+    saliency map of shape (K, F). Returns a JSON-serializable dict."""
+    import numpy as np
+    flat = sal.flatten()
+    top_idx = np.argsort(flat)[::-1][:k]
+    cells = [
+        {'lag': int(fi // F), 'ch': int(fi % F),
+         'ch_label': chan_labels[int(fi % F)],
+         'grad': float(flat[fi])}
+        for fi in top_idx
+    ]
+    per_chan = sal.sum(axis=0)
+    chan_top = np.argsort(per_chan)[::-1][:k]
+    chans = [
+        {'ch': int(ci), 'ch_label': chan_labels[int(ci)],
+         'sum_grad': float(per_chan[ci])}
+        for ci in chan_top
+    ]
+    return {'top_cells': cells, 'top_channels': chans}
+
+
+def _plot_3panel_attention(
+    *, sal_a, sal_b, label_a: str, label_b: str,
+    chan_labels: list[str], F: int, suptitle: str, out_path: Path,
+    color_a: str = 'Blues', color_b: str = 'Reds',
+    grad_label: str = '|d head / d X| avg',
+    diff_title: str,
+    shared_vmax: bool = True, normalize_diff: bool = False,
+) -> None:
+    """3-panel saliency figure: |sal_a|, |sal_b|, signed diff.
+
+    `shared_vmax=True` uses max(sal_a, sal_b) as the shared color scale
+    (FiLM rsi case where the two cond vectors are commensurate).
+    `shared_vmax=False` uses each panel's own max (macd/vol case where
+    the heads are on different scales).
+
+    `normalize_diff=True` normalizes each map by its own max before
+    differencing so the diff reflects relative pattern, not magnitude
+    (used for cross-head comparisons).
+    """
+    import matplotlib.colors as mcolors
+    import matplotlib.pyplot as plt
+    import numpy as np
+
+    fig, axes = plt.subplots(1, 3, figsize=(20, 8), constrained_layout=True)
+    if shared_vmax:
+        vmax = float(max(sal_a.max(), sal_b.max()))
+        vmaxes = (vmax, vmax)
+    else:
+        vmaxes = (float(sal_a.max()), float(sal_b.max()))
+    for ax, sal, color, title, vmax in [
+        (axes[0], sal_a, color_a, label_a, vmaxes[0]),
+        (axes[1], sal_b, color_b, label_b, vmaxes[1]),
+    ]:
+        im = ax.imshow(sal.T, aspect='auto', origin='lower',
+                       cmap=color, vmin=0, vmax=vmax)
+        ax.set_xlabel('Lag (0 = most recent bar)')
+        ax.set_ylabel('Channel')
+        ax.set_yticks(range(F))
+        ax.set_yticklabels(chan_labels, fontsize=6)
+        ax.set_title(title)
+        fig.colorbar(im, ax=ax, label=grad_label, fraction=0.025)
+
+    if normalize_diff:
+        a_n = sal_a / max(sal_a.max(), 1e-12)
+        b_n = sal_b / max(sal_b.max(), 1e-12)
+        diff = a_n - b_n
+        diff_clabel = 'Δ saliency (per-head normalized)'
+    else:
+        diff = sal_a - sal_b
+        diff_clabel = 'Δ saliency'
+    vlim = float(np.abs(diff).max()) or 1.0
+    im = axes[2].imshow(
+        diff.T, aspect='auto', origin='lower', cmap='seismic_r',
+        norm=mcolors.TwoSlopeNorm(vcenter=0.0, vmin=-vlim, vmax=vlim))
+    axes[2].set_xlabel('Lag (0 = most recent bar)')
+    axes[2].set_ylabel('Channel')
+    axes[2].set_yticks(range(F))
+    axes[2].set_yticklabels(chan_labels, fontsize=6)
+    axes[2].set_title(diff_title)
+    fig.colorbar(im, ax=axes[2], label=diff_clabel, fraction=0.025)
+
+    fig.suptitle(suptitle, fontsize=11, fontweight='bold')
+    fig.savefig(out_path, dpi=150, bbox_inches='tight')
+    plt.close(fig)
 
 
 def _zeroshot_eval(
@@ -538,14 +726,12 @@ def _film_attention(
     cond should attend to longer lags + low-freq scales.
 
     Output: `{ticker}-film-attention.png` + returned dict of top-k
-    cells per cond. JAX is used for jit+grad (CPU-only on Modal — fine,
-    200 bars is tiny).
+    cells per cond. tinygrad is used for autograd (matches the trainer
+    framework; the npz weights become frozen Tensors and only the input
+    is a leaf with requires_grad=True).
     """
-    import jax
-    import jax.numpy as jnp
-    import matplotlib.colors as mcolors
-    import matplotlib.pyplot as plt
     import numpy as np
+    from tinygrad.tensor import Tensor
 
     (data, meta, K, scales, rsi_n_grid, rsi_w_grid,
      n_max_grid, w_max_grid) = _load_npz_meta(npz_path)
@@ -558,47 +744,43 @@ def _film_attention(
     print(f'  backbone: K={K}, scales={scales}, '
           f'rsi_n_grid={rsi_n_grid}, rsi_w_grid={rsi_w_grid}')
 
-    feat_mu = jnp.asarray(data['rsi__feat_mu'])
-    feat_sd = jnp.asarray(data['rsi__feat_sd'])
-    n_layers = sum(1 for k in data.files
-                   if k.startswith('rsi__conv') and k.endswith('_W'))
-    conv_params = [
-        (jnp.asarray(data[f'rsi__conv{i}_W']),
-         jnp.asarray(data[f'rsi__conv{i}_b']))
-        for i in range(n_layers)
-    ]
-    head_W = jnp.asarray(data['rsi__head_W'])
-    head_b = jnp.asarray(data['rsi__head_b'])
+    feat_mu, feat_sd, conv_params = _tinygrad_backbone(data, ref='rsi')
+    head_W = Tensor(np.asarray(data['rsi__head_W'], dtype=np.float32),
+                    requires_grad=False)
+    head_b = Tensor(np.asarray(data['rsi__head_b'], dtype=np.float32),
+                    requires_grad=False)
     target_mu = float(data['rsi__target_mu'][0])
     target_sd = float(data['rsi__target_sd'][0])
-    film = {k: jnp.asarray(data[f'rsi__head_film_{k}'])
+    film = {k: Tensor(np.asarray(data[f'rsi__head_film_{k}'],
+                                  dtype=np.float32), requires_grad=False)
             for k in ('gamma_W0', 'gamma_b0', 'gamma_W1', 'gamma_b1',
                       'beta_W0', 'beta_b0', 'beta_W1', 'beta_b1')}
 
-    def conv1d(x, W, b):
-        return jax.lax.conv_general_dilated(
-            x, W, window_strides=(1,), padding='VALID',
-            dimension_numbers=('NHC', 'HIO', 'NHC')) + b
-
     def film_mlp(W0, b0, W1, b1, c):
-        return jnp.maximum(0.0, c @ W0 + b0) @ W1 + b1
+        return (c @ W0 + b0).relu() @ W1 + b1
 
-    def rsi_head_output(X_raw_kf, cond_vec):
-        X = (X_raw_kf - feat_mu[0]) / feat_sd[0]
-        h = X[None]
-        for W, b in conv_params:
-            h = jax.nn.relu(conv1d(h, W, b))
-        latent = h.reshape(1, -1)
-        gamma = film_mlp(film['gamma_W0'], film['gamma_b0'],
-                         film['gamma_W1'], film['gamma_b1'],
-                         cond_vec) + 1.0
-        beta = film_mlp(film['beta_W0'], film['beta_b0'],
-                        film['beta_W1'], film['beta_b1'], cond_vec)
-        latent_mod = gamma * latent + beta
-        yhat_std = (latent_mod @ head_W + head_b).squeeze()
-        return yhat_std * target_sd + target_mu
+    def make_forward(cond_n: int, cond_w: int):
+        cv_np = np.array([cond_n / n_max_grid, cond_w / w_max_grid],
+                         dtype=np.float32)
+        cv = Tensor(cv_np, requires_grad=False)
 
-    saliency_fn = jax.jit(jax.grad(rsi_head_output))
+        def forward(X):
+            # X: (B, K, F) — leaf with requires_grad=True
+            Xn = (X - feat_mu) / feat_sd                 # broadcast (1,K,F)
+            h = Xn
+            for W, b in conv_params:
+                h = _conv1d_tg(h, W, b).relu()
+            latent = h.reshape(h.shape[0], -1)           # (B, latent_dim)
+            gamma = film_mlp(film['gamma_W0'], film['gamma_b0'],
+                             film['gamma_W1'], film['gamma_b1'],
+                             cv) + 1.0                   # (latent_dim,)
+            beta = film_mlp(film['beta_W0'], film['beta_b0'],
+                            film['beta_W1'], film['beta_b1'], cv)
+            latent_mod = gamma * latent + beta            # broadcast
+            yhat_std = (latent_mod @ head_W + head_b).squeeze(-1)  # (B,)
+            return yhat_std * target_sd + target_mu
+
+        return forward
 
     td = _load_eval_ticker(ticker, meta, scales)
     F = td.features.shape[1] // K
@@ -607,23 +789,14 @@ def _film_attention(
     n_use = min(n_bars, len(valid_idx))
     rng = np.random.default_rng(0)
     sample_idx = rng.choice(valid_idx, size=n_use, replace=False)
-    print(f'  {ticker}: averaging |grad| over {n_use} bars '
+    X_batch = X_all[sample_idx]
+    print(f'  {ticker}: batched |grad| over {n_use} bars '
           f'(out of {len(valid_idx)} valid)')
 
-    def average_saliency(cond_n: int, cond_w: int) -> 'np.ndarray':
-        cond_vec = jnp.array([cond_n / n_max_grid, cond_w / w_max_grid],
-                             dtype=jnp.float32)
-        sal_sum = np.zeros((K, F), dtype=np.float64)
-        for bar_idx in sample_idx:
-            X_raw = jnp.asarray(X_all[bar_idx])
-            g = saliency_fn(X_raw, cond_vec)
-            sal_sum += np.abs(np.asarray(g))
-        return sal_sum / n_use
-
     print(f'  cond_a = (n={cond_a[0]}, w={cond_a[1]})')
-    sal_a = average_saliency(*cond_a)
+    sal_a = _batched_saliency(make_forward(*cond_a), X_batch, K, F)
     print(f'  cond_b = (n={cond_b[0]}, w={cond_b[1]})')
-    sal_b = average_saliency(*cond_b)
+    sal_b = _batched_saliency(make_forward(*cond_b), X_batch, K, F)
 
     chan_labels = _channel_labels(meta, scales)
     if len(chan_labels) != F:
@@ -631,30 +804,12 @@ def _film_attention(
             f'channel-label count {len(chan_labels)} != F={F}; '
             f'meta channel config likely drifted from npz weights')
 
-    def topk(sal: 'np.ndarray', k: int = 8) -> dict:
-        flat = sal.flatten()
-        top_idx = np.argsort(flat)[::-1][:k]
-        cells = [
-            {'lag': int(fi // F), 'ch': int(fi % F),
-             'ch_label': chan_labels[int(fi % F)],
-             'grad': float(flat[fi])}
-            for fi in top_idx
-        ]
-        per_chan = sal.sum(axis=0)
-        chan_top = np.argsort(per_chan)[::-1][:k]
-        chans = [
-            {'ch': int(ci), 'ch_label': chan_labels[int(ci)],
-             'sum_grad': float(per_chan[ci])}
-            for ci in chan_top
-        ]
-        return {'top_cells': cells, 'top_channels': chans}
-
     stats = {
         'cond_a': list(cond_a),
         'cond_b': list(cond_b),
         'n_bars': int(n_use),
-        'cond_a_topk': topk(sal_a),
-        'cond_b_topk': topk(sal_b),
+        'cond_a_topk': _topk_stats(sal_a, chan_labels, F),
+        'cond_b_topk': _topk_stats(sal_b, chan_labels, F),
     }
     print('  top channels @ cond_a (sum |grad| over lags):')
     for r in stats['cond_a_topk']['top_channels'][:5]:
@@ -665,45 +820,133 @@ def _film_attention(
         print(f"    ch {r['ch']:>2d} ({r['ch_label']:<14s})  "
               f"sum |grad|={r['sum_grad']:.3e}")
 
-    fig, axes = plt.subplots(1, 3, figsize=(20, 8), constrained_layout=True)
-    vmax_ab = float(max(sal_a.max(), sal_b.max()))
-    for ax, sal, color, title in [
-        (axes[0], sal_a, 'Blues',
-         f'RSI(n={cond_a[0]}, w={cond_a[1]}) — short period'),
-        (axes[1], sal_b, 'Reds',
-         f'RSI(n={cond_b[0]}, w={cond_b[1]}) — long period'),
-    ]:
-        im = ax.imshow(sal.T, aspect='auto', origin='lower',
-                       cmap=color, vmin=0, vmax=vmax_ab)
-        ax.set_xlabel('Lag (0 = most recent bar)')
-        ax.set_ylabel('Channel')
-        ax.set_yticks(range(F))
-        ax.set_yticklabels(chan_labels, fontsize=6)
-        ax.set_title(title)
-        fig.colorbar(im, ax=ax, label='|d rsi / d X| avg', fraction=0.025)
+    _plot_3panel_attention(
+        sal_a=sal_a, sal_b=sal_b,
+        label_a=f'RSI(n={cond_a[0]}, w={cond_a[1]}) — short period',
+        label_b=f'RSI(n={cond_b[0]}, w={cond_b[1]}) — long period',
+        chan_labels=chan_labels, F=F,
+        suptitle=(f'FiLM rsi-head input attention — {ticker}, K={K}, '
+                  f'{n_use} bars averaged\nbackbone: {npz_path.name}'),
+        out_path=output_dir / f'{ticker}-film-attention.png',
+        grad_label='|d rsi / d X| avg',
+        diff_title=(f'sal[(n={cond_a[0]},w={cond_a[1]})] − '
+                    f'sal[(n={cond_b[0]},w={cond_b[1]})]\n'
+                    f'blue = short dominates; red = long dominates'),
+        shared_vmax=True, normalize_diff=False,
+    )
+    return stats
 
-    diff = sal_a - sal_b
-    vlim = float(np.abs(diff).max()) or 1.0
-    im = axes[2].imshow(
-        diff.T, aspect='auto', origin='lower', cmap='seismic_r',
-        norm=mcolors.TwoSlopeNorm(vcenter=0.0, vmin=-vlim, vmax=vlim))
-    axes[2].set_xlabel('Lag (0 = most recent bar)')
-    axes[2].set_ylabel('Channel')
-    axes[2].set_yticks(range(F))
-    axes[2].set_yticklabels(chan_labels, fontsize=6)
-    axes[2].set_title(
-        f'sal[(n={cond_a[0]},w={cond_a[1]})] − '
-        f'sal[(n={cond_b[0]},w={cond_b[1]})]\n'
-        f'blue = short dominates; red = long dominates')
-    fig.colorbar(im, ax=axes[2], label='Δ saliency', fraction=0.025)
 
-    fig.suptitle(
-        f'FiLM rsi-head input attention — {ticker}, K={K}, '
-        f'{n_use} bars averaged\nbackbone: {npz_path.name}',
-        fontsize=11, fontweight='bold')
-    out = output_dir / f'{ticker}-film-attention.png'
-    fig.savefig(out, dpi=150, bbox_inches='tight')
-    plt.close(fig)
+def _uncond_attention(
+    *, npz_path: Path, ticker: str, output_dir: Path,
+    head_a: str = 'macd', head_b: str = 'vol',
+    n_bars: int = 200,
+) -> dict:
+    """Programmatic port of colab/attention_macd_vol.py.
+
+    Computes |d head / d X| averaged over `n_bars` bars for two
+    unconditioned heads (default macd vs vol) and renders a 3-panel
+    figure (head_a saliency, head_b saliency, normalized diff).
+
+    Question this answers: do macd and vol live on the same input
+    channels (e.g. both shortcut through `return` like rsi did), or do
+    they pull attention onto different parts of the bundle? vol is
+    naturally a 2nd-moment-of-returns quantity that the wavelet `power`
+    channels carry — if it's reading them, the indicator-shape bias
+    isn't universal.
+
+    Output: `{ticker}-uncond-attention.png` + JSON-serializable top-k
+    dict per head. tinygrad autograd matches the trainer framework.
+    """
+    import numpy as np
+    from tinygrad.tensor import Tensor
+
+    (data, meta, K, scales, _rsi_n_grid, _rsi_w_grid,
+     _n_max_grid, _w_max_grid) = _load_npz_meta(npz_path)
+
+    for h in (head_a, head_b):
+        if f'{h}__head_W' not in data.files:
+            print(f'  WARN: head {h!r} not in npz (targets={meta["targets"]});'
+                  f' skipping uncond attention plot')
+            return {'skipped': f'missing head {h!r}'}
+        cdk = f'{h}__head_cond_dim'
+        cd = int(data[cdk][0]) if cdk in data.files else 0
+        if cd != 0:
+            print(f'  WARN: head {h!r} has cond_dim={cd}; uncond attention '
+                  f'expects 0. Skipping.')
+            return {'skipped': f'head {h!r} is conditioned'}
+
+    feat_mu, feat_sd, conv_params = _tinygrad_backbone(data, ref=head_a)
+
+    def make_forward(target: str):
+        head_W = Tensor(np.asarray(data[f'{target}__head_W'],
+                                    dtype=np.float32), requires_grad=False)
+        head_b = Tensor(np.asarray(data[f'{target}__head_b'],
+                                    dtype=np.float32), requires_grad=False)
+        target_mu = float(data[f'{target}__target_mu'][0])
+        target_sd = float(data[f'{target}__target_sd'][0])
+
+        def forward(X):
+            Xn = (X - feat_mu) / feat_sd
+            h = Xn
+            for W, b in conv_params:
+                h = _conv1d_tg(h, W, b).relu()
+            latent = h.reshape(h.shape[0], -1)
+            yhat_std = (latent @ head_W + head_b).squeeze(-1)
+            return yhat_std * target_sd + target_mu
+
+        return forward
+
+    td = _load_eval_ticker(ticker, meta, scales)
+    F = td.features.shape[1] // K
+    X_all = td.features.reshape(-1, K, F).astype(np.float32)
+    valid_idx = np.where(td.valid)[0]
+    n_use = min(n_bars, len(valid_idx))
+    rng = np.random.default_rng(0)
+    sample_idx = rng.choice(valid_idx, size=n_use, replace=False)
+    X_batch = X_all[sample_idx]
+    print(f'  {ticker}: batched |grad| over {n_use} bars per head')
+
+    print(f'  computing {head_a} saliency...')
+    sal_a = _batched_saliency(make_forward(head_a), X_batch, K, F)
+    print(f'  computing {head_b} saliency...')
+    sal_b = _batched_saliency(make_forward(head_b), X_batch, K, F)
+
+    chan_labels = _channel_labels(meta, scales)
+    if len(chan_labels) != F:
+        raise RuntimeError(
+            f'channel-label count {len(chan_labels)} != F={F}')
+
+    stats = {
+        'head_a': head_a, 'head_b': head_b,
+        'n_bars': int(n_use),
+        f'{head_a}_topk': _topk_stats(sal_a, chan_labels, F),
+        f'{head_b}_topk': _topk_stats(sal_b, chan_labels, F),
+    }
+    for h, key in ((head_a, f'{head_a}_topk'), (head_b, f'{head_b}_topk')):
+        print(f'  top channels @ {h} (sum |grad| over lags):')
+        for r in stats[key]['top_channels'][:5]:
+            print(f"    ch {r['ch']:>2d} ({r['ch_label']:<14s})  "
+                  f"sum |grad|={r['sum_grad']:.3e}")
+
+    label_a = (f'{head_a} ({meta["macd_fast"]}, {meta["macd_slow"]}, '
+               f'{meta["macd_signal"]})') if head_a == 'macd' else head_a
+    label_b = (f'{head_b} ({meta.get("vol_window", 20)}-bar)'
+               if head_b == 'vol' else head_b)
+
+    _plot_3panel_attention(
+        sal_a=sal_a, sal_b=sal_b,
+        label_a=f'{label_a} — unconditioned head',
+        label_b=f'{label_b} — unconditioned head',
+        chan_labels=chan_labels, F=F,
+        suptitle=(f'{head_a} vs {head_b} input attention — {ticker}, K={K}, '
+                  f'{n_use} bars averaged\nbackbone: {npz_path.name}'),
+        out_path=output_dir / f'{ticker}-uncond-attention.png',
+        grad_label='|d head / d X| avg',
+        diff_title=(f'Normalized diff ({head_a} − {head_b})\n'
+                    f'blue = {head_a} dominates; red = {head_b} dominates'),
+        shared_vmax=False, normalize_diff=True,
+    )
     return stats
 
 
@@ -717,17 +960,29 @@ def main(
     train_extra: str = TRAIN_POOL_EXTRA,
     start: str = '2013-01-29',
     end: str = '2025-12-11',
-    sign_returns: bool = False,
+    bundle: str = 'full',
 ):
     """Fire the remote training run; write returned artifacts to Output/.
 
-    Pass `--sign-returns` to swap raw-magnitude `--include-returns` for
-    `--include-return-sign` ({-1,0,+1} only). Use this to test whether
-    the model can learn multi-indicator structure from the scalogram
-    *without* the lazy magnitude shortcut into RSI/MACD reconstruction.
+    `--bundle` selects the input channel mix and target set:
+
+      full       (default) zscore + raw-returns + CWT
+      full-sign            zscore + sign-returns + CWT
+      cwt-only             CWT only (purest scalogram-alone test)
+      cwt-sign             CWT + sign-returns (no price-level info)
+
+    Each non-`full` bundle's artifacts are written under a prefix
+    (`fullsign-`, `cwtonly-`, `cwtsign-`) so multiple bundles' results
+    coexist in Output/ without overwriting.
     """
-    variant = 'sign-returns' if sign_returns else 'raw-returns'
-    print(f'>>> ss-replay multi-head CNN on Modal T4  ({variant})')
+    if bundle not in BUNDLE_CONFIGS:
+        raise SystemExit(
+            f'unknown --bundle {bundle!r}; valid: {list(BUNDLE_CONFIGS)}')
+    cfg = BUNDLE_CONFIGS[bundle]
+    flags_summary = ' '.join(cfg['flags']) or '(no zscore, no returns)'
+    print(f'>>> ss-replay multi-head CNN on Modal T4  (bundle={bundle})')
+    print(f'    channels: {flags_summary}')
+    print(f'    targets:  {cfg["targets"]}')
     print(f'    steps={steps}  batch={cnn_batch_size}  '
           f'primary={primary}  val={val_ticker}  eval={eval_ticker}')
     print(f'    pool: {primary},{train_extra}')
@@ -740,7 +995,7 @@ def main(
         primary=primary,
         train_extra=train_extra,
         start=start, end=end,
-        sign_returns=sign_returns,
+        bundle=bundle,
     )
     LOCAL_OUTPUT_DIR.mkdir(exist_ok=True)
     print(f'\n=== Writing {len(artifacts)} artifacts to {LOCAL_OUTPUT_DIR} ===')
