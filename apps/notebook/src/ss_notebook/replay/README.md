@@ -177,11 +177,15 @@ projection directions. Two paths, in increasing cost / strictness:
    only spans 4 indicator families but spans all windows of each.
    Window-invariant within each family, not generic. Cheap — same
    trainer, more conditioning vectors threaded through.
-2. **SSL pretrain** (`fit_cnn_masked_ae`, written but not yet adopted
-   as the canonical pretrain stage). Loss = MSE on masked cells of the
-   bundle. Every output cell of the decoder backprops through the
-   backbone, forcing broad encoding instead of N-direction encoding.
-   No indicator-shaped bias at all. Strictly cleaner; more compute.
+2. **SSL pretrain** (`fit_cnn_masked_ae`, now wired as `--decoder
+   masked-ae` with `--mask-ratio` / `--ssl-decoder-hidden` /
+   `--ssl-decoder-layers`; Colab pipeline lives at
+   `apps/notebook/scripts/colab/train_ssl.sh` →
+   `probe_ssl.sh` → `ssl_ic_scorer.py`). Loss = MSE on masked
+   cells of the bundle. Every output cell of the decoder backprops
+   through the backbone, forcing broad encoding instead of
+   N-direction encoding. No indicator-shaped bias at all. Strictly
+   cleaner; more compute.
 
 ## CLI
 
@@ -260,9 +264,19 @@ affect downstream IC fitting.
   wants multi-horizon level prediction.
 - Optional: extend conditioning to Bollinger Bands `(period, k)`. Add
   a `bbands` target first.
-- **Adopt SSL pretrain (`fit_cnn_masked_ae`) as the canonical backbone
-  pretraining stage** if FiLM-all-heads still leaves indicator-shaped
-  bias the IC scorer can't penetrate. The implementation lives in
-  `decoders.py` already; needs a CLI hookup, mask-ratio sweep, and
-  probe protocol (frozen-backbone multi-head fit to read off per-
-  indicator R² as the diagnostic).
+- **Mask-ratio + decoder-capacity sweep for SSL.** `--decoder
+  masked-ae` is wired and the `train_ssl.sh` → `probe_ssl.sh` →
+  `ssl_ic_scorer.py` Colab loop is operational, but the first run
+  reported `train_mse_masked ≈ 0.89` (z-norm space) with masked vs
+  unmasked MSE barely differing — symptom of decoder under-capacity,
+  not future leakage. Current defaults (`--mask-ratio 0.25`,
+  `--ssl-decoder-hidden 1024`, `--cnn-steps 20000`) are the second-
+  attempt point; sweep mask_ratio ∈ {0.15, 0.25, 0.40} ×
+  decoder_hidden ∈ {512, 1024, 2048} and report frozen-probe
+  per-indicator R² + downstream IC.
+- **Decision**: if SSL probe R² lands ≥ 0.85 on RSI/MACD with
+  meaningful uplift on `ssl_ic_scorer` rank IC vs the
+  `identity_backbone` no-encoder baseline (`scripts/no_backbone_
+  baseline.py`), promote SSL to the canonical backbone-pretrain
+  stage in this README's pipeline diagram and demote the multi-head
+  supervised path to "diagnostic / lighter-weight alternative."

@@ -2,12 +2,13 @@
 
 A uv-workspace monorepo for trading-strategy research and live execution.
 
-- **`apps/regime/`** — JAX-Adam differentiable CWT-regime portfolio strategy + Alpaca live runner. `research/` subpackage holds bt-library backtests and Optuna walk-forward search.
+- **`apps/regime/`** — CWT-regime portfolio strategy. Optuna+vectorbt walk-forward search by default; JAX-Adam differentiable variant in `research/`. Persists JSON checkpoints, trades live via Alpaca.
 - **`apps/v1/`** — legacy single-ticker workflow (`Security` → `Span` → `Decider` → `Evaluator` → `Plot`) plus the aiohttp web service. Parked.
-- **`apps/notebook/`** — Jupyter notebooks (CWT-vision multi-head decoder, etc.).
-- **`packages/loaders/`** (`ss_loaders`) — Kaggle CSV matrix, Yahoo, CryptoCompare, symbol lists.
+- **`apps/notebook/`** — research notebooks **plus** runnable CLIs (`ss-scalogram`, `ss-scalogram-video`, `ss-replay`, `ss-replay-optuna`) and the `ss_notebook.scoring` subpackage (frozen-backbone IC head over the replay CNN). Colab scripts for SSL pretrain / frozen-backbone probe / IC scorer live in `apps/notebook/scripts/colab/`.
+- **`packages/loaders/`** (`ss_loaders`) — Stooq daily archive (default), Kaggle CSV matrix, Yahoo, CryptoCompare, symbol lists.
 - **`packages/indicators/`** (`ss_indicators`) — JAX matrix-form RSI/MACD/BBands/SMA/EMA, Corwin-Schultz spread, KL/JS/cosine/L2 divergences.
 - **`packages/wavelets/`** (`ss_wavelets`) — strictly-causal Ricker CWT + windowed power means.
+- **`packages/stream/`** (`ss_stream`) — point-in-time universe iterator over the Stooq archive (parquet event store with `active_at(date)` / `bars_between(...)`).
 - **`packages/portfolio/`** (`ss_portfolio`) — JAX block-Sharpe with costs, CAGR/drawdown/Sortino/Calmar, water-fill weight cap.
 - **`packages/plotting/`** (`ss_plotting`) — training curve, equity comparison, scalogram heatmap helpers.
 
@@ -73,11 +74,15 @@ The `[[tool.uv.dependency-metadata]]` override in the root `pyproject.toml` stri
 
 | Task | Command |
 |---|---|
-| Train regime model | `uv run regime train --data-dir ./Nasdaq3347 --save-params Output/m.json` |
+| Train regime model | `uv run regime train --data-dir ./StooqData --save-params Output/m.json` |
 | Live trade (paper) | `uv run regime live --params Output/m.json --dry-run` |
 | Live trade (real) | `ALPACA_BASE_URL=... uv run regime live --params Output/m.json --live` |
-| bt-library backtest | `uv run python -m regime.research.backtest_bt --data-dir ./Nasdaq3347` |
-| Optuna search | `uv run python -m regime.research.optimize_regime --data-dir ./Nasdaq3347` |
+| bt-library backtest | `uv run python -m regime.research.backtest_bt --data-dir ./StooqData` |
+| Optuna search (legacy) | `uv run python -m regime.research.optimize_regime --data-dir ./StooqData` |
+| Static scalogram figure | `uv run ss-scalogram --stooq-dir ./StooqData TSLA` |
+| Day-by-day scalogram mp4 | `uv run ss-scalogram-video --stooq-dir ./StooqData --start 2000-01-01 --start-after-lookback AAPL` |
+| Replay reconstruction probe | `uv run ss-replay AAPL --val-ticker TSLA --window-cols 64 --include-zscore-stats --decoder cnn` |
+| Stream ingest (parquet) | `uv run ss-stream ingest --src ./StooqData --dst ./Output/stream` |
 | v1 web service | `uv run python -m v1.scripts.webservice` |
 | All tests | `uv run pytest` |
 | Just package tests | `uv run pytest packages/` |
