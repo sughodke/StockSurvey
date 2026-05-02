@@ -14,57 +14,67 @@ is `(..., hidden_flat)` and the trailing dim is contracted away.
 """
 from __future__ import annotations
 
-import jax
-import jax.numpy as jnp
+import numpy as np
+
+from tinygrad.tensor import Tensor
 
 
-def init_linear(key: jax.Array, hidden_flat: int) -> dict[str, jax.Array]:
-    """He-init linear head — `W: (hidden_flat,)`, `b: ()`."""
-    W = jax.random.normal(
-        key, (hidden_flat,), dtype=jnp.float32) * (2.0 / hidden_flat) ** 0.5
-    return {'W': W, 'b': jnp.zeros((), dtype=jnp.float32)}
+def _he_normal(rng: np.random.Generator, shape: tuple[int, ...], fan_in: int) -> Tensor:
+    arr = rng.standard_normal(shape).astype(np.float32) * (2.0 / fan_in) ** 0.5
+    return Tensor(arr, requires_grad=True)
 
 
-def apply_linear(params: dict[str, jax.Array], X: jax.Array) -> jax.Array:
+def init_linear(rng: np.random.Generator, hidden_flat: int) -> dict[str, Tensor]:
+    """He-init linear head — `W: (hidden_flat,)`, `b: (1,)`.
+
+    `b` is shape `(1,)` rather than scalar because tinygrad's Adam
+    materializes per-parameter momentum buffers at the param's shape and
+    then assigns back; assigning a `(1,)` momentum into a `()` storage
+    fails with a broadcast-to-fewer-dimensions error. The extra unit
+    dim broadcasts cleanly inside `apply_linear`'s `X @ W + b`.
+    """
+    W = _he_normal(rng, (hidden_flat,), hidden_flat)
+    b = Tensor(np.zeros((1,), dtype=np.float32), requires_grad=True)
+    return {'W': W, 'b': b}
+
+
+def apply_linear(params: dict[str, Tensor], X: Tensor) -> Tensor:
     """`X` shape `(..., hidden_flat)` → scores shape `(...)`."""
-    return X @ params['W'] + params['b']
+    out = X @ params['W']
+    return out + params['b'].squeeze()
 
 
 def init_mlp(
-    key: jax.Array, hidden_flat: int, *,
+    rng: np.random.Generator, hidden_flat: int, *,
     hidden: int = 64, n_layers: int = 1,
-) -> dict[str, jax.Array]:
+) -> dict[str, Tensor]:
     """`n_layers` ReLU hidden blocks of width `hidden`, then a 1-d head.
 
-    Stored as flat `W{i}/b{i}` keys so the dict is a clean JAX pytree
-    and both `apply_mlp` and `optax.adam` see the same structure.
+    Stored as flat `W{i}/b{i}` keys so callers can treat the dict as a
+    flat parameter list (matches what tinygrad optimizers consume).
     """
     if n_layers < 1:
         raise ValueError(f'n_layers must be >= 1, got {n_layers}')
     sizes = [hidden_flat] + [hidden] * n_layers + [1]
-    params: dict[str, jax.Array] = {}
+    params: dict[str, Tensor] = {}
     for i, (fan_in, fan_out) in enumerate(zip(sizes[:-1], sizes[1:])):
-        key, sub = jax.random.split(key)
-        params[f'W{i}'] = jax.random.normal(
-            sub, (fan_in, fan_out),
-            dtype=jnp.float32) * (2.0 / fan_in) ** 0.5
-        params[f'b{i}'] = jnp.zeros(fan_out, dtype=jnp.float32)
+        params[f'W{i}'] = _he_normal(rng, (fan_in, fan_out), fan_in)
+        params[f'b{i}'] = Tensor(np.zeros(fan_out, dtype=np.float32),
+                                 requires_grad=True)
     return params
 
 
-def apply_mlp(params: dict[str, jax.Array], X: jax.Array) -> jax.Array:
+def apply_mlp(params: dict[str, Tensor], X: Tensor) -> Tensor:
     """`X` shape `(..., hidden_flat)` → scores shape `(...)`.
 
     Infers depth from the params dict — every `W{i}` key contributes a
-    layer, the highest `i` is the linear output. Dict structure is
-    static under jit (pytree shape is part of the trace key), so this
-    Python loop is fine.
+    layer, the highest `i` is the linear output.
     """
     n_W = sum(1 for k in params if k.startswith('W'))
     n_layers = n_W - 1
     h = X
     for i in range(n_layers):
-        h = jax.nn.relu(h @ params[f'W{i}'] + params[f'b{i}'])
+        h = (h @ params[f'W{i}'] + params[f'b{i}']).relu()
     h = h @ params[f'W{n_layers}'] + params[f'b{n_layers}']
     return h.squeeze(-1)
 

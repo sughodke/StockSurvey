@@ -1,29 +1,34 @@
-"""JAX-Adam training loop for the scoring head.
+"""Tinygrad-Adam training loop for the scoring head.
 
 Pipeline (all heavy work runs once up front, before the Adam loop):
   1. Align list[TickerData] to a common date axis -> AlignedTickers.
   2. Run the frozen backbone over every (date, ticker) feature row ->
-     `(D, N, hidden_flat)` representation tensor.
+     `(D, N, hidden_flat)` representation tensor (kept on host as numpy
+     so the head loop can stream Tensor minibatches without retaining
+     the full dataset in VRAM).
   3. Build forward log-returns and a liquid mask, subsample both to
      rebalance granularity.
   4. Split rebal bars into train / val by `train_frac`.
   5. Adam loop minimizing `-pearson_rank_ic` on train bars; track val
-     IC + val Sharpe (via `block_sharpe_with_costs`) every 5 steps.
+     IC + val Sharpe (via `block_sharpe`) every 5 steps.
 
 Sharpe is intentionally only an *evaluation* metric — `pearson_rank_ic`
 gives a per-rebalance dense gradient signal that converges much
 faster than direct Sharpe optimization.
+
+Stage 2 fine-tune drops the precomputed latent (it goes stale once the
+backbone unfreezes) and re-runs the encoder on raw features per step.
 """
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Callable
 
-import jax
-import jax.numpy as jnp
 import numpy as np
-import optax
 from tqdm import tqdm
+
+from tinygrad.tensor import Tensor
+from tinygrad import dtypes
+from tinygrad.nn.optim import AdamW
 
 from ss_notebook.replay.features import TickerData
 from ss_notebook.scoring.backbone import (
@@ -42,7 +47,7 @@ class TrainResult:
 
     Fields
     ------
-    params              : learned head params dict.
+    params              : learned head params dict (numpy arrays).
     scorer              : scorer kind ('linear' or 'mlp').
     train_history       : per-step train rank IC for Stage 1 (head only).
     val_history         : (step, val_ic, val_sharpe) tuples sampled every 5
@@ -58,13 +63,14 @@ class TrainResult:
     n_train_bars        : number of rebalance bars used for training.
     n_val_bars          : number of rebalance bars held out for val.
     aligned             : the AlignedTickers used (for inspection / replay).
-    backbone_params     : final backbone weights as a pytree dict (`feat_mu`,
-                          `feat_sd`, `conv`). Identical to the loaded backbone
-                          when fine-tuning is disabled, otherwise carries the
-                          updated `conv` weights from Stage 2.
+    backbone_params     : final backbone weights as a numpy-array pytree
+                          dict (`feat_mu`, `feat_sd`, `conv`). Identical
+                          to the loaded backbone when fine-tuning is
+                          disabled, otherwise carries the updated `conv`
+                          weights from Stage 2.
     """
 
-    params: dict[str, jax.Array]
+    params: dict[str, np.ndarray]
     scorer: str
     train_history: list[float]
     val_history: list[tuple[int, float, float]]
@@ -80,6 +86,10 @@ class TrainResult:
     backbone_params: dict
 
 
+def _params_to_numpy(p: dict[str, Tensor]) -> dict[str, np.ndarray]:
+    return {k: v.numpy() for k, v in p.items()}
+
+
 def precompute_inputs(
     tickers: list[TickerData], backbone: Backbone, *,
     rebal_days: int, max_spread: float | None = None,
@@ -87,9 +97,12 @@ def precompute_inputs(
 ) -> dict[str, np.ndarray]:
     """Run the frozen backbone over every (date, ticker) and prep tensors.
 
-    Returns a dict with `representation`, `fwd_ret`, `mask` (all
-    rebal-subsampled), plus the underlying `aligned` and `block_log_ret`
-    in *daily* form for downstream Sharpe eval.
+    Returns a dict with `representation_rb`, `fwd_ret_rb`, `mask_rb` (all
+    rebal-subsampled), plus the underlying `aligned` and
+    `block_log_ret_rb` for downstream Sharpe eval. All arrays are numpy
+    (host-side) — Stage 1 head training pulls Tensor minibatches each
+    step. This matches the JAX path's "run encoder once up front" trick
+    and keeps the backbone latent off the GPU.
 
     `spread`, if given, must be aligned to the same dates / tickers as
     the ticker list (caller's responsibility — we do not compute it
@@ -98,8 +111,17 @@ def precompute_inputs(
     aligned = align_tickers(tickers, K=backbone.K, F=backbone.F)
     D, N, K, F = aligned.features.shape
 
-    flat = aligned.features.reshape(D * N, K, F)
-    repr_flat = np.asarray(apply_backbone(backbone, jnp.asarray(flat)))
+    flat = aligned.features.reshape(D * N, K, F).astype(np.float32)
+    # Run encoder forward in numpy-out-numpy-in chunks so the latent
+    # never stays in VRAM between minibatches. Realize each chunk so the
+    # next chunk's allocation can reuse the buffer.
+    CHUNK = 8192
+    repr_chunks: list[np.ndarray] = []
+    Tensor.training = False
+    for s in range(0, flat.shape[0], CHUNK):
+        x = Tensor(flat[s:s + CHUNK])
+        repr_chunks.append(apply_backbone(backbone, x).numpy())
+    repr_flat = np.concatenate(repr_chunks, axis=0)
     repr_full = repr_flat.reshape(D, N, backbone.hidden_flat).astype(np.float32)
 
     fwd_ret = forward_log_returns(aligned.prices, rebal_days=rebal_days)
@@ -107,7 +129,8 @@ def precompute_inputs(
     log_p = np.log(np.maximum(aligned.prices, 1e-12))
     daily_log_ret[1:] = log_p[1:] - log_p[:-1]
 
-    base_mask = aligned.valid & np.isfinite(fwd_ret) & np.isfinite(repr_full).all(axis=-1)
+    base_mask = (aligned.valid & np.isfinite(fwd_ret)
+                 & np.isfinite(repr_full).all(axis=-1))
     if spread is not None:
         if spread.shape != aligned.prices.shape:
             raise ValueError(
@@ -169,17 +192,18 @@ def train_scorer(
     Two-stage training:
       * **Stage 1 (always runs)** — frozen backbone, head-only. The
         backbone forward pass runs once up front in `precompute_inputs`
-        and the cached representation tensor is reused every step. Cheap.
-        Loops for `n_steps` Adam updates at `learning_rate`. This gives
-        the head a good warm-start before any backbone weights move.
+        (latents materialized on host as numpy) and Tensor minibatches
+        of the cached representation are streamed to the head every
+        step. Cheap. Loops for `n_steps` Adam updates at
+        `learning_rate`.
       * **Stage 2 (optional)** — joint head + backbone. Only runs when
-        `finetune_steps > 0`. Backbone weights enter the gradient; per
-        step the backbone is re-applied to a minibatch of
-        `finetune_batch_bars` rebalance bars (re-running the backbone
-        every step is the cost of letting it learn). Backbone gets
-        `learning_rate * finetune_lr_scale` (default 0.1×) so the
-        pretrained features are nudged, not overwritten. Head and
-        log-temperature stay at full `learning_rate`.
+        `finetune_steps > 0`. The cached representation is dropped (it
+        goes stale once backbone weights move) and the backbone is
+        re-applied to a minibatch of `finetune_batch_bars` rebalance
+        bars per step. Backbone gets `learning_rate * finetune_lr_scale`
+        (default 0.1×) so the pretrained features are nudged, not
+        overwritten. Head and log-temperature stay at full
+        `learning_rate`.
 
     `feat_mu` / `feat_sd` (input z-norm) are *not* optimized in either
     stage — keeping them fixed means the backbone keeps seeing the same
@@ -194,19 +218,18 @@ def train_scorer(
     on params). The 5632-dim flattened latent → 1 linear head is wildly
     under-determined on a few hundred rebalance bars; without decay the
     head memorizes train-cell noise and val IC collapses to ~0. 1e-2 is
-    a reasonable starting point. Applied to both Stage 1 head and Stage
-    2 backbone — log_temperature gets decayed too but that's a benign
-    pull toward the init (softmax temp 1.0).
+    a reasonable starting point. log_temperature gets decayed too but
+    that's a benign pull toward the init (softmax temp 1.0).
     """
     pre = precompute_inputs(
         tickers, backbone, rebal_days=rebal_days,
         max_spread=max_spread, spread=spread)
-    repr_rb = jnp.asarray(pre['representation_rb'])
-    fwd_rb = jnp.asarray(pre['fwd_ret_rb'])
-    mask_rb = jnp.asarray(pre['mask_rb'])
-    blr_rb = jnp.asarray(pre['block_log_ret_rb'])
+    repr_rb_np = pre['representation_rb']
+    fwd_rb_np = pre['fwd_ret_rb']
+    mask_rb_np = pre['mask_rb']
+    blr_rb_np = pre['block_log_ret_rb']
 
-    n_blocks = repr_rb.shape[0]
+    n_blocks = repr_rb_np.shape[0]
     n_train = int(train_frac * n_blocks)
     if n_train < 2 or n_blocks - n_train < 2:
         raise ValueError(
@@ -216,239 +239,194 @@ def train_scorer(
     val_slc = slice(n_train, n_blocks)
 
     init_fn, apply_fn = get_scorer(scorer)
-    key = jax.random.PRNGKey(seed)
+    rng = np.random.default_rng(seed)
     if scorer == 'mlp':
         head_params = init_fn(
-            key, backbone.hidden_flat, hidden=mlp_hidden, n_layers=mlp_layers)
+            rng, backbone.hidden_flat, hidden=mlp_hidden, n_layers=mlp_layers)
     else:
-        head_params = init_fn(key, backbone.hidden_flat)
+        head_params = init_fn(rng, backbone.hidden_flat)
 
-    params: dict = {
-        'head': head_params,
-        'log_temperature': jnp.asarray(init_log_temperature, dtype=jnp.float32),
-    }
-    commission_frac = commission_bps / 1e4
+    # `log_temperature` only affects the Sharpe eval (the IC objective is
+    # scale-invariant) — its gradient is identically zero either way.
+    # The original JAX version put it in optax's state when
+    # `train_temperature=True`, but the IC loss never produced a non-zero
+    # update for it (Adam state only moved through weight_decay). Keeping
+    # it out of the tinygrad optimizer gives the same observable result
+    # without the bookkeeping. `train_temperature` stays as a no-op kwarg
+    # for caller compatibility.
+    _ = train_temperature
+    log_temperature = Tensor(np.array(init_log_temperature, dtype=np.float32),
+                             requires_grad=False)
 
     # ----- Stage 1: frozen backbone, head-only Adam loop. -----
-    def _scores(params, repr_slc):
-        return apply_fn(params['head'], repr_slc)
+    head_param_list = list(head_params.values())
+    opt = AdamW(head_param_list, lr=learning_rate, weight_decay=weight_decay)
 
-    def _ic(params, slc):
-        s = _scores(params, repr_rb[slc])
-        return pearson_rank_ic(s, fwd_rb[slc], mask_rb[slc])
+    def _scores_from_repr(repr_t: Tensor) -> Tensor:
+        return apply_fn(head_params, repr_t)
 
-    def _sharpe(params, slc):
-        s = _scores(params, repr_rb[slc])
-        return block_sharpe(
-            s, params['log_temperature'],
-            blr_rb[slc], mask_rb[slc], rebal_days, commission_frac)
+    def _eval_ic(slc: slice) -> float:
+        Tensor.training = False
+        repr_t = Tensor(repr_rb_np[slc])
+        s = _scores_from_repr(repr_t)
+        ic = pearson_rank_ic(s, Tensor(fwd_rb_np[slc]),
+                             Tensor(mask_rb_np[slc]))
+        return float(ic.item())
 
-    def _train_neg(p):
-        return -_ic(p, train_slc)
-
-    value_and_grad = jax.jit(jax.value_and_grad(_train_neg))
-    val_ic_fn = jax.jit(lambda p: _ic(p, val_slc))
-    val_sharpe_fn = jax.jit(lambda p: _sharpe(p, val_slc))
-    train_sharpe_fn = jax.jit(lambda p: _sharpe(p, train_slc))
-
-    if not train_temperature:
-        labels = jax.tree_util.tree_map(lambda _: 'head', params['head'])
-        labels = {'head': labels, 'log_temperature': 'frozen'}
-        optimizer = optax.multi_transform(
-            {'head': optax.adamw(learning_rate, weight_decay=weight_decay),
-             'frozen': optax.set_to_zero()},
-            labels,
-        )
-    else:
-        optimizer = optax.adamw(learning_rate, weight_decay=weight_decay)
-    opt_state = optimizer.init(params)
+    def _eval_sharpe(slc: slice) -> float:
+        Tensor.training = False
+        repr_t = Tensor(repr_rb_np[slc])
+        s = _scores_from_repr(repr_t)
+        sh = block_sharpe(s, log_temperature, Tensor(blr_rb_np[slc]),
+                          Tensor(mask_rb_np[slc]),
+                          rebal_days, commission_bps / 1e4)
+        return float(sh.item())
 
     if verbose:
-        n_params = sum(int(np.prod(v.shape))
-                       for v in jax.tree_util.tree_leaves(head_params))
+        n_params = sum(int(np.prod(v.shape)) for v in head_param_list)
         print(f'Backbone hidden_flat={backbone.hidden_flat}  '
               f'(K_post={backbone.K_post} x hidden={backbone.hidden})')
         print(f'Head: {scorer}  ({n_params} params)')
         print(f'Rebalance blocks: {n_blocks}  '
               f'(train: {n_train}, val: {n_blocks - n_train})')
-        init_loss, _ = value_and_grad(params)
-        print(f'  Initial   train IC: {-float(init_loss):+.4f}   '
-              f'val IC: {float(val_ic_fn(params)):+.4f}   '
-              f'val Sharpe: {float(val_sharpe_fn(params)):+.3f}')
+        init_ic = _eval_ic(train_slc)
+        print(f'  Initial   train IC: {init_ic:+.4f}   '
+              f'val IC: {_eval_ic(val_slc):+.4f}   '
+              f'val Sharpe: {_eval_sharpe(val_slc):+.3f}')
 
     train_hist: list[float] = []
     val_hist: list[tuple[int, float, float]] = []
     pbar = tqdm(range(n_steps), desc=f'rank-IC ({scorer}) stage1',
                 unit='step', disable=not verbose)
+    repr_train_t = Tensor(repr_rb_np[train_slc])
+    fwd_train_t = Tensor(fwd_rb_np[train_slc])
+    mask_train_t = Tensor(mask_rb_np[train_slc])
     for step in pbar:
-        loss, grads = value_and_grad(params)
-        updates, opt_state = optimizer.update(grads, opt_state, params)
-        params = optax.apply_updates(params, updates)
-        train_hist.append(-float(loss))
+        Tensor.training = True
+        opt.zero_grad()
+        s = _scores_from_repr(repr_train_t)
+        loss = -pearson_rank_ic(s, fwd_train_t, mask_train_t)
+        loss.backward()
+        opt.step()
+        train_ic_val = -float(loss.item())
+        train_hist.append(train_ic_val)
         if step % 5 == 0 or step == n_steps - 1:
-            vi = float(val_ic_fn(params))
-            vs = float(val_sharpe_fn(params))
+            vi = _eval_ic(val_slc)
+            vs = _eval_sharpe(val_slc)
             val_hist.append((step, vi, vs))
             pbar.set_postfix(
-                tr_ic=f'{train_hist[-1]:+.3f}',
+                tr_ic=f'{train_ic_val:+.3f}',
                 val_ic=f'{vi:+.3f}', val_sh=f'{vs:+.2f}')
 
+    # Pull final head params off device for the result.
+    head_params_np = _params_to_numpy(head_params)
+
     # ----- Stage 2: optional joint head + backbone fine-tune. -----
-    bb_pytree = backbone_to_pytree(backbone)
-    feat_mu = bb_pytree['feat_mu']            # held constant; not in opt
-    feat_sd = bb_pytree['feat_sd']
+    bb_pytree = backbone_to_pytree(backbone)   # tinygrad Tensors
     finetune_hist: list[float] = []
     finetune_val_hist: list[tuple[int, float, float]] = []
     if finetune_steps > 0:
-        # Pull rebalance-bar features out of the aligned tensor on demand —
-        # we never materialize the full (n_blocks, N, K, F) tensor on
-        # device, only minibatches.
+        # Drop the precomputed latents — they're stale the moment the
+        # backbone moves. Rebuild from raw aligned features per step.
+        del repr_train_t   # release VRAM hold on stage-1 cache
         aligned = pre['aligned']
         rebal_idx = pre['rebal_idx']
-        # `feat_rb`: (n_blocks, N, K, F). Lives on host; the per-batch slice
-        # is jnp.asarray'd inside the loop. `nan_to_num` mirrors what
-        # `precompute_inputs` does to the cached representation tensor —
-        # warmup-row NaNs survive `aligned.features` and would propagate
-        # through the backbone into the loss + gradient on first step.
-        # The mask filters them out of the IC sum; this just keeps the
-        # forward numerically clean.
         feat_rb = np.nan_to_num(aligned.features[rebal_idx],
                                 nan=0.0).astype(np.float32)
         K = backbone.K
         F = backbone.F
         N = aligned.features.shape[1]
 
-        # Optimizer for joint fine-tune. Adam state is fresh — Stage 2 is
-        # a different objective surface (jointly over backbone + head) so
-        # we don't carry Stage-1 momentum across.
-        #
-        # Both head and backbone use `learning_rate * finetune_lr_scale`.
-        # The head was already trained to its Stage-1 optimum and now
-        # needs to *track* the slowly-moving backbone — a full-rate Adam
-        # on the head will dominate the gradient and stomp on the
-        # backbone's adjustments. log_temperature is frozen during
-        # fine-tune (its Stage-1 value is used for Sharpe eval only).
-        #
-        # Global-norm gradient clipping at 1.0 protects against the
-        # noisy per-bar IC signal — minibatches over a small number of
-        # rebalance bars give a high-variance gradient that can otherwise
-        # blow up Adam's first-moment estimate within a few steps.
-        ft_lr = learning_rate * finetune_lr_scale
-        ft_params = {
-            'head': params['head'],
-            'log_temperature': params['log_temperature'],
-            'backbone_conv': bb_pytree['conv'],
-        }
-        labels = {
-            'head': jax.tree_util.tree_map(lambda _: 'trainable',
-                                           ft_params['head']),
-            'log_temperature': 'frozen',
-            'backbone_conv': jax.tree_util.tree_map(
-                lambda _: 'trainable', ft_params['backbone_conv']),
-        }
-        ft_optimizer = optax.multi_transform(
-            {'trainable': optax.chain(
-                optax.clip_by_global_norm(1.0),
-                optax.adamw(ft_lr, weight_decay=weight_decay)),
-             'frozen': optax.set_to_zero()},
-            labels,
-        )
-        ft_opt_state = ft_optimizer.init(ft_params)
+        # Stage-2 optimizer: backbone at scaled LR, head at full LR.
+        # Tinygrad doesn't have optax.multi_transform, so we run two
+        # optimizers and `step()` both per training iteration.
+        ft_lr_bb = learning_rate * finetune_lr_scale
+        bb_conv_params: list[Tensor] = []
+        for layer in bb_pytree['conv']:
+            bb_conv_params.extend([layer['W'], layer['b']])
+        opt_bb = AdamW(bb_conv_params, lr=ft_lr_bb, weight_decay=weight_decay)
+        opt_head = AdamW(head_param_list, lr=learning_rate,
+                         weight_decay=weight_decay)
 
-        def _ft_forward(ft_p, X_batch):
-            """X_batch: (B, N, K, F). Returns scores (B, N)."""
-            B = X_batch.shape[0]
-            flat = X_batch.reshape(B * N, K, F)
-            bb = {'feat_mu': feat_mu, 'feat_sd': feat_sd,
-                  'conv': ft_p['backbone_conv']}
-            repr_flat = apply_backbone_pytree(bb, flat)
-            repr_b = repr_flat.reshape(B, N, backbone.hidden_flat)
-            return apply_fn(ft_p['head'], repr_b)
+        if verbose:
+            n_bb_params = sum(int(np.prod(t.shape)) for t in bb_conv_params)
+            print(f'  Stage 2 fine-tune: backbone ({n_bb_params} params) '
+                  f'unfrozen at lr={ft_lr_bb:.1e}, '
+                  f'head at lr={learning_rate:.1e}, '
+                  f'batch={finetune_batch_bars} bars / step')
 
-        def _ft_train_neg(ft_p, X_batch, fwd_batch, mask_batch):
-            scores = _ft_forward(ft_p, X_batch)
-            return -pearson_rank_ic(scores, fwd_batch, mask_batch)
-
-        ft_value_and_grad = jax.jit(jax.value_and_grad(_ft_train_neg))
-
-        # Eval helper: arrays in, scalars out — `slice` objects don't
-        # cross the jit boundary, callers materialize the slice before
-        # invoking. Re-runs the (now-trained) backbone over the slice in
-        # one shot — the val window is small enough not to need batching.
-        @jax.jit
-        def _ft_eval_arrays(ft_p, X, fwd, mask, blr):
-            scores = _ft_forward(ft_p, X)
-            ic = pearson_rank_ic(scores, fwd, mask)
-            sharpe = block_sharpe(
-                scores, ft_p['log_temperature'],
-                blr, mask, rebal_days, commission_frac)
-            return ic, sharpe
-
-        def ft_eval_jit(ft_p, slc):
-            return _ft_eval_arrays(
-                ft_p, jnp.asarray(feat_rb[slc]),
-                fwd_rb[slc], mask_rb[slc], blr_rb[slc])
-
-        rng = np.random.default_rng(seed + 1)
+        rng2 = np.random.default_rng(seed + 1)
         train_bars = np.arange(n_train, dtype=np.int64)
         if finetune_batch_bars > n_train:
             finetune_batch_bars = n_train
-        if verbose:
-            n_bb_params = sum(int(np.prod(v['W'].shape) + np.prod(v['b'].shape))
-                              for v in ft_params['backbone_conv'])
-            print(f'  Stage 2 fine-tune: backbone ({n_bb_params} params) '
-                  f'unfrozen at lr={learning_rate * finetune_lr_scale:.1e}, '
-                  f'head/temp at lr={learning_rate:.1e}, '
-                  f'batch={finetune_batch_bars} bars / step')
+
+        def _ft_forward(X_batch: Tensor) -> Tensor:
+            B = X_batch.shape[0]
+            flat = X_batch.reshape(B * N, K, F)
+            repr_flat = apply_backbone_pytree(bb_pytree, flat)
+            repr_b = repr_flat.reshape(B, N, backbone.hidden_flat)
+            return apply_fn(head_params, repr_b)
+
+        def _ft_eval_ic(slc: slice) -> float:
+            Tensor.training = False
+            X = Tensor(feat_rb[slc])
+            s = _ft_forward(X)
+            return float(pearson_rank_ic(
+                s, Tensor(fwd_rb_np[slc]), Tensor(mask_rb_np[slc])).item())
+
+        def _ft_eval_sharpe(slc: slice) -> float:
+            Tensor.training = False
+            X = Tensor(feat_rb[slc])
+            s = _ft_forward(X)
+            return float(block_sharpe(
+                s, log_temperature, Tensor(blr_rb_np[slc]),
+                Tensor(mask_rb_np[slc]),
+                rebal_days, commission_bps / 1e4).item())
+
         pbar2 = tqdm(range(finetune_steps),
                      desc=f'rank-IC ({scorer}) stage2',
                      unit='step', disable=not verbose)
         for step in pbar2:
-            sel = rng.choice(train_bars, size=finetune_batch_bars,
-                             replace=False)
-            Xb = jnp.asarray(feat_rb[sel])
-            fb = fwd_rb[sel]
-            mb = mask_rb[sel]
-            loss, grads = ft_value_and_grad(ft_params, Xb, fb, mb)
-            updates, ft_opt_state = ft_optimizer.update(
-                grads, ft_opt_state, ft_params)
-            ft_params = optax.apply_updates(ft_params, updates)
-            finetune_hist.append(-float(loss))
+            sel = rng2.choice(train_bars, size=finetune_batch_bars,
+                              replace=False)
+            Tensor.training = True
+            opt_bb.zero_grad()
+            opt_head.zero_grad()
+            Xb = Tensor(feat_rb[sel])
+            s = _ft_forward(Xb)
+            loss = -pearson_rank_ic(s, Tensor(fwd_rb_np[sel]),
+                                    Tensor(mask_rb_np[sel]))
+            loss.backward()
+            # Global-norm grad clipping at 1.0 — IC over a small batch is
+            # high-variance and Adam's first-moment will blow up otherwise.
+            _clip_grads_global_norm(bb_conv_params + head_param_list, 1.0)
+            opt_bb.step()
+            opt_head.step()
+            tic = -float(loss.item())
+            finetune_hist.append(tic)
             if step % 5 == 0 or step == finetune_steps - 1:
-                vi, vs = ft_eval_jit(ft_params, val_slc)
-                finetune_val_hist.append(
-                    (step, float(vi), float(vs)))
+                vi = _ft_eval_ic(val_slc)
+                vs = _ft_eval_sharpe(val_slc)
+                finetune_val_hist.append((step, vi, vs))
                 pbar2.set_postfix(
-                    tr_ic=f'{finetune_hist[-1]:+.3f}',
-                    val_ic=f'{float(vi):+.3f}',
-                    val_sh=f'{float(vs):+.2f}')
+                    tr_ic=f'{tic:+.3f}',
+                    val_ic=f'{vi:+.3f}', val_sh=f'{vs:+.2f}')
 
-        # Sync `params` with the fine-tuned head/temperature; pull the
-        # updated backbone conv weights back into the pytree.
-        params = {
-            'head': ft_params['head'],
-            'log_temperature': ft_params['log_temperature'],
-        }
-        bb_pytree = {**bb_pytree, 'conv': ft_params['backbone_conv']}
+        # Sync `head_params_np` with the fine-tuned head; pull updated
+        # backbone conv weights back into the pytree.
+        head_params_np = _params_to_numpy(head_params)
 
-    # ----- Final eval — must use the fine-tuned backbone if Stage 2 ran. -----
+    # ----- Final eval -----
     if finetune_steps > 0:
-        ft_params_final = {
-            'head': params['head'],
-            'log_temperature': params['log_temperature'],
-            'backbone_conv': bb_pytree['conv'],
-        }
-        train_ic_jax, train_sharpe_jax = ft_eval_jit(ft_params_final, train_slc)
-        val_ic_jax, val_sharpe_jax = ft_eval_jit(ft_params_final, val_slc)
-        final_train_ic = float(train_ic_jax)
-        final_train_sharpe = float(train_sharpe_jax)
-        final_val_ic = float(val_ic_jax)
-        final_val_sharpe = float(val_sharpe_jax)
+        final_train_ic = _ft_eval_ic(train_slc)
+        final_val_ic = _ft_eval_ic(val_slc)
+        final_train_sharpe = _ft_eval_sharpe(train_slc)
+        final_val_sharpe = _ft_eval_sharpe(val_slc)
     else:
-        final_train_ic = float(train_hist[-1])
-        final_val_ic = float(val_ic_fn(params))
-        final_train_sharpe = float(train_sharpe_fn(params))
-        final_val_sharpe = float(val_sharpe_fn(params))
+        final_train_ic = float(train_hist[-1]) if train_hist else 0.0
+        final_val_ic = _eval_ic(val_slc)
+        final_train_sharpe = _eval_sharpe(train_slc)
+        final_val_sharpe = _eval_sharpe(val_slc)
 
     if verbose:
         print(f'  Final     train IC: {final_train_ic:+.4f}   '
@@ -456,8 +434,16 @@ def train_scorer(
         print(f'            train Sharpe: {final_train_sharpe:+.3f}   '
               f'val Sharpe: {final_val_sharpe:+.3f}')
 
+    # Backbone params back to numpy for the result.
+    bb_out = {
+        'feat_mu': bb_pytree['feat_mu'].numpy(),
+        'feat_sd': bb_pytree['feat_sd'].numpy(),
+        'conv': [{'W': layer['W'].numpy(), 'b': layer['b'].numpy()}
+                 for layer in bb_pytree['conv']],
+    }
+
     return TrainResult(
-        params=params,
+        params=head_params_np,
         scorer=scorer,
         train_history=train_hist,
         val_history=val_hist,
@@ -470,13 +456,30 @@ def train_scorer(
         n_train_bars=n_train,
         n_val_bars=n_blocks - n_train,
         aligned=pre['aligned'],
-        backbone_params=bb_pytree,
+        backbone_params=bb_out,
     )
+
+
+def _clip_grads_global_norm(params: list[Tensor], max_norm: float) -> None:
+    """In-place global-norm gradient clip across `params`'s `.grad`s.
+
+    Only clips tensors that have a non-None `.grad`. Realizes the
+    scaling factor first so the subsequent grad mutations don't grow a
+    massive lazy graph across hundreds of params.
+    """
+    grads = [p.grad for p in params if p.grad is not None]
+    if not grads:
+        return
+    total_sq = sum((g * g).sum() for g in grads)
+    total_norm = total_sq.sqrt().realize()
+    scale = (Tensor([max_norm]) / total_norm.maximum(max_norm)).realize()
+    for g in grads:
+        g.assign(g * scale)
 
 
 def predict(
     aligned: AlignedTickers, backbone: Backbone,
-    head_params: dict[str, jax.Array], *,
+    head_params: dict[str, np.ndarray], *,
     scorer: str = 'linear',
 ) -> np.ndarray:
     """Apply backbone + scoring head over an `AlignedTickers` block.
@@ -487,9 +490,18 @@ def predict(
     """
     _, apply_fn = get_scorer(scorer)
     D, N, K, F = aligned.features.shape
-    flat = aligned.features.reshape(D * N, K, F)
-    repr_flat = np.asarray(apply_backbone(backbone, jnp.asarray(flat)))
+
+    # Wrap head_params (numpy) into Tensors for the apply_fn call.
+    head_t = {k: Tensor(v) for k, v in head_params.items()}
+
+    Tensor.training = False
+    flat = aligned.features.reshape(D * N, K, F).astype(np.float32)
+    CHUNK = 8192
+    repr_chunks: list[np.ndarray] = []
+    for s in range(0, flat.shape[0], CHUNK):
+        repr_chunks.append(apply_backbone(backbone, Tensor(flat[s:s + CHUNK])).numpy())
+    repr_flat = np.concatenate(repr_chunks, axis=0)
     repr_full = repr_flat.reshape(D, N, backbone.hidden_flat)
-    scores = np.asarray(apply_fn(head_params, jnp.asarray(repr_full)))
+    scores = apply_fn(head_t, Tensor(repr_full)).numpy()
     finite = np.isfinite(repr_full).all(axis=-1)
     return np.where(finite, scores, np.nan).astype(np.float64)

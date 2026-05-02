@@ -7,7 +7,7 @@ the shared backbone weights duplicated under that target's prefix
 `{target}__conv{i}_b`, plus the per-target head + target standardizer).
 
 For scoring we keep only the backbone (`feat_mu/sd` + `conv{i}_W/b`)
-and drop the per-target head/target_mu/sd. The result is a frozen JAX
+and drop the per-target head/target_mu/sd. The result is a frozen
 forward function that maps `(n_samples, K, F)` → `(n_samples, K_post *
 hidden)`, exactly the input the per-target head saw inside the replay
 trainer.
@@ -15,6 +15,11 @@ trainer.
 `load_backbone` also returns the metadata blob so callers can rebuild
 the input feature stack with matching scales / window_cols /
 include_zscore_stats / include_returns / lookback / rsi_n / etc.
+
+Backbone weights live as numpy arrays in the dataclass — they're
+materialized as `Tensor` only at forward time (so callers can hold
+many backbones cheaply, and pretrain npz layout stays the source of
+truth).
 """
 from __future__ import annotations
 
@@ -22,17 +27,23 @@ import json
 from dataclasses import dataclass
 from pathlib import Path
 
-import jax
-import jax.numpy as jnp
 import numpy as np
+
+from tinygrad.tensor import Tensor
+from tinygrad import dtypes
 
 
 @dataclass(frozen=True)
 class Backbone:
-    """Frozen conv-backbone weights extracted from a replay multi-head npz."""
-    feat_mu: jax.Array            # (1, K, F) input z-norm mean
-    feat_sd: jax.Array            # (1, K, F) input z-norm std
-    conv_params: tuple[tuple[jax.Array, jax.Array], ...]   # ((W, b), ...)
+    """Frozen conv-backbone weights extracted from a replay multi-head npz.
+
+    Fields are numpy arrays for portability — wrap in `Tensor` at
+    forward call sites. The conv weight layout matches the JAX trainer:
+    `(kernel, in_c, out_c)` ('HIO').
+    """
+    feat_mu: np.ndarray            # (1, K, F) input z-norm mean
+    feat_sd: np.ndarray            # (1, K, F) input z-norm std
+    conv_params: tuple[tuple[np.ndarray, np.ndarray], ...]   # ((W, b), ...)
     K: int                        # window_cols (input lag count)
     F: int                        # channels per lag
     hidden: int                   # conv channel count
@@ -81,12 +92,13 @@ def load_backbone(npz_path: str | Path) -> tuple[Backbone, dict]:
                     f'{npz_path}: backbone tensor {unprefixed!r} differs '
                     f'between prefixes {base!r} and {p!r}')
 
-    feat_mu = base_arrays['feat_mu']
-    feat_sd = base_arrays['feat_sd']
+    feat_mu = np.asarray(base_arrays['feat_mu'], dtype=np.float32)
+    feat_sd = np.asarray(base_arrays['feat_sd'], dtype=np.float32)
     conv_W_keys = sorted(k for k in base_arrays
                          if k.startswith('conv') and k.endswith('_W'))
     conv_params = tuple(
-        (jnp.asarray(base_arrays[kw]), jnp.asarray(base_arrays[kw[:-2] + '_b']))
+        (np.asarray(base_arrays[kw], dtype=np.float32),
+         np.asarray(base_arrays[kw[:-2] + '_b'], dtype=np.float32))
         for kw in conv_W_keys
     )
 
@@ -105,8 +117,8 @@ def load_backbone(npz_path: str | Path) -> tuple[Backbone, dict]:
 
     return (
         Backbone(
-            feat_mu=jnp.asarray(feat_mu),
-            feat_sd=jnp.asarray(feat_sd),
+            feat_mu=feat_mu,
+            feat_sd=feat_sd,
             conv_params=conv_params,
             K=K, F=F, hidden=hidden, K_post=K_post,
             kernel=kernel, n_layers=n_layers,
@@ -132,13 +144,13 @@ def identity_backbone(
     input — Adam trains more cleanly when feature scales are matched.
     """
     if feat_mu is None:
-        mu = jnp.zeros((1, K, F), dtype=jnp.float32)
+        mu = np.zeros((1, K, F), dtype=np.float32)
     else:
-        mu = jnp.asarray(feat_mu, dtype=jnp.float32).reshape(1, K, F)
+        mu = np.asarray(feat_mu, dtype=np.float32).reshape(1, K, F)
     if feat_sd is None:
-        sd = jnp.ones((1, K, F), dtype=jnp.float32)
+        sd = np.ones((1, K, F), dtype=np.float32)
     else:
-        sd = jnp.asarray(feat_sd, dtype=jnp.float32).reshape(1, K, F)
+        sd = np.asarray(feat_sd, dtype=np.float32).reshape(1, K, F)
     return Backbone(
         feat_mu=mu,
         feat_sd=sd,
@@ -175,54 +187,69 @@ def compute_input_stats(
     return mu, sd
 
 
-def _conv1d(x: jax.Array, W: jax.Array, b: jax.Array) -> jax.Array:
-    return jax.lax.conv_general_dilated(
-        x, W,
-        window_strides=(1,),
-        padding='VALID',
-        dimension_numbers=('NHC', 'HIO', 'NHC'),
-    ) + b
+def _conv1d(x: Tensor, W: Tensor, b: Tensor) -> Tensor:
+    """`x` is `(B, L, Cin)` (NHC), `W` is `(kernel, Cin, Cout)` (HIO).
+
+    Tinygrad's `Tensor.conv2d` expects `(B, Cin, ...)`, so we transpose
+    in/out and reshape weights to `(Cout, Cin, kernel)` to match.
+    """
+    x_bcl = x.permute(0, 2, 1)                     # (B, Cin, L)
+    W_oik = W.permute(2, 1, 0)                     # (Cout, Cin, kernel)
+    y_bcl = x_bcl.conv2d(W_oik)                    # (B, Cout, L_post)
+    return y_bcl.permute(0, 2, 1) + b              # (B, L_post, Cout)
 
 
-def apply_backbone(bb: Backbone, X: jax.Array) -> jax.Array:
+def apply_backbone(bb: Backbone, X: Tensor) -> Tensor:
     """Run the frozen backbone over `X` of shape `(n, K, F)`.
 
     Mirrors `fit_cnn_multihead`'s internal forward pass: input z-norm,
-    n_layers of (Conv1D + ReLU) with VALID padding, then flatten the
+    `n_layers` of (Conv1D + ReLU) with VALID padding, then flatten the
     `(K_post, hidden)` activations into a single `K_post * hidden` row.
+
+    Convolutional weights are wrapped fresh on each call — this is the
+    frozen-inference path, so wrap-cost is amortized over a batch and we
+    don't need to keep parameters as Tensors (save VRAM headroom for
+    callers that hold many backbones).
     """
-    h = (X - bb.feat_mu) / bb.feat_sd
-    for W, b in bb.conv_params:
-        h = jax.nn.relu(_conv1d(h, W, b))
+    feat_mu = Tensor(bb.feat_mu)
+    feat_sd = Tensor(bb.feat_sd)
+    h = (X - feat_mu) / feat_sd
+    for W_np, b_np in bb.conv_params:
+        W = Tensor(W_np)
+        b = Tensor(b_np)
+        h = _conv1d(h, W, b).relu()
     return h.reshape(h.shape[0], -1)
 
 
 def backbone_to_pytree(bb: Backbone) -> dict:
-    """Pack a `Backbone` into a JAX-trackable pytree of arrays.
+    """Pack a `Backbone` into a tinygrad-trainable pytree of `Tensor`s.
 
     Used by the fine-tuning path in `scoring.train` so the optimizer
-    can update backbone weights through `jax.value_and_grad`. Layout:
+    can update backbone weights through `loss.backward()`. Layout:
       - `'feat_mu'`, `'feat_sd'`: input z-norm, NOT optimized (kept
         fixed across fine-tuning so the backbone keeps seeing inputs
         with the same distribution it was pretrained on).
       - `'conv'`: list of `{'W', 'b'}` dicts, one per conv layer.
-    Treat `feat_mu/sd` as constants (mask them out of the optimizer).
+        Each tensor has `requires_grad=True` so they enter the
+        optimizer's parameter list.
     """
     return {
-        'feat_mu': bb.feat_mu,
-        'feat_sd': bb.feat_sd,
-        'conv': [{'W': W, 'b': b} for W, b in bb.conv_params],
+        'feat_mu': Tensor(bb.feat_mu, requires_grad=False),
+        'feat_sd': Tensor(bb.feat_sd, requires_grad=False),
+        'conv': [{'W': Tensor(W, requires_grad=True),
+                  'b': Tensor(b, requires_grad=True)}
+                 for W, b in bb.conv_params],
     }
 
 
-def apply_backbone_pytree(bb_params: dict, X: jax.Array) -> jax.Array:
+def apply_backbone_pytree(bb_params: dict, X: Tensor) -> Tensor:
     """Differentiable backbone forward over `X` of shape `(n, K, F)`.
 
     Same forward as `apply_backbone` but reads weights from a pytree
-    dict so JAX can take gradients w.r.t. them. Returns a flattened
+    dict so tinygrad autograd flows back into them. Returns a flattened
     `(n, K_post * hidden)` representation matrix.
     """
     h = (X - bb_params['feat_mu']) / bb_params['feat_sd']
     for layer in bb_params['conv']:
-        h = jax.nn.relu(_conv1d(h, layer['W'], layer['b']))
+        h = _conv1d(h, layer['W'], layer['b']).relu()
     return h.reshape(h.shape[0], -1)
