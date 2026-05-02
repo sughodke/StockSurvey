@@ -6,17 +6,17 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 StockSurvey is a uv-workspace monorepo containing trading-strategy research and live execution. Layout:
 
-- `apps/regime/`   — CWT-regime portfolio strategy. Optuna+vectorbt walk-forward search by default; `research/optimize_adam.py` is the JAX-Adam differentiable variant. Persists a JSON checkpoint, trades live via Alpaca. Active development.
-- `apps/v1/`       — legacy single-ticker workflow (`Security` → `Span` → `Decider` → `Evaluator` → `Plot`) plus the aiohttp web service. Parked. Imports JAX only when calling `ss_indicators` for the first time.
-- `apps/notebook/` — Jupyter notebooks for cross-cutting research **plus** runnable scalogram CLIs: `ss-scalogram` (static composite figure) and `ss-scalogram-video` (day-by-day animation showing what the trainer's causal CWT sees per rebalance). Source in `src/ss_notebook/`.
+- `apps/regime/`   — CWT-regime portfolio strategy. Optuna+vectorbt walk-forward search by default; `research/optimize_adam.py` is the JAX-Adam differentiable variant — **parked** since `ss_indicators` was migrated to numpy (its `jax.value_and_grad` no longer flows through `get_divergence`). Persists a JSON checkpoint, trades live via Alpaca. Active development.
+- `apps/v1/`       — legacy single-ticker workflow (`Security` → `Span` → `Decider` → `Evaluator` → `Plot`) plus the aiohttp web service. Parked.
+- `apps/notebook/` — Jupyter notebooks for cross-cutting research **plus** runnable scalogram CLIs (`ss-scalogram`, `ss-scalogram-video`) and `ss-replay` (multi-head CNN trainer for indicator decoding from CWT). Source in `src/ss_notebook/`. `scripts/modal/train_cnn_multihead.py` is the Modal-T4 4-step harness (train + CSCO zero-shot + AAPL FiLM/uncond attention) for cloud runs against the baked-in 21-ticker Stooq subset under `data/stooq_phase2/`.
 - `packages/loaders/`    (`ss_loaders`)    — Kaggle CSV matrix, Stooq archive, Yahoo, CryptoCompare, symbol lists.
-- `packages/indicators/` (`ss_indicators`) — JAX matrix-form RSI/MACD/BBands/SMA/EMA, Corwin-Schultz spread, symmetric-KL divergence, Fibonacci levels.
+- `packages/indicators/` (`ss_indicators`) — **numpy** matrix-form RSI/MACD/BBands/SMA/EMA + CCI, plus stride-w variants (`rsi_strided`, `cci_strided`) for FiLM-conditioned head training, plus Corwin-Schultz spread, KL/JS/cosine/L2 divergences, Fibonacci levels. Pure numpy after the JAX migration; no autograd path.
 - `packages/wavelets/`   (`ss_wavelets`)   — causal Ricker CWT + windowed power means. `KERNEL_HALF_EXTENT=3` and `ALL_SCALES` exposed.
 - `packages/stream/`     (`ss_stream`)     — point-in-time universe iterator over the Stooq archive (incremental loader for live trading).
 - `packages/portfolio/`  (`ss_portfolio`)  — JAX block-Sharpe with costs, CAGR/drawdown/Sortino/Calmar, water-fill weight cap, masked softmax.
 - `packages/plotting/`   (`ss_plotting`)   — training-curve, equity-comparison, scalogram-heatmap helpers.
 
-All packages target JAX (matrix form). The legacy v1 indicators in `v1/util/indicators.py` are preserved untouched for the parked workflow but are not the canonical implementation; new code uses `ss_indicators`.
+`ss_indicators` is numpy; `ss_portfolio` is still JAX (block-Sharpe needs autograd in the regime trainer's loss). Notebook trainers (`replay/`, `scoring/`) use **tinygrad**. The legacy v1 indicators in `v1/util/indicators.py` are preserved untouched for the parked workflow but are not the canonical implementation; new code uses `ss_indicators`.
 
 ## Workspace conventions
 
@@ -71,7 +71,7 @@ Run `jupyter notebook` from the workspace root so the notebook's `data_dir = './
 - `live.py`      — orchestration: load checkpoint → fetch bars → score universe → cap weights via `ss_portfolio.apply_position_cap` → diff vs current positions → submit. Risk rails: kill-switch file, data-freshness check, per-name cap, dry-run by default.
 - `cli.py`       — argparse subcommands `train` and `live`. `--use-log-returns` flag exposed on `train` (off by default).
 - `reporting.py` — thin adapters from `TrainResult` to `ss_plotting.plot_training_curves` / `print_scale_weights`.
-- `research/`    — alternative search/eval (`backtest_bt.py`, `backtest_ranking.py`, `optimize_regime.py`, `optimize_adam.py` — JAX-Adam differentiable optimizer).
+- `research/`    — alternative search/eval (`backtest_bt.py`, `backtest_ranking.py`, `optimize_regime.py`, `optimize_adam.py` — JAX-Adam differentiable optimizer, **parked** since `ss_indicators` migrated to numpy).
 
 ## Key findings from past runs (2013-01-29 → 2025-12-11, 10bps commission, 20-day rebal)
 
@@ -92,8 +92,8 @@ Two on-disk sources, picked via `regime train --source {stooq,kaggle} --data-dir
 ## Platform constraints
 
 - Python 3.13.x on macOS **x86_64 (Intel)** Darwin 22.6.0
-- **PyTorch unavailable** — wheels dropped after torch 2.2.x, which doesn't support Python 3.13+. `apps/notebook/` uses tinygrad; the rest of the JAX-using code (`apps/regime`, `packages/portfolio`, `packages/indicators`, `packages/wavelets` numpy-only) is unchanged.
-- **JAX pinned to `<0.5`** (jax==0.4.38, jaxlib==0.4.38) — required by `apps/regime`, `packages/portfolio`, `packages/indicators` (jaxlib 0.10+ dropped Intel macOS wheels). `apps/notebook` does NOT depend on JAX directly anymore (tinygrad replaces it for the replay/scoring trainers); JAX remains in the env transitively via `ss_indicators` / `ss_portfolio`.
+- **PyTorch unavailable** — wheels dropped after torch 2.2.x, which doesn't support Python 3.13+. `apps/notebook/` uses tinygrad for trainers; `apps/regime` + `packages/portfolio` use JAX; `packages/indicators` + `packages/wavelets` are pure numpy.
+- **JAX pinned to `<0.5`** (jax==0.4.38, jaxlib==0.4.38) — required by `apps/regime` + `packages/portfolio` (jaxlib 0.10+ dropped Intel macOS wheels). `packages/indicators` was migrated off JAX (numpy-only since the cci+rsi_strided refactor); `apps/notebook` doesn't depend on JAX directly. JAX remains in the env transitively via `ss_portfolio` whenever the regime trainer runs.
 - **tinygrad** for `apps/notebook`. Default backend is auto-selected (Metal on macOS, CUDA on NVIDIA, AMD KFD on Linux+ROCm hardware, CPU fallback). bf16 mixed precision is default-on; `--cnn-no-bf16` disables it for backends without bf16 (Metal on Intel macOS) or fp32 reproducibility.
 - `uv` is the package manager.
 
@@ -116,7 +116,8 @@ Two on-disk sources, picked via `regime train --source {stooq,kaggle} --data-dir
 ## Common workflows
 
 ### Adding a new indicator
-- Implement in `packages/indicators/src/ss_indicators/<name>.py` as a JAX function operating on axis-0 time. Add re-export to `ss_indicators/__init__.py`.
+- Implement in `packages/indicators/src/ss_indicators/<name>.py` as a numpy function operating on axis-0 time (matrix-form: `(T, ...)` in → `(T, ...)` out). Add re-export to `ss_indicators/__init__.py` plus a test in `packages/indicators/tests/test_indicators.py`.
+- For dense supervision of FiLM-conditioned heads, also add a `<name>_strided(prices, n, w)` 1-D variant alongside (see `rsi_strided` / `cci_strided` for the convention).
 - If the indicator needs a scalar reduction for portfolio scoring, also add a divergence-style function next to `symmetric_kl_divergence`.
 
 ### Adding a new ranking strategy
@@ -131,8 +132,8 @@ Two on-disk sources, picked via `regime train --source {stooq,kaggle} --data-dir
 
 ## Important implementation notes
 
-- **JAX returns**: `ss_indicators` and `ss_portfolio` JAX functions return `jnp.ndarray`. Cast with `np.asarray(...)` at numpy/pandas boundaries.
-- **`ss_wavelets.causal_cwt` is numpy + scipy**, not JAX. It's a one-shot precompute (no autograd flows through wavelet coefficients). Cast to `jnp.asarray(...)` at the JAX boundary if a downstream JAX op needs it.
+- **`ss_indicators` returns numpy** since the JAX migration. `ss_portfolio` JAX functions still return `jnp.ndarray` — cast with `np.asarray(...)` at numpy/pandas boundaries.
+- **`ss_wavelets.causal_cwt` is numpy + scipy**, not JAX. It's a one-shot precompute (no autograd flows through wavelet coefficients). Cast to `jnp.asarray(...)` at the JAX boundary if a downstream `ss_portfolio` op needs it.
 - **`KERNEL_HALF_EXTENT = 3`** in `ss_wavelets.cwt` truncates the Ricker at |t|=3 in scale-normalized time (under 0.3% energy loss vs |t|=4). Single source of truth — `regime.trainer.DEFAULT_PER_WINDOW_MIN_HISTORY` derives from it.
 - **Per-day data dependency for `coeffs[scale, t]`** is `KERNEL_HALF_EXTENT * scale + lookback` bars. At trainer defaults that's `3 * 126 + 252 = 630` for the largest scale — also the universe-filter floor. Smaller scales (and shorter Optuna-chosen lookbacks) saturate sooner per element, but `weights_regime` requires *all* scales to be populated, so the largest scale gates everything.
 - **Symbol prefix for crypto** (legacy v1): tickers starting with `coin` are treated as cryptocurrencies (`coinBTC`).
