@@ -22,12 +22,14 @@ def plot_reconstruction(
     include_returns: bool = False,
     include_return_sign: bool = False,
     vol_window: int = 20,
+    cci_n: int = 20,
 ) -> plt.Figure:
     panel_specs = {
         'price': ('Close', None),
         'rsi': (f'RSI({rsi_n})', (30, 70)),
         'macd': (f'MACD({macd_fast},{macd_slow},{macd_signal}) line', (0,)),
         'vol': (f'RealizedVol({vol_window})', None),
+        'cci': (f'CCI({cci_n})', (-100, 0, 100)),
     }
     panels = [(key, *panel_specs[key]) for key in panel_specs if key in gt]
 

@@ -384,6 +384,31 @@ def main() -> None:
                         help='Window size for the realized-volatility target '
                              '(rolling std of daily log returns). Default 20 '
                              'matches the regime trainer rebalance horizon.')
+    parser.add_argument('--cci-n', type=int, default=20,
+                        help='Anchor CCI period (Lambert 0.015, close-only). '
+                             'Used for the 1-D ground-truth target and as the '
+                             'conditioning value at prediction time when '
+                             '--cci-n-grid is empty. Default 20.')
+    parser.add_argument('--cci-n-grid', default='',
+                        help='Comma-separated CCI periods (e.g. '
+                             '"10,14,20,28,40") enabling CCI head period '
+                             'conditioning. Same plumbing as --rsi-n-grid: '
+                             'pool replicas tile across the (n, w) grid, '
+                             'normalized n is concatenated to the latent '
+                             'before the FiLM-modulated head. Only --decoder '
+                             'cnn supports this.')
+    parser.add_argument('--cci-w-grid', default='',
+                        help='Comma-separated CCI strides extending '
+                             'conditioning to the (w, n) cross-product. '
+                             'CCI(n) is computed on stride-w price history. '
+                             'Same convention as --rsi-w-grid; w=1 reduces '
+                             'to canonical daily CCI(n), w>1 evaluates the '
+                             'longer-horizon CCI at every bar. Requires '
+                             '--cci-n-grid.')
+    parser.add_argument('--cci-anchor-w', type=int, default=1,
+                        help='Stride used when applying the conditioned CCI '
+                             'head at prediction time. Default 1 matches the '
+                             '1-D ground-truth panel.')
     parser.add_argument('--output-dir', default='Output',
                         help='Where reconstruction figures are saved. '
                              'matplotlib never opens an interactive window.')
@@ -435,11 +460,28 @@ def main() -> None:
         parser.error(f'--rsi-anchor-w={args.rsi_anchor_w} not in '
                      f'--rsi-w-grid={list(rsi_w_grid)}')
 
+    cci_n_grid = tuple(int(s) for s in _split_tickers(args.cci_n_grid))
+    if cci_n_grid and any(n < 2 for n in cci_n_grid):
+        parser.error('--cci-n-grid values must be >= 2')
+    if cci_n_grid and args.decoder != 'cnn':
+        parser.error('--cci-n-grid requires --decoder cnn '
+                     '(head conditioning is only wired into the CNN trainer)')
+    cci_w_grid = tuple(int(s) for s in _split_tickers(args.cci_w_grid))
+    if cci_w_grid and any(w < 1 for w in cci_w_grid):
+        parser.error('--cci-w-grid values must be >= 1')
+    if cci_w_grid and not cci_n_grid:
+        parser.error('--cci-w-grid requires --cci-n-grid (w-conditioning '
+                     'extends n-conditioning to the (w, n) cross-product)')
+    if cci_w_grid and args.cci_anchor_w not in cci_w_grid:
+        parser.error(f'--cci-anchor-w={args.cci_anchor_w} not in '
+                     f'--cci-w-grid={list(cci_w_grid)}')
+
     # SSL / freeze-backbone validation.
     if args.decoder == 'masked-ae':
-        if rsi_n_grid or rsi_w_grid:
-            parser.error('--rsi-n-grid / --rsi-w-grid not supported with '
-                         '--decoder masked-ae (SSL has no per-target heads)')
+        if rsi_n_grid or rsi_w_grid or cci_n_grid or cci_w_grid:
+            parser.error('--rsi-n-grid/-w-grid and --cci-n-grid/-w-grid not '
+                         'supported with --decoder masked-ae (SSL has no '
+                         'per-target heads)')
         if args.freeze_backbone is not None:
             parser.error('--freeze-backbone is for the supervised CNN '
                          'probe, not --decoder masked-ae')
@@ -471,7 +513,9 @@ def main() -> None:
         rsi_n=args.rsi_n, macd_fast=args.macd_fast,
         macd_slow=args.macd_slow, macd_signal=args.macd_signal,
         vol_window=args.vol_window,
+        cci_n=args.cci_n,
         rsi_n_grid=rsi_n_grid, rsi_w_grid=rsi_w_grid,
+        cci_n_grid=cci_n_grid, cci_w_grid=cci_w_grid,
     )
 
     primary = load_ticker(args.ticker, **load_kwargs)
@@ -507,6 +551,8 @@ def main() -> None:
         cnn_film_hidden=args.cnn_film_hidden,
         rsi_n_grid=rsi_n_grid, rsi_w_grid=rsi_w_grid,
         rsi_anchor_n=args.rsi_n, rsi_anchor_w=args.rsi_anchor_w,
+        cci_n_grid=cci_n_grid, cci_w_grid=cci_w_grid,
+        cci_anchor_n=args.cci_n, cci_anchor_w=args.cci_anchor_w,
         frozen_backbone_path=args.freeze_backbone,
         use_bf16=not args.cnn_no_bf16,
     )
@@ -552,7 +598,8 @@ def main() -> None:
         include_zscore_stats=args.include_zscore_stats,
         include_returns=args.include_returns,
         include_return_sign=args.include_return_sign,
-        vol_window=args.vol_window)
+        vol_window=args.vol_window,
+        cci_n=args.cci_n)
     fname = Path(args.output_dir) / f'{primary.name}-replay.png'
     fig.savefig(fname, dpi=150)
     plt.close(fig)
@@ -603,6 +650,10 @@ def main() -> None:
         'rsi_n_grid': list(rsi_n_grid),
         'rsi_w_grid': list(rsi_w_grid),
         'rsi_anchor_w': args.rsi_anchor_w,
+        'cci_n': args.cci_n,
+        'cci_n_grid': list(cci_n_grid),
+        'cci_w_grid': list(cci_w_grid),
+        'cci_anchor_w': args.cci_anchor_w,
         'macd_fast': args.macd_fast,
         'macd_slow': args.macd_slow,
         'macd_signal': args.macd_signal,

@@ -71,22 +71,22 @@ STOOQ_SUBSET = f'{REMOTE_REPO}/{STOOQ_SUBSET_REL}'
 BUNDLE_CONFIGS: dict[str, dict] = {
     'full': {
         'flags': ['--include-zscore-stats', '--include-returns'],
-        'targets': 'rsi,macd,price,vol',
+        'targets': 'rsi,macd,price,vol,cci',
         'prefix': '',
     },
     'full-sign': {
         'flags': ['--include-zscore-stats', '--include-return-sign'],
-        'targets': 'rsi,macd,price,vol',
+        'targets': 'rsi,macd,price,vol,cci',
         'prefix': 'fullsign-',
     },
     'cwt-only': {
         'flags': [],
-        'targets': 'rsi,macd,vol',
+        'targets': 'rsi,macd,vol,cci',
         'prefix': 'cwtonly-',
     },
     'cwt-sign': {
         'flags': ['--include-return-sign'],
-        'targets': 'rsi,macd,vol',
+        'targets': 'rsi,macd,vol,cci',
         'prefix': 'cwtsign-',
     },
 }
@@ -180,6 +180,10 @@ def train_and_eval(
         '--rsi-n-grid', '5,7,9,13,17,21,25',
         '--rsi-w-grid', '1,5,10,21',
         '--rsi-anchor-w', '1',
+        '--cci-n', '20',
+        '--cci-n-grid', '10,14,20,28,40',
+        '--cci-w-grid', '1,5,10,21',
+        '--cci-anchor-w', '1',
         '--vol-window', '20',
         '--cnn-batch-size', str(cnn_batch_size),
         '--cnn-steps', str(steps),
@@ -280,7 +284,9 @@ def _load_eval_ticker(ticker: str, meta: dict, scales: list[int]):
         macd_slow=int(meta['macd_slow']),
         macd_signal=int(meta['macd_signal']),
         vol_window=int(meta.get('vol_window', 20)),
+        cci_n=int(meta.get('cci_n', 20)),
         rsi_n_grid=(), rsi_w_grid=(),
+        cci_n_grid=(), cci_w_grid=(),
     )
 
 
@@ -547,15 +553,24 @@ def _zeroshot_eval(
         yhat_std = (latent @ head_W + head_b).squeeze(-1)
         return yhat_std.astype(np.float64) * target_sd + target_mu
 
-    out_stats: dict = {'unconditioned': {}, 'rsi_wn_grid': {}}
+    out_stats: dict = {'unconditioned': {}}
 
     panel_specs = {
         'price': ('Close', None),
         'macd':  (f'MACD({meta["macd_fast"]},{meta["macd_slow"]},'
                   f'{meta["macd_signal"]}) line', (0,)),
         'vol':   (f'RealizedVol({meta.get("vol_window", 20)})', None),
+        'cci':   (f'CCI({meta.get("cci_n", 20)})', (-100, 0, 100)),
     }
-    uncond = [t for t in ('price', 'macd', 'vol') if t in meta['targets']]
+
+    def _is_unconditioned(target: str) -> bool:
+        key = f'{target}__head_cond_dim'
+        if key not in data.files:
+            return True
+        return int(data[key][0]) == 0
+
+    uncond = [t for t in ('price', 'macd', 'vol', 'cci')
+              if t in meta['targets'] and _is_unconditioned(t)]
     fig, axes = plt.subplots(
         len(uncond), 1, figsize=(13, 3.2 * len(uncond)),
         sharex=True, squeeze=False)
@@ -604,13 +619,67 @@ def _zeroshot_eval(
     fig.savefig(output_dir / f'{ticker}-replay-zeroshot-uncond.png', dpi=150)
     plt.close(fig)
 
-    if 'rsi' not in meta['targets'] or not rsi_n_grid:
-        print('  (no rsi grid in this run — skipping (n, w) sweep)')
-        return out_stats
+    # FiLM-conditioned heads — (n, w) grid eval. RSI uses rsi_strided +
+    # 30/70 reference lines. CCI uses cci_strided + ±100 reference lines.
+    # Both share the same heatmap+timeseries layout via _grid_sweep_eval.
+    from ss_indicators import cci_strided
+    grid_specs = [
+        ('rsi', rsi_strided, rsi_n_grid, rsi_w_grid, n_max_grid, w_max_grid,
+         (30, 70), 'RSI period n', (6, 8, 11, 15, 19, 28, 35)),
+    ]
+    cci_n_grid_meta = tuple(meta.get('cci_n_grid') or ())
+    cci_w_grid_meta = tuple(meta.get('cci_w_grid') or ())
+    cci_n_max = (float(max(cci_n_grid_meta)) if cci_n_grid_meta
+                 else float(meta.get('cci_n', 20)))
+    cci_w_max = float(max(cci_w_grid_meta)) if cci_w_grid_meta else 1.0
+    grid_specs.append(
+        ('cci', cci_strided, cci_n_grid_meta, cci_w_grid_meta,
+         cci_n_max, cci_w_max,
+         (-100, 0, 100), 'CCI period n',
+         (6, 8, 12, 16, 24, 35, 50)))
 
-    n_sweep = sorted({*rsi_n_grid, 6, 8, 11, 15, 19, 28, 35})
-    w_sweep = sorted({*rsi_w_grid, 3, 7, 15, 25}) if rsi_w_grid else [1]
-    print(f'\n  RSI (n, w) sweep:  n={n_sweep}  w={w_sweep}')
+    for (name, strided_fn, n_grid_m, w_grid_m, n_max_m, w_max_m,
+         hlines, n_label, off_grid_n) in grid_specs:
+        if name not in meta['targets'] or not n_grid_m:
+            print(f'  (no {name} grid in this run — skipping (n, w) sweep)')
+            continue
+        _grid_sweep_eval(
+            target=name, strided_fn=strided_fn,
+            n_grid=n_grid_m, w_grid=w_grid_m,
+            n_max=n_max_m, w_max=w_max_m,
+            off_grid_n_extras=off_grid_n,
+            hlines=hlines, n_axis_label=n_label,
+            apply_head=apply_head, td=td, ticker=ticker,
+            output_dir=output_dir, out_stats=out_stats,
+            stats_key=f'{name}_wn_grid')
+    return out_stats
+
+
+def _grid_sweep_eval(
+    *, target: str, strided_fn, n_grid: tuple[int, ...],
+    w_grid: tuple[int, ...], n_max: float, w_max: float,
+    off_grid_n_extras: tuple[int, ...],
+    hlines: tuple[int, ...], n_axis_label: str,
+    apply_head, td, ticker: str, output_dir: Path,
+    out_stats: dict, stats_key: str,
+) -> None:
+    """Run the (n, w) sweep + heatmap PNG for one FiLM-conditioned head.
+
+    `strided_fn(prices, n, w)` is the per-cell ground-truth function
+    (rsi_strided or cci_strided). `apply_head(target, cond_vec=...)` is
+    the closure built in `_zeroshot_eval` that runs the head's forward
+    pass with the supplied cond. Mutates `out_stats[stats_key]` in
+    place; saves `{ticker}-replay-zeroshot-{target}-wn-sweep.png`.
+    """
+    import matplotlib.pyplot as plt
+    import numpy as np
+    from ss_notebook.replay.metrics import fit_stats
+
+    out_stats[stats_key] = {}
+    n_sweep = sorted({*n_grid, *off_grid_n_extras})
+    w_sweep = sorted({*w_grid, 3, 7, 15, 25}) if w_grid else [1]
+    upper_label = target.upper()
+    print(f'\n  {upper_label} (n, w) sweep:  n={n_sweep}  w={w_sweep}')
     header = '  w \\ n  |  ' + '  '.join(f'{n:>6d}' for n in n_sweep)
     print(header)
     print('-' * len(header))
@@ -619,20 +688,18 @@ def _zeroshot_eval(
     for wi, w in enumerate(w_sweep):
         row = []
         for ni, n in enumerate(n_sweep):
-            gt_n = rsi_strided(td.prices, n=int(n), w=int(w))
-            cond_vec = np.array([n / n_max_grid, w / w_max_grid],
-                                dtype=np.float32)
-            yhat_n = apply_head('rsi', cond_vec=cond_vec)
+            gt_n = strided_fn(td.prices, n=int(n), w=int(w))
+            cond_vec = np.array([n / n_max, w / w_max], dtype=np.float32)
+            yhat_n = apply_head(target, cond_vec=cond_vec)
             v = td.valid & np.isfinite(gt_n) & np.isfinite(yhat_n)
             stats = fit_stats(yhat_n[v], gt_n[v])
             r2_grid[wi, ni] = stats['r2']
             cell_records[(w, n)] = dict(
                 stats=stats, gt=gt_n, yhat=yhat_n, valid=v,
-                in_n_grid=(n in rsi_n_grid),
-                in_w_grid=(w in rsi_w_grid),
+                in_n_grid=(n in n_grid), in_w_grid=(w in w_grid),
             )
-            out_stats['rsi_wn_grid'][f'w={w},n={n}'] = stats
-            in_grid = n in rsi_n_grid and w in rsi_w_grid
+            out_stats[stats_key][f'w={w},n={n}'] = stats
+            in_grid = n in n_grid and w in w_grid
             tag = '*' if in_grid else ' '
             row.append(f'{tag}{stats["r2"]:>5.2f}')
         print(f'  w={w:>3d}  |  ' + '  '.join(row))
@@ -640,8 +707,8 @@ def _zeroshot_eval(
     fig = plt.figure(figsize=(14, 11))
     gs = fig.add_gridspec(3, 2, height_ratios=[1.4, 1.0, 1.0])
     fig.suptitle(
-        f'{ticker} zero-shot RSI(n, w) — FiLM head trained on '
-        f'n ∈ {sorted(rsi_n_grid)}  ×  w ∈ {sorted(rsi_w_grid)}',
+        f'{ticker} zero-shot {upper_label}(n, w) — FiLM head trained on '
+        f'n ∈ {sorted(n_grid)}  ×  w ∈ {sorted(w_grid)}',
         fontsize=12, fontweight='bold')
     ax_hm = fig.add_subplot(gs[0, :])
     im = ax_hm.imshow(r2_grid, aspect='auto', origin='lower',
@@ -650,7 +717,7 @@ def _zeroshot_eval(
     ax_hm.set_xticklabels([str(n) for n in n_sweep])
     ax_hm.set_yticks(range(len(w_sweep)))
     ax_hm.set_yticklabels([str(w) for w in w_sweep])
-    ax_hm.set_xlabel('RSI period n')
+    ax_hm.set_xlabel(n_axis_label)
     ax_hm.set_ylabel('Stride w (1=daily, 5≈weekly, 21≈monthly)')
     ax_hm.set_title('R² across the (w, n) grid — boxes mark training cells',
                     fontsize=10)
@@ -660,35 +727,39 @@ def _zeroshot_eval(
             ax_hm.text(ni, wi, f'{r2:.2f}', ha='center', va='center',
                        fontsize=8,
                        color='white' if r2 < 0.5 or r2 > 0.95 else 'black')
-            if (n in rsi_n_grid) and (w in rsi_w_grid):
+            if (n in n_grid) and (w in w_grid):
                 ax_hm.add_patch(plt.Rectangle(
                     (ni - 0.5, wi - 0.5), 1, 1, fill=False,
                     edgecolor='black', linewidth=1.6))
     fig.colorbar(im, ax=ax_hm, label='R²', fraction=0.025)
 
-    ts_picks: list[tuple[int, int, str]] = []
-    in_grid_n_mid = sorted(rsi_n_grid)[len(rsi_n_grid) // 2]
-    if 1 in rsi_w_grid:
-        ts_picks.append((1, in_grid_n_mid, 'daily / in-grid n'))
-    if 21 in rsi_w_grid:
-        ts_picks.append((21, in_grid_n_mid, 'monthly / in-grid n'))
-    ax_ts = [fig.add_subplot(gs[1, 0]), fig.add_subplot(gs[1, 1])]
-    for ax, (w, n, label) in zip(ax_ts, ts_picks):
+    def _draw_ts(ax, w, n, prefix):
         rec = cell_records[(w, n)]
         gt_n, yhat_n, v, st = (rec['gt'], rec['yhat'], rec['valid'],
                                rec['stats'])
         yhat_full = np.full_like(gt_n, np.nan)
         yhat_full[v] = yhat_n[v]
         ax.plot(td.dates, gt_n, color='black', linewidth=0.7, alpha=0.6,
-                label=f'true RSI(n={n}, w={w})')
+                label=f'true {upper_label}(n={n}, w={w})')
         ax.plot(td.dates, yhat_full, color='crimson', linewidth=0.9,
-                linestyle='--', label=f'pred RSI(n={n}, w={w})')
-        ax.axhline(30, color='gray', linestyle=':', alpha=0.4)
-        ax.axhline(70, color='gray', linestyle=':', alpha=0.4)
-        ax.set_ylabel(f'RSI({n}, w={w})')
-        ax.set_title(f'{label}  R²={st["r2"]:.4f}', fontsize=9, loc='right')
+                linestyle='--',
+                label=f'pred {upper_label}(n={n}, w={w})')
+        for y in hlines:
+            ax.axhline(y, color='gray', linestyle=':', alpha=0.4)
+        ax.set_ylabel(f'{upper_label}({n}, w={w})')
+        ax.set_title(f'{prefix}  R²={st["r2"]:.4f}', fontsize=9, loc='right')
         ax.legend(loc='upper left', fontsize=8)
         ax.set_xlim(td.dates[0], td.dates[-1])
+
+    ts_picks: list[tuple[int, int, str]] = []
+    in_grid_n_mid = sorted(n_grid)[len(n_grid) // 2]
+    if 1 in w_grid:
+        ts_picks.append((1, in_grid_n_mid, 'daily / in-grid n'))
+    if 21 in w_grid:
+        ts_picks.append((21, in_grid_n_mid, 'monthly / in-grid n'))
+    ax_ts = [fig.add_subplot(gs[1, 0]), fig.add_subplot(gs[1, 1])]
+    for ax, (w, n, label) in zip(ax_ts, ts_picks):
+        _draw_ts(ax, w, n, label)
 
     off_cells = [(w, n) for (w, n), rec in cell_records.items()
                  if not (rec['in_n_grid'] and rec['in_w_grid'])]
@@ -697,29 +768,15 @@ def _zeroshot_eval(
     picks_off = (off_cells[:1] + off_cells[-1:]) if off_cells else []
     for ax, (w, n) in zip(ax_off, picks_off):
         rec = cell_records[(w, n)]
-        gt_n, yhat_n, v, st = (rec['gt'], rec['yhat'], rec['valid'],
-                               rec['stats'])
-        yhat_full = np.full_like(gt_n, np.nan)
-        yhat_full[v] = yhat_n[v]
         kind = (('OFF-GRID-n' if not rec['in_n_grid'] else 'in-grid-n') +
                 ' / ' +
                 ('OFF-GRID-w' if not rec['in_w_grid'] else 'in-grid-w'))
-        ax.plot(td.dates, gt_n, color='black', linewidth=0.7, alpha=0.6,
-                label=f'true RSI(n={n}, w={w})')
-        ax.plot(td.dates, yhat_full, color='crimson', linewidth=0.9,
-                linestyle='--', label=f'pred RSI(n={n}, w={w})')
-        ax.axhline(30, color='gray', linestyle=':', alpha=0.4)
-        ax.axhline(70, color='gray', linestyle=':', alpha=0.4)
-        ax.set_ylabel(f'RSI({n}, w={w})')
-        ax.set_title(f'{kind}  R²={st["r2"]:.4f}', fontsize=9, loc='right')
-        ax.legend(loc='upper left', fontsize=8)
-        ax.set_xlim(td.dates[0], td.dates[-1])
+        _draw_ts(ax, w, n, kind)
 
     plt.tight_layout()
-    fig.savefig(output_dir / f'{ticker}-replay-zeroshot-rsi-wn-sweep.png',
+    fig.savefig(output_dir / f'{ticker}-replay-zeroshot-{target}-wn-sweep.png',
                 dpi=150)
     plt.close(fig)
-    return out_stats
 
 
 def _film_attention(

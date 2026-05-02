@@ -13,12 +13,12 @@ from dataclasses import dataclass, field
 
 import numpy as np
 
-from ss_indicators import macd, rsi, rsi_strided
+from ss_indicators import cci, cci_strided, macd, rsi, rsi_strided
 from ss_notebook.scalogram import _to_np, load_prices
 from ss_wavelets import causal_cwt
 
 
-TARGET_NAMES = ('price', 'rsi', 'macd', 'vol')
+TARGET_NAMES = ('price', 'rsi', 'macd', 'vol', 'cci')
 
 
 def compute_scalogram(
@@ -151,8 +151,11 @@ def build_features_and_targets(
     include_zscore_stats: bool, include_returns: bool, decoder: str,
     rsi_n: int, macd_fast: int, macd_slow: int, macd_signal: int,
     vol_window: int = 20,
+    cci_n: int = 20,
     rsi_n_grid: tuple[int, ...] = (),
     rsi_w_grid: tuple[int, ...] = (),
+    cci_n_grid: tuple[int, ...] = (),
+    cci_w_grid: tuple[int, ...] = (),
     include_return_sign: bool = False,
 ) -> tuple[np.ndarray, dict[str, np.ndarray], np.ndarray,
            dict[str, np.ndarray]]:
@@ -164,19 +167,20 @@ def build_features_and_targets(
     bar.
 
     `target_grids` carries the parameter-conditioning auxiliary arrays
-    for conditioned targets:
-      - `rsi_n_grid` only — `target_grids['rsi']` is shape
-        `(n_n, n_dates)` holding RSI(n) for every n in the grid.
+    for conditioned targets. Both rsi and cci use the same grid shape
+    convention:
+      - `<x>_n_grid` only — `target_grids['<x>']` is shape
+        `(n_n, n_dates)` holding x(n) for every n in the grid.
         Conditioning width p_dim=1.
-      - `rsi_n_grid` + `rsi_w_grid` (both non-empty) —
-        `target_grids['rsi']` is shape `(n_w * n_n, n_dates)`
-        holding RSI on stride-w price changes for every (w, n) pair,
+      - `<x>_n_grid` + `<x>_w_grid` (both non-empty) —
+        `target_grids['<x>']` is shape `(n_w * n_n, n_dates)`
+        holding x on stride-w price history for every (w, n) pair,
         flattened with row index `w_idx * n_n + n_idx`. Conditioning
         width p_dim=2 = `(n / max_n, w / max_w)`.
-    Empty dict when no grid is provided. The 1-D anchor target in
-    `gt['rsi']` (computed at `rsi_n`, w=1 implicitly) is what plotting/
-    stats compare against, so the head must be evaluated at the anchor
-    `(w=1, n=rsi_n)` during prediction.
+    Empty entries when no grid is provided for that target. The 1-D
+    anchor target in `gt['<x>']` is what plotting/stats compare against,
+    so each conditioned head must be evaluated at its anchor during
+    prediction.
 
     `decoder` is accepted for backwards compatibility but no longer
     gates which channels can be combined — every channel is now lag-
@@ -205,13 +209,15 @@ def build_features_and_targets(
     channels_cn = np.vstack(channels)
     features = build_lagged_features(channels_cn, window_cols)
 
-    rsi_gt = _to_np(rsi(prices, n=rsi_n)).astype(np.float64)
+    rsi_gt = rsi(prices, n=rsi_n).astype(np.float64)
     macd_line, _, _ = macd(prices, fast=macd_fast, slow=macd_slow,
                           signal=macd_signal)
-    macd_gt = _to_np(macd_line).astype(np.float64)
+    macd_gt = macd_line.astype(np.float64)
     price_gt = prices.astype(np.float64)
     vol_gt = realized_vol(prices, window=vol_window)
-    gt = {'price': price_gt, 'rsi': rsi_gt, 'macd': macd_gt, 'vol': vol_gt}
+    cci_gt = cci(prices, n=cci_n).astype(np.float64)
+    gt = {'price': price_gt, 'rsi': rsi_gt, 'macd': macd_gt, 'vol': vol_gt,
+          'cci': cci_gt}
 
     target_grids: dict[str, np.ndarray] = {}
     if rsi_n_grid:
@@ -230,8 +236,23 @@ def build_features_and_targets(
         else:
             # (n_n, n_dates) — single-axis (n) conditioning, p_dim=1.
             target_grids['rsi'] = np.stack(
-                [_to_np(rsi(prices, n=int(n))).astype(np.float64)
+                [rsi(prices, n=int(n)).astype(np.float64)
                  for n in rsi_n_grid],
+                axis=0)
+    if cci_n_grid:
+        # Same row layout as RSI grid: outer = w, inner = n.
+        if cci_w_grid:
+            n_n = len(cci_n_grid)
+            grid_rows = []
+            for w in cci_w_grid:
+                for n in cci_n_grid:
+                    grid_rows.append(cci_strided(prices, n=int(n), w=int(w)))
+            target_grids['cci'] = np.stack(grid_rows, axis=0)
+            assert target_grids['cci'].shape[0] == len(cci_w_grid) * n_n
+        else:
+            target_grids['cci'] = np.stack(
+                [cci(prices, n=int(n)).astype(np.float64)
+                 for n in cci_n_grid],
                 axis=0)
 
     valid = np.zeros(len(prices), dtype=bool)
@@ -273,8 +294,11 @@ def load_ticker(
     include_zscore_stats: bool, include_returns: bool, decoder: str,
     rsi_n: int, macd_fast: int, macd_slow: int, macd_signal: int,
     vol_window: int = 20,
+    cci_n: int = 20,
     rsi_n_grid: tuple[int, ...] = (),
     rsi_w_grid: tuple[int, ...] = (),
+    cci_n_grid: tuple[int, ...] = (),
+    cci_w_grid: tuple[int, ...] = (),
     include_return_sign: bool = False,
 ) -> TickerData:
     """Load one ticker and pre-compute features + targets + valid mask."""
@@ -291,7 +315,9 @@ def load_ticker(
         rsi_n=rsi_n, macd_fast=macd_fast, macd_slow=macd_slow,
         macd_signal=macd_signal,
         vol_window=vol_window,
+        cci_n=cci_n,
         include_return_sign=include_return_sign,
-        rsi_n_grid=rsi_n_grid, rsi_w_grid=rsi_w_grid)
+        rsi_n_grid=rsi_n_grid, rsi_w_grid=rsi_w_grid,
+        cci_n_grid=cci_n_grid, cci_w_grid=cci_w_grid)
     return TickerData(name, prices, dates, features, targets, valid,
                       target_grids=target_grids)

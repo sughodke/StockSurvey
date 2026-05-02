@@ -44,6 +44,10 @@ def fit_and_evaluate(
     rsi_w_grid: tuple[int, ...] = (),
     rsi_anchor_n: int | None = None,
     rsi_anchor_w: int = 1,
+    cci_n_grid: tuple[int, ...] = (),
+    cci_w_grid: tuple[int, ...] = (),
+    cci_anchor_n: int | None = None,
+    cci_anchor_w: int = 1,
     frozen_backbone_path: str | None = None,
     use_bf16: bool = True,
 ) -> tuple[dict[str, dict[str, dict]], dict[str, dict[str, np.ndarray]]]:
@@ -110,81 +114,120 @@ def fit_and_evaluate(
     head_cond_train: dict[str, np.ndarray] = {}
     head_cond_predict: dict[str, np.ndarray] = {}
     train_pool_idx: np.ndarray | None = None
-    rsi_grid_active = bool(rsi_n_grid) and 'rsi' in targets and decoder == 'cnn'
-    if rsi_w_grid and not rsi_grid_active:
-        raise ValueError(
-            'rsi_w_grid given but rsi_n_grid is empty — w-conditioning '
-            'requires the n-conditioning to be active too.')
-    if rsi_grid_active:
-        n_n = len(rsi_n_grid)
-        n_w = len(rsi_w_grid) if rsi_w_grid else 1
-        n_replicas = n_n * n_w
+
+    # Generic FiLM-conditioned head spec. Currently 'rsi' and 'cci' both
+    # follow the same (n, w)-grid pattern; if a third head joins (e.g.
+    # macd over (fast, slow, signal)), extend this list.
+    conditioned_specs: list[dict] = []
+    for spec_name, n_grid, w_grid, anchor_n, anchor_w in [
+        ('rsi', rsi_n_grid, rsi_w_grid, rsi_anchor_n, rsi_anchor_w),
+        ('cci', cci_n_grid, cci_w_grid, cci_anchor_n, cci_anchor_w),
+    ]:
+        if w_grid and not n_grid:
+            raise ValueError(
+                f'{spec_name}_w_grid given but {spec_name}_n_grid is empty '
+                '— w-conditioning requires the n-conditioning to be active.')
+        if not n_grid:
+            continue
+        if spec_name not in targets or decoder != 'cnn':
+            continue
+        n_n = len(n_grid)
+        n_w = len(w_grid) if w_grid else 1
+        spec_replicas = n_n * n_w
         for d in train_data:
-            if 'rsi' not in d.target_grids:
+            if spec_name not in d.target_grids:
                 raise ValueError(
-                    f'rsi_n_grid={rsi_n_grid!r} requested but train ticker '
-                    f'{d.name!r} has no target_grids["rsi"] — was load_ticker '
-                    'called with rsi_n_grid?')
-            if d.target_grids['rsi'].shape[0] != n_replicas:
+                    f'{spec_name}_n_grid={n_grid!r} requested but train '
+                    f'ticker {d.name!r} has no target_grids[{spec_name!r}] '
+                    f'— was load_ticker called with {spec_name}_n_grid?')
+            if d.target_grids[spec_name].shape[0] != spec_replicas:
                 raise ValueError(
-                    f'train ticker {d.name!r} target_grids["rsi"] shape '
-                    f'{d.target_grids["rsi"].shape} disagrees with '
-                    f'expected n_replicas={n_replicas} '
-                    f'(n_w={n_w} * n_n={n_n}).')
-        # Stack grid-indexed RSI values matching X_train's pooled row
-        # order. Shape (n_replicas, n_pool); reshape(-1) lays out as
-        # [replica[0]_pool[0..n_pool-1], replica[1]_pool[0..], ...].
-        rsi_grid_pooled = np.concatenate(
-            [d.target_grids['rsi'][:, d.valid] for d in train_data], axis=1)
+                    f'train ticker {d.name!r} target_grids[{spec_name!r}] '
+                    f'shape {d.target_grids[spec_name].shape} disagrees '
+                    f'with expected {spec_replicas} (n_w={n_w} * n_n={n_n}).')
+        # Per-cell normalized conditioning (n / max_n, w / max_w if w_grid).
+        n_max = float(max(n_grid))
+        n_values = np.array(n_grid, dtype=np.float32) / n_max
+        if w_grid:
+            w_max = float(max(w_grid))
+            w_values = np.array(w_grid, dtype=np.float32) / w_max
+            # Outer = w, inner = n: for replica idx = w_idx * n_n + n_idx
+            n_col = np.tile(n_values, n_w)
+            w_col = np.repeat(w_values, n_n)
+            cond_per_cell = np.stack([n_col, w_col], axis=1)  # (cells, 2)
+        else:
+            cond_per_cell = n_values[:, None]                 # (cells, 1)
+        # Pool grid values across train tickers, matching X_train row order.
+        grid_pooled = np.concatenate(
+            [d.target_grids[spec_name][:, d.valid] for d in train_data],
+            axis=1)                                            # (cells, n_pool)
+        # Predict-time anchor (in the conditioned space): defaults to
+        # the median grid value if no user anchor; otherwise the supplied
+        # one. anchor_w must be in w_grid (validated at the CLI layer).
+        a_n = (anchor_n if anchor_n is not None
+               else int(sorted(n_grid)[len(n_grid) // 2]))
+        a_n_norm = a_n / n_max
+        if w_grid:
+            anchor_cond = np.array(
+                [a_n_norm, anchor_w / float(max(w_grid))], dtype=np.float32)
+        else:
+            anchor_cond = np.array([a_n_norm], dtype=np.float32)
+        conditioned_specs.append({
+            'name': spec_name,
+            'n_grid': tuple(n_grid),
+            'w_grid': tuple(w_grid),
+            'cells': spec_replicas,
+            'cond_per_cell': cond_per_cell,
+            'grid_pooled': grid_pooled,
+            'anchor_cond': anchor_cond,
+        })
+
+    if conditioned_specs:
+        # Cross-product of cells across all conditioned specs. Layout:
+        # outer = first spec, inner = last spec. Replica idx for k specs
+        #   replica = c_0 * (cells_1 * ... * cells_{k-1}) + c_1 * ... + c_{k-1}
+        # Each conditioned spec gets per-replica cell indices via
+        # repeat/tile combinations that mirror this nested loop.
+        cells_per_spec = [s['cells'] for s in conditioned_specs]
+        n_replicas = int(np.prod(cells_per_spec))
         n_pool = X_train.shape[0]
         train_pool_idx = np.tile(np.arange(n_pool, dtype=np.int64), n_replicas)
+
+        # For non-conditioned targets: just tile by total replica count.
         for t in targets:
-            if t == 'rsi':
-                y_train[t] = rsi_grid_pooled.reshape(-1)
-            else:
+            if t not in {s['name'] for s in conditioned_specs}:
                 y_train[t] = np.tile(y_train[t], n_replicas)
-        # Build conditioning vector. Row order matches replica layout
-        # (outer w, inner n): for replica = w_idx * n_n + n_idx the
-        # conditioning is (n_grid[n_idx]/max_n, w_grid[w_idx]/max_w).
-        n_max = float(max(rsi_n_grid))
-        n_values = np.array(rsi_n_grid, dtype=np.float32) / n_max
-        if rsi_w_grid:
-            w_max = float(max(rsi_w_grid))
-            w_values = np.array(rsi_w_grid, dtype=np.float32) / w_max
-            # Cross product, outer w / inner n. Per replica replicate
-            # n_pool times to match the augmented training row count.
-            n_col = np.tile(n_values, n_w)             # (n_replicas,)
-            w_col = np.repeat(w_values, n_n)           # (n_replicas,)
-            cond_per_replica = np.stack([n_col, w_col], axis=1)  # (n_replicas, 2)
-        else:
-            cond_per_replica = n_values[:, None]       # (n_replicas, 1)
-        # Replicate per replica across n_pool rows. `np.repeat` along
-        # axis=0 expands (n_replicas, p_dim) -> (n_replicas * n_pool,
-        # p_dim) with each replica row repeated n_pool times — matches
-        # the train_pool_idx layout (replica[0] occupies the first
-        # n_pool augmented rows, etc.).
-        head_cond_train['rsi'] = np.repeat(cond_per_replica, n_pool, axis=0)
+
+        # For each conditioned spec, build per-replica cell indices then
+        # gather the matching grid row. Outer-spec cells repeat over the
+        # product of inner specs' cells; inner-spec cells tile over outer.
+        for i, spec in enumerate(conditioned_specs):
+            outer = int(np.prod(cells_per_spec[:i])) if i > 0 else 1
+            inner = (int(np.prod(cells_per_spec[i + 1:]))
+                     if i < len(conditioned_specs) - 1 else 1)
+            # cell index for this spec at each replica
+            cell_idx = np.tile(np.repeat(np.arange(spec['cells']), inner),
+                               outer)                            # (n_replicas,)
+            # y target = grid_pooled[cell_idx, :].reshape(-1)
+            # shape (n_replicas, n_pool) then flatten to (n_replicas * n_pool,)
+            y_train[spec['name']] = (
+                spec['grid_pooled'][cell_idx, :].reshape(-1))
+            # head conditioning per replica, then expanded across pool
+            cond_per_replica = spec['cond_per_cell'][cell_idx, :]
+            head_cond_train[spec['name']] = np.repeat(
+                cond_per_replica, n_pool, axis=0)
 
     # Concatenate every ticker's full feature block for one prediction pass.
     all_data = list(train_data) + list(val_data)
     n_per = [d.features.shape[0] for d in all_data]
     X_predict = np.vstack([d.features for d in all_data])
 
-    if rsi_grid_active:
-        # Predict at the anchor (w, n). The 1-D `gt['rsi']` ground-truth
-        # the figure compares against was computed at (w=1, n=rsi_n) in
-        # features.py, so the default anchor reproduces that.
-        anchor_n = (rsi_anchor_n if rsi_anchor_n is not None
-                    else int(sorted(rsi_n_grid)[len(rsi_n_grid) // 2]))
-        n_norm = anchor_n / float(max(rsi_n_grid))
-        if rsi_w_grid:
-            w_norm = rsi_anchor_w / float(max(rsi_w_grid))
-            head_cond_predict['rsi'] = np.tile(
-                np.array([[n_norm, w_norm]], dtype=np.float32),
-                (X_predict.shape[0], 1))
-        else:
-            head_cond_predict['rsi'] = np.full(
-                (X_predict.shape[0], 1), n_norm, dtype=np.float32)
+    # Predict at the anchor (n, w) for each conditioned head — the 1-D
+    # gt[name] the figure compares against was computed at (n_anchor,
+    # w=1) in features.py, so the default anchor reproduces that.
+    for spec in conditioned_specs:
+        head_cond_predict[spec['name']] = np.tile(
+            spec['anchor_cond'][None, :], (X_predict.shape[0], 1))
 
     results: dict[str, dict[str, dict]] = {d.name: {} for d in all_data}
     params_per_target: dict[str, dict[str, np.ndarray]] = {}
