@@ -38,12 +38,14 @@ def fit_and_evaluate(
     cnn_layers: int = 2,
     cnn_steps: int = 2000,
     cnn_batch_size: int | None = None,
+    cnn_microbatch_size: int | None = None,
     cnn_film_hidden: int = 32,
     rsi_n_grid: tuple[int, ...] = (),
     rsi_w_grid: tuple[int, ...] = (),
     rsi_anchor_n: int | None = None,
     rsi_anchor_w: int = 1,
     frozen_backbone_path: str | None = None,
+    use_bf16: bool = True,
 ) -> tuple[dict[str, dict[str, dict]], dict[str, dict[str, np.ndarray]]]:
     """Pool train tickers into one decoder fit, predict per-ticker.
 
@@ -203,11 +205,13 @@ def fit_and_evaluate(
             hidden=cnn_hidden, kernel=cnn_kernel,
             n_layers=cnn_layers, n_steps=cnn_steps,
             batch_size=cnn_batch_size,
+            microbatch_size=cnn_microbatch_size,
             film_hidden=cnn_film_hidden,
             head_conditioning_train=head_cond_train,
             head_conditioning_predict=head_cond_predict,
             train_pool_idx=train_pool_idx,
-            frozen_backbone=frozen_backbone)
+            frozen_backbone=frozen_backbone,
+            use_bf16=use_bf16)
     else:
         for target_name in targets:
             y = y_train[target_name]
@@ -222,7 +226,8 @@ def fit_and_evaluate(
                 yhats_all[target_name], params_per_target[target_name] = fit_mlp(
                     X_train, y, X_predict,
                     hidden=mlp_hidden, n_layers=mlp_layers, n_steps=mlp_steps,
-                    batch_size=mlp_batch_size)
+                    batch_size=mlp_batch_size,
+                    use_bf16=use_bf16)
             else:
                 raise ValueError(f'unknown decoder: {decoder!r}')
 
@@ -251,10 +256,12 @@ def fit_and_evaluate_ssl(
     cnn_layers: int = 2,
     cnn_steps: int = 10_000,
     cnn_batch_size: int | None = None,
+    cnn_microbatch_size: int | None = None,
     ssl_decoder_hidden: int = 256,
     ssl_decoder_layers: int = 2,
     mask_ratio: float = 0.4,
     seed: int = 0,
+    use_bf16: bool = True,
 ) -> tuple[dict[str, dict[str, np.ndarray]], dict[str, float]]:
     """Self-supervised pretrain entry point — masked CWT autoencoding.
 
@@ -294,7 +301,9 @@ def fit_and_evaluate_ssl(
         decoder_hidden=ssl_decoder_hidden,
         decoder_layers=ssl_decoder_layers,
         n_steps=cnn_steps, batch_size=cnn_batch_size,
-        mask_ratio=mask_ratio, seed=seed)
+        microbatch_size=cnn_microbatch_size,
+        mask_ratio=mask_ratio, seed=seed,
+        use_bf16=use_bf16)
     return {'ssl': params}, stats
 
 

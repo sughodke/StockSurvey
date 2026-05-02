@@ -34,20 +34,18 @@ from ss_notebook.scalogram import DEFAULT_STOOQ_DIR
 from ss_wavelets import ALL_SCALES
 
 
-def _log_jax_devices(decoder: str) -> None:
-    """Surface which device(s) JAX picked. Only relevant for the JAX
-    decoders. Prints once before the fit so a Colab runtime that
-    silently fell back to CPU is visible immediately rather than after
-    a multi-minute wait."""
+def _log_tinygrad_device(decoder: str) -> None:
+    """Surface which tinygrad device backend is active. Only relevant for
+    the tinygrad decoders. Prints once before the fit so a Colab runtime
+    that silently fell back to CPU is visible immediately rather than
+    after a multi-minute wait."""
     if decoder not in ('mlp', 'cnn', 'masked-ae'):
         return
     try:
-        import jax
-        devs = jax.devices()
-        kinds = sorted({d.platform for d in devs})
-        print(f'jax devices: {len(devs)} × {kinds} (default={devs[0]})')
+        from tinygrad import Device
+        print(f'tinygrad device: {Device.DEFAULT}')
     except Exception as e:
-        print(f'jax device probe failed: {e}')
+        print(f'tinygrad device probe failed: {e}')
 
 
 def _git_sha_and_dirty() -> tuple[str, bool]:
@@ -110,9 +108,11 @@ def _run_ssl(args, train_data, val_data, *,
         cnn_hidden=args.cnn_hidden, cnn_kernel=args.cnn_kernel,
         cnn_layers=args.cnn_layers, cnn_steps=args.cnn_steps,
         cnn_batch_size=args.cnn_batch_size,
+        cnn_microbatch_size=args.cnn_microbatch_size,
         ssl_decoder_hidden=args.ssl_decoder_hidden,
         ssl_decoder_layers=args.ssl_decoder_layers,
-        mask_ratio=args.mask_ratio)
+        mask_ratio=args.mask_ratio,
+        use_bf16=not args.cnn_no_bf16)
 
     print('\nSSL pretrain stats (z-norm space):')
     for k, v in ssl_stats.items():
@@ -286,6 +286,19 @@ def main() -> None:
                              'large for full-batch device memory; CNN is '
                              'more activation-heavy than MLP, so this kicks '
                              'in at smaller pool sizes. 8192 works at K=64.')
+    parser.add_argument('--cnn-microbatch-size', type=int, default=None,
+                        help='Per-step gradient-accumulation chunk size. '
+                             'Default = `--cnn-batch-size` (no accumulation). '
+                             'Set smaller (e.g. 256, 128) to keep the '
+                             '*effective* batch high while shrinking VRAM — '
+                             'each Adam step does ceil(batch/microbatch) '
+                             'forward+backward passes whose grads are '
+                             'averaged before optimizer.step().')
+    parser.add_argument('--cnn-no-bf16', action='store_true',
+                        help='Disable bf16 mixed precision for the CNN '
+                             'forward (default: enabled). Use on backends '
+                             'whose shader compiler lacks bf16 (Metal on '
+                             'Intel macOS) or for fp32 reproducibility.')
     parser.add_argument('--cnn-film-hidden', type=int, default=32,
                         help='Hidden width for the FiLM gamma/beta MLPs that '
                              'modulate the latent for conditioned heads. '
@@ -382,15 +395,15 @@ def main() -> None:
                              'Adam pass).')
     parser.add_argument('--device', choices=['auto', 'cpu', 'gpu'],
                         default='auto',
-                        help='`auto` (default) lets JAX pick — uses GPU if '
-                             'jaxlib has the CUDA plugin, else CPU. `cpu` '
-                             'forces CPU via JAX_PLATFORMS=cpu. `gpu` forces '
-                             'GPU and errors out if none is available.')
+                        help='`auto` (default) lets tinygrad pick its '
+                             'default backend (Metal on macOS, CUDA on '
+                             'NVIDIA, AMD on Linux+KFD, else CPU). `cpu` '
+                             'forces CPU via CPU=1. `gpu` is a no-op hint '
+                             '(tinygrad selects the highest-priority '
+                             'available accelerator automatically).')
     args = parser.parse_args()
     if args.device == 'cpu':
-        os.environ['JAX_PLATFORMS'] = 'cpu'
-    elif args.device == 'gpu':
-        os.environ['JAX_PLATFORMS'] = 'cuda'
+        os.environ['CPU'] = '1'
     targets = tuple(_split_tickers(args.targets))
     unknown = set(targets) - set(TARGET_NAMES)
     if unknown:
@@ -470,7 +483,7 @@ def main() -> None:
     if args.val_ticker is not None:
         val_data = [load_ticker(args.val_ticker, **load_kwargs)]
 
-    _log_jax_devices(args.decoder)
+    _log_tinygrad_device(args.decoder)
 
     cnn_channels_per_lag = primary.features.shape[1] // args.window_cols
 
@@ -490,10 +503,12 @@ def main() -> None:
         cnn_hidden=args.cnn_hidden, cnn_kernel=args.cnn_kernel,
         cnn_layers=args.cnn_layers, cnn_steps=args.cnn_steps,
         cnn_batch_size=args.cnn_batch_size,
+        cnn_microbatch_size=args.cnn_microbatch_size,
         cnn_film_hidden=args.cnn_film_hidden,
         rsi_n_grid=rsi_n_grid, rsi_w_grid=rsi_w_grid,
         rsi_anchor_n=args.rsi_n, rsi_anchor_w=args.rsi_anchor_w,
         frozen_backbone_path=args.freeze_backbone,
+        use_bf16=not args.cnn_no_bf16,
     )
 
     n_features = primary.features.shape[1]

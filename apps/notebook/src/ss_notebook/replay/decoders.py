@@ -5,17 +5,72 @@ where `X_full` is the prediction set (may be the same as `X_train`, or a
 concatenated train+val set when running zero-shot evaluation). Train z-norm
 stats and OLS weights are derived from `X_train` only — `X_full` never
 influences the fit.
+
+Tinygrad notes
+--------------
+- `Tensor.training = True` must be set before any optimizer step. We
+  toggle it inside each fit and restore the previous value on exit.
+- Mixed precision is opt-in via `use_bf16=True` (default). Activations
+  and weight reads cast to bf16 in the forward; gradients accumulate in
+  fp32 (tinygrad backward keeps the source dtype of the requires_grad
+  parameters). Falls back to fp32 cleanly if the backend lacks bf16
+  shader support (e.g. Metal on Intel Mac) — pass `use_bf16=False`.
+- Microbatching: `microbatch_size` lets a logical `batch_size` be split
+  into smaller forward/backward passes whose gradients are averaged
+  before the optimizer step. Drops VRAM proportional to the split.
 """
 from __future__ import annotations
 
+import contextlib
+
 import numpy as np
 
+from tinygrad.tensor import Tensor
+from tinygrad import dtypes
+from tinygrad.nn.optim import Adam
+
+
+# ---- shared utilities -------------------------------------------------------
+
+@contextlib.contextmanager
+def _training_mode():
+    prev = Tensor.training
+    Tensor.training = True
+    try:
+        yield
+    finally:
+        Tensor.training = prev
+
+
+def _maybe_bf16(x: Tensor, use_bf16: bool) -> Tensor:
+    return x.cast(dtypes.bfloat16) if use_bf16 else x
+
+
+def _he_normal_np(rng: np.random.Generator, shape: tuple[int, ...],
+                  fan_in: int) -> np.ndarray:
+    return rng.standard_normal(shape).astype(np.float32) * (2.0 / fan_in) ** 0.5
+
+
+def _conv1d(x: Tensor, W: Tensor, b: Tensor) -> Tensor:
+    """`x` `(B, L, Cin)` (NHC), `W` `(kernel, Cin, Cout)` (HIO).
+
+    Tinygrad's `conv2d` is NCHW; we permute in/out to match the JAX
+    NHC/HIO layout the npz expects on disk.
+    """
+    x_bcl = x.permute(0, 2, 1)
+    W_oik = W.permute(2, 1, 0)
+    y_bcl = x_bcl.conv2d(W_oik)
+    return y_bcl.permute(0, 2, 1) + b
+
+
+# ---- public fits ------------------------------------------------------------
 
 def fit_ols(X: np.ndarray, y: np.ndarray) -> tuple[np.ndarray, float]:
     """Returns `(weights, bias)` minimizing ‖X w + b − y‖².
 
     Implemented via `np.linalg.lstsq` on `[X | 1]` rather than the normal
-    equations — better-conditioned for ill-scaled features.
+    equations — better-conditioned for ill-scaled features. Pure numpy,
+    no tinygrad.
     """
     Xb = np.column_stack([X, np.ones(len(X), dtype=X.dtype)])
     sol, *_ = np.linalg.lstsq(Xb, y, rcond=None)
@@ -34,9 +89,11 @@ def fit_mlp(
     seed: int = 0,
     batch_size: int | None = None,
     predict_chunk: int = 32_768,
+    use_bf16: bool = True,
+    microbatch_size: int | None = None,
 ) -> tuple[np.ndarray, dict[str, np.ndarray]]:
-    """Tiny JAX MLP regressor — `n_layers` hidden ReLU blocks of width
-    `hidden`, fit with Adam for `n_steps`. Returns
+    """Tiny tinygrad MLP regressor — `n_layers` hidden ReLU blocks of
+    width `hidden`, fit with Adam for `n_steps`. Returns
     `(yhat_full, params_dict)`. `params_dict` is flat numpy arrays
     (`feat_mu`, `feat_sd`, `layer{i}_W`, `layer{i}_b`) suitable for
     `np.savez`; it's everything you need to rerun `forward` from the
@@ -50,72 +107,86 @@ def fit_mlp(
     matrix and its activations blow past device memory. Predictions are
     streamed in `predict_chunk`-row pieces regardless of batch_size, so
     the predict pass also stays bounded.
-    """
-    import jax
-    import jax.numpy as jnp
-    import optax
 
+    `microbatch_size` (default = `batch_size`) splits each step's batch
+    for gradient accumulation: forward/backward over `microbatch_size`
+    rows at a time, average gradients, single Adam step. Lets you keep
+    a large *effective* batch on tight VRAM. `use_bf16=True` (default)
+    runs the forward in bf16 for ~2x lower activation memory.
+    """
     mu = X_train.mean(axis=0, keepdims=True)
     sd = X_train.std(axis=0, keepdims=True) + 1e-8
     X_tr = ((X_train - mu) / sd).astype(np.float32)
     X_fl = ((X_full - mu) / sd).astype(np.float32)
 
-    key = jax.random.PRNGKey(seed)
+    rng = np.random.default_rng(seed)
     sizes = [X_tr.shape[1]] + [hidden] * n_layers + [1]
-    params: list[tuple[jnp.ndarray, jnp.ndarray]] = []
+    params: list[tuple[Tensor, Tensor]] = []
     for fan_in, fan_out in zip(sizes[:-1], sizes[1:]):
-        key, sub = jax.random.split(key)
-        W = jax.random.normal(sub, (fan_in, fan_out),
-                              dtype=jnp.float32) * jnp.sqrt(2.0 / fan_in)
-        b = jnp.zeros(fan_out, dtype=jnp.float32)
+        W = Tensor(_he_normal_np(rng, (fan_in, fan_out), fan_in),
+                   requires_grad=True)
+        b = Tensor(np.zeros(fan_out, dtype=np.float32), requires_grad=True)
         params.append((W, b))
 
-    def forward(p, x):
-        for W, b in p[:-1]:
-            x = jax.nn.relu(x @ W + b)
-        W, b = p[-1]
-        return (x @ W + b).squeeze(-1)
+    flat_params = [t for layer in params for t in layer]
+    opt = Adam(flat_params, lr=lr)
 
-    def loss_fn(p, X, y):
-        return jnp.mean((forward(p, X) - y) ** 2)
-
-    opt = optax.adam(lr)
-    opt_state = opt.init(params)
-
-    @jax.jit
-    def step(p, st, X, y):
-        loss, grads = jax.value_and_grad(loss_fn)(p, X, y)
-        updates, st = opt.update(grads, st, p)
-        return optax.apply_updates(p, updates), st, loss
+    def forward(x: Tensor) -> Tensor:
+        h = _maybe_bf16(x, use_bf16)
+        for W, b in params[:-1]:
+            Wc = _maybe_bf16(W, use_bf16)
+            bc = _maybe_bf16(b, use_bf16)
+            h = (h @ Wc + bc).relu()
+        W, b = params[-1]
+        Wc = _maybe_bf16(W, use_bf16)
+        bc = _maybe_bf16(b, use_bf16)
+        h = h @ Wc + bc
+        return h.cast(dtypes.float32).squeeze(-1)
 
     n_train = X_tr.shape[0]
     y_train32 = y_train.astype(np.float32)
-    if batch_size is None or batch_size >= n_train:
-        X_j = jnp.asarray(X_tr)
-        y_j = jnp.asarray(y_train32)
+    eff_batch = batch_size if batch_size is not None else n_train
+    eff_batch = min(eff_batch, n_train)
+    micro = microbatch_size if microbatch_size is not None else eff_batch
+    micro = max(1, min(micro, eff_batch))
+
+    with _training_mode():
         for _ in range(n_steps):
-            params, opt_state, _ = step(params, opt_state, X_j, y_j)
-    else:
-        rng = np.random.default_rng(seed)
-        for _ in range(n_steps):
-            idx = rng.integers(0, n_train, size=batch_size)
-            xb = jnp.asarray(X_tr[idx])
-            yb = jnp.asarray(y_train32[idx])
-            params, opt_state, _ = step(params, opt_state, xb, yb)
+            if batch_size is None or batch_size >= n_train:
+                # Full-batch path: still respect microbatch_size for VRAM.
+                idx_full = np.arange(n_train)
+            else:
+                idx_full = rng.integers(0, n_train, size=eff_batch)
+            opt.zero_grad()
+            n_micro = max(1, len(idx_full) // micro)
+            for mi in range(n_micro):
+                sub = idx_full[mi * micro:(mi + 1) * micro]
+                if len(sub) == 0:
+                    continue
+                xb = Tensor(X_tr[sub])
+                yb = Tensor(y_train32[sub])
+                loss = (forward(xb) - yb).square().mean() / n_micro
+                loss.backward()
+            opt.step()
 
     yhat_chunks: list[np.ndarray] = []
-    for start in range(0, X_fl.shape[0], predict_chunk):
-        chunk = jnp.asarray(X_fl[start:start + predict_chunk])
-        yhat_chunks.append(np.asarray(forward(params, chunk)))
-    yhat = np.concatenate(yhat_chunks)
+    Tensor.training = False
+    try:
+        for start in range(0, X_fl.shape[0], predict_chunk):
+            chunk = Tensor(X_fl[start:start + predict_chunk])
+            yhat_chunks.append(forward(chunk).numpy())
+    finally:
+        pass
+    yhat = np.concatenate(yhat_chunks).astype(np.float64)
+
     params_dict: dict[str, np.ndarray] = {
-        'feat_mu': np.asarray(mu, dtype=np.float32).reshape(-1),
-        'feat_sd': np.asarray(sd, dtype=np.float32).reshape(-1),
+        'feat_mu': mu.astype(np.float32).reshape(-1),
+        'feat_sd': sd.astype(np.float32).reshape(-1),
     }
     for i, (W, b) in enumerate(params):
-        params_dict[f'layer{i}_W'] = np.asarray(W, dtype=np.float32)
-        params_dict[f'layer{i}_b'] = np.asarray(b, dtype=np.float32)
-    return np.asarray(yhat, dtype=np.float64), params_dict
+        params_dict[f'layer{i}_W'] = W.numpy().astype(np.float32)
+        params_dict[f'layer{i}_b'] = b.numpy().astype(np.float32)
+    return yhat, params_dict
 
 
 def fit_cnn(
@@ -132,6 +203,8 @@ def fit_cnn(
     seed: int = 0,
     batch_size: int | None = None,
     predict_chunk: int = 32_768,
+    use_bf16: bool = True,
+    microbatch_size: int | None = None,
 ) -> tuple[np.ndarray, dict[str, np.ndarray]]:
     """1-D CNN over the trailing-window features. Returns
     `(yhat_full, params_dict)`; `params_dict` carries `feat_mu/feat_sd`
@@ -160,10 +233,6 @@ def fit_cnn(
             f'window_cols K={K} too small for {n_layers} conv layers of '
             f'kernel size {kernel} (need K > kernel * n_layers).')
 
-    import jax
-    import jax.numpy as jnp
-    import optax
-
     F = n_channels_per_lag
     X_tr = X_train.reshape(-1, K, F).astype(np.float32)
     X_fl = X_full.reshape(-1, K, F).astype(np.float32)
@@ -173,87 +242,77 @@ def fit_cnn(
     X_tr = (X_tr - mu) / sd
     X_fl = (X_fl - mu) / sd
 
-    key = jax.random.PRNGKey(seed)
+    rng = np.random.default_rng(seed)
     chs = [F] + [hidden] * n_layers
-    conv_params = []
+    conv_params: list[tuple[Tensor, Tensor]] = []
     for in_c, out_c in zip(chs[:-1], chs[1:]):
-        key, sub = jax.random.split(key)
-        W = jax.random.normal(
-            sub, (kernel, in_c, out_c),
-            dtype=jnp.float32) * jnp.sqrt(2.0 / (kernel * in_c))
-        b = jnp.zeros(out_c, dtype=jnp.float32)
+        W = Tensor(_he_normal_np(rng, (kernel, in_c, out_c), kernel * in_c),
+                   requires_grad=True)
+        b = Tensor(np.zeros(out_c, dtype=np.float32), requires_grad=True)
         conv_params.append((W, b))
 
     out_K = K - n_layers * (kernel - 1)
     head_in = out_K * hidden
-    key, sub = jax.random.split(key)
-    W_head = jax.random.normal(
-        sub, (head_in, 1),
-        dtype=jnp.float32) * jnp.sqrt(2.0 / head_in)
-    b_head = jnp.zeros(1, dtype=jnp.float32)
-    params = (conv_params, (W_head, b_head))
+    W_head = Tensor(_he_normal_np(rng, (head_in, 1), head_in),
+                    requires_grad=True)
+    b_head = Tensor(np.zeros(1, dtype=np.float32), requires_grad=True)
 
-    def conv1d(x, W, b):
-        return jax.lax.conv_general_dilated(
-            x, W,
-            window_strides=(1,),
-            padding='VALID',
-            dimension_numbers=('NHC', 'HIO', 'NHC'),
-        ) + b
+    flat_params = [t for layer in conv_params for t in layer] + [W_head, b_head]
+    opt = Adam(flat_params, lr=lr)
 
-    def forward(p, x):
-        conv_p, head_p = p
-        h = x
-        for W, b in conv_p:
-            h = jax.nn.relu(conv1d(h, W, b))
+    def forward(x: Tensor) -> Tensor:
+        h = _maybe_bf16(x, use_bf16)
+        for W, b in conv_params:
+            Wc = _maybe_bf16(W, use_bf16)
+            bc = _maybe_bf16(b, use_bf16)
+            h = _conv1d(h, Wc, bc).relu()
         h = h.reshape(h.shape[0], -1)
-        Wh, bh = head_p
-        return (h @ Wh + bh).squeeze(-1)
-
-    def loss_fn(p, X, y):
-        return jnp.mean((forward(p, X) - y) ** 2)
-
-    opt = optax.adam(lr)
-    opt_state = opt.init(params)
-
-    @jax.jit
-    def step(p, st, X, y):
-        loss, grads = jax.value_and_grad(loss_fn)(p, X, y)
-        updates, st = opt.update(grads, st, p)
-        return optax.apply_updates(p, updates), st, loss
+        Wh = _maybe_bf16(W_head, use_bf16)
+        bh = _maybe_bf16(b_head, use_bf16)
+        return (h @ Wh + bh).cast(dtypes.float32).squeeze(-1)
 
     n_train = X_tr.shape[0]
     y_train32 = y_train.astype(np.float32)
-    if batch_size is None or batch_size >= n_train:
-        Xj = jnp.asarray(X_tr)
-        yj = jnp.asarray(y_train32)
+    eff_batch = batch_size if batch_size is not None else n_train
+    eff_batch = min(eff_batch, n_train)
+    micro = microbatch_size if microbatch_size is not None else eff_batch
+    micro = max(1, min(micro, eff_batch))
+
+    with _training_mode():
         for _ in range(n_steps):
-            params, opt_state, _ = step(params, opt_state, Xj, yj)
-    else:
-        rng = np.random.default_rng(seed)
-        for _ in range(n_steps):
-            idx = rng.integers(0, n_train, size=batch_size)
-            xb = jnp.asarray(X_tr[idx])
-            yb = jnp.asarray(y_train32[idx])
-            params, opt_state, _ = step(params, opt_state, xb, yb)
+            if batch_size is None or batch_size >= n_train:
+                idx_full = np.arange(n_train)
+            else:
+                idx_full = rng.integers(0, n_train, size=eff_batch)
+            opt.zero_grad()
+            n_micro = max(1, len(idx_full) // micro)
+            for mi in range(n_micro):
+                sub = idx_full[mi * micro:(mi + 1) * micro]
+                if len(sub) == 0:
+                    continue
+                xb = Tensor(X_tr[sub])
+                yb = Tensor(y_train32[sub])
+                loss = (forward(xb) - yb).square().mean() / n_micro
+                loss.backward()
+            opt.step()
 
     yhat_chunks: list[np.ndarray] = []
+    Tensor.training = False
     for start in range(0, X_fl.shape[0], predict_chunk):
-        chunk = jnp.asarray(X_fl[start:start + predict_chunk])
-        yhat_chunks.append(np.asarray(forward(params, chunk)))
-    yhat = np.concatenate(yhat_chunks)
-    conv_p, head_p = params
+        chunk = Tensor(X_fl[start:start + predict_chunk])
+        yhat_chunks.append(forward(chunk).numpy())
+    yhat = np.concatenate(yhat_chunks).astype(np.float64)
+
     params_dict: dict[str, np.ndarray] = {
-        'feat_mu': np.asarray(mu, dtype=np.float32),
-        'feat_sd': np.asarray(sd, dtype=np.float32),
+        'feat_mu': mu.astype(np.float32),
+        'feat_sd': sd.astype(np.float32),
     }
-    for i, (W, b) in enumerate(conv_p):
-        params_dict[f'conv{i}_W'] = np.asarray(W, dtype=np.float32)
-        params_dict[f'conv{i}_b'] = np.asarray(b, dtype=np.float32)
-    Wh, bh = head_p
-    params_dict['head_W'] = np.asarray(Wh, dtype=np.float32)
-    params_dict['head_b'] = np.asarray(bh, dtype=np.float32)
-    return np.asarray(yhat, dtype=np.float64), params_dict
+    for i, (W, b) in enumerate(conv_params):
+        params_dict[f'conv{i}_W'] = W.numpy().astype(np.float32)
+        params_dict[f'conv{i}_b'] = b.numpy().astype(np.float32)
+    params_dict['head_W'] = W_head.numpy().astype(np.float32)
+    params_dict['head_b'] = b_head.numpy().astype(np.float32)
+    return yhat, params_dict
 
 
 def fit_cnn_masked_ae(
@@ -272,6 +331,8 @@ def fit_cnn_masked_ae(
     batch_size: int | None = None,
     mask_ratio: float = 0.4,
     predict_chunk: int = 32_768,
+    use_bf16: bool = True,
+    microbatch_size: int | None = None,
 ) -> tuple[dict[str, np.ndarray], dict[str, float]]:
     """Self-supervised pretrain — masked CWT autoencoding.
 
@@ -317,10 +378,6 @@ def fit_cnn_masked_ae(
     if decoder_layers < 1:
         raise ValueError(f'decoder_layers must be >= 1, got {decoder_layers}')
 
-    import jax
-    import jax.numpy as jnp
-    import optax
-
     F = n_channels_per_lag
     X_tr = X_train.reshape(-1, K, F).astype(np.float32)
     X_fl = X_full.reshape(-1, K, F).astype(np.float32)
@@ -329,138 +386,117 @@ def fit_cnn_masked_ae(
     X_tr = (X_tr - feat_mu) / feat_sd
     X_fl = (X_fl - feat_mu) / feat_sd
 
-    key = jax.random.PRNGKey(seed)
+    rng = np.random.default_rng(seed)
     chs = [F] + [hidden] * n_layers
-    conv_params = []
+    conv_params: list[tuple[Tensor, Tensor]] = []
     for in_c, out_c in zip(chs[:-1], chs[1:]):
-        key, sub = jax.random.split(key)
-        W = jax.random.normal(
-            sub, (kernel, in_c, out_c),
-            dtype=jnp.float32) * jnp.sqrt(2.0 / (kernel * in_c))
-        b = jnp.zeros(out_c, dtype=jnp.float32)
+        W = Tensor(_he_normal_np(rng, (kernel, in_c, out_c), kernel * in_c),
+                   requires_grad=True)
+        b = Tensor(np.zeros(out_c, dtype=np.float32), requires_grad=True)
         conv_params.append((W, b))
 
     out_K = K - n_layers * (kernel - 1)
     latent_flat = out_K * hidden
     out_flat = K * F
     dec_sizes = [latent_flat] + [decoder_hidden] * (decoder_layers - 1) + [out_flat]
-    dec_params: list[tuple[jnp.ndarray, jnp.ndarray]] = []
+    dec_params: list[tuple[Tensor, Tensor]] = []
     for fan_in, fan_out in zip(dec_sizes[:-1], dec_sizes[1:]):
-        key, sub = jax.random.split(key)
-        W = jax.random.normal(
-            sub, (fan_in, fan_out),
-            dtype=jnp.float32) * jnp.sqrt(2.0 / fan_in)
-        b = jnp.zeros(fan_out, dtype=jnp.float32)
+        W = Tensor(_he_normal_np(rng, (fan_in, fan_out), fan_in),
+                   requires_grad=True)
+        b = Tensor(np.zeros(fan_out, dtype=np.float32), requires_grad=True)
         dec_params.append((W, b))
 
-    params = (conv_params, dec_params)
+    flat_params = ([t for layer in conv_params for t in layer]
+                   + [t for layer in dec_params for t in layer])
+    opt = Adam(flat_params, lr=lr)
 
-    def conv1d(x, W, b):
-        return jax.lax.conv_general_dilated(
-            x, W,
-            window_strides=(1,),
-            padding='VALID',
-            dimension_numbers=('NHC', 'HIO', 'NHC'),
-        ) + b
-
-    def encoder(conv_p, x):
-        h = x
-        for W, b in conv_p:
-            h = jax.nn.relu(conv1d(h, W, b))
+    def encoder(x: Tensor) -> Tensor:
+        h = _maybe_bf16(x, use_bf16)
+        for W, b in conv_params:
+            Wc = _maybe_bf16(W, use_bf16)
+            bc = _maybe_bf16(b, use_bf16)
+            h = _conv1d(h, Wc, bc).relu()
         return h.reshape(h.shape[0], -1)
 
-    def decoder(dec_p, z):
+    def decoder_fwd(z: Tensor) -> Tensor:
         h = z
-        for W, b in dec_p[:-1]:
-            h = jax.nn.relu(h @ W + b)
-        Wf, bf = dec_p[-1]
-        return h @ Wf + bf
+        for W, b in dec_params[:-1]:
+            Wc = _maybe_bf16(W, use_bf16)
+            bc = _maybe_bf16(b, use_bf16)
+            h = (h @ Wc + bc).relu()
+        Wf, bf = dec_params[-1]
+        Wfc = _maybe_bf16(Wf, use_bf16)
+        bfc = _maybe_bf16(bf, use_bf16)
+        return h @ Wfc + bfc
 
-    def forward_masked(p, x_full, mask):
-        """`x_full` is z-normed `(n, K, F)`, `mask` is `(n, K, F)` float
-        in {0, 1} where 1 = masked. Encoder sees the masked input;
-        decoder predicts the full flattened input."""
-        conv_p, dec_p = p
-        x_masked = x_full * (1.0 - mask)  # mask token = 0
-        z = encoder(conv_p, x_masked)
-        return decoder(dec_p, z)
-
-    def masked_mse(p, x_full, mask):
-        x_flat = x_full.reshape(x_full.shape[0], -1)
-        mask_flat = mask.reshape(mask.shape[0], -1)
-        yhat = forward_masked(p, x_full, mask)
-        err = (yhat - x_flat) ** 2
-        denom = jnp.sum(mask_flat) + 1e-8
-        return jnp.sum(err * mask_flat) / denom
-
-    opt = optax.adam(lr)
-    opt_state = opt.init(params)
-
-    @jax.jit
-    def step(p, st, X, key_step):
-        m = (jax.random.uniform(key_step, X.shape, dtype=jnp.float32)
-             < mask_ratio).astype(jnp.float32)
-        loss, grads = jax.value_and_grad(masked_mse)(p, X, m)
-        updates, st = opt.update(grads, st, p)
-        return optax.apply_updates(p, updates), st, loss
+    def masked_recon_loss(x_full_np: np.ndarray, mask_np: np.ndarray) -> Tensor:
+        x_t = Tensor(x_full_np)
+        mask_t = Tensor(mask_np)
+        x_masked = x_t * (1.0 - mask_t)
+        z = encoder(x_masked)
+        yhat = decoder_fwd(z).cast(dtypes.float32)
+        x_flat = x_t.reshape(x_t.shape[0], -1)
+        mask_flat = mask_t.reshape(mask_t.shape[0], -1)
+        err = (yhat - x_flat).square()
+        denom = mask_flat.sum() + 1e-8
+        return (err * mask_flat).sum() / denom
 
     n_train = X_tr.shape[0]
-    rng = np.random.default_rng(seed)
-    if batch_size is None or batch_size >= n_train:
-        Xj = jnp.asarray(X_tr)
+    eff_batch = batch_size if batch_size is not None else n_train
+    eff_batch = min(eff_batch, n_train)
+    micro = microbatch_size if microbatch_size is not None else eff_batch
+    micro = max(1, min(micro, eff_batch))
+
+    with _training_mode():
         for _ in range(n_steps):
-            key, sub = jax.random.split(key)
-            params, opt_state, _ = step(params, opt_state, Xj, sub)
-    else:
-        for _ in range(n_steps):
-            idx = rng.integers(0, n_train, size=batch_size)
-            Xb = jnp.asarray(X_tr[idx])
-            key, sub = jax.random.split(key)
-            params, opt_state, _ = step(params, opt_state, Xb, sub)
+            if batch_size is None or batch_size >= n_train:
+                idx_full = np.arange(n_train)
+            else:
+                idx_full = rng.integers(0, n_train, size=eff_batch)
+            opt.zero_grad()
+            n_micro = max(1, len(idx_full) // micro)
+            for mi in range(n_micro):
+                sub = idx_full[mi * micro:(mi + 1) * micro]
+                if len(sub) == 0:
+                    continue
+                Xb_np = X_tr[sub]
+                m_np = (rng.random(Xb_np.shape) < mask_ratio).astype(np.float32)
+                loss = masked_recon_loss(Xb_np, m_np) / n_micro
+                loss.backward()
+            opt.step()
 
-    # Final diagnostic stats: masked + unmasked recon MSE on X_train.
-    @jax.jit
-    def eval_unmasked(p, X):
-        zero_mask = jnp.zeros_like(X)
-        x_flat = X.reshape(X.shape[0], -1)
-        yhat = forward_masked(p, X, zero_mask)
-        return jnp.mean((yhat - x_flat) ** 2)
+    Tensor.training = False
+    # Final diagnostic stats on training pool (and val pool if X_fl differs).
+    def _eval_unmasked(X_np: np.ndarray) -> float:
+        z = encoder(Tensor(X_np))
+        yhat = decoder_fwd(z).cast(dtypes.float32)
+        x_flat = Tensor(X_np).reshape(X_np.shape[0], -1)
+        return (yhat - x_flat).square().mean().item()
 
-    @jax.jit
-    def eval_masked(p, X, key_step):
-        m = (jax.random.uniform(key_step, X.shape, dtype=jnp.float32)
-             < mask_ratio).astype(jnp.float32)
-        return masked_mse(p, X, m)
+    def _eval_masked(X_np: np.ndarray) -> float:
+        m_np = (rng.random(X_np.shape) < mask_ratio).astype(np.float32)
+        return masked_recon_loss(X_np, m_np).item()
 
-    train_jnp = jnp.asarray(X_tr)
-    key, sub = jax.random.split(key)
     train_stats = {
-        'train_mse_masked': float(eval_masked(params, train_jnp, sub)),
-        'train_mse_unmasked': float(eval_unmasked(params, train_jnp)),
+        'train_mse_masked': float(_eval_masked(X_tr)),
+        'train_mse_unmasked': float(_eval_unmasked(X_tr)),
         'mask_ratio': float(mask_ratio),
         'n_train_rows': int(n_train),
         'n_steps': int(n_steps),
     }
-    # `X_fl` here is concat(train, val); we surface val stats separately
-    # if the caller chose to split. For now we report the pooled MSE so
-    # the CLI can subset by ticker offsets.
     if X_fl.shape[0] != X_tr.shape[0]:
-        full_jnp = jnp.asarray(X_fl)
-        train_stats['full_mse_unmasked'] = float(eval_unmasked(params, full_jnp))
+        train_stats['full_mse_unmasked'] = float(_eval_unmasked(X_fl))
 
-    conv_p_final, dec_p_final = params
     params_dict: dict[str, np.ndarray] = {
-        'feat_mu': np.asarray(feat_mu, dtype=np.float32),
-        'feat_sd': np.asarray(feat_sd, dtype=np.float32),
+        'feat_mu': feat_mu.astype(np.float32),
+        'feat_sd': feat_sd.astype(np.float32),
     }
-    for i, (W, b) in enumerate(conv_p_final):
-        params_dict[f'conv{i}_W'] = np.asarray(W, dtype=np.float32)
-        params_dict[f'conv{i}_b'] = np.asarray(b, dtype=np.float32)
-    # Decoder under `head_` prefix so `load_backbone` skips it (matches
-    # the existing per-target head filter convention).
-    for i, (W, b) in enumerate(dec_p_final):
-        params_dict[f'head_dec{i}_W'] = np.asarray(W, dtype=np.float32)
-        params_dict[f'head_dec{i}_b'] = np.asarray(b, dtype=np.float32)
+    for i, (W, b) in enumerate(conv_params):
+        params_dict[f'conv{i}_W'] = W.numpy().astype(np.float32)
+        params_dict[f'conv{i}_b'] = b.numpy().astype(np.float32)
+    for i, (W, b) in enumerate(dec_params):
+        params_dict[f'head_dec{i}_W'] = W.numpy().astype(np.float32)
+        params_dict[f'head_dec{i}_b'] = b.numpy().astype(np.float32)
     return params_dict, train_stats
 
 
@@ -483,6 +519,8 @@ def fit_cnn_multihead(
     train_pool_idx: np.ndarray | None = None,
     film_hidden: int = 32,
     frozen_backbone: 'object | None' = None,
+    use_bf16: bool = True,
+    microbatch_size: int | None = None,
 ) -> tuple[dict[str, np.ndarray], dict[str, dict[str, np.ndarray]]]:
     """Multi-head 1-D CNN — one shared conv backbone, per-target linear
     heads. Targets are standardized internally (per-target mean/std on
@@ -501,46 +539,31 @@ def fit_cnn_multihead(
     (default 32): two 2-layer MLPs take the conditioning vector and
     produce per-latent-feature scale `gamma` and shift `beta`; the
     backbone latent is modulated `gamma * h + beta` before the linear
-    head. This gives true latent×cond interaction (each cond value can
-    re-weight latent features differently) while keeping the
-    `latent -> output` projection linear — same per-ticker memorization
-    risk as a plain linear head, since the only path that sees
-    per-sample latent stays linear, and the MLPs only ever see the
-    cond vector (which carries no ticker info). At init, the last
-    layer of both MLPs is zero so `gamma = 1`, `beta = 0` — head is
-    identity wrt cond at step 0. With `film_hidden = 0`, falls back
-    to the legacy additive-concat path: cond is concatenated to the
-    latent and the head's linear weights absorb it (older behavior;
-    cannot represent latent×cond interactions).
+    head. At init, the last layer of both MLPs is zero so `gamma = 1`
+    (we add 1.0 in forward) and `beta = 0` — head is identity wrt cond
+    at step 0. With `film_hidden = 0`, falls back to legacy
+    additive-concat.
 
     `train_pool_idx` enables lazy training-row augmentation. When
     provided, `X_train` is treated as a small *pool* of unique input
     rows and `train_pool_idx[i]` maps logical training row `i` to its
     pool row. `Y_train[t]` and `head_conditioning_train[t]` must have
-    length `len(train_pool_idx)` (the logical training set size). Used
-    when the same pool row is paired with several target/conditioning
-    values (e.g. RSI period grid) — avoids materializing the augmented
-    feature matrix, which can be many GB. When `None`, defaults to the
-    identity mapping.
+    length `len(train_pool_idx)` (the logical training set size).
 
-    Returns `(yhats, params_per_target)` where:
-      - `yhats[target]` is the prediction over `X_full` for that target,
-        unstandardized.
-      - `params_per_target[target]` is a flat numpy dict with the
-        shared input z-norm (`feat_mu/sd`), the shared conv backbone
-        (`conv{i}_W/b`), this target's head (`head_W/b`,
-        `head_cond_dim`), and this target's output unstandardizer
-        (`target_mu/sd`). For conditioned heads, `head_cond_dim`
-        records the conditioning width (the head's first
-        `head_in - head_cond_dim` weights map the latent; the trailing
-        `head_cond_dim` weights map the conditioning vector). Suitable
-        for `np.savez`. The shared keys are duplicated across targets
-        so each per-target dict is self-contained at inference time —
-        callers don't need to know whether a key is shared or per-head.
-        All conditioning bookkeeping is under the `head_` prefix so
-        downstream loaders that strip per-head artifacts (e.g.
-        `ss_notebook.scoring.backbone.load_backbone`) see only the
-        shared backbone.
+    VRAM optimization (tinygrad port)
+    ---------------------------------
+    Even in full-batch mode, we never materialize `X_train[pool_idx]`
+    on device — we sample minibatches every step. The default
+    `batch_size=None` is now interpreted as "stream the full
+    augmented logical set across `n_micro` minibatches per step,"
+    not "load it all at once." This eliminates the O(n_pool ×
+    |grid|) replicated tile that crashed the JAX path on Steam Deck
+    iGPU. Set `batch_size=B` to switch to stochastic batches.
+    `microbatch_size` further splits each batch for gradient
+    accumulation.
+
+    Returns `(yhats, params_per_target)` matching the original layout.
+    See npz schema in `replay/README.md` "Outputs".
     """
     if X_train.shape[1] % n_channels_per_lag != 0:
         raise ValueError(
@@ -596,49 +619,34 @@ def fit_cnn_multihead(
                 f'not match (n_full={X_full.shape[0]}, p_dim={arr.shape[1]}).')
         cond_dim[t] = arr.shape[1]
 
-    import jax
-    import jax.numpy as jnp
-    import optax
-
     F = n_channels_per_lag
-    X_tr = X_train.reshape(-1, K, F).astype(np.float32)
+    X_tr_pool = X_train.reshape(-1, K, F).astype(np.float32)
     X_fl = X_full.reshape(-1, K, F).astype(np.float32)
 
-    # When `frozen_backbone` is given, we use *its* feat_mu/sd and conv
-    # weights instead of recomputing/initializing. This keeps the
-    # frozen encoder at the exact distribution it saw during pretrain.
-    # The backbone forward pass below wraps activations in
-    # `jax.lax.stop_gradient`, so gradients don't flow into conv params
-    # and adam's updates for them are no-ops (m, v stay at zero
-    # forever -> update = 0). Per-target heads + FiLM still train.
+    # Backbone reuse (frozen) — load weights, hold them constant.
     freeze_backbone_flag = frozen_backbone is not None
     if freeze_backbone_flag:
         bb = frozen_backbone
         if bb.K != K:
-            raise ValueError(
-                f'frozen_backbone K={bb.K} does not match input K={K}')
+            raise ValueError(f'frozen_backbone K={bb.K} != input K={K}')
         if bb.F != F:
-            raise ValueError(
-                f'frozen_backbone F={bb.F} does not match input F={F}')
+            raise ValueError(f'frozen_backbone F={bb.F} != input F={F}')
         if bb.hidden != hidden:
             raise ValueError(
-                f'frozen_backbone hidden={bb.hidden} does not match '
-                f'hidden={hidden}')
+                f'frozen_backbone hidden={bb.hidden} != hidden={hidden}')
         if bb.kernel != kernel:
             raise ValueError(
-                f'frozen_backbone kernel={bb.kernel} does not match '
-                f'kernel={kernel}')
+                f'frozen_backbone kernel={bb.kernel} != kernel={kernel}')
         if bb.n_layers != n_layers:
             raise ValueError(
-                f'frozen_backbone n_layers={bb.n_layers} does not match '
-                f'n_layers={n_layers}')
-        feat_mu = np.asarray(bb.feat_mu, dtype=np.float32)
-        feat_sd = np.asarray(bb.feat_sd, dtype=np.float32)
+                f'frozen_backbone n_layers={bb.n_layers} != n_layers={n_layers}')
+        feat_mu_np = np.asarray(bb.feat_mu, dtype=np.float32)
+        feat_sd_np = np.asarray(bb.feat_sd, dtype=np.float32)
     else:
-        feat_mu = X_tr.mean(axis=0, keepdims=True)
-        feat_sd = X_tr.std(axis=0, keepdims=True) + 1e-8
-    X_tr = (X_tr - feat_mu) / feat_sd
-    X_fl = (X_fl - feat_mu) / feat_sd
+        feat_mu_np = X_tr_pool.mean(axis=0, keepdims=True)
+        feat_sd_np = X_tr_pool.std(axis=0, keepdims=True) + 1e-8
+    X_tr_pool = (X_tr_pool - feat_mu_np) / feat_sd_np
+    X_fl = (X_fl - feat_mu_np) / feat_sd_np
 
     target_names = list(Y_train.keys())
     target_mu = {t: float(np.mean(Y_train[t])) for t in target_names}
@@ -648,203 +656,190 @@ def fit_cnn_multihead(
     cond_tr = {t: arr.astype(np.float32) for t, arr in cond_train.items()}
     cond_fl = {t: arr.astype(np.float32) for t, arr in cond_predict.items()}
 
-    key = jax.random.PRNGKey(seed)
+    rng = np.random.default_rng(seed)
     if freeze_backbone_flag:
-        # Reuse the frozen weights verbatim; head/FiLM init still uses
-        # `key` below.
+        # Backbone stays frozen — `requires_grad=False` so it doesn't
+        # enter the optimizer's parameter list and the loss never
+        # backprops into it.
         conv_params = [
-            (jnp.asarray(W, dtype=jnp.float32),
-             jnp.asarray(b, dtype=jnp.float32))
+            (Tensor(np.asarray(W, dtype=np.float32), requires_grad=False),
+             Tensor(np.asarray(b, dtype=np.float32), requires_grad=False))
             for W, b in frozen_backbone.conv_params
         ]
     else:
         chs = [F] + [hidden] * n_layers
         conv_params = []
         for in_c, out_c in zip(chs[:-1], chs[1:]):
-            key, sub = jax.random.split(key)
-            W = jax.random.normal(
-                sub, (kernel, in_c, out_c),
-                dtype=jnp.float32) * jnp.sqrt(2.0 / (kernel * in_c))
-            b = jnp.zeros(out_c, dtype=jnp.float32)
+            W = Tensor(_he_normal_np(rng, (kernel, in_c, out_c),
+                                     kernel * in_c),
+                       requires_grad=True)
+            b = Tensor(np.zeros(out_c, dtype=np.float32), requires_grad=True)
             conv_params.append((W, b))
 
     out_K = K - n_layers * (kernel - 1)
     latent_dim = out_K * hidden
-    # `use_film[t]` decides per-target whether the conditioning is
-    # delivered via FiLM (modulates latent before linear head) or via
-    # legacy additive concat (cond appended to latent, absorbed by the
-    # head's linear weights). FiLM is on whenever `film_hidden > 0`
-    # *and* the head actually has conditioning to apply.
     use_film: dict[str, bool] = {
         t: (film_hidden > 0 and cond_dim.get(t, 0) > 0)
         for t in target_names
     }
-    head_params: dict[str, tuple[jnp.ndarray, jnp.ndarray]] = {}
+    head_params: dict[str, tuple[Tensor, Tensor]] = {}
     for t in target_names:
-        # FiLM modulates the latent in-place, so the linear head reads
-        # `latent_dim` inputs regardless of cond_dim. The legacy concat
-        # path expands the head's input dim by cond_dim.
         head_in = latent_dim if use_film[t] else (
             latent_dim + cond_dim.get(t, 0))
-        key, sub = jax.random.split(key)
-        Wh = jax.random.normal(
-            sub, (head_in, 1),
-            dtype=jnp.float32) * jnp.sqrt(2.0 / head_in)
-        bh = jnp.zeros(1, dtype=jnp.float32)
+        Wh = Tensor(_he_normal_np(rng, (head_in, 1), head_in),
+                    requires_grad=True)
+        bh = Tensor(np.zeros(1, dtype=np.float32), requires_grad=True)
         head_params[t] = (Wh, bh)
 
-    # FiLM gamma/beta MLPs: 2-layer ReLU, cond_dim -> film_hidden ->
-    # latent_dim. Last layer initialized to zero so gamma starts at 1
-    # (we add 1.0 in forward) and beta starts at 0 — identity wrt cond.
-    # Each conditioned target gets its own gamma & beta MLPs since
-    # different targets generally want different modulation patterns.
+    # FiLM gamma/beta MLPs — last layer initialized to zero so gamma
+    # starts at 1 (we add 1.0 in forward) and beta at 0 — head is
+    # identity wrt cond at step 0.
     film_params: dict[str, tuple] = {}
     for t in target_names:
         if not use_film[t]:
             continue
         c_dim = cond_dim[t]
-        layers = []
+        layers_list: list[tuple[Tensor, Tensor, Tensor, Tensor]] = []
         for _which in ('gamma', 'beta'):
-            key, sub = jax.random.split(key)
-            W0 = jax.random.normal(
-                sub, (c_dim, film_hidden),
-                dtype=jnp.float32) * jnp.sqrt(2.0 / c_dim)
-            b0 = jnp.zeros(film_hidden, dtype=jnp.float32)
-            W1 = jnp.zeros((film_hidden, latent_dim), dtype=jnp.float32)
-            b1 = jnp.zeros(latent_dim, dtype=jnp.float32)
-            layers.append((W0, b0, W1, b1))
-        film_params[t] = tuple(layers)  # ((g_W0,g_b0,g_W1,g_b1), (b_W0,...))
+            W0 = Tensor(_he_normal_np(rng, (c_dim, film_hidden), c_dim),
+                        requires_grad=True)
+            b0 = Tensor(np.zeros(film_hidden, dtype=np.float32),
+                        requires_grad=True)
+            W1 = Tensor(np.zeros((film_hidden, latent_dim), dtype=np.float32),
+                        requires_grad=True)
+            b1 = Tensor(np.zeros(latent_dim, dtype=np.float32),
+                        requires_grad=True)
+            layers_list.append((W0, b0, W1, b1))
+        film_params[t] = tuple(layers_list)
 
-    params = (conv_params, head_params, film_params)
+    # Trainable params for optimizer.
+    params_for_opt: list[Tensor] = []
+    if not freeze_backbone_flag:
+        for W, b in conv_params:
+            params_for_opt.extend([W, b])
+    for t in target_names:
+        Wh, bh = head_params[t]
+        params_for_opt.extend([Wh, bh])
+    for t, layers in film_params.items():
+        for W0, b0, W1, b1 in layers:
+            params_for_opt.extend([W0, b0, W1, b1])
+    opt = Adam(params_for_opt, lr=lr)
 
-    def conv1d(x, W, b):
-        return jax.lax.conv_general_dilated(
-            x, W,
-            window_strides=(1,),
-            padding='VALID',
-            dimension_numbers=('NHC', 'HIO', 'NHC'),
-        ) + b
-
-    def backbone(conv_p, x):
-        h = x
-        for W, b in conv_p:
-            h = jax.nn.relu(conv1d(h, W, b))
+    def backbone(x: Tensor) -> Tensor:
+        h = _maybe_bf16(x, use_bf16)
+        for W, b in conv_params:
+            Wc = _maybe_bf16(W, use_bf16)
+            bc = _maybe_bf16(b, use_bf16)
+            h = _conv1d(h, Wc, bc).relu()
         h = h.reshape(h.shape[0], -1)
         if freeze_backbone_flag:
-            # Cuts gradient back into conv weights (and into x, but x is
-            # also non-trainable input so that's a no-op). Head + FiLM
-            # remain fully trainable since they live downstream of `h`.
-            h = jax.lax.stop_gradient(h)
+            h = h.detach()
         return h
 
-    def _film_mlp(layers, c):
+    def _film_mlp(layers, c: Tensor) -> Tensor:
         W0, b0, W1, b1 = layers
-        return jax.nn.relu(c @ W0 + b0) @ W1 + b1
+        W0c = _maybe_bf16(W0, use_bf16)
+        b0c = _maybe_bf16(b0, use_bf16)
+        W1c = _maybe_bf16(W1, use_bf16)
+        b1c = _maybe_bf16(b1, use_bf16)
+        return ((c @ W0c + b0c).relu()) @ W1c + b1c
 
-    # Note: `cond` is a dict-of-arrays that lives outside `params` — they
-    # are training/eval-time *inputs*, not learnable. JAX treats them as
-    # part of the traced function's static structure (keys) + dynamic
-    # values (arrays), so the per-target film/concat is jit-friendly.
-    def forward(p, x, cond):
-        conv_p, head_p, film_p = p
-        h = backbone(conv_p, x)
-        out: dict[str, jax.Array] = {}
-        for t, (Wh, bh) in head_p.items():
-            if t in film_p:
-                g_layers, b_layers = film_p[t]
-                gamma = _film_mlp(g_layers, cond[t]) + 1.0
-                beta = _film_mlp(b_layers, cond[t])
+    def forward(x: Tensor, cond: dict[str, Tensor]) -> dict[str, Tensor]:
+        h = backbone(x)
+        out: dict[str, Tensor] = {}
+        for t, (Wh, bh) in head_params.items():
+            Whc = _maybe_bf16(Wh, use_bf16)
+            bhc = _maybe_bf16(bh, use_bf16)
+            if t in film_params:
+                g_layers, b_layers = film_params[t]
+                c = _maybe_bf16(cond[t], use_bf16)
+                gamma = _film_mlp(g_layers, c) + 1.0
+                beta = _film_mlp(b_layers, c)
                 h_t = gamma * h + beta
-                out[t] = (h_t @ Wh + bh).squeeze(-1)
+                out[t] = (h_t @ Whc + bhc).cast(dtypes.float32).squeeze(-1)
             elif t in cond:
-                h_t = jnp.concatenate([h, cond[t]], axis=-1)
-                out[t] = (h_t @ Wh + bh).squeeze(-1)
+                c = _maybe_bf16(cond[t], use_bf16)
+                h_t = h.cat(c, dim=-1)
+                out[t] = (h_t @ Whc + bhc).cast(dtypes.float32).squeeze(-1)
             else:
-                out[t] = (h @ Wh + bh).squeeze(-1)
+                out[t] = (h @ Whc + bhc).cast(dtypes.float32).squeeze(-1)
         return out
 
-    def loss_fn(p, X, Y, C):
-        preds = forward(p, X, C)
-        per_target = jnp.stack([
-            jnp.mean((preds[t] - Y[t]) ** 2) for t in target_names
-        ])
-        return jnp.mean(per_target)
+    eff_batch = batch_size if batch_size is not None else n_train
+    eff_batch = min(eff_batch, n_train)
+    micro = microbatch_size if microbatch_size is not None else eff_batch
+    micro = max(1, min(micro, eff_batch))
 
-    opt = optax.adam(lr)
-    opt_state = opt.init(params)
-
-    @jax.jit
-    def step(p, st, X, Y, C):
-        loss, grads = jax.value_and_grad(loss_fn)(p, X, Y, C)
-        updates, st = opt.update(grads, st, p)
-        return optax.apply_updates(p, updates), st, loss
-
-    # `n_train` here is the *logical* training-row count — equal to
-    # `len(pool_idx)`, which is `n_pool * n_replicas` when the caller is
-    # augmenting (e.g. RSI period grid). `X_tr` always has only `n_pool`
-    # unique rows; we never materialize the augmented feature matrix.
-    if batch_size is None or batch_size >= n_train:
-        # Full-batch path. Materializes one (n_train, K, F) gather of the
-        # pool — for the augmenting cases this is the only large copy and
-        # it lives only as long as the loop. If this OOMs the caller
-        # should pass `batch_size` to switch to the stochastic path,
-        # which never materializes more than `batch_size` augmented rows.
-        Xj = jnp.asarray(X_tr[pool_idx])
-        Yj = {t: jnp.asarray(Y_std[t]) for t in target_names}
-        Cj = {t: jnp.asarray(arr) for t, arr in cond_tr.items()}
+    with _training_mode():
         for _ in range(n_steps):
-            params, opt_state, _ = step(params, opt_state, Xj, Yj, Cj)
-    else:
-        rng = np.random.default_rng(seed)
-        for _ in range(n_steps):
-            idx = rng.integers(0, n_train, size=batch_size)
-            Xb = jnp.asarray(X_tr[pool_idx[idx]])
-            Yb = {t: jnp.asarray(Y_std[t][idx]) for t in target_names}
-            Cb = {t: jnp.asarray(arr[idx]) for t, arr in cond_tr.items()}
-            params, opt_state, _ = step(params, opt_state, Xb, Yb, Cb)
+            if batch_size is None or batch_size >= n_train:
+                idx_full = np.arange(n_train)
+                rng.shuffle(idx_full)
+            else:
+                idx_full = rng.integers(0, n_train, size=eff_batch)
+            opt.zero_grad()
+            n_micro = max(1, len(idx_full) // micro)
+            for mi in range(n_micro):
+                sub = idx_full[mi * micro:(mi + 1) * micro]
+                if len(sub) == 0:
+                    continue
+                # Stream gather: pull only the unique pool rows referenced
+                # by `pool_idx[sub]` — never materialize the full
+                # n_pool × n_replicas × K × F tile.
+                pool_sel = pool_idx[sub]
+                Xb = Tensor(X_tr_pool[pool_sel])
+                Cb = {t: Tensor(cond_tr[t][sub]) for t in cond_tr}
+                preds = forward(Xb, Cb)
+                per_target = []
+                for t in target_names:
+                    yt = Tensor(Y_std[t][sub])
+                    per_target.append((preds[t] - yt).square().mean())
+                loss = sum(per_target) / len(per_target) / n_micro
+                loss.backward()
+            opt.step()
 
+    Tensor.training = False
     yhat_chunks: dict[str, list[np.ndarray]] = {t: [] for t in target_names}
     for start in range(0, X_fl.shape[0], predict_chunk):
-        chunk = jnp.asarray(X_fl[start:start + predict_chunk])
+        chunk = Tensor(X_fl[start:start + predict_chunk])
         chunk_cond = {
-            t: jnp.asarray(arr[start:start + predict_chunk])
-            for t, arr in cond_fl.items()
+            t: Tensor(cond_fl[t][start:start + predict_chunk])
+            for t in cond_fl
         }
-        preds = forward(params, chunk, chunk_cond)
+        preds = forward(chunk, chunk_cond)
         for t in target_names:
-            yhat_chunks[t].append(np.asarray(preds[t]))
+            yhat_chunks[t].append(preds[t].numpy())
     yhats: dict[str, np.ndarray] = {}
     for t in target_names:
         yhat_std = np.concatenate(yhat_chunks[t]).astype(np.float64)
         yhats[t] = yhat_std * target_sd[t] + target_mu[t]
 
-    conv_p_final, head_p_final, film_p_final = params
     shared = {
-        'feat_mu': np.asarray(feat_mu, dtype=np.float32),
-        'feat_sd': np.asarray(feat_sd, dtype=np.float32),
+        'feat_mu': feat_mu_np.astype(np.float32),
+        'feat_sd': feat_sd_np.astype(np.float32),
     }
-    for i, (W, b) in enumerate(conv_p_final):
-        shared[f'conv{i}_W'] = np.asarray(W, dtype=np.float32)
-        shared[f'conv{i}_b'] = np.asarray(b, dtype=np.float32)
+    for i, (W, b) in enumerate(conv_params):
+        shared[f'conv{i}_W'] = W.numpy().astype(np.float32)
+        shared[f'conv{i}_b'] = b.numpy().astype(np.float32)
     params_per_target: dict[str, dict[str, np.ndarray]] = {}
     for t in target_names:
-        Wh, bh = head_p_final[t]
+        Wh, bh = head_params[t]
         pp = {
             **shared,
-            'head_W': np.asarray(Wh, dtype=np.float32),
-            'head_b': np.asarray(bh, dtype=np.float32),
+            'head_W': Wh.numpy().astype(np.float32),
+            'head_b': bh.numpy().astype(np.float32),
             'target_mu': np.array([target_mu[t]], dtype=np.float32),
             'target_sd': np.array([target_sd[t]], dtype=np.float32),
             'head_cond_dim': np.array([cond_dim.get(t, 0)], dtype=np.int32),
         }
-        if t in film_p_final:
-            (g_layers, b_layers) = film_p_final[t]
+        if t in film_params:
+            (g_layers, b_layers) = film_params[t]
             for tag, layers in (('gamma', g_layers), ('beta', b_layers)):
                 W0, b0, W1, b1 = layers
-                pp[f'head_film_{tag}_W0'] = np.asarray(W0, dtype=np.float32)
-                pp[f'head_film_{tag}_b0'] = np.asarray(b0, dtype=np.float32)
-                pp[f'head_film_{tag}_W1'] = np.asarray(W1, dtype=np.float32)
-                pp[f'head_film_{tag}_b1'] = np.asarray(b1, dtype=np.float32)
+                pp[f'head_film_{tag}_W0'] = W0.numpy().astype(np.float32)
+                pp[f'head_film_{tag}_b0'] = b0.numpy().astype(np.float32)
+                pp[f'head_film_{tag}_W1'] = W1.numpy().astype(np.float32)
+                pp[f'head_film_{tag}_b1'] = b1.numpy().astype(np.float32)
             pp['head_film_hidden'] = np.array([film_hidden], dtype=np.int32)
         params_per_target[t] = pp
     return yhats, params_per_target
