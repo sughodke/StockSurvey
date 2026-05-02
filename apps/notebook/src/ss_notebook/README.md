@@ -43,10 +43,10 @@ uv run ss-scalogram-video --start 2000-01-01 --start-after-lookback AAPL
 
 CWT-slice reconstruction probe. Split into focused submodules:
 `cli` (argparse + figure I/O), `features` (CWT + lag-window builder
-+ `TickerData` + `load_ticker`), `decoders` (OLS / JAX MLP / JAX
-Conv1D), `metrics` (R²/RMSE/max-|Δ|), `plot` (3-panel figure), and
-`reconstruct` (`fit_and_evaluate` orchestrator + a single-ticker
-`reconstruct_indicators` wrapper).
++ `TickerData` + `load_ticker`), `decoders` (OLS / tinygrad MLP /
+tinygrad Conv1D / tinygrad masked-AE), `metrics` (R²/RMSE/max-|Δ|),
+`plot` (3-panel figure), and `reconstruct` (`fit_and_evaluate`
+orchestrator + a single-ticker `reconstruct_indicators` wrapper).
 
 For each bar `t` we extract a trailing window of K columns of the
 causal CWT (`coeffs` and `power`, 26 channels per lag with the
@@ -65,11 +65,20 @@ information-theoretic ceiling of "full CWT is invertible":
   level the wavelet bandpass filter discards. Incompatible with
   `--decoder cnn` (the stats aren't lag-windowed and would break
   the CNN reshape).
-- `--decoder {linear, mlp, cnn}` — `linear` = OLS via
-  `np.linalg.lstsq`; `mlp` = small JAX MLP (Adam, hidden=128,
+- `--decoder {linear, mlp, cnn, masked-ae}` — `linear` = OLS via
+  `np.linalg.lstsq`; `mlp` = small tinygrad MLP (Adam, hidden=128,
   layers=2, steps=2000 by default); `cnn` = 1-D Conv1D over the
-  trailing-K window with shared weights across lags. CNN requires
-  `--window-cols > cnn_kernel * cnn_layers`.
+  trailing-K window with shared weights across lags; `masked-ae` =
+  self-supervised pretrain (mask `--mask-ratio` of input cells, MSE-
+  reconstruct via a small MLP decoder, save backbone only — see
+  `replay/README.md` for the SSL motivation). CNN/`masked-ae` require
+  `--window-cols > cnn_kernel * cnn_layers`. CNN/`masked-ae` default
+  to bf16 mixed precision and FiLM-grid streaming (re-samples grid
+  cells per minibatch instead of materializing the replicated tile)
+  for sub-16-GB GPU/iGPU targets; `--cnn-no-bf16` falls back to fp32
+  on backends without bf16 (Metal Intel macOS), and
+  `--cnn-microbatch-size` enables gradient accumulation for tighter
+  VRAM budgets.
 
 Two further knobs control the train/val split across tickers:
 
@@ -116,6 +125,33 @@ uv run ss-replay AAPL --train-tickers MSFT,GOOGL,AMZN \
     --val-ticker TSLA --window-cols 64 --include-zscore-stats \
     --decoder mlp                                           # 4-train, 1-val
 ```
+
+### `scoring/` — frozen-backbone IC head
+
+Cross-sectional stock scorer that loads the replay CNN backbone
+(`load_backbone`), runs it forward over a universe of `TickerData`
+rows, and trains a small linear / MLP head on top against forward
+log-returns. Two-stage option: stage 1 freezes the backbone and
+trains only the head; stage 2 (`finetune_steps > 0`) unfreezes the
+backbone and updates head + backbone jointly at a separate
+learning-rate scale.
+
+- Public surface: `Backbone`, `load_backbone`, `apply_backbone`,
+  `identity_backbone` (no-encoder baseline) | `align_tickers`,
+  `forward_log_returns` | `pearson_rank_ic`, `block_sharpe` |
+  `init_linear`, `init_mlp`, `SCORERS` | `train_scorer`,
+  `precompute_inputs`, `predict`, `TrainResult`.
+- Public-API entrypoint: `from ss_notebook.scoring import ...` (see
+  the package `__init__` for the full list).
+- No CLI yet — invoked from notebooks and the colab scripts in
+  `apps/notebook/scripts/colab/` (`stage1_ic_scorer.py`,
+  `ssl_ic_scorer.py`, `zeroshot_eval.py`).
+
+The backbone loader filters out per-target heads / FiLM weights /
+target standardizers from the replay npz and verifies the remaining
+backbone tensors are byte-identical across all per-target prefixes,
+so the IC head sees a parameter-agnostic latent regardless of which
+multi-head pretrain produced the npz.
 
 ### `replay_optuna.py` → `ss-replay-optuna`
 
@@ -201,5 +237,21 @@ use case; default is raw close.
     machinery the CLIs all share.
   - `cwt_vision_multihead.ipynb` — Flax/JAX vision multi-head over
     scalogram tiles, including a Ridge linear-probe sanity baseline.
+- Colab scripts in `apps/notebook/scripts/colab/`:
+  - `train_cnn_multihead.sh` / `train_cnn_signreturn.sh|py` —
+    supervised multi-head CNN pretrain (FiLM-conditioned RSI head).
+  - `train_ssl.sh` — SSL pretrain via `--decoder masked-ae`
+    (canonical "broad encoding" path; see `replay/README.md`).
+  - `probe_ssl.sh` — supervised heads on a frozen SSL backbone, the
+    diagnostic that reads off per-indicator R² from the SSL latent.
+  - `stage1_ic_scorer.py` / `ssl_ic_scorer.py` / `zeroshot_eval.py`
+    — frozen-backbone IC heads against forward returns; the test
+    that matters for cross-sectional alpha.
+  - `attention_macd_vol.py` / `film_attention.py` — diagnostic
+    attention plots over channels / FiLM bandwidth.
+  - `no_backbone_baseline.py` / `no_backbone_baseline_matched.py`
+    (in `apps/notebook/scripts/`) — `identity_backbone` baseline:
+    raw bundle straight into the IC head, no encoder. Bracket for
+    the encoder-vs-noise comparison.
 - Production trainer that consumes `ss_wavelets.causal_cwt` output:
   `apps/regime/src/regime/trainer.py`.

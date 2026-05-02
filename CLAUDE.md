@@ -92,8 +92,9 @@ Two on-disk sources, picked via `regime train --source {stooq,kaggle} --data-dir
 ## Platform constraints
 
 - Python 3.13.x on macOS **x86_64 (Intel)** Darwin 22.6.0
-- **PyTorch unavailable** — wheels dropped after torch 2.2.x, which doesn't support Python 3.13+. Notebooks use Flax/JAX instead.
-- **JAX pinned to `<0.5`** (jax==0.4.38, jaxlib==0.4.38) — jaxlib 0.10+ dropped Intel macOS wheels.
+- **PyTorch unavailable** — wheels dropped after torch 2.2.x, which doesn't support Python 3.13+. `apps/notebook/` uses tinygrad; the rest of the JAX-using code (`apps/regime`, `packages/portfolio`, `packages/indicators`, `packages/wavelets` numpy-only) is unchanged.
+- **JAX pinned to `<0.5`** (jax==0.4.38, jaxlib==0.4.38) — required by `apps/regime`, `packages/portfolio`, `packages/indicators` (jaxlib 0.10+ dropped Intel macOS wheels). `apps/notebook` does NOT depend on JAX directly anymore (tinygrad replaces it for the replay/scoring trainers); JAX remains in the env transitively via `ss_indicators` / `ss_portfolio`.
+- **tinygrad** for `apps/notebook`. Default backend is auto-selected (Metal on macOS, CUDA on NVIDIA, AMD KFD on Linux+ROCm hardware, CPU fallback). bf16 mixed precision is default-on; `--cnn-no-bf16` disables it for backends without bf16 (Metal on Intel macOS) or fp32 reproducibility.
 - `uv` is the package manager.
 
 ## Live-trading risk rails
