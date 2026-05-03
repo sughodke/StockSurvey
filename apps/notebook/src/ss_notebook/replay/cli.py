@@ -409,6 +409,18 @@ def main() -> None:
                         help='Stride used when applying the conditioned CCI '
                              'head at prediction time. Default 1 matches the '
                              '1-D ground-truth panel.')
+    parser.add_argument('--vol-n-grid', default='',
+                        help='Comma-separated realized-vol windows (e.g. '
+                             '"5,10,20,30,60") enabling FiLM conditioning on '
+                             'the vol head. cond_dim=1 (n / max_n). Anchor '
+                             'comes from --vol-window. CNN-only.')
+    parser.add_argument('--macd-fast-grid', default='',
+                        help='Comma-separated MACD fast-EMA periods (e.g. '
+                             '"8,12,16,24") enabling FiLM conditioning on '
+                             'the macd head. slow=2*fast, signal=int(fast*3/4) '
+                             'are derived to keep the canonical MACD ratios '
+                             'while the model sweeps a single timescale axis. '
+                             'cond_dim=1. Anchor comes from --macd-fast.')
     parser.add_argument('--output-dir', default='Output',
                         help='Where reconstruction figures are saved. '
                              'matplotlib never opens an interactive window.')
@@ -460,6 +472,17 @@ def main() -> None:
         parser.error(f'--rsi-anchor-w={args.rsi_anchor_w} not in '
                      f'--rsi-w-grid={list(rsi_w_grid)}')
 
+    vol_n_grid = tuple(int(s) for s in _split_tickers(args.vol_n_grid))
+    if vol_n_grid and any(n < 2 for n in vol_n_grid):
+        parser.error('--vol-n-grid values must be >= 2')
+    if vol_n_grid and args.decoder != 'cnn':
+        parser.error('--vol-n-grid requires --decoder cnn')
+    macd_fast_grid = tuple(int(s) for s in _split_tickers(args.macd_fast_grid))
+    if macd_fast_grid and any(f < 2 for f in macd_fast_grid):
+        parser.error('--macd-fast-grid values must be >= 2')
+    if macd_fast_grid and args.decoder != 'cnn':
+        parser.error('--macd-fast-grid requires --decoder cnn')
+
     cci_n_grid = tuple(int(s) for s in _split_tickers(args.cci_n_grid))
     if cci_n_grid and any(n < 2 for n in cci_n_grid):
         parser.error('--cci-n-grid values must be >= 2')
@@ -478,10 +501,11 @@ def main() -> None:
 
     # SSL / freeze-backbone validation.
     if args.decoder == 'masked-ae':
-        if rsi_n_grid or rsi_w_grid or cci_n_grid or cci_w_grid:
-            parser.error('--rsi-n-grid/-w-grid and --cci-n-grid/-w-grid not '
-                         'supported with --decoder masked-ae (SSL has no '
-                         'per-target heads)')
+        if (rsi_n_grid or rsi_w_grid or cci_n_grid or cci_w_grid
+                or vol_n_grid or macd_fast_grid):
+            parser.error('--rsi-/--cci-/--vol-/--macd- conditioning grids '
+                         'are not supported with --decoder masked-ae (SSL '
+                         'has no per-target heads)')
         if args.freeze_backbone is not None:
             parser.error('--freeze-backbone is for the supervised CNN '
                          'probe, not --decoder masked-ae')
@@ -516,6 +540,7 @@ def main() -> None:
         cci_n=args.cci_n,
         rsi_n_grid=rsi_n_grid, rsi_w_grid=rsi_w_grid,
         cci_n_grid=cci_n_grid, cci_w_grid=cci_w_grid,
+        vol_n_grid=vol_n_grid, macd_fast_grid=macd_fast_grid,
     )
 
     primary = load_ticker(args.ticker, **load_kwargs)
@@ -553,6 +578,8 @@ def main() -> None:
         rsi_anchor_n=args.rsi_n, rsi_anchor_w=args.rsi_anchor_w,
         cci_n_grid=cci_n_grid, cci_w_grid=cci_w_grid,
         cci_anchor_n=args.cci_n, cci_anchor_w=args.cci_anchor_w,
+        vol_n_grid=vol_n_grid, vol_anchor_n=args.vol_window,
+        macd_fast_grid=macd_fast_grid, macd_anchor_fast=args.macd_fast,
         frozen_backbone_path=args.freeze_backbone,
         use_bf16=not args.cnn_no_bf16,
     )
@@ -654,6 +681,8 @@ def main() -> None:
         'cci_n_grid': list(cci_n_grid),
         'cci_w_grid': list(cci_w_grid),
         'cci_anchor_w': args.cci_anchor_w,
+        'vol_n_grid': list(vol_n_grid),
+        'macd_fast_grid': list(macd_fast_grid),
         'macd_fast': args.macd_fast,
         'macd_slow': args.macd_slow,
         'macd_signal': args.macd_signal,

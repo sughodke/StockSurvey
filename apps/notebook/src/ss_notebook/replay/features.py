@@ -156,6 +156,8 @@ def build_features_and_targets(
     rsi_w_grid: tuple[int, ...] = (),
     cci_n_grid: tuple[int, ...] = (),
     cci_w_grid: tuple[int, ...] = (),
+    vol_n_grid: tuple[int, ...] = (),
+    macd_fast_grid: tuple[int, ...] = (),
     include_return_sign: bool = False,
 ) -> tuple[np.ndarray, dict[str, np.ndarray], np.ndarray,
            dict[str, np.ndarray]]:
@@ -254,6 +256,24 @@ def build_features_and_targets(
                 [cci(prices, n=int(n)).astype(np.float64)
                  for n in cci_n_grid],
                 axis=0)
+    if vol_n_grid:
+        # 1-D conditioning over the realized-vol window. Each row is
+        # vol_gt at one window value; cond_dim=1 (n / max_n).
+        target_grids['vol'] = np.stack(
+            [realized_vol(prices, window=int(n)) for n in vol_n_grid],
+            axis=0)
+    if macd_fast_grid:
+        # 1-D conditioning over MACD fast period. slow = 2 * fast and
+        # signal = int(fast * 3 / 4) hold the canonical MACD ratios so
+        # one parameter sweeps the full timescale of the indicator.
+        # cond_dim=1.
+        rows = []
+        for f in macd_fast_grid:
+            f_i = int(f)
+            line, _, _ = macd(prices, fast=f_i, slow=2 * f_i,
+                              signal=max(2, (f_i * 3) // 4))
+            rows.append(line.astype(np.float64))
+        target_grids['macd'] = np.stack(rows, axis=0)
 
     valid = np.zeros(len(prices), dtype=bool)
     valid[max(lookback, window_cols - 1):] = True
@@ -299,6 +319,8 @@ def load_ticker(
     rsi_w_grid: tuple[int, ...] = (),
     cci_n_grid: tuple[int, ...] = (),
     cci_w_grid: tuple[int, ...] = (),
+    vol_n_grid: tuple[int, ...] = (),
+    macd_fast_grid: tuple[int, ...] = (),
     include_return_sign: bool = False,
 ) -> TickerData:
     """Load one ticker and pre-compute features + targets + valid mask."""
@@ -318,6 +340,7 @@ def load_ticker(
         cci_n=cci_n,
         include_return_sign=include_return_sign,
         rsi_n_grid=rsi_n_grid, rsi_w_grid=rsi_w_grid,
-        cci_n_grid=cci_n_grid, cci_w_grid=cci_w_grid)
+        cci_n_grid=cci_n_grid, cci_w_grid=cci_w_grid,
+        vol_n_grid=vol_n_grid, macd_fast_grid=macd_fast_grid)
     return TickerData(name, prices, dates, features, targets, valid,
                       target_grids=target_grids)

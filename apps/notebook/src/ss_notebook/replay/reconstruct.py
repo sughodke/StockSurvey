@@ -48,6 +48,10 @@ def fit_and_evaluate(
     cci_w_grid: tuple[int, ...] = (),
     cci_anchor_n: int | None = None,
     cci_anchor_w: int = 1,
+    vol_n_grid: tuple[int, ...] = (),
+    vol_anchor_n: int | None = None,
+    macd_fast_grid: tuple[int, ...] = (),
+    macd_anchor_fast: int | None = None,
     frozen_backbone_path: str | None = None,
     use_bf16: bool = True,
 ) -> tuple[dict[str, dict[str, dict]], dict[str, dict[str, np.ndarray]]]:
@@ -115,13 +119,15 @@ def fit_and_evaluate(
     head_cond_predict: dict[str, np.ndarray] = {}
     train_pool_idx: np.ndarray | None = None
 
-    # Generic FiLM-conditioned head spec. Currently 'rsi' and 'cci' both
-    # follow the same (n, w)-grid pattern; if a third head joins (e.g.
-    # macd over (fast, slow, signal)), extend this list.
+    # Generic FiLM-conditioned head specs. Each spec carries (n_grid,
+    # w_grid) — w_grid empty for 1-D conditioning (vol over window,
+    # macd over fast). The augmentation below is grid-shape-agnostic.
     conditioned_specs: list[dict] = []
     for spec_name, n_grid, w_grid, anchor_n, anchor_w in [
         ('rsi', rsi_n_grid, rsi_w_grid, rsi_anchor_n, rsi_anchor_w),
         ('cci', cci_n_grid, cci_w_grid, cci_anchor_n, cci_anchor_w),
+        ('vol', vol_n_grid, (), vol_anchor_n, 1),
+        ('macd', macd_fast_grid, (), macd_anchor_fast, 1),
     ]:
         if w_grid and not n_grid:
             raise ValueError(
@@ -133,25 +139,24 @@ def fit_and_evaluate(
             continue
         n_n = len(n_grid)
         n_w = len(w_grid) if w_grid else 1
-        spec_replicas = n_n * n_w
+        spec_cells = n_n * n_w
         for d in train_data:
             if spec_name not in d.target_grids:
                 raise ValueError(
                     f'{spec_name}_n_grid={n_grid!r} requested but train '
                     f'ticker {d.name!r} has no target_grids[{spec_name!r}] '
                     f'— was load_ticker called with {spec_name}_n_grid?')
-            if d.target_grids[spec_name].shape[0] != spec_replicas:
+            if d.target_grids[spec_name].shape[0] != spec_cells:
                 raise ValueError(
                     f'train ticker {d.name!r} target_grids[{spec_name!r}] '
                     f'shape {d.target_grids[spec_name].shape} disagrees '
-                    f'with expected {spec_replicas} (n_w={n_w} * n_n={n_n}).')
-        # Per-cell normalized conditioning (n / max_n, w / max_w if w_grid).
+                    f'with expected {spec_cells} (n_w={n_w} * n_n={n_n}).')
         n_max = float(max(n_grid))
         n_values = np.array(n_grid, dtype=np.float32) / n_max
         if w_grid:
             w_max = float(max(w_grid))
             w_values = np.array(w_grid, dtype=np.float32) / w_max
-            # Outer = w, inner = n: for replica idx = w_idx * n_n + n_idx
+            # Outer = w, inner = n: for cell idx = w_idx * n_n + n_idx
             n_col = np.tile(n_values, n_w)
             w_col = np.repeat(w_values, n_n)
             cond_per_cell = np.stack([n_col, w_col], axis=1)  # (cells, 2)
@@ -161,9 +166,8 @@ def fit_and_evaluate(
         grid_pooled = np.concatenate(
             [d.target_grids[spec_name][:, d.valid] for d in train_data],
             axis=1)                                            # (cells, n_pool)
-        # Predict-time anchor (in the conditioned space): defaults to
-        # the median grid value if no user anchor; otherwise the supplied
-        # one. anchor_w must be in w_grid (validated at the CLI layer).
+        # Predict-time anchor: median grid value if user anchor not given.
+        # anchor_w must be in w_grid (validated at the CLI layer).
         a_n = (anchor_n if anchor_n is not None
                else int(sorted(n_grid)[len(n_grid) // 2]))
         a_n_norm = a_n / n_max
@@ -174,48 +178,72 @@ def fit_and_evaluate(
             anchor_cond = np.array([a_n_norm], dtype=np.float32)
         conditioned_specs.append({
             'name': spec_name,
-            'n_grid': tuple(n_grid),
-            'w_grid': tuple(w_grid),
-            'cells': spec_replicas,
+            'cells': spec_cells,
             'cond_per_cell': cond_per_cell,
             'grid_pooled': grid_pooled,
             'anchor_cond': anchor_cond,
         })
 
     if conditioned_specs:
-        # Cross-product of cells across all conditioned specs. Layout:
-        # outer = first spec, inner = last spec. Replica idx for k specs
-        #   replica = c_0 * (cells_1 * ... * cells_{k-1}) + c_1 * ... + c_{k-1}
-        # Each conditioned spec gets per-replica cell indices via
-        # repeat/tile combinations that mirror this nested loop.
-        cells_per_spec = [s['cells'] for s in conditioned_specs]
-        n_replicas = int(np.prod(cells_per_spec))
+        # UNION augmentation (block-based). For N conditioned heads with
+        # cell counts c_1..c_N, total replicas = sum(c_i), not the
+        # product. Each spec owns a contiguous block of replicas where
+        # ITS conditioning varies cell-by-cell and EVERY OTHER spec's
+        # conditioning is held at its anchor. Loss through the FiLM
+        # heads has no cross-head interaction (gamma_H, beta_H depend
+        # only on cond_H), so per-head backbone gradient is identical
+        # to what cross-product would give — only the redundant joint
+        # cell visits are dropped. Memory cost is linear in sum-of-cells
+        # instead of product-of-cells, so adding a 4th conditioned head
+        # is ~free instead of multiplicatively expensive.
         n_pool = X_train.shape[0]
-        train_pool_idx = np.tile(np.arange(n_pool, dtype=np.int64), n_replicas)
+        cells_per_spec = [s['cells'] for s in conditioned_specs]
+        total_replicas = int(sum(cells_per_spec))
+        # Block ranges in replica-index space: spec i occupies
+        # [block_starts[i], block_starts[i] + cells_per_spec[i]).
+        block_starts: list[int] = []
+        cum = 0
+        for c in cells_per_spec:
+            block_starts.append(cum)
+            cum += c
 
-        # For non-conditioned targets: just tile by total replica count.
+        train_pool_idx = np.tile(np.arange(n_pool, dtype=np.int64),
+                                 total_replicas)
+
+        # Save the 1-D anchor target for each conditioned head BEFORE
+        # we mutate y_train — off-block replicas reuse it.
+        anchor_y_pool = {s['name']: y_train[s['name']].copy()
+                         for s in conditioned_specs}
+
+        # Non-conditioned targets: just tile by total_replicas.
         for t in targets:
-            if t not in {s['name'] for s in conditioned_specs}:
-                y_train[t] = np.tile(y_train[t], n_replicas)
+            if t not in anchor_y_pool:
+                y_train[t] = np.tile(y_train[t], total_replicas)
 
-        # For each conditioned spec, build per-replica cell indices then
-        # gather the matching grid row. Outer-spec cells repeat over the
-        # product of inner specs' cells; inner-spec cells tile over outer.
-        for i, spec in enumerate(conditioned_specs):
-            outer = int(np.prod(cells_per_spec[:i])) if i > 0 else 1
-            inner = (int(np.prod(cells_per_spec[i + 1:]))
-                     if i < len(conditioned_specs) - 1 else 1)
-            # cell index for this spec at each replica
-            cell_idx = np.tile(np.repeat(np.arange(spec['cells']), inner),
-                               outer)                            # (n_replicas,)
-            # y target = grid_pooled[cell_idx, :].reshape(-1)
-            # shape (n_replicas, n_pool) then flatten to (n_replicas * n_pool,)
-            y_train[spec['name']] = (
-                spec['grid_pooled'][cell_idx, :].reshape(-1))
-            # head conditioning per replica, then expanded across pool
-            cond_per_replica = spec['cond_per_cell'][cell_idx, :]
-            head_cond_train[spec['name']] = np.repeat(
-                cond_per_replica, n_pool, axis=0)
+        # Conditioned targets: per-block cell value, anchor value
+        # everywhere else.
+        for spec, b_start in zip(conditioned_specs, block_starts):
+            name = spec['name']
+            cells = spec['cells']
+            grid_pooled = spec['grid_pooled']         # (cells, n_pool)
+            cond_per_cell = spec['cond_per_cell']     # (cells, p_dim)
+            anchor_cond = spec['anchor_cond']         # (p_dim,)
+            anchor_y = anchor_y_pool[name]            # (n_pool,)
+
+            # y_train[name]: tile anchor over (total_replicas, n_pool),
+            # then overwrite this spec's block with cell-specific rows.
+            y_per_replica = np.tile(anchor_y[None, :],
+                                    (total_replicas, 1)).astype(anchor_y.dtype)
+            y_per_replica[b_start:b_start + cells] = grid_pooled
+            y_train[name] = y_per_replica.reshape(-1)
+
+            # head_cond_train[name]: tile anchor cond, overwrite block
+            # with per-cell conds.
+            cond_per_replica = np.tile(anchor_cond[None, :],
+                                       (total_replicas, 1))
+            cond_per_replica[b_start:b_start + cells] = cond_per_cell
+            head_cond_train[name] = np.repeat(cond_per_replica, n_pool,
+                                              axis=0)
 
     # Concatenate every ticker's full feature block for one prediction pass.
     all_data = list(train_data) + list(val_data)

@@ -185,6 +185,8 @@ def train_and_eval(
         '--cci-w-grid', '1,5,10,21',
         '--cci-anchor-w', '1',
         '--vol-window', '20',
+        '--vol-n-grid', '5,10,20,30,60',
+        '--macd-fast-grid', '8,12,16,24',
         '--cnn-batch-size', str(cnn_batch_size),
         '--cnn-steps', str(steps),
         '--cnn-no-bf16',           # T4 (sm_75) has no native bf16; PTX
@@ -619,29 +621,54 @@ def _zeroshot_eval(
     fig.savefig(output_dir / f'{ticker}-replay-zeroshot-uncond.png', dpi=150)
     plt.close(fig)
 
-    # FiLM-conditioned heads — (n, w) grid eval. RSI uses rsi_strided +
-    # 30/70 reference lines. CCI uses cci_strided + ±100 reference lines.
-    # Both share the same heatmap+timeseries layout via _grid_sweep_eval.
-    from ss_indicators import cci_strided
-    grid_specs = [
-        ('rsi', rsi_strided, rsi_n_grid, rsi_w_grid, n_max_grid, w_max_grid,
-         (30, 70), 'RSI period n', (6, 8, 11, 15, 19, 28, 35)),
-    ]
-    cci_n_grid_meta = tuple(meta.get('cci_n_grid') or ())
-    cci_w_grid_meta = tuple(meta.get('cci_w_grid') or ())
-    cci_n_max = (float(max(cci_n_grid_meta)) if cci_n_grid_meta
-                 else float(meta.get('cci_n', 20)))
-    cci_w_max = float(max(cci_w_grid_meta)) if cci_w_grid_meta else 1.0
-    grid_specs.append(
-        ('cci', cci_strided, cci_n_grid_meta, cci_w_grid_meta,
-         cci_n_max, cci_w_max,
-         (-100, 0, 100), 'CCI period n',
-         (6, 8, 12, 16, 24, 35, 50)))
+    # FiLM-conditioned heads — (n, w) or 1-D grid eval. RSI/CCI are
+    # 2-D (n, w); vol (window) and macd (fast) are 1-D — same plumbing
+    # via _grid_sweep_eval, which renders a single-row heatmap when
+    # w_grid is empty.
+    from ss_indicators import cci_strided, macd as macd_fn
+    from ss_notebook.replay.features import realized_vol
 
+    def _vol_at_n(prices, n, w=1):
+        return realized_vol(prices, window=int(n))
+
+    def _macd_at_fast(prices, n, w=1):
+        f = int(n)
+        line, _, _ = macd_fn(prices, fast=f, slow=2 * f,
+                             signal=max(2, (f * 3) // 4))
+        return line.astype(np.float64)
+
+    def _resolve(grid_key: str, anchor_key: str, anchor_default):
+        g = tuple(meta.get(grid_key) or ())
+        n_max_v = float(max(g)) if g else float(meta.get(anchor_key,
+                                                          anchor_default))
+        return g, n_max_v
+
+    cci_g, cci_n_max = _resolve('cci_n_grid', 'cci_n', 20)
+    cci_wg = tuple(meta.get('cci_w_grid') or ())
+    cci_w_max = float(max(cci_wg)) if cci_wg else 1.0
+    vol_g, vol_n_max = _resolve('vol_n_grid', 'vol_window', 20)
+    macd_g, macd_n_max = _resolve('macd_fast_grid', 'macd_fast', 12)
+
+    grid_specs = [
+        # name,  strided_fn,    n_grid,        w_grid,    n_max,        w_max,
+        # hlines,           n_label,           off-grid n extras
+        ('rsi',  rsi_strided,   rsi_n_grid,    rsi_w_grid,
+         n_max_grid, w_max_grid,
+         (30, 70), 'RSI period n', (6, 8, 11, 15, 19, 28, 35)),
+        ('cci',  cci_strided,   cci_g,         cci_wg,
+         cci_n_max, cci_w_max,
+         (-100, 0, 100), 'CCI period n', (6, 8, 12, 16, 24, 35, 50)),
+        ('vol',  _vol_at_n,     vol_g,         (),
+         vol_n_max, 1.0,
+         (), 'vol window n', (3, 8, 15, 45, 90)),
+        ('macd', _macd_at_fast, macd_g,        (),
+         macd_n_max, 1.0,
+         (0,), 'macd fast n', (5, 10, 20, 32)),
+    ]
     for (name, strided_fn, n_grid_m, w_grid_m, n_max_m, w_max_m,
          hlines, n_label, off_grid_n) in grid_specs:
         if name not in meta['targets'] or not n_grid_m:
-            print(f'  (no {name} grid in this run — skipping (n, w) sweep)')
+            print(f'  (no {name} grid in this run — skipping sweep)')
             continue
         _grid_sweep_eval(
             target=name, strided_fn=strided_fn,
@@ -651,7 +678,7 @@ def _zeroshot_eval(
             hlines=hlines, n_axis_label=n_label,
             apply_head=apply_head, td=td, ticker=ticker,
             output_dir=output_dir, out_stats=out_stats,
-            stats_key=f'{name}_wn_grid')
+            stats_key=f'{name}_grid')
     return out_stats
 
 
@@ -673,13 +700,19 @@ def _grid_sweep_eval(
     """
     import matplotlib.pyplot as plt
     import numpy as np
+    from scipy.stats import spearmanr
     from ss_notebook.replay.metrics import fit_stats
 
     out_stats[stats_key] = {}
     n_sweep = sorted({*n_grid, *off_grid_n_extras})
-    w_sweep = sorted({*w_grid, 3, 7, 15, 25}) if w_grid else [1]
+    # 1-D conditioning (no w_grid) renders as a single-row heatmap; we
+    # still iterate w_sweep for layout symmetry, just with one degenerate
+    # value of 1. cond_vec width matches the head's stored cond_dim.
+    is_2d = bool(w_grid)
+    w_sweep = sorted({*w_grid, 3, 7, 15, 25}) if is_2d else [1]
     upper_label = target.upper()
-    print(f'\n  {upper_label} (n, w) sweep:  n={n_sweep}  w={w_sweep}')
+    sweep_label = '(n, w) sweep' if is_2d else '(n) sweep'
+    print(f'\n  {upper_label} {sweep_label}:  n={n_sweep}  w={w_sweep}')
     header = '  w \\ n  |  ' + '  '.join(f'{n:>6d}' for n in n_sweep)
     print(header)
     print('-' * len(header))
@@ -689,26 +722,39 @@ def _grid_sweep_eval(
         row = []
         for ni, n in enumerate(n_sweep):
             gt_n = strided_fn(td.prices, n=int(n), w=int(w))
-            cond_vec = np.array([n / n_max, w / w_max], dtype=np.float32)
+            if is_2d:
+                cond_vec = np.array([n / n_max, w / w_max], dtype=np.float32)
+            else:
+                cond_vec = np.array([n / n_max], dtype=np.float32)
             yhat_n = apply_head(target, cond_vec=cond_vec)
             v = td.valid & np.isfinite(gt_n) & np.isfinite(yhat_n)
-            stats = fit_stats(yhat_n[v], gt_n[v])
+            stats = dict(fit_stats(yhat_n[v], gt_n[v]))
+            # Scale-invariant companions to R² (rank IC catches "right
+            # shape, wrong scale"; sign_acc trivially saturates for
+            # always-positive targets like vol — caveat per-target).
+            rho, _ = spearmanr(yhat_n[v], gt_n[v])
+            stats['rank_ic'] = float(rho) if np.isfinite(rho) else 0.0
+            stats['sign_acc'] = float(
+                (np.sign(yhat_n[v]) == np.sign(gt_n[v])).mean())
             r2_grid[wi, ni] = stats['r2']
             cell_records[(w, n)] = dict(
                 stats=stats, gt=gt_n, yhat=yhat_n, valid=v,
-                in_n_grid=(n in n_grid), in_w_grid=(w in w_grid),
+                in_n_grid=(n in n_grid), in_w_grid=(not is_2d) or (w in w_grid),
             )
-            out_stats[stats_key][f'w={w},n={n}'] = stats
-            in_grid = n in n_grid and w in w_grid
+            cell_key = f'n={n}' if not is_2d else f'w={w},n={n}'
+            out_stats[stats_key][cell_key] = stats
+            in_grid = (n in n_grid) and ((not is_2d) or (w in w_grid))
             tag = '*' if in_grid else ' '
             row.append(f'{tag}{stats["r2"]:>5.2f}')
         print(f'  w={w:>3d}  |  ' + '  '.join(row))
 
     fig = plt.figure(figsize=(14, 11))
     gs = fig.add_gridspec(3, 2, height_ratios=[1.4, 1.0, 1.0])
+    grid_caption = (f'n ∈ {sorted(n_grid)}  ×  w ∈ {sorted(w_grid)}'
+                    if is_2d else f'n ∈ {sorted(n_grid)}')
     fig.suptitle(
-        f'{ticker} zero-shot {upper_label}(n, w) — FiLM head trained on '
-        f'n ∈ {sorted(n_grid)}  ×  w ∈ {sorted(w_grid)}',
+        f'{ticker} zero-shot {upper_label} — FiLM head trained on '
+        f'{grid_caption}',
         fontsize=12, fontweight='bold')
     ax_hm = fig.add_subplot(gs[0, :])
     im = ax_hm.imshow(r2_grid, aspect='auto', origin='lower',
@@ -752,11 +798,19 @@ def _grid_sweep_eval(
         ax.set_xlim(td.dates[0], td.dates[-1])
 
     ts_picks: list[tuple[int, int, str]] = []
-    in_grid_n_mid = sorted(n_grid)[len(n_grid) // 2]
-    if 1 in w_grid:
-        ts_picks.append((1, in_grid_n_mid, 'daily / in-grid n'))
-    if 21 in w_grid:
-        ts_picks.append((21, in_grid_n_mid, 'monthly / in-grid n'))
+    sorted_n = sorted(n_grid)
+    in_grid_n_mid = sorted_n[len(sorted_n) // 2]
+    if is_2d:
+        if 1 in w_grid:
+            ts_picks.append((1, in_grid_n_mid, 'daily / in-grid n'))
+        if 21 in w_grid:
+            ts_picks.append((21, in_grid_n_mid, 'monthly / in-grid n'))
+    else:
+        # 1-D conditioning: show middle and largest in-grid n at w=1.
+        ts_picks.append((1, in_grid_n_mid, f'in-grid n={in_grid_n_mid}'))
+        if len(sorted_n) > 1:
+            ts_picks.append(
+                (1, sorted_n[-1], f'in-grid n={sorted_n[-1]} (largest)'))
     ax_ts = [fig.add_subplot(gs[1, 0]), fig.add_subplot(gs[1, 1])]
     for ax, (w, n, label) in zip(ax_ts, ts_picks):
         _draw_ts(ax, w, n, label)
