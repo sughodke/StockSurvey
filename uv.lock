@@ -22,6 +22,7 @@ members = [
     "factor",
     "regime",
     "relational",
+    "replay",
     "ss-features",
     "ss-indicators",
     "ss-loaders",
@@ -3809,6 +3810,46 @@ requires-dist = [
 provides-extras = ["research"]
 
 [[package]]
+name = "replay"
+version = "0.1.0"
+source = { editable = "apps/replay" }
+dependencies = [
+    { name = "matplotlib" },
+    { name = "numpy" },
+    { name = "pandas" },
+    { name = "scipy", version = "1.15.3", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11'" },
+    { name = "scipy", version = "1.17.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.11'" },
+    { name = "ss-features" },
+    { name = "ss-indicators" },
+    { name = "ss-loaders" },
+    { name = "ss-wavelets" },
+    { name = "tinygrad", version = "0.11.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11'" },
+    { name = "tinygrad", version = "0.12.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.11'" },
+    { name = "tqdm" },
+]
+
+[package.optional-dependencies]
+optuna = [
+    { name = "optuna" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "matplotlib" },
+    { name = "numpy" },
+    { name = "optuna", marker = "extra == 'optuna'" },
+    { name = "pandas" },
+    { name = "scipy" },
+    { name = "ss-features", editable = "packages/features" },
+    { name = "ss-indicators", editable = "packages/indicators" },
+    { name = "ss-loaders", editable = "packages/loaders" },
+    { name = "ss-wavelets", editable = "packages/wavelets" },
+    { name = "tinygrad", specifier = ">=0.10.0" },
+    { name = "tqdm" },
+]
+provides-extras = ["optuna"]
+
+[[package]]
 name = "requests"
 version = "2.33.1"
 source = { registry = "https://pypi.org/simple" }
@@ -4513,6 +4554,7 @@ dev = [
     { name = "factor" },
     { name = "pytest" },
     { name = "regime", extra = ["research"] },
+    { name = "replay" },
     { name = "stocksurvey-notebook" },
     { name = "v1" },
 ]
@@ -4524,6 +4566,7 @@ dev = [
     { name = "factor", editable = "apps/factor" },
     { name = "pytest", specifier = ">=8" },
     { name = "regime", extras = ["research"], editable = "apps/regime" },
+    { name = "replay", editable = "apps/replay" },
     { name = "stocksurvey-notebook", editable = "apps/notebook" },
     { name = "v1", editable = "apps/v1" },
 ]
@@ -4537,16 +4580,12 @@ dependencies = [
     { name = "jupyter" },
     { name = "matplotlib" },
     { name = "numpy" },
-    { name = "optuna" },
     { name = "pandas" },
     { name = "ss-features" },
     { name = "ss-indicators" },
     { name = "ss-loaders" },
     { name = "ss-plotting" },
     { name = "ss-wavelets" },
-    { name = "tinygrad", version = "0.11.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11'" },
-    { name = "tinygrad", version = "0.12.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.11'" },
-    { name = "tqdm" },
 ]
 
 [package.metadata]
@@ -4555,15 +4594,12 @@ requires-dist = [
     { name = "jupyter" },
     { name = "matplotlib" },
     { name = "numpy" },
-    { name = "optuna" },
     { name = "pandas" },
     { name = "ss-features", editable = "packages/features" },
     { name = "ss-indicators", editable = "packages/indicators" },
     { name = "ss-loaders", editable = "packages/loaders" },
     { name = "ss-plotting", editable = "packages/plotting" },
     { name = "ss-wavelets", editable = "packages/wavelets" },
-    { name = "tinygrad", specifier = ">=0.10.0" },
-    { name = "tqdm" },
 ]
 
 [[package]]

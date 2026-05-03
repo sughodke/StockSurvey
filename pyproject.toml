@@ -49,6 +49,7 @@ regime = { workspace = true }
 v1 = { workspace = true }
 stocksurvey-notebook = { workspace = true }
 factor = { workspace = true }
+replay = { workspace = true }
 relational = { workspace = true }
 
 [dependency-groups]
@@ -56,6 +57,7 @@ dev = [
     "regime[research]",
     "v1",
     "factor",
+    "replay",
     "stocksurvey-notebook",
     "pytest>=8",
 ]

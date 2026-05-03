@@ -2,7 +2,7 @@
 name = "stocksurvey-notebook"
 version = "0.1.0"
 requires-python = ">=3.10"
-description = "Research notebooks: CWT vision multi-head, scalogram experiments."
+description = "Jupyter playground + scalogram visualizers (`ss-scalogram`, `ss-scalogram-video`). The CNN trainer was extracted to apps/replay; the factor scorer to apps/factor."
 dependencies = [
     "ss-features",
     "ss-loaders",
@@ -12,18 +12,13 @@ dependencies = [
     "numpy",
     "pandas",
     "matplotlib",
-    "tinygrad>=0.10.0",
     "jupyter",
     "imageio-ffmpeg>=0.6.0",
-    "optuna",
-    "tqdm",
 ]
 
 [project.scripts]
 ss-scalogram = "ss_notebook.scalogram:main"
 ss-scalogram-video = "ss_notebook.scalogram_video:main"
-ss-replay = "ss_notebook.replay:main"
-ss-replay-optuna = "ss_notebook.replay_optuna:main"
 
 [build-system]
 requires = ["hatchling"]

@@ -57,5 +57,5 @@ sys.argv = [
     '--output-dir', '/content/Output',
 ]
 
-from ss_notebook.replay.cli import main
+from replay.cli import main
 main()

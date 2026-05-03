@@ -1,6 +1,6 @@
 """Back-compat shim. CWT feature builders moved to `ss_features`.
 
-Existing `from ss_notebook.replay.features import ...` callers keep
+Existing `from replay.features import ...` callers keep
 working through these re-exports. New code should import directly from
 `ss_features` so the dependency direction is explicit.
 """

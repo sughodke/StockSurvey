@@ -1,6 +1,6 @@
 """Realized volatility — causal rolling std of log returns.
 
-Lifted from ``ss_notebook.replay.features`` so both the SSL pretrain
+Lifted from ``replay.features`` so both the SSL pretrain
 (apps/notebook) and the cross-sectional scorer (apps/factor) can build
 deterministic-vol features without depending on each other.
 """

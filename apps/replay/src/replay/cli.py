@@ -27,9 +27,9 @@ from pathlib import Path
 import matplotlib.pyplot as plt
 import numpy as np
 
-from ss_notebook.replay.features import TARGET_NAMES, load_ticker
-from ss_notebook.replay.plot import plot_reconstruction
-from ss_notebook.replay.reconstruct import fit_and_evaluate, fit_and_evaluate_ssl
+from replay.features import TARGET_NAMES, load_ticker
+from replay.plot import plot_reconstruction
+from replay.reconstruct import fit_and_evaluate, fit_and_evaluate_ssl
 from ss_notebook.scalogram import DEFAULT_STOOQ_DIR
 from ss_wavelets import ALL_SCALES
 

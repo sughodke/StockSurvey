@@ -34,7 +34,7 @@ import matplotlib.pyplot as plt
 import matplotlib.colors as mcolors
 import numpy as np
 
-from ss_notebook.replay.features import load_ticker
+from replay.features import load_ticker
 
 
 # --- 1. Load weights + meta. ------------------------------------------------

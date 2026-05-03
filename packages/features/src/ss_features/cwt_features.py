@@ -8,7 +8,7 @@ power) per scale; optionally also include the rolling z-norm stats
 and one extra entry in the channel stack, so the CNN reshape from
 `(n, K * C)` → `(n, K, C)` works uniformly.
 
-Lifted out of `ss_notebook.replay.features` so factor's scripts can
+Lifted out of `replay.features` so factor's scripts can
 build the same input bundle without depending on apps/notebook.
 """
 from __future__ import annotations

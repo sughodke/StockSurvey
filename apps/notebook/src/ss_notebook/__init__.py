@@ -1,7 +1,6 @@
 """Notebook workspace member.
 
-Holds runnable CLIs (`ss-replay`, `ss-scalogram`, etc.) plus the
-`scoring/` and `replay/` library code that consume them. ML stack is
-tinygrad — see `apps/notebook/src/ss_notebook/replay/README.md` for
-the backbone training story.
+Holds the scalogram visualizer CLIs (`ss-scalogram`, `ss-scalogram-video`)
+plus the `notebooks/` Jupyter playground. The CNN trainer was extracted
+to `apps/replay/`; the cross-sectional rank-IC scorer to `apps/factor/`.
 """

@@ -14,11 +14,11 @@ Public API
 - `fit_stats`           : R²/RMSE/max-|Δ| metric.
 - `plot_reconstruction` : 3-panel reconstruction figure.
 """
-from ss_notebook.replay.cli import main
-from ss_notebook.replay.decoders import (
+from replay.cli import main
+from replay.decoders import (
     fit_cnn, fit_cnn_masked_ae, fit_cnn_multihead, fit_mlp, fit_ols,
 )
-from ss_notebook.replay.features import (
+from replay.features import (
     TARGET_NAMES,
     TickerData,
     build_features_and_targets,
@@ -27,9 +27,9 @@ from ss_notebook.replay.features import (
     load_ticker,
     rolling_zscore_stats,
 )
-from ss_notebook.replay.metrics import fit_stats
-from ss_notebook.replay.plot import plot_reconstruction
-from ss_notebook.replay.reconstruct import (
+from replay.metrics import fit_stats
+from replay.plot import plot_reconstruction
+from replay.reconstruct import (
     fit_and_evaluate,
     fit_and_evaluate_ssl,
     reconstruct_indicators,

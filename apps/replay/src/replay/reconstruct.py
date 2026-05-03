@@ -14,13 +14,13 @@ from __future__ import annotations
 
 import numpy as np
 
-from ss_notebook.replay.decoders import (
+from replay.decoders import (
     fit_cnn, fit_cnn_masked_ae, fit_cnn_multihead, fit_mlp, fit_ols,
 )
-from ss_notebook.replay.features import (
+from replay.features import (
     TARGET_NAMES, TickerData, build_features_and_targets,
 )
-from ss_notebook.replay.metrics import fit_stats
+from replay.metrics import fit_stats
 
 
 def fit_and_evaluate(

@@ -47,12 +47,12 @@ REMOTE_REPO = '/root/StockSurvey'
 TRAIN_POOL_EXTRA = ('MSFT,GOOGL,AMZN,META,NVDA,JPM,BAC,GE,BA,XOM,KO,WMT,'
                     'JNJ,UNH,T,NFLX,CRM,DIS')
 
-# Stooq subset baked into the image (built via apps/notebook/data/stooq_phase2/).
+# Stooq subset baked into the image (built via apps/replay/data/stooq_phase2/).
 # 21 tickers (AAPL + 18 train + TSLA val + CSCO eval) totaling ~15 MB,
 # preserving the daily/us/<exchange>/<bucket>/ layout that load_stooq_matrix
 # walks. Replaces the per-cold-start yahoo fetch (~30-60 s) with a zero-cost
 # read from the local FS, and gives bit-identical inputs across runs.
-STOOQ_SUBSET_REL = 'apps/notebook/data/stooq_phase2'
+STOOQ_SUBSET_REL = 'apps/replay/data/stooq_phase2'
 STOOQ_SUBSET = f'{REMOTE_REPO}/{STOOQ_SUBSET_REL}'
 
 # Input-bundle configurations. Maps a single named experimental cell to the
@@ -270,7 +270,7 @@ def _load_eval_ticker(ticker: str, meta: dict, scales: list[int]):
     (zeroshot and attention) compute RSI(n, w) themselves via
     `rsi_strided`, so the per-cell ground-truth grid in `td` is unused.
     """
-    from ss_notebook.replay.features import load_ticker
+    from replay.features import load_ticker
     return load_ticker(
         ticker,
         stooq_dir=STOOQ_SUBSET, kaggle_dir=None, use_yahoo=False,
@@ -333,7 +333,7 @@ def _tinygrad_backbone(data, ref: str = 'rsi'):
 
 def _conv1d_tg(x, W, b):
     """Canonical NHC/HIO/NHC stride-1 valid convolution mirroring
-    `ss_notebook.replay.decoders._conv1d`. Tinygrad's `conv2d` is NCHW
+    `replay.decoders._conv1d`. Tinygrad's `conv2d` is NCHW
     so we permute in/out to keep the npz tensor layout identical to the
     legacy JAX path (and to what the trainer wrote)."""
     x_bcl = x.permute(0, 2, 1)
@@ -459,7 +459,7 @@ def _draw_uncond_panels(axes, uncond, panel_specs, apply_head, td,
     cleanly skip without duplicating the loop body.
     """
     import numpy as np
-    from ss_notebook.replay.metrics import fit_stats
+    from replay.metrics import fit_stats
     for ax, target in zip(axes, uncond):
         yhat = apply_head(target)
         gt = td.targets[target]
@@ -512,7 +512,7 @@ def _zeroshot_eval(
     import matplotlib.pyplot as plt
 
     from ss_indicators import rsi_strided
-    from ss_notebook.replay.metrics import fit_stats
+    from replay.metrics import fit_stats
 
     (data, meta, K, scales, rsi_n_grid, rsi_w_grid,
      n_max_grid, w_max_grid) = _load_npz_meta(npz_path)
@@ -647,7 +647,7 @@ def _zeroshot_eval(
     # via _grid_sweep_eval, which renders a single-row heatmap when
     # w_grid is empty.
     from ss_indicators import cci_strided, macd as macd_fn
-    from ss_notebook.replay.features import realized_vol
+    from replay.features import realized_vol
 
     def _vol_at_n(prices, n, w=1):
         return realized_vol(prices, window=int(n))
@@ -722,7 +722,7 @@ def _grid_sweep_eval(
     import matplotlib.pyplot as plt
     import numpy as np
     from scipy.stats import spearmanr
-    from ss_notebook.replay.metrics import fit_stats
+    from replay.metrics import fit_stats
 
     out_stats[stats_key] = {}
     n_sweep = sorted({*n_grid, *off_grid_n_extras})
