@@ -6,17 +6,36 @@
 - `Backbone`, `load_backbone` — npz I/O for the SSL-pretrained CNN
   backbone produced by `ss-replay --decoder cnn`. Numpy data only;
   the runtime forward pass lives in `factor.backbone`.
+- `compute_scalogram`, `rolling_zscore_stats`, `log_return_signs`,
+  `channels_per_lag`, `build_lagged_features`,
+  `build_features_and_targets`, `load_ticker`, `TARGET_NAMES` — CWT
+  feature builders. Both apps use these to construct the input
+  bundle the SSL-pretrained backbone expects (channels lag-windowed
+  over `K = window_cols` bars).
 """
 from ss_features.backbone_io import Backbone, load_backbone
+from ss_features.cwt_features import (
+    TARGET_NAMES, build_features_and_targets, build_lagged_features,
+    channels_per_lag, compute_scalogram, load_ticker, log_return_signs,
+    rolling_zscore_stats,
+)
 from ss_features.ticker import DEFAULT_STOOQ_DIR, TickerData, load_prices
 from ss_features.vol import log_returns, realized_vol
 
 __all__ = [
     'Backbone',
     'DEFAULT_STOOQ_DIR',
+    'TARGET_NAMES',
     'TickerData',
+    'build_features_and_targets',
+    'build_lagged_features',
+    'channels_per_lag',
+    'compute_scalogram',
     'load_backbone',
     'load_prices',
+    'load_ticker',
+    'log_return_signs',
     'log_returns',
     'realized_vol',
+    'rolling_zscore_stats',
 ]

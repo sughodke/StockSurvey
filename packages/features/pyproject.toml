@@ -5,6 +5,8 @@ requires-python = ">=3.10"
 description = "Shared feature primitives: TickerData bundle, realized vol, price-loading, backbone npz I/O."
 dependencies = [
     "ss-loaders",
+    "ss-indicators",
+    "ss-wavelets",
     "numpy",
     "pandas",
 ]

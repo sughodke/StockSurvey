@@ -4358,14 +4358,18 @@ source = { editable = "packages/features" }
 dependencies = [
     { name = "numpy" },
     { name = "pandas" },
+    { name = "ss-indicators" },
     { name = "ss-loaders" },
+    { name = "ss-wavelets" },
 ]
 
 [package.metadata]
 requires-dist = [
     { name = "numpy" },
     { name = "pandas" },
+    { name = "ss-indicators", editable = "packages/indicators" },
     { name = "ss-loaders", editable = "packages/loaders" },
+    { name = "ss-wavelets", editable = "packages/wavelets" },
 ]
 
 [[package]]
