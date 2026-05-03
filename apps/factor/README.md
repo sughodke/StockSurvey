@@ -122,12 +122,63 @@ converges much faster than direct Sharpe optimization.
   `ss_notebook.replay.features` + `ss_notebook.scalogram` for
   back-compat with existing callers.
 
+## Baseline results (deterministic indicator path)
+
+The deterministic stack — strided RSI/CCI grids, MACD over a fast-period
+grid, realized vol over a window grid, and rolling Pearson coherence
+between short/long realized vol — is the **null-hypothesis baseline** for
+the SSL backbone path. If the pretrained CWT encoder cannot beat these
+numbers on the same universe / objective / head, it is not earning its
+keep.
+
+**Setup.** Stooq US universe, 297 tickers (after `min_history_bars=6500`
+drops 15 short-history names so `align_tickers`' strict intersection
+keeps a ~26-year common axis). 74 channels at default
+`IndicatorGridConfig`. Walk-forward: `train=63 blocks` (~5y),
+`val=39 blocks` (~3y), `step=39` (no val overlap). Rebal cadence 20 bars.
+6 windows fit. AdamW, `n_steps=200`, `lr=1e-2`, `weight_decay=1e-3`.
+
+| scorer | mean val IC | median val IC | pos-val-IC frac | mean train IC |
+|---|---|---|---|---|
+| linear | **+0.0120**  | +0.0168 | **5/6** | ~+0.10 |
+| mlp    | +0.0081      | +0.0075 | 4/6     | ~+0.36 |
+
+**Reading the result.**
+- **Genuine null is rejected** — train IC is robustly positive on every
+  window for both heads (linear ~+0.10, mlp ~+0.36). The features carry
+  *some* learnable cross-sectional structure, not noise.
+- **One-time regime decay is rejected for the linear head** — 5/6 val
+  windows positive rules out a single-window edge that vanished.
+- **Capacity hurts here** — the MLP triples train IC over the linear
+  head but val IC is *lower* and 2/6 val windows go negative. Classic
+  overfitting signature; the nonlinear capacity is fitting noise that
+  doesn't transfer.
+- **Magnitude is small.** Val IC ~+0.012 is a weak alpha — useful in a
+  multi-factor portfolio but not a standalone edge.
+
+Artifacts (regenerate via the `walkforward` entrypoint in
+`apps/factor/scripts/modal/train_indicator.py`):
+- `Output/walkforward-comparison.png` — per-window train vs val IC bars,
+  one panel per scorer.
+- `Output/walkforward-{linear,mlp}-s200-wd0.001-windows.npz` — per-window
+  head params, train/val IC, train/val Sharpe, block bounds.
+- `Output/walkforward-summary.json` — aggregate stats per scorer.
+
+**The bar for the backbone path.** Whatever pretrained CWT encoder we
+plug into `train_scorer` should clear **mean val IC > +0.012** and
+**positive-val-IC fraction ≥ 5/6** on the *same* universe and walk-forward
+config, ideally without the linear→MLP overfitting gap. If it can't,
+the encoder isn't learning anything that the trailing-window indicator
+grid doesn't already encode in closed form.
+
 ## Caveats
 
-- **Default indicator grid needs ~5000 bars of history.** The largest
-  CCI cell (`w=63, n=80`) needs `(n-1)·w + 1 = 4978` bars before the
-  row is fully valid. Shrink `cci_w_grid` / `cci_n_grid` for shorter
-  universes.
+- **Default indicator grid needs ~820 bars of history.** The largest
+  CCI cell at the trimmed default (`n=40, w=21`) needs `(n-1)·w + 1 =
+  820` bars before the row is fully valid. The pre-trim default
+  (`n=80, w=63`) needed 4978 bars and was choking walk-forward windows
+  on shorter universes — re-enable those cells in `cci_n_grid` /
+  `cci_w_grid` only if the universe has the history for it.
 - **Pool z-norm only.** `make_indicator_backbone` uses
   `compute_input_stats` for per-channel z-norm across all valid (date,
   ticker) rows. This handles wildly different indicator scales (RSI in
