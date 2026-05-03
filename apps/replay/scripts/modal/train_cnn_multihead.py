@@ -131,9 +131,20 @@ image = (
         ignore=[
             '.git/**',
             '.venv/**',
+            '.iv-cache/**',         # dolt-backed cache writes mid-build
+                                    # → "modified during build" abort.
             'Output/**',
             'StooqData/**',
             'Nasdaq3347/**',
+            # `uv sync --package replay` walks every workspace member's
+            # pyproject.toml so we keep those, but skip the `src/` trees
+            # of apps that aren't deps of replay (factor / regime /
+            # relational / v1) — concurrent edits there have raced
+            # Modal's directory hash before.
+            'apps/factor/src/**',
+            'apps/regime/src/**',
+            'apps/relational/src/**',
+            'apps/v1/src/**',
             '**/__pycache__/**',
             '**/*.pyc',
         ],
