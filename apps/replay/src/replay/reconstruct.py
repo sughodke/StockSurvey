@@ -20,7 +20,7 @@ from replay.decoders import (
 from replay.features import (
     TARGET_NAMES, TickerData, build_features_and_targets,
 )
-from replay.metrics import fit_stats
+from ss_features import fit_stats
 
 
 def fit_and_evaluate(

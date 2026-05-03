@@ -48,7 +48,7 @@ import numpy as np
 
 from ss_indicators import rsi_strided
 from replay.features import load_ticker
-from replay.metrics import fit_stats
+from ss_features import fit_stats
 
 
 # --- 1. Load weights + meta. ------------------------------------------------

@@ -27,7 +27,7 @@ from replay.features import (
     load_ticker,
     rolling_zscore_stats,
 )
-from replay.metrics import fit_stats
+from ss_features.metrics import fit_stats  # re-exported for back-compat
 from replay.plot import plot_reconstruction
 from replay.reconstruct import (
     fit_and_evaluate,

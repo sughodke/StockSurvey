@@ -459,7 +459,7 @@ def _draw_uncond_panels(axes, uncond, panel_specs, apply_head, td,
     cleanly skip without duplicating the loop body.
     """
     import numpy as np
-    from replay.metrics import fit_stats
+    from ss_features import fit_stats
     for ax, target in zip(axes, uncond):
         yhat = apply_head(target)
         gt = td.targets[target]
@@ -512,7 +512,7 @@ def _zeroshot_eval(
     import matplotlib.pyplot as plt
 
     from ss_indicators import rsi_strided
-    from replay.metrics import fit_stats
+    from ss_features import fit_stats
 
     (data, meta, K, scales, rsi_n_grid, rsi_w_grid,
      n_max_grid, w_max_grid) = _load_npz_meta(npz_path)
@@ -722,7 +722,7 @@ def _grid_sweep_eval(
     import matplotlib.pyplot as plt
     import numpy as np
     from scipy.stats import spearmanr
-    from replay.metrics import fit_stats
+    from ss_features import fit_stats
 
     out_stats[stats_key] = {}
     n_sweep = sorted({*n_grid, *off_grid_n_extras})

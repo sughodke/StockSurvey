@@ -1,4 +1,4 @@
-"""Shared feature primitives consumed by apps/notebook + apps/factor.
+"""Shared feature primitives consumed by apps/notebook + apps/factor + apps/replay.
 
 - `TickerData`, `load_prices` — per-ticker container + adjusted-close
   loader (Stooq archive / Kaggle Nasdaq3347 / yfinance).
@@ -12,6 +12,9 @@
   feature builders. Both apps use these to construct the input
   bundle the SSL-pretrained backbone expects (channels lag-windowed
   over `K = window_cols` bars).
+- `fit_stats` — R²/RMSE/max-|Δ| for prediction-vs-truth comparison.
+  Lifted from `replay.metrics` so factor + relational don't need to
+  depend on replay just to compute eval stats.
 """
 from ss_features.backbone_io import Backbone, load_backbone
 from ss_features.cwt_features import (
@@ -19,6 +22,7 @@ from ss_features.cwt_features import (
     channels_per_lag, compute_scalogram, load_ticker, log_return_signs,
     rolling_zscore_stats,
 )
+from ss_features.metrics import fit_stats
 from ss_features.ticker import DEFAULT_STOOQ_DIR, TickerData, load_prices
 from ss_features.vol import log_returns, realized_vol
 
@@ -31,6 +35,7 @@ __all__ = [
     'build_lagged_features',
     'channels_per_lag',
     'compute_scalogram',
+    'fit_stats',
     'load_backbone',
     'load_prices',
     'load_ticker',
