@@ -1,15 +1,35 @@
 """Modal entrypoint: ss-replay multi-head CNN training + zero-shot eval suite.
 
-Wraps the Phase-2 / Exp-D recipe (mirrors colab/train_cnn_multihead.sh):
-trains AAPL + 17-ticker pool, val on TSLA, with FiLM heads on rsi
-(n × w grid), cci (n × w grid), vol (n grid), macd (fast grid). After
-training, runs the zero-shot suite on CSCO + the FiLM/uncond input-
-attention saliency on AAPL, and bundles all artifacts back to the
-caller's local Output/.
+Trains the multi-head FiLM CNN on a wide Stooq pool (default ~290
+tickers from `apps/notebook/data/stooq_us_long`), with FiLM heads on
+rsi (n × w grid), cci (n × w grid), vol (n grid), macd (fast grid).
+After training, runs the zero-shot suite on CSCO + the FiLM/uncond
+input-attention saliency on AAPL, and bundles all artifacts back to
+the caller's local Output/.
 
-The eval helpers were extracted to `replay.eval` so this script is now
+**Universe.** Reads `apps/notebook/data/stooq_us_long/manifest.json`
+(312 tickers with >=22y of history) and picks the train pool by
+filtering to `min_history_bars` (default 6500, matching the
+`apps/factor` walk-forward baseline) and excluding the primary, val,
+and eval tickers. This produces an SSL backbone whose train universe
+overlaps the factor walk-forward universe ≈1:1 — the necessary
+condition for an apples-to-apples backbone-vs-deterministic-indicator
+comparison.
+
+**Val ticker.** Default is `NVDA` (full 26y history, sector-diverse,
+high-vol). The original Phase-2 default `TSLA` is not in
+`stooq_us_long` — its 2010 IPO post-dates the 2000-01-01 cutoff used
+when building the subset. Override with `--val-ticker` if you want a
+different held-out generalization probe.
+
+**Memory.** Each ticker's feature tensor is ~75 MB (≈30 scales × 96
+window_cols × 6500 timesteps × 4 bytes). Loading 290 tickers up-front
+is ~22 GB host RAM, well over Modal's 16 GB T4 default — the
+function is decorated `memory=32768` to compensate.
+
+The eval helpers were extracted to `replay.eval` so this script is
 pure orchestration: image setup, train cmd dispatch, eval-helper
-invocations, artifact bundling. ~250 lines (was ~1150).
+invocations, artifact bundling.
 
 Usage
 -----
@@ -18,9 +38,11 @@ One-time setup (local):
     modal token new               # browser flow
 
 Smoke (~5-15 min wall, ~$0.05-0.15):
-    modal run apps/replay/scripts/modal/train_cnn_multihead.py --steps 500
+    modal run apps/replay/scripts/modal/train_cnn_multihead.py \\
+        --steps 200 --max-train-tickers 30
 
-Full canonical run (~30-60 min wall, ~$0.30-0.60):
+Full canonical run (~45-90 min wall, ~$0.50-1.00 at T4 prices with
+the bumped memory):
     modal run apps/replay/scripts/modal/train_cnn_multihead.py --steps 2000
 
 Loss is printed by the tinygrad trainer to stdout; Modal streams it to
@@ -46,16 +68,13 @@ except IndexError:
 LOCAL_OUTPUT_DIR = REPO_ROOT / 'Output'
 REMOTE_REPO = '/root/StockSurvey'
 
-# Phase-2/Exp-D pool (mirrors colab/train_cnn_multihead.sh).
-TRAIN_POOL_EXTRA = ('MSFT,GOOGL,AMZN,META,NVDA,JPM,BAC,GE,BA,XOM,KO,WMT,'
-                    'JNJ,UNH,T,NFLX,CRM,DIS')
-
-# Stooq subset baked into the image (built via apps/replay/data/stooq_phase2/).
-# 21 tickers (AAPL + 18 train + TSLA val + CSCO eval) totaling ~15 MB,
-# preserving the daily/us/<exchange>/<bucket>/ layout that load_stooq_matrix
-# walks. Replaces the per-cold-start yahoo fetch (~30-60 s) with a zero-cost
-# read from the local FS, and gives bit-identical inputs across runs.
-STOOQ_SUBSET_REL = 'apps/replay/data/stooq_phase2'
+# Stooq subset baked into the image. The 312-ticker `stooq_us_long` subset
+# (built via `apps/notebook/data/build_stooq_us_long.py` from the user's
+# StooqData/ archive) is the same on-disk pool the apps/factor walk-forward
+# baseline uses — same `daily/<country>/<exchange>/<bucket>/*.txt` Stooq
+# layout, same manifest.json. Sharing it here means the SSL backbone is
+# trained on the same universe the factor scorer evaluates on.
+STOOQ_SUBSET_REL = 'apps/notebook/data/stooq_us_long'
 STOOQ_SUBSET = f'{REMOTE_REPO}/{STOOQ_SUBSET_REL}'
 
 # Input-bundle configurations. Maps a single named experimental cell to the
@@ -124,7 +143,44 @@ image = (
 app = modal.App('ss-replay-multihead', image=image)
 
 
-@app.function(gpu='T4', timeout=60 * 75)
+def _resolve_train_pool(
+    train_extra: str,
+    primary: str,
+    val_ticker: str,
+    eval_ticker: str,
+    min_history_bars: int,
+    max_train_tickers: int,
+) -> str:
+    """Pick the train pool from the baked-in stooq_us_long manifest.
+
+    If the caller passes `train_extra` explicitly (non-empty), respect
+    that — they are pinning the pool. Otherwise read the manifest, drop
+    tickers below `min_history_bars`, exclude the primary/val/eval
+    tickers (so the held-out probes really are held out), and return a
+    comma-joined string ready for ss-replay's `--train-tickers` flag.
+    """
+    if train_extra:
+        return train_extra
+    manifest_path = Path(STOOQ_SUBSET) / 'manifest.json'
+    manifest = json.loads(manifest_path.read_text())
+    exclude = {primary.upper(), val_ticker.upper(), eval_ticker.upper()}
+    entries = [t for t in manifest['tickers']
+               if t['ticker'].upper() not in exclude]
+    if min_history_bars > 0:
+        before = len(entries)
+        entries = [t for t in entries if t['n_bars'] >= min_history_bars]
+        dropped = before - len(entries)
+        if dropped:
+            print(f'  min_history_bars={min_history_bars}: '
+                  f'dropped {dropped} short-history tickers',
+                  flush=True)
+    names = [t['ticker'] for t in entries]
+    if max_train_tickers > 0:
+        names = names[:max_train_tickers]
+    return ','.join(names)
+
+
+@app.function(gpu='T4', cpu=4, memory=32768, timeout=60 * 90)
 def train_and_eval(
     steps: int,
     cnn_batch_size: int,
@@ -134,6 +190,8 @@ def train_and_eval(
     train_extra: str,
     start: str,
     end: str,
+    min_history_bars: int,
+    max_train_tickers: int,
     bundle: str = 'full',
 ) -> dict[str, bytes]:
     """Run multi-head CNN training, then zero-shot eval + attention.
@@ -162,6 +220,14 @@ def train_and_eval(
 
     print(f'\n=== Step 2/4: ss-replay multi-head CNN '
           f'(steps={steps}, batch={cnn_batch_size}) ===', flush=True)
+    train_extra_resolved = _resolve_train_pool(
+        train_extra, primary, val_ticker, eval_ticker,
+        min_history_bars, max_train_tickers,
+    )
+    n_extra = len([t for t in train_extra_resolved.split(',') if t.strip()])
+    print(f'  train pool: {n_extra} extra tickers '
+          f'(+ primary={primary}; val={val_ticker}; eval={eval_ticker})',
+          flush=True)
     # `--package replay` scopes the env to just this app's deps. Without
     # it, `uv run` defaults to a full-workspace sync which pulls in
     # regime[research] -> bt 1.1.5 -> sdist build (slow + needs clang
@@ -170,7 +236,7 @@ def train_and_eval(
         'uv', 'run', '--package', 'replay',
         'ss-replay', primary,
         '--stooq-dir', STOOQ_SUBSET,
-        '--train-tickers', train_extra,
+        '--train-tickers', train_extra_resolved,
         '--val-ticker', val_ticker,
         '--start', start, '--end', end,
         '--window-cols', '96',
@@ -252,13 +318,15 @@ def train_and_eval(
 def main(
     steps: int = 500,
     cnn_batch_size: int = 8192,
-    val_ticker: str = 'TSLA',
+    val_ticker: str = 'NVDA',
     eval_ticker: str = 'CSCO',
     primary: str = 'AAPL',
-    train_extra: str = TRAIN_POOL_EXTRA,
-    start: str = '2013-01-29',
-    end: str = '2025-12-11',
+    train_extra: str = '',
+    start: str = '2000-01-03',
+    end: str = '2026-04-01',
     bundle: str = 'full',
+    min_history_bars: int = 6500,
+    max_train_tickers: int = 0,
 ):
     """Fire the remote training run; write returned artifacts to Output/.
 
@@ -272,6 +340,12 @@ def main(
     Each non-`full` bundle's artifacts are written under a prefix
     (`fullsign-`, `cwtonly-`, `cwtsign-`) so multiple bundles' results
     coexist in Output/ without overwriting.
+
+    `--train-extra` is empty by default → the train pool is built from
+    `apps/notebook/data/stooq_us_long/manifest.json`, dropping tickers
+    with `n_bars < min_history_bars` and excluding the primary/val/eval
+    tickers. Pass an explicit comma-separated list to override.
+    `--max-train-tickers > 0` caps the resolved pool (smoke runs).
     """
     if bundle not in BUNDLE_CONFIGS:
         raise SystemExit(
@@ -283,7 +357,12 @@ def main(
     print(f'    targets:  {cfg["targets"]}')
     print(f'    steps={steps}  batch={cnn_batch_size}  '
           f'primary={primary}  val={val_ticker}  eval={eval_ticker}')
-    print(f'    pool: {primary},{train_extra}')
+    if train_extra:
+        print(f'    pool (explicit): {primary},{train_extra}')
+    else:
+        print(f'    pool: from stooq_us_long manifest, '
+              f'min_history_bars={min_history_bars}, '
+              f'max_train_tickers={max_train_tickers or "all"}')
     print(f'    span: {start} → {end}\n')
     artifacts = train_and_eval.remote(
         steps=steps,
@@ -293,6 +372,8 @@ def main(
         primary=primary,
         train_extra=train_extra,
         start=start, end=end,
+        min_history_bars=min_history_bars,
+        max_train_tickers=max_train_tickers,
         bundle=bundle,
     )
     LOCAL_OUTPUT_DIR.mkdir(exist_ok=True)
