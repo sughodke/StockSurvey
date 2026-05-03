@@ -59,44 +59,6 @@ Universe (regime app):
 - The `regime live` arg block (`--params`, `--dry-run`, `--max-position`,
   `--killswitch`, `--max-data-age-days`) — single call site, no reuse.
 
-## Add a realized-volatility (and/or autocorrelation) head to ss-replay
-
-Once multi-head CNN is shaken out on rsi/macd/price, add another head
-that tests a *higher-order* statistic — something the bundle doesn't
-expose as a literal input feature. Right now every target is either
-level-flavored (price) or a near-linear function of recent returns
-(RSI, MACD).
-
-**Why:** the encoder has CWT power per scale + raw returns + (mu, sigma).
-RV is `std(returns_{t-19:t})` — variance of recent returns. CWT power
-explicitly factorizes power by scale so summing per-scale power *should*
-recover aggregate RV well. If multihead nails RV, the encoder genuinely
-captures vol structure, not just first-order direction. If it underfits,
-the bundle is missing variance-style information.
-
-**ADX is not a viable substitute for RV here:** ADX measures trend
-*consistency* (sign-agnostic but direction-aware), needs OHLC (high,
-low, close) for `+DM/-DM/TR`. Yahoo close-only blocks it. RV measures
-*magnitude* (sign-agnostic, direction-agnostic), needs only close.
-Different signals, different dimensions of "market activity." A
-close-only proxy for ADX-style trend strength would be the
-autocorrelation of returns over a window (or Hurst exponent) — also
-higher-order, also feasible.
-
-**Implementation:**
-- Add `realized_vol_n` and (optionally) `return_autocorr_n` to
-  `TARGET_NAMES` in `apps/notebook/src/ss_notebook/replay/features.py`.
-- Compute `realized_vol[t] = std(log_returns[t-n+1:t+1])` over n=20.
-- Multi-head CNN picks them up automatically; no decoder-side change.
-
-**Out of scope:**
-- True ADX (would need OHLC source — change to Stooq daily archive
-  which has high/low, breaks the Yahoo cross-source path).
-- Williams %R, Stochastic, OBV — same OHLCV-needing blocker.
-- Bollinger bands — trivially recoverable from `--include-zscore-stats`
-  (BBands middle = mu, edges = mu ± k*sigma, both literal inputs).
-  Sanity check, not a research lever.
-
 ## Ablation — disentangle why long-period RSI underperforms
 
 The CSCO zero-shot RSI(n) sweep on the 30-ticker / `n_grid={5,7,9,13,21}`
@@ -142,48 +104,6 @@ matched to the longest target parametrization.
   both fail, that's the next architectural lever.
 - Re-running with the (w, n) 2D conditioning — that's a separate
   capability test, not a disentanglement of the existing failure.
-
-## No-backbone IC baseline — does the CNN encoder help or hurt?
-
-The SSL pretrain path (masked CWT autoencoding → frozen-backbone probe →
-IC scorer) tests whether *better pretraining* lifts the scorer. It does
-not test whether the CNN encoder is helping at all. If the CWT bundle
-has return-predictive structure but the CNN is killing it during
-encoding (lossy compression, wrong inductive bias, etc.), bypassing the
-encoder entirely could win.
-
-**Baseline:** linear scorer on the flattened raw CWT bundle (shape
-`K * F = 64 * 29 ≈ 1856` per bar). Linear because capacity then matches
-supervision (~13.5k cross-sectional cells) — no overfitting risk the
-way the 5632-d head on the SSL latent had. Pearson IC objective, same
-training loop as `scoring.train`.
-
-**Three outcomes, each diagnostic:**
-
-| Outcome                     | Interpretation                              | Next step                                                                 |
-|-----------------------------|---------------------------------------------|---------------------------------------------------------------------------|
-| `linear-raw > SSL+linear`   | Encoder kills useful info even with SSL.    | Drop the CNN; try transformer over scales, deep set over lags, or flat.   |
-| `linear-raw ≈ SSL+linear`   | Encoder neither helps nor hurts.            | Supervision is the bottleneck — more data, better objective (Spearman).   |
-| `linear-raw < SSL+linear`   | SSL latent is a genuinely better basis.     | Continue SSL, push capacity.                                              |
-
-**Implementation:**
-- Cleanest: build a synthetic `Backbone` in `scoring/backbone.py` whose
-  `apply_backbone` is identity-flatten — `K_post * hidden = K * F`.
-  Loaded via `Backbone.identity(meta_dict)` constructor that takes the
-  same metadata blob a real npz would carry. Zero changes to
-  `scoring/train.py` or `scoring/scorers.py`.
-- Or: add `--no-backbone` flag to the scoring training entry point
-  that swaps `apply_backbone(bb, X)` for `X.reshape(n, -1)` and sets
-  `hidden_flat = K * F`. ~30 lines.
-
-**Out of scope:**
-- MLP scorer on raw CWT — re-introduces the same head-capacity / IC-noise
-  overfitting we already documented; tells us nothing about the encoder.
-- Full hyperparameter sweep on the linear baseline; only one number is
-  needed (val IC) and the standard scorer setup applies.
-- Replacing the encoder with a different architecture (transformer over
-  scales, deep set over lags) — only worth doing if `linear-raw` wins
-  decisively over `SSL+linear`, since architecture-search is expensive.
 
 ## Diagnose why w=1 row underperforms in the FiLM (w, n) head
 
@@ -437,3 +357,85 @@ should remove that path entirely — there's no scenario where holding
 that runs a 100-ticker / K=128 fit with cnn-batch-size=512 and
 asserts peak RSS stays under 4 GB. Fails today; should pass after
 streaming.
+
+## Port `ss_portfolio.sharpe.block_sharpe_with_costs` to tinygrad
+
+Last load-bearing JAX site in the workspace. After the
+ss_indicators numpy migration + replay/factor on tinygrad,
+`packages/portfolio/src/ss_portfolio/sharpe.py` is the only file
+that genuinely needs JAX (for `jax.grad` over a differentiable
+Sharpe-with-costs loss). Everything else that imports `jax` /
+`jnp` does so as residue or as a parked-research dep.
+
+**Live consumers** (full grep, post-extraction):
+  - `apps/regime/research/optimize_adam.py` — calls
+    `block_sharpe_with_costs` via `jax.value_and_grad`. **Parked**
+    per CLAUDE.md (gradient flow is already broken at the
+    `get_divergence` boundary since `ss_indicators` went numpy, so
+    `jax.grad` produces zero/NaN through the divergence call).
+  - `apps/factor/src/factor/objectives.py` — docstring reference
+    only ("matching the JAX `ss_portfolio.block_sharpe_with_costs`
+    definition"); does not actually call the function.
+  - `packages/portfolio/tests/test_portfolio.py` — exercises with
+    `jax.grad` (1 shape test + 1 differentiability test).
+
+So the live consumer is one parked file whose gradient is already
+broken. Porting `sharpe.py` alone "kills JAX" in the sense that no
+non-parked code imports it; but `optimize_adam.py` will fail at
+import (it `import jax` + calls `jax.value_and_grad` on a now-
+tinygrad function — pure-functional autograd doesn't compose with
+tinygrad's stateful `Tensor.backward()`).
+
+Three honest paths, in increasing scope:
+
+1. **B (recommended): port + delete `optimize_adam.py`** (~1-2 h).
+   Parked-and-broken-anyway gets removed; the deletion is the most
+   honest acknowledgement of CLAUDE.md's status. Tests in
+   `test_portfolio.py` switch to tinygrad's `requires_grad=True`
+   + `loss.backward()` pattern.
+2. **C: port + skeleton stub `optimize_adam.py`** (~1.5 h). Same
+   as B but leaves a 10-line file pointing at the last working JAX
+   commit so the historical context survives a `git log` search.
+3. **A: port everything including a tinygrad rewrite of the
+   JAX-Adam optimization loop** (~3-4 h). Most thorough; preserves
+   the differentiable-regime-trainer story end-to-end. Requires
+   replacing `jax.value_and_grad` + `optax.adam` with tinygrad's
+   `Tensor.backward()` + `tinygrad.nn.optim.Adam`. Worth doing
+   only if the differentiable optimizer is actually going to be
+   used again — otherwise B is honester.
+
+**Mechanical port of `sharpe.py` itself** (independent of which
+optimize_adam path is chosen):
+  - Replace `jax.Array` annotations with `tinygrad.Tensor`.
+  - Replace `jnp.{exp, log, abs, concatenate, sqrt}` with the
+    tinygrad equivalents (mostly identical names, all on `Tensor`).
+  - `s - s.max(axis=1, keepdims=True)` already a tensor op in both.
+  - Soft-top-N math is unchanged; only the framework changes.
+  - Tests that did `jax.grad(loss)(jnp.log(jnp.asarray(0.5)))`
+    become:
+    ```python
+    log_t = Tensor(np.log([0.5]).astype(np.float32),
+                   requires_grad=True)
+    loss = -block_sharpe_with_costs(..., log_temperature=log_t, ...)
+    loss.backward()
+    grad = log_t.grad.numpy()
+    assert np.isfinite(grad).all()
+    ```
+  - The `jnp.sqrt(TRADING_DAYS / rebal_days)` constant should be
+    pre-computed at module load (it's a Python int → Python float;
+    no need to wrap in any tensor type).
+
+**Why this isn't done yet:** the only live consumer is parked +
+broken. Doing the port without a path B/C/A choice strands
+`optimize_adam.py` in import-error territory (worse than parked).
+The port is mechanical; the prerequisite is a decision on what
+happens to `optimize_adam.py`.
+
+**Side cleanup that should ride along** (not blocking; pick up
+during B): the `regime/trainer.py` + `inference.py` + `persist.py`
++ `reporting.py` files import `jax.numpy as jnp` for handful of
+type hints / `jnp.zeros` / `jnp.asarray` calls that became
+no-ops once `ss_indicators` went numpy. Each is a 2-line cleanup;
+together they remove the residual JAX imports across `apps/regime`
+that aren't `optimize_adam.py`.
+
