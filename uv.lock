@@ -20,6 +20,7 @@ resolution-markers = [
 [manifest]
 members = [
     "regime",
+    "relational",
     "ss-indicators",
     "ss-loaders",
     "ss-plotting",
@@ -3737,6 +3738,44 @@ requires-dist = [
     { name = "ss-portfolio", editable = "packages/portfolio" },
     { name = "ss-wavelets", editable = "packages/wavelets" },
     { name = "tqdm" },
+    { name = "vectorbt", marker = "extra == 'research'", specifier = ">=1.0,<2.0" },
+]
+provides-extras = ["research"]
+
+[[package]]
+name = "relational"
+version = "0.1.0"
+source = { editable = "apps/relational" }
+dependencies = [
+    { name = "matplotlib" },
+    { name = "numpy" },
+    { name = "pandas" },
+    { name = "ss-indicators" },
+    { name = "ss-loaders" },
+    { name = "ss-plotting" },
+    { name = "ss-portfolio" },
+    { name = "ss-wavelets" },
+]
+
+[package.optional-dependencies]
+research = [
+    { name = "bt" },
+    { name = "optuna" },
+    { name = "vectorbt" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "bt", marker = "extra == 'research'" },
+    { name = "matplotlib" },
+    { name = "numpy" },
+    { name = "optuna", marker = "extra == 'research'" },
+    { name = "pandas" },
+    { name = "ss-indicators", editable = "packages/indicators" },
+    { name = "ss-loaders", editable = "packages/loaders" },
+    { name = "ss-plotting", editable = "packages/plotting" },
+    { name = "ss-portfolio", editable = "packages/portfolio" },
+    { name = "ss-wavelets", editable = "packages/wavelets" },
     { name = "vectorbt", marker = "extra == 'research'", specifier = ">=1.0,<2.0" },
 ]
 provides-extras = ["research"]
