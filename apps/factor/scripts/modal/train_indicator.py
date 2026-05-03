@@ -125,6 +125,7 @@ def train_grid(
     learning_rate: float,
     train_frac: float,
     max_tickers: int,
+    min_history_bars: int,
     mlp_hidden: int,
     mlp_layers: int,
 ) -> dict[str, bytes]:
@@ -167,7 +168,7 @@ def train_grid(
     # ---------- Step 2: load tickers + build features (shared across cells) ----------
     print('\n=== Step 2/4: load tickers + build deterministic indicator features ===',
           flush=True)
-    ticker_list = _resolve_ticker_list(tickers, max_tickers)
+    ticker_list = _resolve_ticker_list(tickers, max_tickers, min_history_bars)
     print(f'  universe: {len(ticker_list)} tickers '
           f'(first 5: {ticker_list[:5]} ...)')
 
@@ -303,15 +304,35 @@ def _build_one_ticker(args):
         return ticker, f'({type(e).__name__}: {e})'
 
 
-def _resolve_ticker_list(tickers: str, max_tickers: int) -> list[str]:
+def _resolve_ticker_list(
+    tickers: str, max_tickers: int, min_history_bars: int = 0,
+) -> list[str]:
     """Either parse the user's comma-separated list, or fall back to the
-    full manifest. `max_tickers > 0` caps either result for smoke runs."""
+    full manifest. `max_tickers > 0` caps either result for smoke runs.
+
+    `min_history_bars > 0` drops tickers whose manifest `n_bars` is below
+    the threshold. Critical for walk-forward eval: `align_tickers` does a
+    strict date-range *intersection*, so a single ~9-year ticker shrinks
+    the entire common date axis. The 312-ticker `stooq_us_long` subset
+    has BGSI at 2262 bars (~9y) — including it caps the universe at
+    9-year span. At `min_history_bars=6500` we keep 297/312 and the
+    common axis stays ~26y.
+    """
+    manifest_path = Path(STOOQ_SUBSET) / 'manifest.json'
+    manifest = json.loads(manifest_path.read_text())
     if tickers:
-        names = [t.strip().upper() for t in tickers.split(',') if t.strip()]
+        requested = {t.strip().upper() for t in tickers.split(',') if t.strip()}
+        entries = [t for t in manifest['tickers'] if t['ticker'].upper() in requested]
     else:
-        manifest_path = Path(STOOQ_SUBSET) / 'manifest.json'
-        manifest = json.loads(manifest_path.read_text())
-        names = [t['ticker'] for t in manifest['tickers']]
+        entries = list(manifest['tickers'])
+    if min_history_bars > 0:
+        before = len(entries)
+        entries = [t for t in entries if t['n_bars'] >= min_history_bars]
+        dropped = before - len(entries)
+        if dropped:
+            print(f'  min_history_bars={min_history_bars}: '
+                  f'dropped {dropped} short-history tickers')
+    names = [t['ticker'] for t in entries]
     if max_tickers > 0:
         names = names[:max_tickers]
     return names
@@ -396,6 +417,7 @@ def main(
     learning_rate: float = 1e-2,
     train_frac: float = 0.7,
     max_tickers: int = 0,         # 0 = use all from manifest
+    min_history_bars: int = 6500, # 297/312 tickers; common range stays ~26y
     mlp_hidden: int = 64,
     mlp_layers: int = 1,
 ) -> None:
@@ -416,6 +438,7 @@ def main(
         learning_rate=learning_rate,
         train_frac=train_frac,
         max_tickers=max_tickers,
+        min_history_bars=min_history_bars,
         mlp_hidden=mlp_hidden,
         mlp_layers=mlp_layers,
     )
@@ -444,6 +467,7 @@ def train_walkforward(
     val_window_blocks: int,
     step_window_blocks: int,
     max_tickers: int,
+    min_history_bars: int,
     mlp_hidden: int,
     mlp_layers: int,
 ) -> dict[str, bytes]:
@@ -478,7 +502,7 @@ def train_walkforward(
 
     print('\n=== Step 2/4: load tickers + build deterministic indicator features ===',
           flush=True)
-    ticker_list = _resolve_ticker_list(tickers, max_tickers)
+    ticker_list = _resolve_ticker_list(tickers, max_tickers, min_history_bars)
     print(f'  universe: {len(ticker_list)} tickers '
           f'(first 5: {ticker_list[:5]} ...)')
 
@@ -697,6 +721,7 @@ def walkforward(
     val_window_blocks:   int = 39,    # ~3y at rebal_days=20
     step_window_blocks:  int = 39,    # = val => non-overlapping val periods
     max_tickers: int = 0,
+    min_history_bars: int = 6500,    # 297/312 tickers; common range stays ~26y
     mlp_hidden:  int = 64,
     mlp_layers:  int = 1,
 ) -> None:
@@ -705,13 +730,15 @@ def walkforward(
         uvx modal run apps/factor/scripts/modal/train_indicator.py::walkforward
 
     Default grid: linear + mlp, one (n_steps, weight_decay) cell per
-    scorer, ~6 windows on the full 312-ticker × 26y span.
+    scorer. With `min_history_bars=6500` (default), the common date axis
+    spans ~26y and we get ~6 informative walk-forward windows.
     """
     LOCAL_OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
     print(f'launching factor walkforward on Modal '
           f'(scorers={scorers}, n_steps={n_steps}, weight_decay={weight_decay}, '
           f'train_blocks={train_window_blocks}, val_blocks={val_window_blocks}, '
-          f'step_blocks={step_window_blocks}, max_tickers={max_tickers})')
+          f'step_blocks={step_window_blocks}, max_tickers={max_tickers}, '
+          f'min_history_bars={min_history_bars})')
     artifacts = train_walkforward.remote(
         scorers=scorers,
         n_steps=n_steps,
@@ -725,6 +752,7 @@ def walkforward(
         val_window_blocks=val_window_blocks,
         step_window_blocks=step_window_blocks,
         max_tickers=max_tickers,
+        min_history_bars=min_history_bars,
         mlp_hidden=mlp_hidden,
         mlp_layers=mlp_layers,
     )
