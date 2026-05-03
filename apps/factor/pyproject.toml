@@ -9,9 +9,18 @@ dependencies = [
     "ss-indicators",
     "numpy",
     "pandas",
+    "matplotlib",
     "tinygrad>=0.10.0",
     "tqdm",
 ]
+
+[project.optional-dependencies]
+# `uvx modal run apps/factor/scripts/modal/train_indicator.py` is the
+# canonical invocation — uvx pulls modal into its own ephemeral env and
+# sidesteps the Intel-macOS Python 3.13 wheel gap on cbor2 (modal's
+# transitive C dep). Listed here as an extra so the workspace dependency
+# graph documents the requirement; not installed by default.
+modal = ["modal>=0.60"]
 
 [build-system]
 requires = ["hatchling"]
