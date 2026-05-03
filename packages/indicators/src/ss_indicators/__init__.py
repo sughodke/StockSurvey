@@ -21,11 +21,15 @@ Indicators
   * `corwin_schultz_spread`      — bid-ask spread proxy from H/L (pandas)
   * `symmetric_kl_divergence`    — regime score from CWT power
                                    distributions (KL/JS/cosine/L2)
+  * `rolling_pearson_corr`       — trailing-window Pearson correlation
+                                   between two 1-D series (deterministic-
+                                   indicator analogue of CWT coherence)
   * `fibonacci_retracement`      — support/resistance levels (legacy plot)
 """
 
 from ss_indicators.bbands import bbands
 from ss_indicators.cci import cci, cci_strided, cci_strided_grid
+from ss_indicators.correlation import rolling_pearson_corr
 from ss_indicators.divergence import (
     DIVERGENCES,
     cosine_divergence,
@@ -55,6 +59,7 @@ __all__ = [
     'js_divergence',
     'l2_divergence',
     'macd',
+    'rolling_pearson_corr',
     'rolling_std',
     'rsi',
     'rsi_strided',

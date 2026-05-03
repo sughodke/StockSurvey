@@ -15,6 +15,7 @@ from ss_indicators import (
     ema,
     fibonacci_retracement,
     macd,
+    rolling_pearson_corr,
     rolling_std,
     rsi,
     rsi_strided,
@@ -297,6 +298,62 @@ def test_corwin_schultz_spread_shape_and_range():
     valid = spread.dropna().values
     assert valid.min() >= 0.0
     assert valid.max() <= 0.20
+
+
+def test_rolling_pearson_corr_warmup_and_shape():
+    rng = np.random.default_rng(2026)
+    x = rng.standard_normal(100)
+    y = rng.standard_normal(100)
+    out = rolling_pearson_corr(x, y, window=20)
+    assert out.shape == (100,)
+    assert np.isnan(out[:19]).all()
+    assert np.isfinite(out[19:]).all()
+    assert (out[19:] >= -1.0 - 1e-9).all()
+    assert (out[19:] <= 1.0 + 1e-9).all()
+
+
+def test_rolling_pearson_corr_identical_series_is_one():
+    rng = np.random.default_rng(0)
+    x = rng.standard_normal(80)
+    out = rolling_pearson_corr(x, x.copy(), window=20)
+    np.testing.assert_allclose(out[19:], 1.0, atol=1e-9)
+
+
+def test_rolling_pearson_corr_negated_series_is_neg_one():
+    rng = np.random.default_rng(1)
+    x = rng.standard_normal(80)
+    out = rolling_pearson_corr(x, -x, window=20)
+    np.testing.assert_allclose(out[19:], -1.0, atol=1e-9)
+
+
+def test_rolling_pearson_corr_constant_series_is_zero():
+    # Pearson is undefined when either window has zero variance; we force
+    # the output to 0.0 so downstream features see a finite (not NaN) channel.
+    x = np.linspace(0.0, 1.0, 50)
+    y = np.full(50, 3.14)
+    out = rolling_pearson_corr(x, y, window=10)
+    np.testing.assert_allclose(out[9:], 0.0, atol=1e-12)
+
+
+def test_rolling_pearson_corr_propagates_nan_warmup():
+    # Mimics realized_vol's prefix-NaN: first `lead` bars NaN, then valid.
+    # Output must be NaN until we have a full window of finite (x, y) pairs.
+    lead = 10
+    rng = np.random.default_rng(3)
+    x = np.concatenate([np.full(lead, np.nan), rng.standard_normal(40)])
+    y = np.concatenate([np.full(lead, np.nan), rng.standard_normal(40)])
+    out = rolling_pearson_corr(x, y, window=15)
+    assert np.isnan(out[:lead + 15 - 1]).all()
+    assert np.isfinite(out[lead + 15 - 1:]).all()
+
+
+def test_rolling_pearson_corr_validates_args():
+    with pytest.raises(ValueError, match='1-D'):
+        rolling_pearson_corr(np.zeros((5, 5)), np.zeros((5, 5)), window=3)
+    with pytest.raises(ValueError, match='same shape'):
+        rolling_pearson_corr(np.zeros(5), np.zeros(6), window=3)
+    with pytest.raises(ValueError, match='window must be >= 2'):
+        rolling_pearson_corr(np.zeros(5), np.zeros(5), window=1)
 
 
 def test_corwin_schultz_spread_known_input():

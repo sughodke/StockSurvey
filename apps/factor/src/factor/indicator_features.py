@@ -30,6 +30,15 @@ are inspectable via `cfg.channel_names()`):
   [macd_line(fast_grid)]
   [macd_signal(fast_grid)]   (optional)
   [macd_hist(fast_grid)]     (optional)
+  [coherence(window_grid)]   (optional, default-on)
+
+The `coherence` block is the deterministic-indicator analogue of the
+regime trainer's `weights_scalogram` coherence term: trailing-window
+Pearson correlation between short- and long-window realized vol. With
+just point-in-time RSI/CCI/vol/MACD scalars the head has no path to
+recover a *time-correlation* signal, so we precompute it and feed it
+in as additional channels. See `apps/regime/src/regime/trainer.py`'s
+`weights_scalogram` docstring for what we're approximating.
 """
 from __future__ import annotations
 
@@ -38,7 +47,7 @@ from dataclasses import dataclass
 import numpy as np
 
 from ss_features import TickerData, load_prices, realized_vol
-from ss_indicators import cci_strided, macd, rsi_strided
+from ss_indicators import cci_strided, macd, rolling_pearson_corr, rsi_strided
 from factor.backbone import (
     Backbone, compute_input_stats, identity_backbone,
 )
@@ -66,6 +75,14 @@ class IndicatorGridConfig:
     macd_fast_grid: tuple[int, ...] = (5, 8, 12, 21, 34, 55)
     include_macd_signal: bool = True
     include_macd_hist:   bool = True
+    # Coherence: trailing-`N` Pearson corr between short-window and
+    # long-window realized vol. Mirrors the (s=3, s=126) short/long pair
+    # in `regime.weights_scalogram`'s coherence term, just with vol-
+    # window proxies instead of CWT power. Setting `coherence_window_grid
+    # = ()` disables the block.
+    coherence_short_window: int = 5
+    coherence_long_window:  int = 252
+    coherence_window_grid:  tuple[int, ...] = (10, 20, 60, 120)
 
     def feature_width(self) -> int:
         n_macd = len(self.macd_fast_grid) * (
@@ -75,6 +92,7 @@ class IndicatorGridConfig:
             + len(self.cci_n_grid) * len(self.cci_w_grid)
             + len(self.vol_n_grid)
             + n_macd
+            + len(self.coherence_window_grid)
         )
 
     def channel_names(self) -> list[str]:
@@ -95,6 +113,10 @@ class IndicatorGridConfig:
         if self.include_macd_hist:
             for f in self.macd_fast_grid:
                 names.append(f'macd_hist_f{f}')
+        for n in self.coherence_window_grid:
+            names.append(
+                f'coherence_w{n}_short{self.coherence_short_window}'
+                f'_long{self.coherence_long_window}')
         return names
 
 
@@ -149,6 +171,13 @@ def build_indicator_features(
         cols.extend(macd_signals)
     if cfg.include_macd_hist:
         cols.extend(macd_hists)
+
+    if cfg.coherence_window_grid:
+        # Compute the short/long vol pair once, then sweep window sizes.
+        vol_short = realized_vol(prices, window=int(cfg.coherence_short_window))
+        vol_long = realized_vol(prices, window=int(cfg.coherence_long_window))
+        for n in cfg.coherence_window_grid:
+            cols.append(rolling_pearson_corr(vol_short, vol_long, window=int(n)))
 
     features = np.stack(cols, axis=1).astype(np.float32)
     valid = np.isfinite(features).all(axis=1)

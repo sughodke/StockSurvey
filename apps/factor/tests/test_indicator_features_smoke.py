@@ -43,8 +43,8 @@ def test_indicator_features_shape_and_warmup():
     F = cfg.feature_width()
     assert F == len(cfg.channel_names()), \
         'channel_names() must enumerate exactly feature_width() channels'
-    assert F == 79, \
-        f'default config width drifted: expected 79, got {F}'
+    assert F == 83, \
+        f'default config width drifted: expected 83, got {F}'
 
     rng = np.random.default_rng(0)
     prices = 100.0 * np.exp(np.cumsum(rng.normal(0.0002, 0.012, 5500)))
@@ -54,13 +54,34 @@ def test_indicator_features_shape_and_warmup():
     assert feats.dtype == np.float32
     assert valid.shape == (5500,)
     assert valid.dtype == bool
-    # Largest CCI cell needs (80-1)*63 + 1 = 4978 bars; first valid index
-    # at most that many bars in.
+    # Coherence warmup is realized_vol(252) + max(coherence_window_grid)-1
+    # = 252 + 119 = 371 bars; CCI at (n=80, w=63) needs 4978; CCI dominates,
+    # so adding the coherence block doesn't move first_valid.
     first_valid = int(np.argmax(valid)) if valid.any() else len(valid)
     assert first_valid <= 4978, \
         f'first valid bar at {first_valid} > 4978 — warmup logic regressed'
     assert valid.any(), \
         '5500 bars should leave at least one fully-valid row'
+
+
+def test_coherence_block_present_and_in_range():
+    """Coherence block exists, has the expected width, and rolling Pearson
+    values stay in [-1, 1] on a real synthetic price series (no clipping
+    needed — the primitive enforces it)."""
+    cfg = IndicatorGridConfig()
+    rng = np.random.default_rng(0)
+    prices = 100.0 * np.exp(np.cumsum(rng.normal(0.0002, 0.012, 5500)))
+    feats, valid = build_indicator_features(prices, cfg)
+
+    n_coh = len(cfg.coherence_window_grid)
+    assert n_coh > 0, 'default cfg must enable the coherence block'
+    coh_block = feats[:, -n_coh:]
+    finite = np.isfinite(coh_block)
+    assert finite.any(axis=0).all(), \
+        'every coherence channel should have at least one finite bar'
+    vals = coh_block[finite]
+    assert (vals >= -1.0 - 1e-6).all() and (vals <= 1.0 + 1e-6).all(), \
+        'coherence values must lie in [-1, 1]'
 
 
 def test_identity_backbone_shape_matches_cfg():
