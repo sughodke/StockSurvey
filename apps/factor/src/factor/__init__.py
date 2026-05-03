@@ -54,6 +54,7 @@ from factor.data import (
 from factor.indicator_features import (
     IndicatorGridConfig, build_indicator_features, load_ticker_indicators,
     make_indicator_backbone, train_scorer_indicators,
+    train_scorer_indicators_walkforward,
 )
 from factor.objectives import block_sharpe, pearson_rank_ic
 from factor.scorers import (
@@ -62,6 +63,9 @@ from factor.scorers import (
 from factor.train import (
     TrainResult, precompute_inputs, predict, train_scorer,
 )
+from factor.train_walkforward import (
+    WalkForwardResult, WalkForwardWindow, train_scorer_walkforward,
+)
 
 __all__ = [
     'AlignedTickers',
@@ -69,6 +73,8 @@ __all__ = [
     'IndicatorGridConfig',
     'SCORERS',
     'TrainResult',
+    'WalkForwardResult',
+    'WalkForwardWindow',
     'align_tickers',
     'apply_backbone',
     'apply_backbone_pytree',
@@ -91,4 +97,6 @@ __all__ = [
     'predict',
     'train_scorer',
     'train_scorer_indicators',
+    'train_scorer_indicators_walkforward',
+    'train_scorer_walkforward',
 ]

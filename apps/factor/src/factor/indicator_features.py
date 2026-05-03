@@ -52,6 +52,9 @@ from factor.backbone import (
     Backbone, compute_input_stats, identity_backbone,
 )
 from factor.train import TrainResult, train_scorer
+from factor.train_walkforward import (
+    WalkForwardResult, train_scorer_walkforward,
+)
 
 
 @dataclass(frozen=True)
@@ -255,10 +258,26 @@ def train_scorer_indicators(
     return train_scorer(tickers, backbone, **train_kwargs)
 
 
+def train_scorer_indicators_walkforward(
+    tickers: list[TickerData], cfg: IndicatorGridConfig | None = None,
+    **walkforward_kwargs,
+) -> WalkForwardResult:
+    """Walk-forward variant of `train_scorer_indicators`.
+
+    Builds the identity backbone the same way, then routes through
+    `train_scorer_walkforward` instead of `train_scorer`. Returns a
+    `WalkForwardResult` with one entry per train/val window.
+    """
+    cfg = cfg or IndicatorGridConfig()
+    backbone = make_indicator_backbone(tickers, cfg)
+    return train_scorer_walkforward(tickers, backbone, **walkforward_kwargs)
+
+
 __all__ = [
     'IndicatorGridConfig',
     'build_indicator_features',
     'load_ticker_indicators',
     'make_indicator_backbone',
     'train_scorer_indicators',
+    'train_scorer_indicators_walkforward',
 ]

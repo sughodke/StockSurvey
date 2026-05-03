@@ -28,6 +28,10 @@ ticker in `apps/notebook/data/stooq_us_long/manifest.json`:
         --n-steps-grid 200,500 \\
         --weight-decay-grid 0,1e-3
 
+Walk-forward eval (rolling-window train/val), one cell per scorer:
+    uvx modal run apps/factor/scripts/modal/train_indicator.py::walkforward \\
+        --scorers linear,mlp --n-steps 200 --weight-decay 1e-3
+
 Modal is declared as a dep on `apps/factor` (in `pyproject.toml`), so
 either `uvx modal …` (ephemeral) or `uv run modal …` (after sync) works.
 
@@ -411,6 +415,315 @@ def main(
         rebal_days=rebal_days,
         learning_rate=learning_rate,
         train_frac=train_frac,
+        max_tickers=max_tickers,
+        mlp_hidden=mlp_hidden,
+        mlp_layers=mlp_layers,
+    )
+    for name, data in artifacts.items():
+        out = LOCAL_OUTPUT_DIR / name
+        out.write_bytes(data)
+        print(f'  wrote {out}  ({len(data) // 1024}KB)')
+    print(f'done — {len(artifacts)} files in {LOCAL_OUTPUT_DIR}/')
+
+
+# ---------------------------------------------------------------------------
+# Walk-forward eval entrypoint
+# ---------------------------------------------------------------------------
+
+@app.function(gpu='T4', cpu=4, memory=8192, timeout=60 * 60)
+def train_walkforward(
+    scorers: str,
+    n_steps: int,
+    weight_decay: float,
+    tickers: str,
+    start: str,
+    end: str,
+    rebal_days: int,
+    learning_rate: float,
+    train_window_blocks: int,
+    val_window_blocks: int,
+    step_window_blocks: int,
+    max_tickers: int,
+    mlp_hidden: int,
+    mlp_layers: int,
+) -> dict[str, bytes]:
+    """Walk-forward eval: train + val per rolling window per scorer.
+
+    Per scorer, runs `train_scorer_indicators_walkforward` once across
+    rolling windows, then writes per-window IC/Sharpe + the head_params
+    into a single npz per scorer. Aggregates across scorers in the
+    summary json.
+    """
+    import os
+    import subprocess
+    os.makedirs(f'{REMOTE_REPO}/Output', exist_ok=True)
+    output = Path(f'{REMOTE_REPO}/Output')
+
+    os.environ['CUDA'] = '1'
+
+    print('=== Step 1/4: uv sync workspace deps (one-time per cold start) ===',
+          flush=True)
+    subprocess.run(
+        ['uv', 'sync', '--package', 'factor', '--inexact'],
+        cwd=REMOTE_REPO, check=True)
+
+    import site
+    site.addsitedir(f'{REMOTE_REPO}/.venv/lib/python3.12/site-packages')
+
+    from tinygrad import Device
+    if Device.DEFAULT != 'CUDA':
+        raise RuntimeError(
+            f'tinygrad picked Device.DEFAULT={Device.DEFAULT!r}, expected CUDA')
+    print(f'  tinygrad Device.DEFAULT = {Device.DEFAULT}', flush=True)
+
+    print('\n=== Step 2/4: load tickers + build deterministic indicator features ===',
+          flush=True)
+    ticker_list = _resolve_ticker_list(tickers, max_tickers)
+    print(f'  universe: {len(ticker_list)} tickers '
+          f'(first 5: {ticker_list[:5]} ...)')
+
+    from factor import (
+        IndicatorGridConfig, train_scorer_indicators_walkforward,
+    )
+    from ss_features import TickerData
+
+    cfg = IndicatorGridConfig()
+    F = cfg.feature_width()
+    print(f'  cfg.feature_width() = {F} channels')
+
+    import multiprocessing as mp
+    n_workers = max(1, int(os.environ.get('FACTOR_FEATURE_WORKERS',
+                                          os.cpu_count() or 4)))
+    print(f'  parallelizing feature build across {n_workers} workers')
+
+    t0 = time.perf_counter()
+    ticker_data: list[TickerData] = []
+    skipped: list[str] = []
+    work_args = [(t, STOOQ_SUBSET, cfg, start, end) for t in ticker_list]
+    with mp.Pool(n_workers) as pool:
+        for i, (ticker, result) in enumerate(
+                pool.imap_unordered(_build_one_ticker, work_args)):
+            if isinstance(result, TickerData):
+                ticker_data.append(result)
+            else:
+                skipped.append(f'{ticker} {result}')
+            if (i + 1) % 50 == 0:
+                print(f'  built {i + 1}/{len(ticker_list)}  '
+                      f'({time.perf_counter()-t0:.0f}s)', flush=True)
+    ticker_data.sort(key=lambda td: td.name)
+    print(f'  feature build done: {len(ticker_data)} usable / '
+          f'{len(skipped)} skipped  ({time.perf_counter()-t0:.0f}s)')
+    if len(ticker_data) < 4:
+        raise RuntimeError(
+            f'only {len(ticker_data)} tickers built — too few for IC training')
+
+    print('\n=== Step 3/4: walk-forward eval per scorer ===', flush=True)
+    s_list = [s.strip() for s in scorers.split(',') if s.strip()]
+    print(f'  scorers: {s_list}  '
+          f'(train={train_window_blocks} val={val_window_blocks} '
+          f'step={step_window_blocks} blocks)')
+
+    summary: list[dict] = []
+    for scorer in s_list:
+        prefix = f'walkforward-{scorer}-s{n_steps}-wd{weight_decay:g}'
+        print(f'\n  >>> {prefix}', flush=True)
+        t1 = time.perf_counter()
+        try:
+            wf = train_scorer_indicators_walkforward(
+                ticker_data, cfg,
+                rebal_days=rebal_days,
+                train_window_blocks=train_window_blocks,
+                val_window_blocks=val_window_blocks,
+                step_window_blocks=step_window_blocks,
+                scorer=scorer,
+                mlp_hidden=mlp_hidden, mlp_layers=mlp_layers,
+                n_steps=n_steps, learning_rate=learning_rate,
+                weight_decay=weight_decay, verbose=True,
+            )
+        except Exception as e:
+            print(f'    FAILED: {type(e).__name__}: {e}', flush=True)
+            summary.append({'scorer': scorer, 'failed': True,
+                            'error': f'{type(e).__name__}: {e}'})
+            continue
+        wall = time.perf_counter() - t1
+        npz_path = output / f'{prefix}-windows.npz'
+        _save_walkforward_npz(npz_path, wf, cfg)
+        per_window = [
+            {
+                'window_idx': w.window_idx,
+                'train_block_start': w.train_block_start,
+                'train_block_end': w.train_block_end,
+                'val_block_start': w.val_block_start,
+                'val_block_end': w.val_block_end,
+                'train_ic': w.train_ic, 'val_ic': w.val_ic,
+                'train_sharpe': w.train_sharpe, 'val_sharpe': w.val_sharpe,
+                'n_train_bars': w.n_train_bars, 'n_val_bars': w.n_val_bars,
+            } for w in wf.windows
+        ]
+        summary.append({
+            'scorer': scorer, 'n_steps': n_steps, 'weight_decay': weight_decay,
+            'n_windows': wf.n_windows,
+            'mean_val_ic': wf.mean_val_ic,
+            'median_val_ic': wf.median_val_ic,
+            'mean_val_sharpe': wf.mean_val_sharpe,
+            'positive_val_ic_fraction': wf.positive_val_ic_fraction,
+            'wall_seconds': round(wall, 1),
+            'windows': per_window,
+            'failed': False,
+        })
+        print(f'    {wf.n_windows} windows  mean val IC={wf.mean_val_ic:+.4f}  '
+              f'median val IC={wf.median_val_ic:+.4f}  '
+              f'pos-val-IC frac={wf.positive_val_ic_fraction:.2f}  '
+              f'wall={wall:.1f}s')
+
+    (output / 'walkforward-summary.json').write_text(
+        json.dumps({
+            'universe_size': len(ticker_data),
+            'feature_width': F,
+            'rebal_days': rebal_days, 'learning_rate': learning_rate,
+            'train_window_blocks': train_window_blocks,
+            'val_window_blocks': val_window_blocks,
+            'step_window_blocks': step_window_blocks,
+            'start': start, 'end': end,
+            'scorers': summary,
+        }, indent=2))
+
+    print('\n=== Step 4/4: per-window comparison plot ===', flush=True)
+    _plot_walkforward(summary, output / 'walkforward-comparison.png')
+
+    artifacts: dict[str, bytes] = {}
+    for p in sorted(output.iterdir()):
+        if p.is_file() and p.name.startswith(('walkforward-',)):
+            artifacts[p.name] = p.read_bytes()
+    print(f'\nbundling {len(artifacts)} artifacts')
+    return artifacts
+
+
+def _save_walkforward_npz(path: Path, wf, cfg) -> None:
+    """Pack per-window head params + per-window metrics into one npz so
+    a downstream notebook can replay any window."""
+    import numpy as np
+    blob: dict[str, np.ndarray] = {}
+    blob['channel_names'] = np.array(cfg.channel_names())
+    blob['window_idx'] = np.array([w.window_idx for w in wf.windows], dtype=np.int32)
+    blob['train_block_start'] = np.array(
+        [w.train_block_start for w in wf.windows], dtype=np.int32)
+    blob['train_block_end'] = np.array(
+        [w.train_block_end for w in wf.windows], dtype=np.int32)
+    blob['val_block_start'] = np.array(
+        [w.val_block_start for w in wf.windows], dtype=np.int32)
+    blob['val_block_end'] = np.array(
+        [w.val_block_end for w in wf.windows], dtype=np.int32)
+    blob['train_ic'] = np.array([w.train_ic for w in wf.windows], dtype=np.float32)
+    blob['val_ic']   = np.array([w.val_ic   for w in wf.windows], dtype=np.float32)
+    blob['train_sharpe'] = np.array(
+        [w.train_sharpe for w in wf.windows], dtype=np.float32)
+    blob['val_sharpe'] = np.array(
+        [w.val_sharpe for w in wf.windows], dtype=np.float32)
+    # Stack head params per window (key 'head_W' becomes shape (n_windows, F)).
+    if wf.windows:
+        for k in wf.windows[0].head_params:
+            blob[f'head_{k}'] = np.stack(
+                [np.asarray(w.head_params[k], dtype=np.float32)
+                 for w in wf.windows])
+    blob['_summary'] = np.array(json.dumps({
+        'scorer': wf.scorer, 'n_steps': wf.n_steps,
+        'learning_rate': wf.learning_rate, 'weight_decay': wf.weight_decay,
+        'rebal_days': wf.rebal_days,
+        'train_window_blocks': wf.train_window_blocks,
+        'val_window_blocks': wf.val_window_blocks,
+        'step_window_blocks': wf.step_window_blocks,
+        'feature_width': wf.feature_width,
+        'n_windows': wf.n_windows,
+        'mean_val_ic': wf.mean_val_ic,
+        'median_val_ic': wf.median_val_ic,
+        'mean_val_sharpe': wf.mean_val_sharpe,
+        'positive_val_ic_fraction': wf.positive_val_ic_fraction,
+    }))
+    np.savez(path, **blob)
+    print(f'    -> {path.name} ({path.stat().st_size // 1024}KB)')
+
+
+def _plot_walkforward(summary: list[dict], out_path: Path) -> None:
+    """Per-window train + val IC bars per scorer, side-by-side. Lets a
+    glance distinguish regime-break (val IC sign flips per window) from
+    null (val IC noise around 0 every window)."""
+    import matplotlib.pyplot as plt
+    import numpy as np
+
+    ok = [s for s in summary if not s.get('failed')]
+    if not ok:
+        print(f'  no successful scorers — skipping {out_path.name}')
+        return
+    n_scorers = len(ok)
+    fig, axes = plt.subplots(n_scorers, 1, figsize=(10, 3.2 * n_scorers),
+                             sharex=True)
+    if n_scorers == 1:
+        axes = [axes]
+    for ax, s in zip(axes, ok):
+        wins = s['windows']
+        idx = np.array([w['window_idx'] for w in wins])
+        tr  = np.array([w['train_ic'] for w in wins])
+        va  = np.array([w['val_ic']   for w in wins])
+        x = np.arange(len(idx))
+        ax.bar(x - 0.2, tr, width=0.4, label='train IC', color='steelblue')
+        ax.bar(x + 0.2, va, width=0.4, label='val IC',   color='darkorange')
+        ax.axhline(0, color='black', linewidth=0.5)
+        ax.set_xticks(x)
+        ax.set_xticklabels([f'w{i}' for i in idx], fontsize=8)
+        ax.set_title(
+            f"{s['scorer']} (n_steps={s['n_steps']}, wd={s['weight_decay']:g}) "
+            f"— mean val IC={s['mean_val_ic']:+.4f}  "
+            f"pos-val frac={s['positive_val_ic_fraction']:.2f}")
+        ax.set_ylabel('IC')
+        ax.legend(fontsize=8)
+    fig.tight_layout()
+    fig.savefig(out_path, dpi=150)
+    plt.close(fig)
+    print(f'  -> {out_path.name}')
+
+
+@app.local_entrypoint()
+def walkforward(
+    scorers: str = 'linear,mlp',
+    n_steps: int = 200,
+    weight_decay: float = 1e-3,
+    tickers: str = '',
+    start: str = '2000-01-01',
+    end: str = '2026-04-01',
+    rebal_days: int = 20,
+    learning_rate: float = 1e-2,
+    train_window_blocks: int = 63,    # ~5y at rebal_days=20
+    val_window_blocks:   int = 39,    # ~3y at rebal_days=20
+    step_window_blocks:  int = 39,    # = val => non-overlapping val periods
+    max_tickers: int = 0,
+    mlp_hidden:  int = 64,
+    mlp_layers:  int = 1,
+) -> None:
+    """Walk-forward entrypoint. Invocation:
+
+        uvx modal run apps/factor/scripts/modal/train_indicator.py::walkforward
+
+    Default grid: linear + mlp, one (n_steps, weight_decay) cell per
+    scorer, ~6 windows on the full 312-ticker × 26y span.
+    """
+    LOCAL_OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+    print(f'launching factor walkforward on Modal '
+          f'(scorers={scorers}, n_steps={n_steps}, weight_decay={weight_decay}, '
+          f'train_blocks={train_window_blocks}, val_blocks={val_window_blocks}, '
+          f'step_blocks={step_window_blocks}, max_tickers={max_tickers})')
+    artifacts = train_walkforward.remote(
+        scorers=scorers,
+        n_steps=n_steps,
+        weight_decay=weight_decay,
+        tickers=tickers,
+        start=start,
+        end=end,
+        rebal_days=rebal_days,
+        learning_rate=learning_rate,
+        train_window_blocks=train_window_blocks,
+        val_window_blocks=val_window_blocks,
+        step_window_blocks=step_window_blocks,
         max_tickers=max_tickers,
         mlp_hidden=mlp_hidden,
         mlp_layers=mlp_layers,
