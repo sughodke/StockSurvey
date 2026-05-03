@@ -4,27 +4,29 @@ Sweeps a grid over (scorer, n_steps, weight_decay) per call against the
 baked-in ~312-ticker stooq_us_long subset; trains one head per cell and
 returns the artifacts to the caller's local Output/.
 
-Why CPU and not GPU: the deterministic-indicator path has no encoder —
-just a (n, 79) -> 1 linear (or tiny MLP) Adam loop. The bottleneck is
-the strided RSI/CCI Python recurrences during feature building, not
-matmuls; tinygrad's CPU backend matches GPU within fractions of a
-second on this workload, at ~10x lower cost.
+Runtime: T4 GPU. We tried debian_slim + clang and debian_slim + LLVM
+first to keep cost down — both wedged for backend reasons (see header
+comment on `image` below). T4 with tinygrad's CUDA backend matches
+local-Metal speed (~10 step/s for our identity backbone) and a
+linear-head smoke runs in ~7s wall.
 
 Usage
 -----
 One-time setup (local):
     uvx modal token new          # or, if modal is already installed, `modal token new`
 
-Smoke test (~3-5 min wall, ~$0.05):
+Smoke test (~30s wall on warm container, <$0.005):
     uvx modal run apps/factor/scripts/modal/train_indicator.py \\
-        --scorers linear --n-steps-grid 100 --weight-decay-grid 1e-3 \\
+        --scorers linear --n-steps-grid 20 --weight-decay-grid 1e-3 \\
         --max-tickers 30
 
-Full grid sweep (~10-30 min wall, ~$0.10-0.30):
+Full grid sweep over the baked-in 312-ticker universe (~20-40 min wall,
+~$0.20-0.40 at T4 prices). `--max-tickers 0` (default) uses every
+ticker in `apps/notebook/data/stooq_us_long/manifest.json`:
     uvx modal run apps/factor/scripts/modal/train_indicator.py \\
         --scorers linear,mlp \\
-        --n-steps-grid 200,500,1000 \\
-        --weight-decay-grid 0,1e-3,1e-2
+        --n-steps-grid 200,500 \\
+        --weight-decay-grid 0,1e-3
 
 Modal is declared as a dep on `apps/factor` (in `pyproject.toml`), so
 either `uvx modal …` (ephemeral) or `uv run modal …` (after sync) works.
@@ -59,11 +61,27 @@ REMOTE_REPO = '/root/StockSurvey'
 STOOQ_SUBSET_REL = 'apps/notebook/data/stooq_us_long'
 STOOQ_SUBSET = f'{REMOTE_REPO}/{STOOQ_SUBSET_REL}'
 
-# debian_slim is fine here — no GPU, no nvcc. uv handles the workspace.
+# Image: NVIDIA CUDA devel (provides nvcc + libnvrtc + libcuda — all needed
+# by tinygrad's CUDA backend to JIT-compile kernels). Mirrors the proven
+# setup in apps/replay/scripts/modal/train_cnn_multihead.py.
+#
+# Backend history for this script: debian_slim + clang JIT was unusable
+# (subprocess-per-kernel overhead → 90-min timeout for a 20-step head).
+# debian_slim + libllvm14 + CPU_LLVM=1 hit a tinygrad LLVM-renderer bug
+# (`getelementptr inbounds float, float* %reg_0` against `[3 x float]*`).
+# CUDA backend is well-exercised in tinygrad and matches local-Metal speed
+# (~10 step/s for our identity backbone).
 image = (
-    modal.Image.debian_slim(python_version='3.12')
-    .apt_install('git', 'curl', 'build-essential')
+    modal.Image.from_registry(
+        'nvidia/cuda:12.4.0-devel-ubuntu22.04',
+        add_python='3.12',
+    )
+    .apt_install('git', 'curl', 'build-essential', 'clang')
     .pip_install('uv')
+    # PYTHONUNBUFFERED so prints + tqdm bars reach `modal app logs`
+    # line-by-line. CUDA backend selected explicitly inside the function
+    # via os.environ['CUDA']='1' (see assertion on Device.DEFAULT below).
+    .env({'PYTHONUNBUFFERED': '1'})
     .add_local_dir(
         REPO_ROOT.as_posix(),
         remote_path=REMOTE_REPO,
@@ -73,6 +91,15 @@ image = (
             'Output/**',
             'StooqData/**',
             'Nasdaq3347/**',
+            # `uv sync --package factor` walks every workspace member's
+            # pyproject.toml, so we keep those — but skip the `src/` trees
+            # of apps that aren't deps of factor. Modal aborts a build if
+            # any uploaded file changes mid-hash, and apps/relational often
+            # sees concurrent edits while we're running this.
+            'apps/relational/src/**',
+            'apps/regime/src/**',
+            'apps/v1/src/**',
+            'apps/replay/src/**',
             '**/__pycache__/**',
             '**/*.pyc',
         ],
@@ -82,7 +109,7 @@ image = (
 app = modal.App('factor-indicator-grid', image=image)
 
 
-@app.function(cpu=4, memory=8192, timeout=60 * 90)
+@app.function(gpu='T4', cpu=4, memory=8192, timeout=60 * 60)
 def train_grid(
     scorers: str,
     n_steps_grid: str,
@@ -105,6 +132,12 @@ def train_grid(
     os.makedirs(f'{REMOTE_REPO}/Output', exist_ok=True)
     output = Path(f'{REMOTE_REPO}/Output')
 
+    # Pin tinygrad to the CUDA backend before the venv is even built so any
+    # later `import tinygrad` from a child process inherits the choice. Set
+    # via env var rather than `Device['CUDA']` directly so it propagates to
+    # the worker pool (multiprocessing fork on Linux copies env).
+    os.environ['CUDA'] = '1'
+
     print('=== Step 1/4: uv sync workspace deps (one-time per cold start) ===',
           flush=True)
     subprocess.run(
@@ -115,6 +148,17 @@ def train_grid(
     # can `import factor` etc. (mirrors the train_cnn_multihead pattern).
     import site
     site.addsitedir(f'{REMOTE_REPO}/.venv/lib/python3.12/site-packages')
+
+    # Sanity-check device pin: if Device.DEFAULT is not CUDA, abort before
+    # we burn GPU minutes silently running on CPU. This catches a missing
+    # NVIDIA driver / libnvrtc / wrong image base early.
+    from tinygrad import Device
+    if Device.DEFAULT != 'CUDA':
+        raise RuntimeError(
+            f'tinygrad picked Device.DEFAULT={Device.DEFAULT!r} but expected '
+            "'CUDA' — check the image (nvidia/cuda:*-devel-* required) and "
+            "that the function is decorated with gpu='T4'.")
+    print(f'  tinygrad Device.DEFAULT = {Device.DEFAULT}', flush=True)
 
     # ---------- Step 2: load tickers + build features (shared across cells) ----------
     print('\n=== Step 2/4: load tickers + build deterministic indicator features ===',
