@@ -9,14 +9,17 @@ StockSurvey is a uv-workspace monorepo containing trading-strategy research and 
 - `apps/regime/`   — CWT-regime portfolio strategy. Optuna+vectorbt walk-forward search by default; `research/optimize_adam.py` is the JAX-Adam differentiable variant — **parked** since `ss_indicators` was migrated to numpy (its `jax.value_and_grad` no longer flows through `get_divergence`). Persists a JSON checkpoint, trades live via Alpaca. Active development.
 - `apps/v1/`       — legacy single-ticker workflow (`Security` → `Span` → `Decider` → `Evaluator` → `Plot`) plus the aiohttp web service. Parked.
 - `apps/notebook/` — Jupyter notebooks for cross-cutting research **plus** runnable scalogram CLIs (`ss-scalogram`, `ss-scalogram-video`) and `ss-replay` (multi-head CNN trainer for indicator decoding from CWT). Source in `src/ss_notebook/`. `scripts/modal/train_cnn_multihead.py` is the Modal-T4 4-step harness (train + CSCO zero-shot + AAPL FiLM/uncond attention) for cloud runs against the baked-in 21-ticker Stooq subset under `data/stooq_phase2/`.
+- `apps/factor/`   — cross-sectional rank-IC scorer (tinygrad). Two input paths share the same head + objective: (1) the SSL-pretrained CNN backbone produced by `ss-replay --decoder cnn`, loaded via `ss_features.load_backbone`; (2) `IndicatorGridConfig` — a wide flat stack of strided RSI/CCI grids, MACD over a fast-period grid, and realized vol over a window grid, fed through `identity_backbone(K=1, F=...)`. Public API: `from factor import ...`.
+- `apps/relational/` — sector-relative excess-divergence research (CWT-based). Active.
 - `packages/loaders/`    (`ss_loaders`)    — Kaggle CSV matrix, Stooq archive, Yahoo, CryptoCompare, symbol lists.
+- `packages/features/`   (`ss_features`)   — shared primitives between apps that needed them: `TickerData` bundle, `load_prices` (Stooq/Kaggle/Yahoo), `realized_vol` / `log_returns`, plus `Backbone` dataclass + `load_backbone` (numpy-only npz I/O for the SSL-pretrained CNN backbone). Tinygrad runtime stays in `factor.backbone`.
 - `packages/indicators/` (`ss_indicators`) — **numpy** matrix-form RSI/MACD/BBands/SMA/EMA + CCI, plus stride-w variants (`rsi_strided`, `cci_strided`) for FiLM-conditioned head training, plus Corwin-Schultz spread, KL/JS/cosine/L2 divergences, Fibonacci levels. Pure numpy after the JAX migration; no autograd path.
 - `packages/wavelets/`   (`ss_wavelets`)   — causal Ricker CWT + windowed power means. `KERNEL_HALF_EXTENT=3` and `ALL_SCALES` exposed.
 - `packages/stream/`     (`ss_stream`)     — point-in-time universe iterator over the Stooq archive (incremental loader for live trading).
 - `packages/portfolio/`  (`ss_portfolio`)  — JAX block-Sharpe with costs, CAGR/drawdown/Sortino/Calmar, water-fill weight cap, masked softmax.
 - `packages/plotting/`   (`ss_plotting`)   — training-curve, equity-comparison, scalogram-heatmap helpers.
 
-`ss_indicators` is numpy; `ss_portfolio` is still JAX (block-Sharpe needs autograd in the regime trainer's loss). Notebook trainers (`replay/`, `scoring/`) use **tinygrad**. The legacy v1 indicators in `v1/util/indicators.py` are preserved untouched for the parked workflow but are not the canonical implementation; new code uses `ss_indicators`.
+`ss_indicators` is numpy; `ss_portfolio` is still JAX (block-Sharpe needs autograd in the regime trainer's loss). Notebook's `replay/` trainer and `apps/factor` use **tinygrad**. The legacy v1 indicators in `v1/util/indicators.py` are preserved untouched for the parked workflow but are not the canonical implementation; new code uses `ss_indicators`.
 
 ## Workspace conventions
 

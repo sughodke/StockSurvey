@@ -34,23 +34,14 @@ from __future__ import annotations
 
 import argparse
 import os
-from pathlib import Path
 
 import matplotlib.pyplot as plt
 import numpy as np
-import pandas as pd
 
+from ss_features import DEFAULT_STOOQ_DIR, load_prices
 from ss_indicators import ema, macd, rolling_std, rsi
-from ss_loaders import (
-    iter_stooq_ticker_files,
-    load_price_matrix,
-    read_stooq_file,
-    stooq_ticker_from_path,
-)
 from ss_plotting import plot_scalogram_heatmap
 from ss_wavelets import causal_cwt
-
-DEFAULT_STOOQ_DIR = './StooqData'
 
 
 def _to_np(x) -> np.ndarray:
@@ -67,82 +58,6 @@ def _scalogram_scales(min_scale: int = 2, max_scale: int = 200,
     """
     raw = np.logspace(np.log10(min_scale), np.log10(max_scale), n).astype(int)
     return np.unique(raw)
-
-
-def _find_stooq_path(stooq_dir: Path, ticker: str,
-                     include_etfs: bool = True) -> Path | None:
-    """Locate one ticker's `.txt` file inside the Stooq archive layout."""
-    target = ticker.upper()
-    for path in iter_stooq_ticker_files(stooq_dir, include_etfs=include_etfs):
-        if stooq_ticker_from_path(path) == target:
-            return path
-    return None
-
-
-def load_prices(
-    ticker: str,
-    *,
-    stooq_dir: str | None = None,
-    kaggle_dir: str | None = None,
-    use_yahoo: bool = False,
-    start: str | None = None,
-    end: str | None = None,
-) -> pd.Series:
-    """Return adjusted-close series for one ticker.
-
-    Stooq path (default): walk the archive's file tree to find the
-    matching ticker file, then `read_stooq_file` parses just that
-    one CSV. Stooq close is already split-/dividend-adjusted, so no
-    separate `adj_close` column is needed.
-
-    Kaggle path (`kaggle_dir`): slice one column from the wide
-    Nasdaq3347 close matrix. Note: that dataset has no adjustments
-    or volume; `close` is raw.
-
-    Yahoo path (`use_yahoo=True`): on-the-fly fetch via yfinance
-    (`ss_loaders.load_yahoo`) — no on-disk archive needed. Returns
-    `adj_close`. Use on Colab or any environment where the Stooq
-    archive isn't present.
-    """
-    if use_yahoo:
-        import datetime as _dt
-
-        from ss_loaders import load_yahoo
-
-        start_dt = (_dt.datetime.fromisoformat(start) if start
-                    else _dt.datetime(1990, 1, 1))
-        end_dt = (_dt.datetime.fromisoformat(end) if end
-                  else _dt.datetime.now())
-        df = load_yahoo(start_dt, end_dt, ticker)
-        if df.empty or 'adj_close' not in df.columns:
-            raise KeyError(
-                f'{ticker} returned no usable rows from yfinance')
-        return df['adj_close'].dropna().rename('adj_close')
-
-    if kaggle_dir:
-        end_date = end or '2099-12-31'
-        prices, _, _ = load_price_matrix(
-            kaggle_dir, min_history=1, start_date=start, end_date=end_date)
-        if ticker not in prices.columns:
-            raise KeyError(f'{ticker} not in {kaggle_dir}')
-        return prices[ticker].dropna().rename('close')
-
-    root = Path(stooq_dir or DEFAULT_STOOQ_DIR)
-    if not root.exists():
-        raise RuntimeError(
-            f'Stooq archive not found at {root}. Pass --stooq-dir or '
-            '--kaggle-dir.')
-    path = _find_stooq_path(root, ticker)
-    if path is None:
-        raise KeyError(f'{ticker} not found in {root}')
-    df = read_stooq_file(path)
-    if df is None or df.empty:
-        raise RuntimeError(f'failed to parse {path}')
-    if start:
-        df = df.loc[start:]
-    if end:
-        df = df.loc[:end]
-    return df['close'].dropna().rename('adj_close')
 
 
 def compute_scalogram_power(

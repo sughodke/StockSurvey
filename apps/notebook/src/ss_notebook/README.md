@@ -126,26 +126,16 @@ uv run ss-replay AAPL --train-tickers MSFT,GOOGL,AMZN \
     --decoder mlp                                           # 4-train, 1-val
 ```
 
-### `scoring/` — frozen-backbone IC head
+### Cross-sectional IC scorer — moved to `apps/factor/`
 
-Cross-sectional stock scorer that loads the replay CNN backbone
-(`load_backbone`), runs it forward over a universe of `TickerData`
-rows, and trains a small linear / MLP head on top against forward
-log-returns. Two-stage option: stage 1 freezes the backbone and
-trains only the head; stage 2 (`finetune_steps > 0`) unfreezes the
-backbone and updates head + backbone jointly at a separate
-learning-rate scale.
-
-- Public surface: `Backbone`, `load_backbone`, `apply_backbone`,
-  `identity_backbone` (no-encoder baseline) | `align_tickers`,
-  `forward_log_returns` | `pearson_rank_ic`, `block_sharpe` |
-  `init_linear`, `init_mlp`, `SCORERS` | `train_scorer`,
-  `precompute_inputs`, `predict`, `TrainResult`.
-- Public-API entrypoint: `from ss_notebook.scoring import ...` (see
-  the package `__init__` for the full list).
-- No CLI yet — invoked from notebooks and the colab scripts in
-  `apps/notebook/scripts/colab/` (`stage1_ic_scorer.py`,
-  `ssl_ic_scorer.py`, `zeroshot_eval.py`).
+The frozen-backbone scoring pipeline that used to live under
+`ss_notebook.scoring/` now lives in its own app: `apps/factor/`,
+import as `from factor import ...`. The `Backbone` dataclass + npz I/O
+(`load_backbone`) moved one step further into `packages/features/`
+(`ss_features`) so both apps can read the SSL pretrain output without
+depending on each other. See `apps/factor/src/factor/__init__.py` for
+the full public surface, including the deterministic-indicator
+alternative (`IndicatorGridConfig`, `train_scorer_indicators`).
 
 The backbone loader filters out per-target heads / FiLM weights /
 target standardizers from the replay npz and verifies the remaining

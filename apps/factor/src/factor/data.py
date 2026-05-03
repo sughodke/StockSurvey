@@ -1,10 +1,10 @@
-"""Multi-ticker alignment of replay-style `TickerData` for cross-sectional
-training.
+"""Multi-ticker alignment of `TickerData` for cross-sectional training.
 
-The replay loader produces one `TickerData` per ticker, each with its
-own date range. Training a cross-sectional scorer needs every ticker's
-features and prices on a common date axis so the per-rebalance Pearson
-IC has well-defined cross-sections.
+`TickerData` ships from `ss_features`; producers (apps/notebook's replay
+loader, apps/factor's deterministic-indicator builder) populate one per
+ticker, each with its own date range. Training a cross-sectional scorer
+needs every ticker's features and prices on a common date axis so the
+per-rebalance Pearson IC has well-defined cross-sections.
 
 `align_tickers` takes a list of `TickerData`, finds the common date
 range (intersection — start = max of starts, end = min of ends), and
@@ -17,7 +17,7 @@ from dataclasses import dataclass
 import numpy as np
 import pandas as pd
 
-from ss_notebook.replay.features import TickerData
+from ss_features import TickerData
 
 
 @dataclass(frozen=True)

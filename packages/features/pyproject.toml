@@ -1,0 +1,17 @@
+[project]
+name = "ss-features"
+version = "0.1.0"
+requires-python = ">=3.10"
+description = "Shared feature primitives: TickerData bundle, realized vol, price-loading, backbone npz I/O."
+dependencies = [
+    "ss-loaders",
+    "numpy",
+    "pandas",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/ss_features"]

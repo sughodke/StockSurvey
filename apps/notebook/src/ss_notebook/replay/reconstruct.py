@@ -268,7 +268,7 @@ def fit_and_evaluate(
         # held fixed; only heads + FiLM train.
         frozen_backbone = None
         if frozen_backbone_path is not None:
-            from ss_notebook.scoring.backbone import load_backbone
+            from ss_features import load_backbone
             frozen_backbone, _bb_meta = load_backbone(frozen_backbone_path)
         yhats_all, params_per_target = fit_cnn_multihead(
             X_train, {t: y_train[t] for t in targets}, X_predict,

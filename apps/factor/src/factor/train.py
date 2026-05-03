@@ -30,15 +30,15 @@ from tinygrad.tensor import Tensor
 from tinygrad import dtypes
 from tinygrad.nn.optim import AdamW
 
-from ss_notebook.replay.features import TickerData
-from ss_notebook.scoring.backbone import (
+from ss_features import TickerData
+from factor.backbone import (
     Backbone, apply_backbone, apply_backbone_pytree, backbone_to_pytree,
 )
-from ss_notebook.scoring.data import (
+from factor.data import (
     AlignedTickers, align_tickers, forward_log_returns,
 )
-from ss_notebook.scoring.objectives import block_sharpe, pearson_rank_ic
-from ss_notebook.scoring.scorers import get_scorer
+from factor.objectives import block_sharpe, pearson_rank_ic
+from factor.scorers import get_scorer
 
 
 @dataclass

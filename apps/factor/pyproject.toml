@@ -1,0 +1,21 @@
+[project]
+name = "factor"
+version = "0.1.0"
+requires-python = ">=3.10"
+description = "Cross-sectional rank-IC scorer: pretrained CWT backbone or deterministic indicator stack."
+dependencies = [
+    "ss-features",
+    "ss-loaders",
+    "ss-indicators",
+    "numpy",
+    "pandas",
+    "tinygrad>=0.10.0",
+    "tqdm",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/factor"]

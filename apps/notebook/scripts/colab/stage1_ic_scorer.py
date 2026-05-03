@@ -51,8 +51,8 @@ import glob
 
 import matplotlib.pyplot as plt
 
+from factor import load_backbone, train_scorer
 from ss_notebook.replay.features import load_ticker
-from ss_notebook.scoring import load_backbone, train_scorer
 
 
 # 1. Locate the pretrained backbone npz (latest cnn run on disk).

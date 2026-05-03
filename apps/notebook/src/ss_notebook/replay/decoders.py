@@ -337,7 +337,7 @@ def fit_cnn_masked_ae(
     """Self-supervised pretrain — masked CWT autoencoding.
 
     Encoder is the same conv stack as `fit_cnn_multihead` (same shape on
-    disk so `ss_notebook.scoring.backbone.load_backbone` reads it). A
+    disk so `ss_features.load_backbone` reads it). A
     small MLP decoder maps the flattened backbone latent
     `(n, K_post * hidden)` back to the full `(n, K * F)` z-normed input.
 

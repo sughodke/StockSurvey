@@ -4,7 +4,7 @@ Train a small per-bar decoder that reconstructs classical TA indicators
 (RSI, MACD line, realized vol, raw close) from the trailing-window
 **causal CWT** of price. Used as a **backbone-pretraining** stage: the
 saved npz holds a shared 1-D conv backbone whose latent is then frozen
-and reused by `ss_notebook.scoring/` for forward-return scoring.
+and reused by `apps/factor` (`from factor import ...`) for forward-return scoring.
 
 The intent of training on indicator targets isn't the indicators
 themselves — it's the regularizer they impose on the latent. Period-
@@ -63,7 +63,7 @@ input  (n, K, F)
         ▼                                   │   shared backbone:
    [Conv1D + ReLU] × n_layers, VALID padding│  saved as feat_mu/sd +
         ▼                                   │  conv{i}_W/b — frozen and
-   flatten -> (n, K_post * hidden) latent  ─┘  reused by ss_notebook.scoring
+   flatten -> (n, K_post * hidden) latent  ─┘  reused by apps/factor
         │
         ├── target 'price':  Linear(latent_dim -> 1)               (unconditioned)
         ├── target 'macd' :  Linear(latent_dim -> 1)               (unconditioned)
@@ -157,7 +157,7 @@ the backbone learned are not ticker-specific — they generalize across
 the universe. That's real, but its scope is "how to read CWT for
 RSI/MACD/vol/price *in any ticker*," not "how to read CWT in general."
 
-**Implication for downstream IC scoring** (`ss_notebook.scoring`). A
+**Implication for downstream IC scoring** (`apps/factor`). A
 linear IC head reading the frozen latent inherits the same narrow scope.
 It can produce scores proportional to RSI/MACD level, but rank IC of
 indicator level against forward returns is ~0 (the alpha lives in
@@ -238,7 +238,7 @@ weights duplicated under each prefix:
 _meta                                         # JSON blob of CLI args + train/val stats
 ```
 
-`scoring.backbone.load_backbone` filters out everything matching
+`ss_features.load_backbone` filters out everything matching
 `{target}__head_*` and `{target}__target_*` (so all the head FiLM
 weights, head_W/b, cond_dim, and target standardizer fields stay
 behind), and verifies the remaining backbone tensors are byte-identical

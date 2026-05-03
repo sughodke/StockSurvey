@@ -37,13 +37,12 @@ from dataclasses import dataclass
 
 import numpy as np
 
+from ss_features import TickerData, load_prices, realized_vol
 from ss_indicators import cci_strided, macd, rsi_strided
-from ss_notebook.replay.features import TickerData, realized_vol
-from ss_notebook.scalogram import load_prices
-from ss_notebook.scoring.backbone import (
+from factor.backbone import (
     Backbone, compute_input_stats, identity_backbone,
 )
-from ss_notebook.scoring.train import TrainResult, train_scorer
+from factor.train import TrainResult, train_scorer
 
 
 @dataclass(frozen=True)

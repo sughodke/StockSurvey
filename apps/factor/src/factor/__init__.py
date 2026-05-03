@@ -1,38 +1,39 @@
-"""Cross-sectional stock scorer on top of the replay CNN backbone.
+"""Cross-sectional rank-IC scorer.
 
-Pipeline
---------
-1. Load a replay multi-head npz (`apps/notebook` -> `ss-replay --decoder
-   cnn`); strip the per-target heads and keep only the shared conv
-   backbone via `load_backbone`.
-2. Build `TickerData` per universe ticker using `replay.features.
-   load_ticker` with the *same* scales / window_cols / include_zscore_
-   stats / include_returns / lookback / rsi_n / etc. recorded in the
-   backbone's `_meta` blob — otherwise the input shape won't match.
-3. Call `train_scorer(tickers, backbone, ...)`. **Stage 1** runs the
-   frozen backbone forward once up front and trains only the head. If
-   `finetune_steps > 0`, **Stage 2** unfreezes the backbone, minibatches
-   over rebalance bars, and updates head + backbone jointly (backbone
-   at `learning_rate * finetune_lr_scale`). The fine-tuned backbone
-   weights come back on `TrainResult.backbone_params`.
+Two paths feed the same scoring head + IC objective:
+
+Pretrained CNN backbone (apps/notebook → `ss-replay --decoder cnn`)
+------------------------------------------------------------------
+1. Load a replay multi-head npz; strip per-target heads, keep the
+   shared conv backbone via `load_backbone`.
+2. Build `TickerData` per ticker using the SSL pretrain's matching
+   scales / window_cols / etc. (recorded in the npz's `_meta`).
+3. `train_scorer(tickers, backbone, ...)`. **Stage 1** runs the frozen
+   backbone forward once and trains only the head. If
+   `finetune_steps > 0`, **Stage 2** unfreezes the backbone and updates
+   head + backbone jointly (backbone at
+   `learning_rate * finetune_lr_scale`). Fine-tuned weights come back
+   on `TrainResult.backbone_params`.
 4. Training objective is per-rebalance Pearson IC against forward
    log-returns; Sharpe is tracked on val as an eval-only signal.
 
-No-backbone alternative (`indicator_features` module)
------------------------------------------------------
+Deterministic-indicator alternative (`indicator_features`)
+----------------------------------------------------------
 Skip steps 1-2 entirely. `load_ticker_indicators(name, cfg=...)` builds
-`TickerData` from a wide stack of deterministic technical indicators
-(strided RSI/CCI grids, MACD over fast-period grid, realized vol over
-window grid). `train_scorer_indicators(tickers, cfg, ...)` synthesizes
-an `identity_backbone(K=1, F=cfg.feature_width())` and routes through
-the same `train_scorer` machinery. Use as an ablation against the
+`TickerData` from a wide stack of strided RSI/CCI grids, MACD over a
+fast-period grid, and realized vol over a window grid.
+`train_scorer_indicators(tickers, cfg, ...)` synthesizes an
+`identity_backbone(K=1, F=cfg.feature_width())` and routes through the
+same `train_scorer` machinery. Use as an ablation against the
 pretrained backbone, or as a standalone scorer when no SSL pretrain is
 available.
 
 Public surface
 --------------
-- `Backbone`, `load_backbone`, `apply_backbone`, `apply_backbone_pytree`,
-  `backbone_to_pytree` — backbone module.
+- `Backbone`, `load_backbone` — re-exports from `ss_features` for
+  convenience; that package owns the on-disk npz format.
+- `apply_backbone`, `apply_backbone_pytree`, `backbone_to_pytree`,
+  `compute_input_stats`, `identity_backbone` — tinygrad runtime.
 - `AlignedTickers`, `align_tickers`, `forward_log_returns` — data prep.
 - `IndicatorGridConfig`, `build_indicator_features`,
   `load_ticker_indicators`, `make_indicator_backbone`,
@@ -43,22 +44,22 @@ Public surface
 - `TrainResult`, `train_scorer`, `precompute_inputs`, `predict`
   — training loop + helpers.
 """
-from ss_notebook.scoring.backbone import (
+from factor.backbone import (
     Backbone, apply_backbone, apply_backbone_pytree, backbone_to_pytree,
     compute_input_stats, identity_backbone, load_backbone,
 )
-from ss_notebook.scoring.data import (
+from factor.data import (
     AlignedTickers, align_tickers, forward_log_returns,
 )
-from ss_notebook.scoring.indicator_features import (
+from factor.indicator_features import (
     IndicatorGridConfig, build_indicator_features, load_ticker_indicators,
     make_indicator_backbone, train_scorer_indicators,
 )
-from ss_notebook.scoring.objectives import block_sharpe, pearson_rank_ic
-from ss_notebook.scoring.scorers import (
+from factor.objectives import block_sharpe, pearson_rank_ic
+from factor.scorers import (
     SCORERS, apply_linear, apply_mlp, get_scorer, init_linear, init_mlp,
 )
-from ss_notebook.scoring.train import (
+from factor.train import (
     TrainResult, precompute_inputs, predict, train_scorer,
 )
 

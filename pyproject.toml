@@ -44,14 +44,18 @@ ss-wavelets = { workspace = true }
 ss-portfolio = { workspace = true }
 ss-plotting = { workspace = true }
 ss-stream = { workspace = true }
+ss-features = { workspace = true }
 regime = { workspace = true }
 v1 = { workspace = true }
 stocksurvey-notebook = { workspace = true }
+factor = { workspace = true }
+relational = { workspace = true }
 
 [dependency-groups]
 dev = [
     "regime[research]",
     "v1",
+    "factor",
     "stocksurvey-notebook",
     "pytest>=8",
 ]
@@ -62,7 +66,9 @@ testpaths = [
     "packages/wavelets/tests",
     "packages/portfolio/tests",
     "packages/loaders/tests",
+    "packages/features/tests",
     "apps/regime/tests",
     "apps/v1/tests",
+    "apps/factor/tests",
 ]
 addopts = "-q --import-mode=importlib"

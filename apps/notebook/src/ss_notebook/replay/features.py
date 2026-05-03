@@ -1,4 +1,4 @@
-"""CWT-slice feature builders + `TickerData` bundle for one ticker.
+"""CWT-slice feature builders for one ticker.
 
 Per-bar features are a stack of channels lag-windowed over the trailing
 `K = window_cols` bars. Channels always include the CWT (signed coeffs,
@@ -6,13 +6,16 @@ power) per scale; optionally also include the rolling z-norm stats
 (mu, std) and a raw daily-return channel. Each addition is one CLI flag
 and one extra entry in the channel stack, so the CNN reshape from
 `(n, K * C)` → `(n, K, C)` works uniformly.
+
+`TickerData`, `realized_vol`, and `log_returns` live in `ss_features`
+(shared with apps/factor) and are re-exported here so existing
+`from ss_notebook.replay.features import ...` sites keep working.
 """
 from __future__ import annotations
 
-from dataclasses import dataclass, field
-
 import numpy as np
 
+from ss_features import TickerData, log_returns, realized_vol
 from ss_indicators import cci, cci_strided, macd, rsi, rsi_strided
 from ss_notebook.scalogram import _to_np, load_prices
 from ss_wavelets import causal_cwt
@@ -58,14 +61,6 @@ def rolling_zscore_stats(
     return mu, std
 
 
-def log_returns(prices: np.ndarray) -> np.ndarray:
-    """Per-bar log returns padded with NaN at index 0 so the array
-    aligns with the price series. The leading NaN is gated out by the
-    warm-up filter in `build_features_and_targets`."""
-    log_p = np.log(prices.astype(np.float64))
-    return np.concatenate([[np.nan], np.diff(log_p)])
-
-
 def log_return_signs(prices: np.ndarray) -> np.ndarray:
     """Per-bar sign of log return ∈ {-1, 0, +1} aligned to `prices`.
 
@@ -78,32 +73,6 @@ def log_return_signs(prices: np.ndarray) -> np.ndarray:
     keeping a direction crutch.
     """
     return np.sign(log_returns(prices))
-
-
-def realized_vol(prices: np.ndarray, window: int) -> np.ndarray:
-    """Causal rolling std of log returns over the trailing `window` bars.
-
-    Output is NaN until the window is full. Used as a backbone-pretraining
-    target — it's what the rolling-z-normed scalogram is best positioned
-    to recover (squared-coefficient structure survives the z-norm) and
-    a known cross-sectional return predictor in its own right.
-    """
-    if window < 2:
-        raise ValueError(f'realized_vol window must be >= 2, got {window}')
-    rets = log_returns(prices)  # (n,) with rets[0] = NaN
-    n = len(prices)
-    out = np.full(n, np.nan, dtype=np.float64)
-    rets_clean = np.where(np.isnan(rets), 0.0, rets)
-    cs = np.cumsum(np.concatenate([[0.0], rets_clean]))
-    cs2 = np.cumsum(np.concatenate([[0.0], rets_clean ** 2]))
-    # First valid return is index 1; first full window ends at index `window`.
-    for i in range(window, n):
-        s = cs[i + 1] - cs[i + 1 - window]
-        s2 = cs2[i + 1] - cs2[i + 1 - window]
-        m = s / window
-        v = max(s2 / window - m * m, 0.0)
-        out[i] = np.sqrt(v)
-    return out
 
 
 def channels_per_lag(
@@ -285,24 +254,6 @@ def build_features_and_targets(
     for grid_arr in target_grids.values():
         valid &= np.isfinite(grid_arr).all(axis=0)
     return features, gt, valid, target_grids
-
-
-@dataclass
-class TickerData:
-    """One ticker's loaded prices, dates, features, ground-truth indicators,
-    and the warm-up-aware valid mask. Constructed by `load_ticker`.
-
-    `target_grids` carries `(n_grid, n_dates)` arrays for parameter-
-    conditioned targets; empty dict when no conditioning is in use. The
-    1D anchor array in `targets` is what plotting/stats compare against.
-    """
-    name: str
-    prices: np.ndarray
-    dates: np.ndarray
-    features: np.ndarray
-    targets: dict[str, np.ndarray]
-    valid: np.ndarray
-    target_grids: dict[str, np.ndarray] = field(default_factory=dict)
 
 
 def load_ticker(
