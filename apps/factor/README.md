@@ -107,6 +107,54 @@ rebalance granularity with one-sided turnover costs at
 `commission_frac`. IC gives a per-decision dense gradient signal that
 converges much faster than direct Sharpe optimization.
 
+### IC as a proxy for Sharpe
+
+The formal link is Grinold's Fundamental Law of Active Management:
+
+```
+IR ≈ IC · sqrt(BR)
+```
+
+where IR is the information ratio (≈ Sharpe of the active component) and
+BR is *effective* breadth — independent bets per year. For the baseline
+walk-forward run below — 297 names × ~12.6 rebals/year ≈ 3,740 nominal
+bets — naive IC=0.012 → IR ≈ 0.74. That's broadly in line with the mean
+realized val Sharpe of ~+0.44 across the 6 windows, after sector/beta
+correlations deflate "nominal breadth" to "effective breadth."
+
+**Why we train on IC anyway:**
+- Monotonic with Sharpe under reasonable assumptions — better IC almost
+  always means better Sharpe at fixed sizing/costs.
+- Dense per-decision gradient (one signal per (date, ticker)) vs
+  Sharpe's sparse per-bar return signal → much lower-variance
+  gradients, much faster convergence.
+- Scale-invariant — the head can output anything, IC is invariant under
+  affine rescaling.
+
+**Where IC and Sharpe diverge (so `block_sharpe` stays as eval):**
+1. **IC ignores position sizing.** A scorer with great IC but extreme
+   tail concentration can have worse Sharpe than a meh-IC scorer with
+   diversified weights. Top-N + per-name cap matter at deployment time.
+2. **IC ignores costs.** Turnover, commission, spread are invisible to
+   IC. A signal that flips sign every rebal can have high IC and
+   negative net Sharpe.
+3. **IC is a *mean of correlations*, not a Sharpe of cumulative
+   returns.** Time aggregation differs: high IC concentrated in low-vol
+   regimes can give lower realized Sharpe than IC predicts.
+4. **`pearson_rank_ic` is actually Pearson on raw scores, not Spearman
+   on ranks.** Sensitive to outliers in either scores or returns. True
+   rank-IC would be more robust but isn't what the code computes.
+5. **Effective breadth ≪ N · rebals.** Cross-sectional bets are
+   correlated through market beta and sector exposures, so the sqrt(BR)
+   multiplier above is optimistic; effective IR is typically a fraction
+   of the naive number.
+
+**Bottom line.** IC is the right *training* objective and a reasonable
+*ordering* signal — a +0.012 IC head will almost always beat a +0.005 IC
+head on realized Sharpe. But IC is not Sharpe, and the val Sharpe range
+in the linear baseline (-1.00 to +1.24 across windows, mean ~+0.44) is
+the number that would actually trade.
+
 ## Where the moving parts live
 
 - `Backbone` dataclass + `load_backbone` (numpy npz I/O) live in
