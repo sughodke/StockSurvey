@@ -2,12 +2,14 @@
 name = "ss-portfolio"
 version = "0.1.0"
 requires-python = ">=3.10"
-description = "JAX portfolio metrics: Sharpe, CAGR, drawdown, turnover, weight capping."
+description = "Portfolio metrics + weights + strategies: Sharpe (JAX), CAGR, drawdown, turnover, weight capping, weights_regime CWT-divergence builder."
 dependencies = [
     "numpy",
     "pandas",
     "jax<0.5",
     "jaxlib<0.5",
+    "ss-wavelets",
+    "ss-indicators",
 ]
 
 [build-system]

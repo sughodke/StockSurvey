@@ -4633,6 +4633,8 @@ dependencies = [
     { name = "jaxlib" },
     { name = "numpy" },
     { name = "pandas" },
+    { name = "ss-indicators" },
+    { name = "ss-wavelets" },
 ]
 
 [package.metadata]
@@ -4641,6 +4643,8 @@ requires-dist = [
     { name = "jaxlib", specifier = "<0.5" },
     { name = "numpy" },
     { name = "pandas" },
+    { name = "ss-indicators", editable = "packages/indicators" },
+    { name = "ss-wavelets", editable = "packages/wavelets" },
 ]
 
 [[package]]

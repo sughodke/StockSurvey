@@ -60,8 +60,10 @@ from ss_indicators import corwin_schultz_spread, get_divergence, rsi
 from ss_loaders import load_price_matrix
 from ss_portfolio import (
     apply_nan_mask,
+    log_returns_matrix as _log_returns,
     select_top_n_matrix,
     vbt_backtest,
+    weights_regime,  # noqa: F401  re-exported for backwards compat
 )
 from ss_wavelets import KERNEL_HALF_EXTENT, causal_cwt, precompute_windows
 
@@ -138,28 +140,10 @@ def _resolve_scales(params: dict) -> list[int]:
     return scales or DEFAULT_SCALES
 
 
-def _log_returns(prices_arr: np.ndarray) -> np.ndarray:
-    """`(T, N) -> (T, N)` log-returns; first row padded with 0.
-
-    Available behind the `use_log_returns` flag (default OFF on this
-    strategy — see comment block below). Daily log returns are roughly
-    stationary (zero-mean, vol-clustered but not trended), so feeding
-    them to `causal_cwt` instead of raw close prices means the rolling
-    z-norm is doing vol normalization rather than trend removal — the
-    long-scale wavelet power is no longer dominated by persistent
-    multi-year drift in the price level.
-
-    NaN propagation: a NaN at price index k makes log-returns NaN at
-    indices k and k+1 (both `np.log(NaN/x)` and `np.log(x/NaN)` resolve
-    to NaN). `apply_nan_mask` downstream still keys off the original
-    `prices.values`, so masking still happens at the right cells; the
-    transform doesn't introduce NEW NaN regions, only widens existing
-    ones by one bar.
-    """
-    out = np.zeros_like(prices_arr, dtype=np.float64)
-    out[1:] = np.log(prices_arr[1:] / prices_arr[:-1])
-    return out
-
+# `_log_returns` was moved to `ss_portfolio.log_returns_matrix` so the
+# canonical CWT-divergence weights builder (`weights_regime`) could go
+# with it. Re-imported above as `_log_returns` to keep this module's
+# private name stable.
 
 # Why `use_log_returns` defaults to False
 # ---------------------------------------
@@ -222,59 +206,11 @@ def _filter_window_universe(panel: pd.DataFrame, *, min_bars: int) -> pd.Index:
     return panel.columns[has_valid_start & (valid_count >= min_bars)]
 
 
-def weights_regime(
-    prices: pd.DataFrame,
-    *,
-    lookback: int,
-    n_tail: int,
-    top_n: int,
-    scales: list[int],
-    divergence: str = 'kl',
-    use_log_returns: bool = False,
-) -> pd.DataFrame:
-    """Hard-top-N basket ranked by CWT-power-distribution divergence.
-
-    The score per (date, ticker) is the chosen divergence between the
-    recent vs historical CWT-power distributions across `scales`. We
-    compute scores for all valid dates in one vectorized pass via
-    `precompute_windows` + JAX divergence (much faster than the Python
-    date-loop in `regime.research.optimize_regime`).
-
-    `scale_log_weights = zeros` makes the divergence's internal softmax
-    uniform — Optuna chooses *which* scales to include, but each
-    included scale contributes equally (matching the legacy behavior).
-
-    Picks **highest-divergence** names (`ascending=False`): biggest
-    regime shift wins. Direction (price up vs down) doesn't enter — it's
-    a momentum-of-volatility-shift idea.
-
-    Liquidity is not filtered here; it enters the objective via per-
-    (date, ticker) fees in `vbt_backtest`. Wide-spread names get
-    ranked normally and then naturally tank the realized Sharpe of any
-    config that picks them.
-
-    CWT input is **raw close** by default. `use_log_returns=True` runs
-    on log returns — preserved as a flag for future research, but
-    empirically worse on this objective. See the comment block above
-    `_log_returns` for the eval evidence and theory.
-    """
-    cwt_input = _log_returns(prices.values) if use_log_returns else prices.values
-    coeffs = causal_cwt(cwt_input, scales, lookback)
-    power = (coeffs ** 2).astype(np.float32)
-    recent, historical = precompute_windows(power, lookback, n_tail)
-
-    div_fn = get_divergence(divergence)
-    scale_log_weights = jnp.zeros(len(scales), dtype=jnp.float32)
-    # `np.array(jnp_array)` (not `asarray`) forces a writable host copy
-    # so `apply_nan_mask` can NaN cells in place.
-    scores = np.array(div_fn(
-        jnp.asarray(recent), jnp.asarray(historical), scale_log_weights))
-
-    scores = apply_nan_mask(scores, prices.values, lookback)
-
-    weights = select_top_n_matrix(scores, top_n, ascending=False)
-    return pd.DataFrame(
-        weights, index=prices.index[lookback:], columns=prices.columns)
+# `weights_regime` was promoted to `ss_portfolio.strategies.weights_regime`
+# (the canonical home — it combines CWT, divergence, masking, and top-N
+# selection from primitives all of which live in ss_portfolio's deps).
+# Re-imported at the top of this module so legacy `regime.trainer.
+# weights_regime` consumers keep working.
 
 
 def weights_scalogram(

@@ -24,13 +24,10 @@ from pathlib import Path
 
 import bt
 import matplotlib.pyplot as plt
-import numpy as np
 import pandas as pd
 
-from ss_indicators import get_divergence
 from ss_loaders import load_stooq_matrix
-from ss_portfolio import apply_nan_mask, select_top_n_matrix
-from ss_wavelets import causal_cwt, precompute_windows
+from ss_portfolio import weights_regime as _weights_regime_baseline
 
 from relational.scoring import weights_excess_regime
 
@@ -45,26 +42,9 @@ PHASE2_TICKERS: tuple[str, ...] = (
 )
 
 
-def _weights_regime_baseline(
-    prices: pd.DataFrame, *,
-    lookback: int, n_tail: int, top_n: int,
-    scales: list[int], divergence: str = 'kl',
-) -> pd.DataFrame:
-    """Inline copy of `regime.trainer.weights_regime` to avoid a
-    cross-app dep on `regime` (which would pull in jax/optax/alpaca-py
-    just to compare). Numerically identical to the regime trainer's
-    baseline."""
-    coeffs = causal_cwt(prices.values, scales, lookback)
-    power = (coeffs ** 2).astype(np.float32)
-    recent, historical = precompute_windows(power, lookback, n_tail)
-    div_fn = get_divergence(divergence)
-    scale_log_weights = np.zeros(len(scales), dtype=np.float32)
-    scores = np.array(div_fn(recent, historical, scale_log_weights),
-                      copy=True)
-    scores = apply_nan_mask(scores, prices.values, lookback)
-    weights = select_top_n_matrix(scores, top_n, ascending=False)
-    return pd.DataFrame(
-        weights, index=prices.index[lookback:], columns=prices.columns)
+# `_weights_regime_baseline` is re-exported from
+# `ss_portfolio.weights_regime` (the canonical home post-refactor).
+# Local alias keeps the call sites below stable; no inline copy needed.
 
 
 def _make_commission_fn(bps: float):

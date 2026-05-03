@@ -123,37 +123,37 @@ def train_grid(
     print(f'  universe: {len(ticker_list)} tickers '
           f'(first 5: {ticker_list[:5]} ...)')
 
-    from factor import (
-        IndicatorGridConfig, build_indicator_features, train_scorer_indicators,
-    )
-    from ss_features import TickerData, load_prices
+    from factor import IndicatorGridConfig, train_scorer_indicators
+    from ss_features import TickerData
 
     cfg = IndicatorGridConfig()
     F = cfg.feature_width()
     print(f'  cfg.feature_width() = {F} channels')
 
+    import multiprocessing as mp
+    import os
+    n_workers = max(1, int(os.environ.get('FACTOR_FEATURE_WORKERS',
+                                          os.cpu_count() or 4)))
+    print(f'  parallelizing feature build across {n_workers} workers')
+
     t0 = time.perf_counter()
     ticker_data: list[TickerData] = []
     skipped: list[str] = []
-    import numpy as np
-    for i, t in enumerate(ticker_list):
-        try:
-            series = load_prices(
-                t, stooq_dir=STOOQ_SUBSET, start=start, end=end)
-            prices = series.values.astype(np.float64)
-            dates = np.asarray(series.index)
-            feats, valid = build_indicator_features(prices, cfg)
-            if not valid.any():
-                skipped.append(f'{t} (no valid bars)')
-                continue
-            ticker_data.append(TickerData(
-                name=t, prices=prices, dates=dates,
-                features=feats, targets={}, valid=valid))
-        except Exception as e:
-            skipped.append(f'{t} ({type(e).__name__}: {e})')
-        if i and i % 50 == 0:
-            print(f'  built {i}/{len(ticker_list)}  '
-                  f'({time.perf_counter()-t0:.0f}s)', flush=True)
+    work_args = [(t, STOOQ_SUBSET, cfg, start, end) for t in ticker_list]
+    # imap_unordered returns results as workers complete — gives sensible
+    # progress output and overlaps load-prices I/O with indicator compute.
+    with mp.Pool(n_workers) as pool:
+        for i, (ticker, result) in enumerate(
+                pool.imap_unordered(_build_one_ticker, work_args)):
+            if isinstance(result, TickerData):
+                ticker_data.append(result)
+            else:
+                skipped.append(f'{ticker} {result}')
+            if (i + 1) % 50 == 0:
+                print(f'  built {i + 1}/{len(ticker_list)}  '
+                      f'({time.perf_counter()-t0:.0f}s)', flush=True)
+    # Stable order across runs even though workers complete out of order.
+    ticker_data.sort(key=lambda td: td.name)
     print(f'  feature build done: {len(ticker_data)} usable / '
           f'{len(skipped)} skipped  ({time.perf_counter()-t0:.0f}s)')
     if skipped[:5]:
@@ -224,6 +224,35 @@ def train_grid(
             artifacts[p.name] = p.read_bytes()
     print(f'\nbundling {len(artifacts)} artifacts')
     return artifacts
+
+
+def _build_one_ticker(args):
+    """Worker: load prices + build deterministic indicator features for one ticker.
+
+    Returns `(ticker, TickerData)` on success or `(ticker, error_str)` on
+    failure. Top-level function so `multiprocessing.Pool` can pickle it.
+    Imports happen inside the worker so this module can be imported on the
+    local side (where `factor` may not yet be importable) without dragging
+    in the workspace deps at module-load time.
+    """
+    ticker, stooq_subset, cfg, start, end = args
+    import numpy as np
+    from factor import build_indicator_features
+    from ss_features import TickerData, load_prices
+    try:
+        series = load_prices(ticker, stooq_dir=stooq_subset,
+                             start=start, end=end)
+        prices = series.values.astype(np.float64)
+        dates = np.asarray(series.index)
+        feats, valid = build_indicator_features(prices, cfg)
+        if not valid.any():
+            return ticker, '(no valid bars)'
+        return ticker, TickerData(
+            name=ticker, prices=prices, dates=dates,
+            features=feats, targets={}, valid=valid,
+        )
+    except Exception as e:
+        return ticker, f'({type(e).__name__}: {e})'
 
 
 def _resolve_ticker_list(tickers: str, max_tickers: int) -> list[str]:

@@ -1,4 +1,4 @@
-"""ss_portfolio: portfolio metrics + weighting utilities + backtester.
+"""ss_portfolio: portfolio metrics + weighting utilities + strategies + backtester.
 
   * `block_sharpe_with_costs`   — differentiable Sharpe for the JAX-Adam
     optimizer (autograd-friendly, block-level approximation).
@@ -10,6 +10,9 @@
   * `apply_position_cap`        — water-fill per-name weight cap.
   * `apply_spread_mask`, `apply_nan_mask` — universe screening masks
     for ranking strategies.
+  * `weights_regime` (+ `log_returns_matrix`) — canonical CWT-divergence
+    top-N weights builder; used by `regime.trainer` and as the baseline
+    in `relational.research`.
   * `vbt_backtest`              — vectorbt-backed daily-return backtest;
     used by the production trainer at `regime.trainer`.
 """
@@ -24,6 +27,7 @@ from ss_portfolio.metrics import (
 )
 from ss_portfolio.screening import apply_nan_mask, apply_spread_mask
 from ss_portfolio.sharpe import TRADING_DAYS, block_sharpe_with_costs
+from ss_portfolio.strategies import log_returns_matrix, weights_regime
 from ss_portfolio.weights import (
     apply_position_cap,
     select_top_n_matrix,
@@ -39,9 +43,11 @@ __all__ = [
     'block_sharpe_with_costs',
     'cagr',
     'calmar',
+    'log_returns_matrix',
     'max_drawdown',
     'select_top_n_matrix',
     'softmax_weights',
     'sortino',
     'vbt_backtest',
+    'weights_regime',
 ]
