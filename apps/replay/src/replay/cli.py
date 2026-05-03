@@ -73,6 +73,28 @@ def _split_tickers(value: str | None) -> list[str]:
     return [t.strip() for t in value.split(',') if t.strip()]
 
 
+def _short_train_tag(primary_name: str, extra_names: list[str],
+                     max_inline: int = 4) -> str:
+    """Filesystem-safe variant of the verbose `PRIMARY+T1+T2+...` tag.
+
+    Joining all train ticker names with '+' produces filenames > NAME_MAX
+    (255 bytes on most filesystems) once the pool is wider than ~30
+    tickers. For ≤max_inline extras keep the verbose form (still useful
+    for small Phase-2-style runs); for larger pools collapse to
+    `PRIMARY+Ntickers-h<8hex>`, where the hash deterministically
+    identifies the specific pool so two different 294-ticker subsets get
+    distinct filenames.
+    """
+    if len(extra_names) <= max_inline:
+        if not extra_names:
+            return primary_name
+        return primary_name + '+' + '+'.join(extra_names)
+    import hashlib
+    pool_hash = hashlib.sha1(
+        '+'.join(extra_names).encode()).hexdigest()[:8]
+    return f'{primary_name}+{len(extra_names)}tickers-h{pool_hash}'
+
+
 def _print_target_stats(label: str, stats: dict[str, dict[str, float]]) -> None:
     for name, s in stats.items():
         print(f'  {label} {name:5s}  R²={s["r2"]:.6f}  '
@@ -122,9 +144,8 @@ def _run_ssl(args, train_data, val_data, *,
             print(f'  {k}: {v}')
 
     os.makedirs(args.output_dir, exist_ok=True)
-    train_tag = train_data[0].name
-    if len(train_data) > 1:
-        train_tag += '+' + '+'.join(t.name for t in train_data[1:])
+    train_tag = _short_train_tag(
+        train_data[0].name, [t.name for t in train_data[1:]])
 
     sha, dirty = _git_sha_and_dirty()
     sha_tag = sha + ('-dirty' if dirty else '')
@@ -608,9 +629,8 @@ def main() -> None:
 
     os.makedirs(args.output_dir, exist_ok=True)
 
-    train_tag = primary.name
-    if extra_train:
-        train_tag += '+' + '+'.join(t.name for t in extra_train)
+    train_tag = _short_train_tag(
+        primary.name, [t.name for t in extra_train])
 
     primary_targets = {n: primary.targets[n] for n in targets}
     primary_recon = {n: results[primary.name][n]['recon'] for n in targets}
