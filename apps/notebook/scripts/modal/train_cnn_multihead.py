@@ -449,6 +449,52 @@ def _plot_3panel_attention(
     plt.close(fig)
 
 
+def _draw_uncond_panels(axes, uncond, panel_specs, apply_head, td,
+                        out_stats, ticker, spearmanr) -> None:
+    """Render the per-head reconstruction panels for unconditioned heads.
+
+    Mutates `out_stats['unconditioned']` with each head's stats dict
+    (R², RMSE, max|Δ|, rank_IC, sign_acc) and prints the per-target
+    line. Pulled out of _zeroshot_eval so the empty-uncond path can
+    cleanly skip without duplicating the loop body.
+    """
+    import numpy as np
+    from ss_notebook.replay.metrics import fit_stats
+    for ax, target in zip(axes, uncond):
+        yhat = apply_head(target)
+        gt = td.targets[target]
+        v = td.valid
+        stats = dict(fit_stats(yhat[v], gt[v]))
+        # Scale-invariant companions to R² (per the cwt-only finding:
+        # R² collapses on scale errors but rank_IC/sign_acc reveal the
+        # shape was learned).
+        rho, _ = spearmanr(yhat[v], gt[v])
+        stats['rank_ic'] = float(rho) if np.isfinite(rho) else 0.0
+        stats['sign_acc'] = float(
+            (np.sign(yhat[v]) == np.sign(gt[v])).mean())
+        out_stats['unconditioned'][target] = stats
+        print(f'  {ticker} zero-shot {target:>5s}: '
+              f'R²={stats["r2"]:>7.4f}  rank_IC={stats["rank_ic"]:>+6.3f}  '
+              f'sign_acc={stats["sign_acc"]:.3f}  '
+              f'RMSE={stats["rmse"]:.3e}  max|Δ|={stats["max_abs"]:.3e}')
+        yhat_full = np.full_like(gt, np.nan)
+        yhat_full[v] = yhat[v]
+        label, hlines = panel_specs[target]
+        ax.plot(td.dates, gt, color='black', linewidth=0.7, alpha=0.6,
+                label=f'{label} ground truth')
+        ax.plot(td.dates, yhat_full, color='crimson', linewidth=0.9,
+                linestyle='--',
+                label=f'{label} reconstructed (zero-shot)')
+        if hlines:
+            for y in hlines:
+                ax.axhline(y, color='gray', linestyle=':', alpha=0.4)
+        ax.set_ylabel(label)
+        ax.set_title(f'R²={stats["r2"]:.4f}  RMSE={stats["rmse"]:.3e}',
+                     fontsize=9, loc='right')
+        ax.legend(loc='upper left', fontsize=8)
+        ax.set_xlim(td.dates[0], td.dates[-1])
+
+
 def _zeroshot_eval(
     *, npz_path: Path, ticker: str, output_dir: Path,
 ) -> dict:
@@ -573,53 +619,28 @@ def _zeroshot_eval(
 
     uncond = [t for t in ('price', 'macd', 'vol', 'cci')
               if t in meta['targets'] and _is_unconditioned(t)]
-    fig, axes = plt.subplots(
-        len(uncond), 1, figsize=(13, 3.2 * len(uncond)),
-        sharex=True, squeeze=False)
-    axes = axes.flatten()
-    fig.suptitle(f'{ticker} zero-shot — unconditioned heads '
-                 f'(K={K}, scales={len(meta["scales"])}, n_features={K*F})',
-                 fontsize=12, fontweight='bold')
     from scipy.stats import spearmanr
-    for ax, target in zip(axes, uncond):
-        yhat = apply_head(target)
-        gt = td.targets[target]
-        v = td.valid
-        stats = dict(fit_stats(yhat[v], gt[v]))
-        # Scale-invariant companions to R²: rank IC catches "right shape,
-        # wrong scale" (R² penalizes hard but trading signal is fine);
-        # sign_acc catches "right direction, wrong magnitude" (relevant
-        # for macd which is the trade-on-zero-cross signal). For all-
-        # positive targets like vol, sign_acc trivially saturates near
-        # 1.0 and is uninformative — interpret with care per target.
-        rho, _ = spearmanr(yhat[v], gt[v])
-        stats['rank_ic'] = float(rho) if np.isfinite(rho) else 0.0
-        stats['sign_acc'] = float(
-            (np.sign(yhat[v]) == np.sign(gt[v])).mean())
-        out_stats['unconditioned'][target] = stats
-        print(f'  {ticker} zero-shot {target:>5s}: '
-              f'R²={stats["r2"]:>7.4f}  rank_IC={stats["rank_ic"]:>+6.3f}  '
-              f'sign_acc={stats["sign_acc"]:.3f}  '
-              f'RMSE={stats["rmse"]:.3e}  max|Δ|={stats["max_abs"]:.3e}')
-        yhat_full = np.full_like(gt, np.nan)
-        yhat_full[v] = yhat[v]
-        label, hlines = panel_specs[target]
-        ax.plot(td.dates, gt, color='black', linewidth=0.7, alpha=0.6,
-                label=f'{label} ground truth')
-        ax.plot(td.dates, yhat_full, color='crimson', linewidth=0.9,
-                linestyle='--',
-                label=f'{label} reconstructed (zero-shot)')
-        if hlines:
-            for y in hlines:
-                ax.axhline(y, color='gray', linestyle=':', alpha=0.4)
-        ax.set_ylabel(label)
-        ax.set_title(f'R²={stats["r2"]:.4f}  RMSE={stats["rmse"]:.3e}',
-                     fontsize=9, loc='right')
-        ax.legend(loc='upper left', fontsize=8)
-        ax.set_xlim(td.dates[0], td.dates[-1])
-    plt.tight_layout()
-    fig.savefig(output_dir / f'{ticker}-replay-zeroshot-uncond.png', dpi=150)
-    plt.close(fig)
+    if not uncond:
+        # All heads are FiLM-conditioned (e.g. with the full 4-head
+        # bundle). Nothing to draw in the uncond figure — skip cleanly
+        # rather than tripping plt.subplots(nrows=0).
+        print(f'  (no unconditioned heads in this run — '
+              f'skipping {ticker}-replay-zeroshot-uncond.png)')
+    else:
+        fig, axes = plt.subplots(
+            len(uncond), 1, figsize=(13, 3.2 * len(uncond)),
+            sharex=True, squeeze=False)
+        axes = axes.flatten()
+        fig.suptitle(f'{ticker} zero-shot — unconditioned heads '
+                     f'(K={K}, scales={len(meta["scales"])}, '
+                     f'n_features={K*F})',
+                     fontsize=12, fontweight='bold')
+        _draw_uncond_panels(axes, uncond, panel_specs, apply_head, td,
+                            out_stats, ticker, spearmanr)
+        plt.tight_layout()
+        fig.savefig(output_dir / f'{ticker}-replay-zeroshot-uncond.png',
+                    dpi=150)
+        plt.close(fig)
 
     # FiLM-conditioned heads — (n, w) or 1-D grid eval. RSI/CCI are
     # 2-D (n, w); vol (window) and macd (fast) are 1-D — same plumbing
