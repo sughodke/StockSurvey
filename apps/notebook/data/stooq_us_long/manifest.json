@@ -1,0 +1,2501 @@
+{
+  "count": 312,
+  "tickers": [
+    {
+      "ticker": "A",
+      "n_bars": 6613,
+      "years": 26.31,
+      "avg_close": 54.16,
+      "first_date": "2000-01-03",
+      "last_date": "2026-04-24"
+    },
+    {
+      "ticker": "AA",
+      "n_bars": 6616,
+      "years": 26.31,
+      "avg_close": 42.24,
+      "first_date": "2000-01-03",
+      "last_date": "2026-04-24"
+    },
+    {
+      "ticker": "AAPL",
+      "n_bars": 6617,
+      "years": 26.31,
+      "avg_close": 50.86,
+      "first_date": "2000-01-03",
+      "last_date": "2026-04-24"
+    },
+    {
+      "ticker": "ABT",
+      "n_bars": 6617,
+      "years": 26.31,
+      "avg_close": 47.85,
+      "first_date": "2000-01-03",
+      "last_date": "2026-04-24"
+    },
+    {
+      "ticker": "ADBE",
+      "n_bars": 6617,
+      "years": 26.31,
+      "avg_close": 157.5,
+      "first_date": "2000-01-03",
+      "last_date": "2026-04-24"
+    },
+    {
+      "ticker": "ADI",
+      "n_bars": 6615,
+      "years": 26.31,
+      "avg_close": 74.8,
+      "first_date": "2000-01-03",
+      "last_date": "2026-04-24"
+    },
+    {
+      "ticker": "ADM",
+      "n_bars": 6617,
+      "years": 26.31,
+      "avg_close": 33.2,
+      "first_date": "2000-01-03",
+      "last_date": "2026-04-24"
+    },
+    {
+      "ticker": "ADP",
+      "n_bars": 6615,
+      "years": 26.31,
+      "avg_close": 91.86,
+      "first_date": "2000-01-03",
+      "last_date": "2026-04-24"
+    },
+    {
+      "ticker": "ADSK",
+      "n_bars": 6614,
+      "years": 26.31,
+      "avg_close": 94.56,
+      "first_date": "2000-01-03",
+      "last_date": "2026-04-24"
+    },
+    {
+      "ticker": "AEE",
+      "n_bars": 6614,
+      "years": 26.31,
+      "avg_close": 44.28,
+      "first_date": "2000-01-03",
+      "last_date": "2026-04-24"
+    },
+    {
+      "ticker": "AEM",
+      "n_bars": 6610,
+      "years": 26.31,
+      "avg_close": 41.16,
+      "first_date": "2000-01-03",
+      "last_date": "2026-04-24"
+    },
+    {
+      "ticker": "AEP",
+      "n_bars": 6617,
+      "years": 26.31,
+      "avg_close": 47.19,
+      "first_date": "2000-01-03",
+      "last_date": "2026-04-24"
+    },
+    {
+      "ticker": "AES",
+      "n_bars": 6616,
+      "years": 26.31,
+      "avg_close": 13.64,
+      "first_date": "2000-01-03",
+      "last_date": "2026-04-24"
+    },
+    {
+      "ticker": "AFL",
+      "n_bars": 6615,
+      "years": 26.31,
+      "avg_close": 33.53,
+      "first_date": "2000-01-03",
+      "last_date": "2026-04-24"
+    },
+    {
+      "ticker": "AIG",
+      "n_bars": 6617,
+      "years": 26.31,
+      "avg_close": 384.7,
+      "first_date": "2000-01-03",
+      "last_date": "2026-04-24"
+    },
+    {
+      "ticker": "ALL",
+      "n_bars": 6614,
+      "years": 26.31,
+      "avg_close": 66.73,
+      "first_date": "2000-01-03",
+      "last_date": "2026-04-24"
+    },
+    {
+      "ticker": "AMAT",
+      "n_bars": 6615,
+      "years": 26.31,
+      "avg_close": 49.99,
+      "first_date": "2000-01-03",
+      "last_date": "2026-04-24"
+    },
+    {
+      "ticker": "AMD",
+      "n_bars": 6617,
+      "years": 26.31,
+      "avg_close": 37.6,
+      "first_date": "2000-01-03",
+      "last_date": "2026-04-24"
+    },
+    {
+      "ticker": "AMGN",
+      "n_bars": 6615,
+      "years": 26.31,
+      "avg_close": 120.12,
+      "first_date": "2000-01-03",
+      "last_date": "2026-04-24"
+    },
+    {
+      "ticker": "AMZN",
+      "n_bars": 6614,
+      "years": 26.31,
+      "avg_close": 52.51,
+      "first_date": "2000-01-03",
+      "last_date": "2026-04-24"
+    },
+    {
+      "ticker": "AN",
+      "n_bars": 6615,
+      "years": 26.31,
+      "avg_close": 53.88,
+      "first_date": "2000-01-03",
+      "last_date": "2026-04-24"
+    },
+    {
+      "ticker": "ANIX",
+      "n_bars": 6577,
+      "years": 26.31,
+      "avg_close": 9.55,
+      "first_date": "2000-01-03",
+      "last_date": "2026-04-24"
+    },
+    {
+      "ticker": "APA",
+      "n_bars": 6615,
+      "years": 26.31,
+      "avg_close": 45.41,
+      "first_date": "2000-01-03",
+      "last_date": "2026-04-24"
+    },
+    {
+      "ticker": "APD",
+      "n_bars": 6616,
+      "years": 26.31,
+      "avg_close": 121.64,
+      "first_date": "2000-01-03",
+      "last_date": "2026-04-24"
+    },
+    {
+      "ticker": "ARMP",
+      "n_bars": 6585,
+      "years": 26.31,
+      "avg_close": 57130.68,
+      "first_date": "2000-01-03",
+      "last_date": "2026-04-24"
+    },
+    {
+      "ticker": "ASH",
+      "n_bars": 6617,
+      "years": 26.31,
+      "avg_close": 43.22,
+      "first_date": "2000-01-03",
+      "last_date": "2026-04-24"
+    },
+    {
+      "ticker": "ATI",
+      "n_bars": 6617,
+      "years": 26.31,
+      "avg_close": 33.5,
+      "first_date": "2000-01-03",
+      "last_date": "2026-04-24"
+    },
+    {
+      "ticker": "ATRO",
+      "n_bars": 6580,
+      "years": 26.31,
+      "avg_close": 18.89,
+      "first_date": "2000-01-03",
+      "last_date": "2026-04-24"
+    },
+    {
+      "ticker": "AU",
+      "n_bars": 6617,
+      "years": 26.31,
+      "avg_close": 26.28,
+      "first_date": "2000-01-03",
+      "last_date": "2026-04-24"
+    },
+    {
+      "ticker": "AVY",
+      "n_bars": 6617,
+      "years": 26.31,
+      "avg_close": 79.2,
+      "first_date": "2000-01-03",
+      "last_date": "2026-04-24"
+    },
+    {
+      "ticker": "AXGN",
+      "n_bars": 5803,
+      "years": 26.31,
+      "avg_close": 8.35,
+      "first_date": "2000-01-03",
+      "last_date": "2026-04-24"
+    },
+    {
+      "ticker": "AXP",
+      "n_bars": 6617,
+      "years": 26.31,
+      "avg_close": 86.36,
+      "first_date": "2000-01-03",
+      "last_date": "2026-04-24"
+    },
+    {
+      "ticker": "AZO",
+      "n_bars": 6616,
+      "years": 26.31,
+      "avg_close": 826.87,
+      "first_date": "2000-01-03",
+      "last_date": "2026-04-24"
+    },
+    {
+      "ticker": "B",
+      "n_bars": 6610,
+      "years": 26.31,
+      "avg_close": 20.1,
+      "first_date": "2000-01-03",
+      "last_date": "2026-04-24"
+    },
+    {
+      "ticker": "BA",
+      "n_bars": 6616,
+      "years": 26.31,
+      "avg_close": 122.16,
+      "first_date": "2000-01-03",
+      "last_date": "2026-04-24"
+    },
+    {
+      "ticker": "BAC",
+      "n_bars": 6615,
+      "years": 26.31,
+      "avg_close": 26.0,
+      "first_date": "2000-01-03",
+      "last_date": "2026-04-24"
+    },
+    {
+      "ticker": "BALL",
+      "n_bars": 6615,
+      "years": 26.31,
+      "avg_close": 30.31,
+      "first_date": "2000-01-03",
+      "last_date": "2026-04-24"
+    },
+    {
+      "ticker": "BAX",
+      "n_bars": 6615,
+      "years": 26.31,
+      "avg_close": 35.55,
+      "first_date": "2000-01-03",
+      "last_date": "2026-04-24"
+    },
+    {
+      "ticker": "BB",
+      "n_bars": 6609,
+      "years": 26.31,
+      "avg_close": 20.53,
+      "first_date": "2000-01-03",
+      "last_date": "2026-04-24"
+    },
+    {
+      "ticker": "BBWI",
+      "n_bars": 6617,
+      "years": 26.31,
+      "avg_close": 23.29,
+      "first_date": "2000-01-03",
+      "last_date": "2026-04-24"
+    },
+    {
+      "ticker": "BBY",
+      "n_bars": 6617,
+      "years": 26.31,
+      "avg_close": 41.97,
+      "first_date": "2000-01-03",
+      "last_date": "2026-04-24"
+    },
+    {
+      "ticker": "BC",
+      "n_bars": 6615,
+      "years": 26.31,
+      "avg_close": 40.57,
+      "first_date": "2000-01-03",
+      "last_date": "2026-04-24"
+    },
+    {
+      "ticker": "BDX",
+      "n_bars": 6616,
+      "years": 26.31,
+      "avg_close": 91.69,
+      "first_date": "2000-01-03",
+      "last_date": "2026-04-24"
+    },
+    {
+      "ticker": "BEN",
+      "n_bars": 6616,
+      "years": 26.31,
+      "avg_close": 22.89,
+      "first_date": "2000-01-03",
+      "last_date": "2026-04-24"
+    },
+    {
+      "ticker": "BGSI",
+      "n_bars": 2262,
+      "years": 23.1,
+      "avg_close": 100.18,
+      "first_date": "2003-03-17",
+      "last_date": "2026-04-24"
+    },
+    {
+      "ticker": "BIIB",
+      "n_bars": 6613,
+      "years": 26.31,
+      "avg_close": 157.22,
+      "first_date": "2000-01-03",
+      "last_date": "2026-04-24"
+    },
+    {
+      "ticker": "BK",
+      "n_bars": 6617,
+      "years": 26.31,
+      "avg_close": 36.45,
+      "first_date": "2000-01-03",
+      "last_date": "2026-04-24"
+    },
+    {
+      "ticker": "BMY",
+      "n_bars": 6617,
+      "years": 26.31,
+      "avg_close": 36.76,
+      "first_date": "2000-01-03",
+      "last_date": "2026-04-24"
+    },
+    {
+      "ticker": "BNBX",
+      "n_bars": 5644,
+      "years": 22.77,
+      "avg_close": 6708628.17,
+      "first_date": "2003-07-16",
+      "last_date": "2026-04-24"
+    },
+    {
+      "ticker": "BRK-A",
+      "n_bars": 6616,
+      "years": 26.31,
+      "avg_close": 235450.2,
+      "first_date": "2000-01-03",
+      "last_date": "2026-04-24"
+    },
+    {
+      "ticker": "BRK-B",
+      "n_bars": 6616,
+      "years": 26.31,
+      "avg_close": 156.52,
+      "first_date": "2000-01-03",
+      "last_date": "2026-04-24"
+    },
+    {
+      "ticker": "BSX",
+      "n_bars": 6615,
+      "years": 26.31,
+      "avg_close": 27.95,
+      "first_date": "2000-01-03",
+      "last_date": "2026-04-24"
+    },
+    {
+      "ticker": "C",
+      "n_bars": 6617,
+      "years": 26.31,
+      "avg_close": 154.49,
+      "first_date": "2000-01-03",
+      "last_date": "2026-04-24"
+    },
+    {
+      "ticker": "CAG",
+      "n_bars": 6614,
+      "years": 26.31,
+      "avg_close": 19.6,
+      "first_date": "2000-01-03",
+      "last_date": "2026-04-24"
+    },
+    {
+      "ticker": "CAH",
+      "n_bars": 6615,
+      "years": 26.31,
+      "avg_close": 50.84,
+      "first_date": "2000-01-03",
+      "last_date": "2026-04-24"
+    },
+    {
+      "ticker": "CAT",
+      "n_bars": 6617,
+      "years": 26.31,
+      "avg_close": 110.79,
+      "first_date": "2000-01-03",
+      "last_date": "2026-04-24"
+    },
+    {
+      "ticker": "CB",
+      "n_bars": 6614,
+      "years": 26.31,
+      "avg_close": 97.92,
+      "first_date": "2000-01-03",
+      "last_date": "2026-04-24"
+    },
+    {
+      "ticker": "CCEP",
+      "n_bars": 6616,
+      "years": 26.31,
+      "avg_close": 29.4,
+      "first_date": "2000-01-03",
+      "last_date": "2026-04-24"
+    },
+    {
+      "ticker": "CCL",
+      "n_bars": 6616,
+      "years": 26.31,
+      "avg_close": 30.19,
+      "first_date": "2000-01-03",
+      "last_date": "2026-04-24"
+    },
+    {
+      "ticker": "CHKP",
+      "n_bars": 6614,
+      "years": 26.31,
+      "avg_close": 74.98,
+      "first_date": "2000-01-03",
+      "last_date": "2026-04-24"
+    },
+    {
+      "ticker": "CHRW",
+      "n_bars": 6616,
+      "years": 26.31,
+      "avg_close": 55.61,
+      "first_date": "2000-01-03",
+      "last_date": "2026-04-24"
+    },
+    {
+      "ticker": "CI",
+      "n_bars": 6615,
+      "years": 26.31,
+      "avg_close": 114.83,
+      "first_date": "2000-01-03",
+      "last_date": "2026-04-24"
+    },
+    {
+      "ticker": "CIEN",
+      "n_bars": 6617,
+      "years": 26.31,
+      "avg_close": 66.76,
+      "first_date": "2000-01-03",
+      "last_date": "2026-04-24"
+    },
+    {
+      "ticker": "CINF",
+      "n_bars": 6615,
+      "years": 26.31,
+      "avg_close": 54.59,
+      "first_date": "2000-01-03",
+      "last_date": "2026-04-24"
+    },
+    {
+      "ticker": "CL",
+      "n_bars": 6615,
+      "years": 26.31,
+      "avg_close": 47.23,
+      "first_date": "2000-01-03",
+      "last_date": "2026-04-24"
+    },
+    {
+      "ticker": "CLX",
+      "n_bars": 6616,
+      "years": 26.31,
+      "avg_close": 83.52,
+      "first_date": "2000-01-03",
+      "last_date": "2026-04-24"
+    },
+    {
+      "ticker": "CMA",
+      "n_bars": 6558,
+      "years": 26.08,
+      "avg_close": 43.32,
+      "first_date": "2000-01-03",
+      "last_date": "2026-01-30"
+    },
+    {
+      "ticker": "CMCSA",
+      "n_bars": 6615,
+      "years": 26.31,
+      "avg_close": 18.74,
+      "first_date": "2000-01-03",
+      "last_date": "2026-04-24"
+    },
+    {
+      "ticker": "CMI",
+      "n_bars": 6608,
+      "years": 26.31,
+      "avg_close": 111.12,
+      "first_date": "2000-01-03",
+      "last_date": "2026-04-24"
+    },
+    {
+      "ticker": "CMS",
+      "n_bars": 6611,
+      "years": 26.31,
+      "avg_close": 29.59,
+      "first_date": "2000-01-03",
+      "last_date": "2026-04-24"
+    },
+    {
+      "ticker": "CNP",
+      "n_bars": 6614,
+      "years": 26.31,
+      "avg_close": 17.33,
+      "first_date": "2000-01-03",
+      "last_date": "2026-04-24"
+    },
+    {
+      "ticker": "COF",
+      "n_bars": 6613,
+      "years": 26.31,
+      "avg_close": 74.34,
+      "first_date": "2000-01-03",
+      "last_date": "2026-04-24"
+    },
+    {
+      "ticker": "COP",
+      "n_bars": 6614,
+      "years": 26.31,
+      "avg_close": 46.72,
+      "first_date": "2000-01-03",
+      "last_date": "2026-04-24"
+    },
+    {
+      "ticker": "COR",
+      "n_bars": 6615,
+      "years": 26.31,
+      "avg_close": 72.93,
+      "first_date": "2000-01-03",
+      "last_date": "2026-04-24"
+    },
+    {
+      "ticker": "COST",
+      "n_bars": 6617,
+      "years": 26.31,
+      "avg_close": 206.85,
+      "first_date": "2000-01-03",
+      "last_date": "2026-04-24"
+    },
+    {
+      "ticker": "CPB",
+      "n_bars": 6616,
+      "years": 26.31,
+      "avg_close": 31.36,
+      "first_date": "2000-01-03",
+      "last_date": "2026-04-24"
+    },
+    {
+      "ticker": "CSCO",
+      "n_bars": 6617,
+      "years": 26.31,
+      "avg_close": 28.21,
+      "first_date": "2000-01-03",
+      "last_date": "2026-04-24"
+    },
+    {
+      "ticker": "CSX",
+      "n_bars": 6616,
+      "years": 26.31,
+      "avg_close": 12.66,
+      "first_date": "2000-01-03",
+      "last_date": "2026-04-24"
+    },
+    {
+      "ticker": "CTAS",
+      "n_bars": 6615,
+      "years": 26.31,
+      "avg_close": 42.67,
+      "first_date": "2000-01-03",
+      "last_date": "2026-04-24"
+    },
+    {
+      "ticker": "CVS",
+      "n_bars": 6614,
+      "years": 26.31,
+      "avg_close": 46.15,
+      "first_date": "2000-01-03",
+      "last_date": "2026-04-24"
+    },
+    {
+      "ticker": "CVX",
+      "n_bars": 6615,
+      "years": 26.31,
+      "avg_close": 75.43,
+      "first_date": "2000-01-03",
+      "last_date": "2026-04-24"
+    },
+    {
+      "ticker": "CXT",
+      "n_bars": 6614,
+      "years": 26.31,
+      "avg_close": 20.17,
+      "first_date": "2000-01-03",
+      "last_date": "2026-04-24"
+    },
+    {
+      "ticker": "D",
+      "n_bars": 6617,
+      "years": 26.31,
+      "avg_close": 41.36,
+      "first_date": "2000-01-03",
+      "last_date": "2026-04-24"
+    },
+    {
+      "ticker": "DAL",
+      "n_bars": 6615,
+      "years": 26.31,
+      "avg_close": 796.09,
+      "first_date": "2000-01-03",
+      "last_date": "2026-04-24"
+    },
+    {
+      "ticker": "DD",
+      "n_bars": 6614,
+      "years": 26.31,
+      "avg_close": 20.55,
+      "first_date": "2000-01-03",
+      "last_date": "2026-04-24"
+    },
+    {
+      "ticker": "DDS",
+      "n_bars": 6617,
+      "years": 26.31,
+      "avg_close": 100.11,
+      "first_date": "2000-01-03",
+      "last_date": "2026-04-24"
+    },
+    {
+      "ticker": "DE",
+      "n_bars": 6615,
+      "years": 26.31,
+      "avg_close": 133.52,
+      "first_date": "2000-01-03",
+      "last_date": "2026-04-24"
+    },
+    {
+      "ticker": "DGX",
+      "n_bars": 6614,
+      "years": 26.31,
+      "avg_close": 70.98,
+      "first_date": "2000-01-03",
+      "last_date": "2026-04-24"
+    },
+    {
+      "ticker": "DHR",
+      "n_bars": 6614,
+      "years": 26.31,
+      "avg_close": 88.58,
+      "first_date": "2000-01-03",
+      "last_date": "2026-04-24"
+    },
+    {
+      "ticker": "DIS",
+      "n_bars": 6614,
+      "years": 26.31,
+      "avg_close": 67.09,
+      "first_date": "2000-01-03",
+      "last_date": "2026-04-24"
+    },
+    {
+      "ticker": "DLTR",
+      "n_bars": 6615,
+      "years": 26.31,
+      "avg_close": 55.86,
+      "first_date": "2000-01-03",
+      "last_date": "2026-04-24"
+    },
+    {
+      "ticker": "DLX",
+      "n_bars": 6617,
+      "years": 26.31,
+      "avg_close": 28.39,
+      "first_date": "2000-01-03",
+      "last_date": "2026-04-24"
+    },
+    {
+      "ticker": "DOV",
+      "n_bars": 6617,
+      "years": 26.31,
+      "avg_close": 64.08,
+      "first_date": "2000-01-03",
+      "last_date": "2026-04-24"
+    },
+    {
+      "ticker": "DRI",
+      "n_bars": 6615,
+      "years": 26.31,
+      "avg_close": 61.62,
+      "first_date": "2000-01-03",
+      "last_date": "2026-04-24"
+    },
+    {
+      "ticker": "DTE",
+      "n_bars": 6617,
+      "years": 26.31,
+      "avg_close": 62.76,
+      "first_date": "2000-01-03",
+      "last_date": "2026-04-24"
+    },
+    {
+      "ticker": "DUK",
+      "n_bars": 6617,
+      "years": 26.31,
+      "avg_close": 55.43,
+      "first_date": "2000-01-03",
+      "last_date": "2026-04-24"
+    },
+    {
+      "ticker": "DVN",
+      "n_bars": 6617,
+      "years": 26.31,
+      "avg_close": 38.02,
+      "first_date": "2000-01-03",
+      "last_date": "2026-04-24"
+    },
+    {
+      "ticker": "EBAY",
+      "n_bars": 6616,
+      "years": 26.31,
+      "avg_close": 26.57,
+      "first_date": "2000-01-03",
+      "last_date": "2026-04-24"
+    },
+    {
+      "ticker": "ECL",
+      "n_bars": 6615,
+      "years": 26.31,
+      "avg_close": 97.99,
+      "first_date": "2000-01-03",
+      "last_date": "2026-04-24"
+    },
+    {
+      "ticker": "ED",
+      "n_bars": 6617,
+      "years": 26.31,
+      "avg_close": 49.75,
+      "first_date": "2000-01-03",
+      "last_date": "2026-04-24"
+    },
+    {
+      "ticker": "EFX",
+      "n_bars": 6617,
+      "years": 26.31,
+      "avg_close": 90.63,
+      "first_date": "2000-01-03",
+      "last_date": "2026-04-24"
+    },
+    {
+      "ticker": "EIX",
+      "n_bars": 6617,
+      "years": 26.31,
+      "avg_close": 39.13,
+      "first_date": "2000-01-03",
+      "last_date": "2026-04-24"
+    },
+    {
+      "ticker": "ELV",
+      "n_bars": 6613,
+      "years": 26.31,
+      "avg_close": 160.36,
+      "first_date": "2000-01-03",
+      "last_date": "2026-04-24"
+    },
+    {
+      "ticker": "EMN",
+      "n_bars": 6615,
+      "years": 26.31,
+      "avg_close": 48.76,
+      "first_date": "2000-01-03",
+      "last_date": "2026-04-24"
+    },
+    {
+      "ticker": "EMR",
+      "n_bars": 6617,
+      "years": 26.31,
+      "avg_close": 50.36,
+      "first_date": "2000-01-03",
+      "last_date": "2026-04-24"
+    },
+    {
+      "ticker": "EOG",
+      "n_bars": 6615,
+      "years": 26.31,
+      "avg_close": 55.88,
+      "first_date": "2000-01-03",
+      "last_date": "2026-04-24"
+    },
+    {
+      "ticker": "EPC",
+      "n_bars": 6559,
+      "years": 26.08,
+      "avg_close": 44.05,
+      "first_date": "2000-03-27",
+      "last_date": "2026-04-24"
+    },
+    {
+      "ticker": "EQR",
+      "n_bars": 6616,
+      "years": 26.31,
+      "avg_close": 40.44,
+      "first_date": "2000-01-03",
+      "last_date": "2026-04-24"
+    },
+    {
+      "ticker": "ETN",
+      "n_bars": 6615,
+      "years": 26.31,
+      "avg_close": 77.53,
+      "first_date": "2000-01-03",
+      "last_date": "2026-04-24"
+    },
+    {
+      "ticker": "ETR",
+      "n_bars": 6615,
+      "years": 26.31,
+      "avg_close": 30.46,
+      "first_date": "2000-01-03",
+      "last_date": "2026-04-24"
+    },
+    {
+      "ticker": "EXC",
+      "n_bars": 6614,
+      "years": 26.31,
+      "avg_close": 24.4,
+      "first_date": "2000-01-03",
+      "last_date": "2026-04-24"
+    },
+    {
+      "ticker": "EXPD",
+      "n_bars": 6617,
+      "years": 26.31,
+      "avg_close": 52.83,
+      "first_date": "2000-01-03",
+      "last_date": "2026-04-24"
+    },
+    {
+      "ticker": "F",
+      "n_bars": 6615,
+      "years": 26.31,
+      "avg_close": 8.54,
+      "first_date": "2000-01-03",
+      "last_date": "2026-04-24"
+    },
+    {
+      "ticker": "FAST",
+      "n_bars": 6615,
+      "years": 26.31,
+      "avg_close": 11.28,
+      "first_date": "2000-01-03",
+      "last_date": "2026-04-24"
+    },
+    {
+      "ticker": "FCX",
+      "n_bars": 6617,
+      "years": 26.31,
+      "avg_close": 23.31,
+      "first_date": "2000-01-03",
+      "last_date": "2026-04-24"
+    },
+    {
+      "ticker": "FDX",
+      "n_bars": 6614,
+      "years": 26.31,
+      "avg_close": 132.6,
+      "first_date": "2000-01-03",
+      "last_date": "2026-04-24"
+    },
+    {
+      "ticker": "FE",
+      "n_bars": 6617,
+      "years": 26.31,
+      "avg_close": 29.41,
+      "first_date": "2000-01-03",
+      "last_date": "2026-04-24"
+    },
+    {
+      "ticker": "FHI",
+      "n_bars": 6617,
+      "years": 26.31,
+      "avg_close": 21.45,
+      "first_date": "2000-01-03",
+      "last_date": "2026-04-24"
+    },
+    {
+      "ticker": "FHN",
+      "n_bars": 6615,
+      "years": 26.31,
+      "avg_close": 17.16,
+      "first_date": "2000-01-03",
+      "last_date": "2026-04-24"
+    },
+    {
+      "ticker": "FISV",
+      "n_bars": 6617,
+      "years": 26.31,
+      "avg_close": 49.45,
+      "first_date": "2000-01-03",
+      "last_date": "2026-04-24"
+    },
+    {
+      "ticker": "FITB",
+      "n_bars": 6615,
+      "years": 26.31,
+      "avg_close": 23.81,
+      "first_date": "2000-01-03",
+      "last_date": "2026-04-24"
+    },
+    {
+      "ticker": "FLEX",
+      "n_bars": 6615,
+      "years": 26.31,
+      "avg_close": 15.96,
+      "first_date": "2000-01-03",
+      "last_date": "2026-04-24"
+    },
+    {
+      "ticker": "FLR",
+      "n_bars": 6368,
+      "years": 25.34,
+      "avg_close": 37.58,
+      "first_date": "2000-12-22",
+      "last_date": "2026-04-24"
+    },
+    {
+      "ticker": "FMBH",
+      "n_bars": 4036,
+      "years": 26.31,
+      "avg_close": 26.18,
+      "first_date": "2000-01-03",
+      "last_date": "2026-04-24"
+    },
+    {
+      "ticker": "GAP",
+      "n_bars": 6617,
+      "years": 26.31,
+      "avg_close": 17.79,
+      "first_date": "2000-01-03",
+      "last_date": "2026-04-24"
+    },
+    {
+      "ticker": "GD",
+      "n_bars": 6615,
+      "years": 26.31,
+      "avg_close": 112.58,
+      "first_date": "2000-01-03",
+      "last_date": "2026-04-24"
+    },
+    {
+      "ticker": "GE",
+      "n_bars": 6614,
+      "years": 26.31,
+      "avg_close": 135.37,
+      "first_date": "2000-01-03",
+      "last_date": "2026-04-24"
+    },
+    {
+      "ticker": "GEN",
+      "n_bars": 6617,
+      "years": 26.31,
+      "avg_close": 11.43,
+      "first_date": "2000-01-03",
+      "last_date": "2026-04-24"
+    },
+    {
+      "ticker": "GFI",
+      "n_bars": 6617,
+      "years": 26.31,
+      "avg_close": 9.81,
+      "first_date": "2000-01-03",
+      "last_date": "2026-04-24"
+    },
+    {
+      "ticker": "GILD",
+      "n_bars": 6612,
+      "years": 26.31,
+      "avg_close": 41.17,
+      "first_date": "2000-01-03",
+      "last_date": "2026-04-24"
+    },
+    {
+      "ticker": "GIS",
+      "n_bars": 6617,
+      "years": 26.31,
+      "avg_close": 35.72,
+      "first_date": "2000-01-03",
+      "last_date": "2026-04-24"
+    },
+    {
+      "ticker": "GL",
+      "n_bars": 6617,
+      "years": 26.31,
+      "avg_close": 52.34,
+      "first_date": "2000-01-03",
+      "last_date": "2026-04-24"
+    },
+    {
+      "ticker": "GLW",
+      "n_bars": 6615,
+      "years": 26.31,
+      "avg_close": 23.28,
+      "first_date": "2000-01-03",
+      "last_date": "2026-04-24"
+    },
+    {
+      "ticker": "GNTX",
+      "n_bars": 6617,
+      "years": 26.31,
+      "avg_close": 14.72,
+      "first_date": "2000-01-03",
+      "last_date": "2026-04-24"
+    },
+    {
+      "ticker": "GPC",
+      "n_bars": 6617,
+      "years": 26.31,
+      "avg_close": 65.0,
+      "first_date": "2000-01-03",
+      "last_date": "2026-04-24"
+    },
+    {
+      "ticker": "GRMN",
+      "n_bars": 6377,
+      "years": 25.37,
+      "avg_close": 57.69,
+      "first_date": "2000-12-08",
+      "last_date": "2026-04-24"
+    },
+    {
+      "ticker": "GS",
+      "n_bars": 6615,
+      "years": 26.31,
+      "avg_close": 197.09,
+      "first_date": "2000-01-03",
+      "last_date": "2026-04-24"
+    },
+    {
+      "ticker": "GT",
+      "n_bars": 6615,
+      "years": 26.31,
+      "avg_close": 15.98,
+      "first_date": "2000-01-03",
+      "last_date": "2026-04-24"
+    },
+    {
+      "ticker": "GWW",
+      "n_bars": 6617,
+      "years": 26.31,
+      "avg_close": 255.96,
+      "first_date": "2000-01-03",
+      "last_date": "2026-04-24"
+    },
+    {
+      "ticker": "HAL",
+      "n_bars": 6615,
+      "years": 26.31,
+      "avg_close": 27.27,
+      "first_date": "2000-01-03",
+      "last_date": "2026-04-24"
+    },
+    {
+      "ticker": "HAS",
+      "n_bars": 6617,
+      "years": 26.31,
+      "avg_close": 43.95,
+      "first_date": "2000-01-03",
+      "last_date": "2026-04-24"
+    },
+    {
+      "ticker": "HBAN",
+      "n_bars": 6617,
+      "years": 26.31,
+      "avg_close": 10.56,
+      "first_date": "2000-01-03",
+      "last_date": "2026-04-24"
+    },
+    {
+      "ticker": "HD",
+      "n_bars": 6616,
+      "years": 26.31,
+      "avg_close": 122.87,
+      "first_date": "2000-01-03",
+      "last_date": "2026-04-24"
+    },
+    {
+      "ticker": "HIG",
+      "n_bars": 6617,
+      "years": 26.31,
+      "avg_close": 50.02,
+      "first_date": "2000-01-03",
+      "last_date": "2026-04-24"
+    },
+    {
+      "ticker": "HMY",
+      "n_bars": 6617,
+      "years": 26.31,
+      "avg_close": 7.32,
+      "first_date": "2000-01-03",
+      "last_date": "2026-04-24"
+    },
+    {
+      "ticker": "HON",
+      "n_bars": 6616,
+      "years": 26.31,
+      "avg_close": 82.59,
+      "first_date": "2000-01-03",
+      "last_date": "2026-04-24"
+    },
+    {
+      "ticker": "HPQ",
+      "n_bars": 6617,
+      "years": 26.31,
+      "avg_close": 15.59,
+      "first_date": "2000-01-03",
+      "last_date": "2026-04-24"
+    },
+    {
+      "ticker": "HRB",
+      "n_bars": 6617,
+      "years": 26.31,
+      "avg_close": 20.23,
+      "first_date": "2000-01-03",
+      "last_date": "2026-04-24"
+    },
+    {
+      "ticker": "HSIC",
+      "n_bars": 6617,
+      "years": 26.31,
+      "avg_close": 46.47,
+      "first_date": "2000-01-03",
+      "last_date": "2026-04-24"
+    },
+    {
+      "ticker": "HSY",
+      "n_bars": 6617,
+      "years": 26.31,
+      "avg_close": 85.39,
+      "first_date": "2000-01-03",
+      "last_date": "2026-04-24"
+    },
+    {
+      "ticker": "HUM",
+      "n_bars": 6617,
+      "years": 26.31,
+      "avg_close": 159.97,
+      "first_date": "2000-01-03",
+      "last_date": "2026-04-24"
+    },
+    {
+      "ticker": "IAC",
+      "n_bars": 6613,
+      "years": 26.31,
+      "avg_close": 21.56,
+      "first_date": "2000-01-03",
+      "last_date": "2026-04-24"
+    },
+    {
+      "ticker": "IBM",
+      "n_bars": 6617,
+      "years": 26.31,
+      "avg_close": 108.35,
+      "first_date": "2000-01-03",
+      "last_date": "2026-04-24"
+    },
+    {
+      "ticker": "IFF",
+      "n_bars": 6615,
+      "years": 26.31,
+      "avg_close": 66.74,
+      "first_date": "2000-01-03",
+      "last_date": "2026-04-24"
+    },
+    {
+      "ticker": "INTC",
+      "n_bars": 6617,
+      "years": 26.31,
+      "avg_close": 25.48,
+      "first_date": "2000-01-03",
+      "last_date": "2026-04-24"
+    },
+    {
+      "ticker": "INTU",
+      "n_bars": 6617,
+      "years": 26.31,
+      "avg_close": 167.06,
+      "first_date": "2000-01-03",
+      "last_date": "2026-04-24"
+    },
+    {
+      "ticker": "IP",
+      "n_bars": 6617,
+      "years": 26.31,
+      "avg_close": 30.35,
+      "first_date": "2000-01-03",
+      "last_date": "2026-04-24"
+    },
+    {
+      "ticker": "ITT",
+      "n_bars": 6615,
+      "years": 26.31,
+      "avg_close": 42.9,
+      "first_date": "2000-01-03",
+      "last_date": "2026-04-24"
+    },
+    {
+      "ticker": "ITW",
+      "n_bars": 6617,
+      "years": 26.31,
+      "avg_close": 96.52,
+      "first_date": "2000-01-03",
+      "last_date": "2026-04-24"
+    },
+    {
+      "ticker": "JBL",
+      "n_bars": 6615,
+      "years": 26.31,
+      "avg_close": 40.33,
+      "first_date": "2000-01-03",
+      "last_date": "2026-04-24"
+    },
+    {
+      "ticker": "JCI",
+      "n_bars": 6615,
+      "years": 26.31,
+      "avg_close": 33.9,
+      "first_date": "2000-01-03",
+      "last_date": "2026-04-24"
+    },
+    {
+      "ticker": "JHG",
+      "n_bars": 6496,
+      "years": 25.83,
+      "avg_close": 24.11,
+      "first_date": "2000-06-26",
+      "last_date": "2026-04-24"
+    },
+    {
+      "ticker": "JNJ",
+      "n_bars": 6617,
+      "years": 26.31,
+      "avg_close": 85.49,
+      "first_date": "2000-01-03",
+      "last_date": "2026-04-24"
+    },
+    {
+      "ticker": "JPM",
+      "n_bars": 6616,
+      "years": 26.31,
+      "avg_close": 73.73,
+      "first_date": "2000-01-03",
+      "last_date": "2026-04-24"
+    },
+    {
+      "ticker": "KBH",
+      "n_bars": 6615,
+      "years": 26.31,
+      "avg_close": 27.95,
+      "first_date": "2000-01-03",
+      "last_date": "2026-04-24"
+    },
+    {
+      "ticker": "KEY",
+      "n_bars": 6614,
+      "years": 26.31,
+      "avg_close": 14.62,
+      "first_date": "2000-01-03",
+      "last_date": "2026-04-24"
+    },
+    {
+      "ticker": "KGC",
+      "n_bars": 6611,
+      "years": 26.31,
+      "avg_close": 7.97,
+      "first_date": "2000-01-03",
+      "last_date": "2026-04-24"
+    },
+    {
+      "ticker": "KLAC",
+      "n_bars": 6615,
+      "years": 26.31,
+      "avg_close": 161.55,
+      "first_date": "2000-01-03",
+      "last_date": "2026-04-24"
+    },
+    {
+      "ticker": "KMB",
+      "n_bars": 6617,
+      "years": 26.31,
+      "avg_close": 76.41,
+      "first_date": "2000-01-03",
+      "last_date": "2026-04-24"
+    },
+    {
+      "ticker": "KO",
+      "n_bars": 6617,
+      "years": 26.31,
+      "avg_close": 32.78,
+      "first_date": "2000-01-03",
+      "last_date": "2026-04-24"
+    },
+    {
+      "ticker": "KR",
+      "n_bars": 6617,
+      "years": 26.31,
+      "avg_close": 22.46,
+      "first_date": "2000-01-03",
+      "last_date": "2026-04-24"
+    },
+    {
+      "ticker": "KSS",
+      "n_bars": 6615,
+      "years": 26.31,
+      "avg_close": 35.27,
+      "first_date": "2000-01-03",
+      "last_date": "2026-04-24"
+    },
+    {
+      "ticker": "LAMR",
+      "n_bars": 6615,
+      "years": 26.31,
+      "avg_close": 49.02,
+      "first_date": "2000-01-03",
+      "last_date": "2026-04-24"
+    },
+    {
+      "ticker": "LEG",
+      "n_bars": 6615,
+      "years": 26.31,
+      "avg_close": 20.4,
+      "first_date": "2000-01-03",
+      "last_date": "2026-04-24"
+    },
+    {
+      "ticker": "LEU",
+      "n_bars": 6612,
+      "years": 26.31,
+      "avg_close": 932.28,
+      "first_date": "2000-01-03",
+      "last_date": "2026-04-24"
+    },
+    {
+      "ticker": "LLY",
+      "n_bars": 6617,
+      "years": 26.31,
+      "avg_close": 155.09,
+      "first_date": "2000-01-03",
+      "last_date": "2026-04-24"
+    },
+    {
+      "ticker": "LMT",
+      "n_bars": 6615,
+      "years": 26.31,
+      "avg_close": 181.05,
+      "first_date": "2000-01-03",
+      "last_date": "2026-04-24"
+    },
+    {
+      "ticker": "LNC",
+      "n_bars": 6617,
+      "years": 26.31,
+      "avg_close": 37.47,
+      "first_date": "2000-01-03",
+      "last_date": "2026-04-24"
+    },
+    {
+      "ticker": "LOW",
+      "n_bars": 6615,
+      "years": 26.31,
+      "avg_close": 76.85,
+      "first_date": "2000-01-03",
+      "last_date": "2026-04-24"
+    },
+    {
+      "ticker": "LPX",
+      "n_bars": 6615,
+      "years": 26.31,
+      "avg_close": 26.99,
+      "first_date": "2000-01-03",
+      "last_date": "2026-04-24"
+    },
+    {
+      "ticker": "LRCX",
+      "n_bars": 6610,
+      "years": 26.31,
+      "avg_close": 21.64,
+      "first_date": "2000-01-03",
+      "last_date": "2026-04-24"
+    },
+    {
+      "ticker": "LUMN",
+      "n_bars": 6616,
+      "years": 26.31,
+      "avg_close": 12.38,
+      "first_date": "2000-01-03",
+      "last_date": "2026-04-24"
+    },
+    {
+      "ticker": "LUV",
+      "n_bars": 6615,
+      "years": 26.31,
+      "avg_close": 26.13,
+      "first_date": "2000-01-03",
+      "last_date": "2026-04-24"
+    },
+    {
+      "ticker": "MAR",
+      "n_bars": 6617,
+      "years": 26.31,
+      "avg_close": 80.68,
+      "first_date": "2000-01-03",
+      "last_date": "2026-04-24"
+    },
+    {
+      "ticker": "MAS",
+      "n_bars": 6616,
+      "years": 26.31,
+      "avg_close": 29.25,
+      "first_date": "2000-01-03",
+      "last_date": "2026-04-24"
+    },
+    {
+      "ticker": "MAT",
+      "n_bars": 6617,
+      "years": 26.31,
+      "avg_close": 18.2,
+      "first_date": "2000-01-03",
+      "last_date": "2026-04-24"
+    },
+    {
+      "ticker": "MBI",
+      "n_bars": 6617,
+      "years": 26.31,
+      "avg_close": 22.21,
+      "first_date": "2000-01-03",
+      "last_date": "2026-04-24"
+    },
+    {
+      "ticker": "MCD",
+      "n_bars": 6617,
+      "years": 26.31,
+      "avg_close": 109.24,
+      "first_date": "2000-01-03",
+      "last_date": "2026-04-24"
+    },
+    {
+      "ticker": "MCHP",
+      "n_bars": 6617,
+      "years": 26.31,
+      "avg_close": 29.65,
+      "first_date": "2000-01-03",
+      "last_date": "2026-04-24"
+    },
+    {
+      "ticker": "MCK",
+      "n_bars": 6613,
+      "years": 26.31,
+      "avg_close": 161.13,
+      "first_date": "2000-01-03",
+      "last_date": "2026-04-24"
+    },
+    {
+      "ticker": "MCO",
+      "n_bars": 6426,
+      "years": 25.56,
+      "avg_close": 135.08,
+      "first_date": "2000-10-03",
+      "last_date": "2026-04-24"
+    },
+    {
+      "ticker": "MDT",
+      "n_bars": 6617,
+      "years": 26.31,
+      "avg_close": 57.98,
+      "first_date": "2000-01-03",
+      "last_date": "2026-04-24"
+    },
+    {
+      "ticker": "MET",
+      "n_bars": 6552,
+      "years": 26.05,
+      "avg_close": 36.85,
+      "first_date": "2000-04-05",
+      "last_date": "2026-04-24"
+    },
+    {
+      "ticker": "MITK",
+      "n_bars": 6611,
+      "years": 26.31,
+      "avg_close": 5.69,
+      "first_date": "2000-01-03",
+      "last_date": "2026-04-24"
+    },
+    {
+      "ticker": "MKC",
+      "n_bars": 6615,
+      "years": 26.31,
+      "avg_close": 37.63,
+      "first_date": "2000-01-03",
+      "last_date": "2026-04-24"
+    },
+    {
+      "ticker": "MMM",
+      "n_bars": 6617,
+      "years": 26.31,
+      "avg_close": 95.88,
+      "first_date": "2000-01-03",
+      "last_date": "2026-04-24"
+    },
+    {
+      "ticker": "MNST",
+      "n_bars": 6595,
+      "years": 26.31,
+      "avg_close": 19.36,
+      "first_date": "2000-01-03",
+      "last_date": "2026-04-24"
+    },
+    {
+      "ticker": "MO",
+      "n_bars": 6617,
+      "years": 26.31,
+      "avg_close": 25.38,
+      "first_date": "2000-01-03",
+      "last_date": "2026-04-24"
+    },
+    {
+      "ticker": "MRK",
+      "n_bars": 6617,
+      "years": 26.31,
+      "avg_close": 48.46,
+      "first_date": "2000-01-03",
+      "last_date": "2026-04-24"
+    },
+    {
+      "ticker": "MRSH",
+      "n_bars": 6617,
+      "years": 26.31,
+      "avg_close": 67.79,
+      "first_date": "2000-01-03",
+      "last_date": "2026-04-24"
+    },
+    {
+      "ticker": "MRVL",
+      "n_bars": 6485,
+      "years": 25.82,
+      "avg_close": 24.56,
+      "first_date": "2000-06-30",
+      "last_date": "2026-04-24"
+    },
+    {
+      "ticker": "MSA",
+      "n_bars": 6607,
+      "years": 26.3,
+      "avg_close": 62.81,
+      "first_date": "2000-01-04",
+      "last_date": "2026-04-24"
+    },
+    {
+      "ticker": "MSFT",
+      "n_bars": 6617,
+      "years": 26.31,
+      "avg_close": 104.29,
+      "first_date": "2000-01-03",
+      "last_date": "2026-04-24"
+    },
+    {
+      "ticker": "MTB",
+      "n_bars": 6617,
+      "years": 26.31,
+      "avg_close": 98.3,
+      "first_date": "2000-01-03",
+      "last_date": "2026-04-24"
+    },
+    {
+      "ticker": "MTG",
+      "n_bars": 6617,
+      "years": 26.31,
+      "avg_close": 24.01,
+      "first_date": "2000-01-03",
+      "last_date": "2026-04-24"
+    },
+    {
+      "ticker": "MU",
+      "n_bars": 6615,
+      "years": 26.31,
+      "avg_close": 39.63,
+      "first_date": "2000-01-03",
+      "last_date": "2026-04-24"
+    },
+    {
+      "ticker": "NBR",
+      "n_bars": 6614,
+      "years": 26.31,
+      "avg_close": 631.98,
+      "first_date": "2000-01-03",
+      "last_date": "2026-04-24"
+    },
+    {
+      "ticker": "NEM",
+      "n_bars": 6617,
+      "years": 26.31,
+      "avg_close": 36.4,
+      "first_date": "2000-01-03",
+      "last_date": "2026-04-24"
+    },
+    {
+      "ticker": "NI",
+      "n_bars": 6617,
+      "years": 26.31,
+      "avg_close": 14.34,
+      "first_date": "2000-01-03",
+      "last_date": "2026-04-24"
+    },
+    {
+      "ticker": "NKE",
+      "n_bars": 6616,
+      "years": 26.31,
+      "avg_close": 44.6,
+      "first_date": "2000-01-03",
+      "last_date": "2026-04-24"
+    },
+    {
+      "ticker": "NOC",
+      "n_bars": 6617,
+      "years": 26.31,
+      "avg_close": 177.73,
+      "first_date": "2000-01-03",
+      "last_date": "2026-04-24"
+    },
+    {
+      "ticker": "NSC",
+      "n_bars": 6617,
+      "years": 26.31,
+      "avg_close": 101.03,
+      "first_date": "2000-01-03",
+      "last_date": "2026-04-24"
+    },
+    {
+      "ticker": "NTAP",
+      "n_bars": 6617,
+      "years": 26.31,
+      "avg_close": 42.59,
+      "first_date": "2000-01-03",
+      "last_date": "2026-04-24"
+    },
+    {
+      "ticker": "NTRS",
+      "n_bars": 6617,
+      "years": 26.31,
+      "avg_close": 61.19,
+      "first_date": "2000-01-03",
+      "last_date": "2026-04-24"
+    },
+    {
+      "ticker": "NUE",
+      "n_bars": 6617,
+      "years": 26.31,
+      "avg_close": 52.73,
+      "first_date": "2000-01-03",
+      "last_date": "2026-04-24"
+    },
+    {
+      "ticker": "NVDA",
+      "n_bars": 6617,
+      "years": 26.31,
+      "avg_close": 16.08,
+      "first_date": "2000-01-03",
+      "last_date": "2026-04-24"
+    },
+    {
+      "ticker": "NWL",
+      "n_bars": 6617,
+      "years": 26.31,
+      "avg_close": 17.43,
+      "first_date": "2000-01-03",
+      "last_date": "2026-04-24"
+    },
+    {
+      "ticker": "NYT",
+      "n_bars": 6616,
+      "years": 26.31,
+      "avg_close": 27.56,
+      "first_date": "2000-01-03",
+      "last_date": "2026-04-24"
+    },
+    {
+      "ticker": "OMC",
+      "n_bars": 6615,
+      "years": 26.31,
+      "avg_close": 48.52,
+      "first_date": "2000-01-03",
+      "last_date": "2026-04-24"
+    },
+    {
+      "ticker": "ORCL",
+      "n_bars": 6617,
+      "years": 26.31,
+      "avg_close": 45.76,
+      "first_date": "2000-01-03",
+      "last_date": "2026-04-24"
+    },
+    {
+      "ticker": "OXY",
+      "n_bars": 6617,
+      "years": 26.31,
+      "avg_close": 42.95,
+      "first_date": "2000-01-03",
+      "last_date": "2026-04-24"
+    },
+    {
+      "ticker": "PAYX",
+      "n_bars": 6615,
+      "years": 26.31,
+      "avg_close": 51.09,
+      "first_date": "2000-01-03",
+      "last_date": "2026-04-24"
+    },
+    {
+      "ticker": "PBI",
+      "n_bars": 6617,
+      "years": 26.31,
+      "avg_close": 13.36,
+      "first_date": "2000-01-03",
+      "last_date": "2026-04-24"
+    },
+    {
+      "ticker": "PCAR",
+      "n_bars": 6615,
+      "years": 26.31,
+      "avg_close": 33.56,
+      "first_date": "2000-01-03",
+      "last_date": "2026-04-24"
+    },
+    {
+      "ticker": "PCG",
+      "n_bars": 6617,
+      "years": 26.31,
+      "avg_close": 27.95,
+      "first_date": "2000-01-03",
+      "last_date": "2026-04-24"
+    },
+    {
+      "ticker": "PEG",
+      "n_bars": 6617,
+      "years": 26.31,
+      "avg_close": 34.23,
+      "first_date": "2000-01-03",
+      "last_date": "2026-04-24"
+    },
+    {
+      "ticker": "PEP",
+      "n_bars": 6617,
+      "years": 26.31,
+      "avg_close": 79.79,
+      "first_date": "2000-01-03",
+      "last_date": "2026-04-24"
+    },
+    {
+      "ticker": "PFE",
+      "n_bars": 6615,
+      "years": 26.31,
+      "avg_close": 24.38,
+      "first_date": "2000-01-03",
+      "last_date": "2026-04-24"
+    },
+    {
+      "ticker": "PFG",
+      "n_bars": 6165,
+      "years": 24.5,
+      "avg_close": 40.59,
+      "first_date": "2001-10-23",
+      "last_date": "2026-04-24"
+    },
+    {
+      "ticker": "PG",
+      "n_bars": 6617,
+      "years": 26.31,
+      "avg_close": 73.31,
+      "first_date": "2000-01-03",
+      "last_date": "2026-04-24"
+    },
+    {
+      "ticker": "PGR",
+      "n_bars": 6615,
+      "years": 26.31,
+      "avg_close": 52.31,
+      "first_date": "2000-01-03",
+      "last_date": "2026-04-24"
+    },
+    {
+      "ticker": "PH",
+      "n_bars": 6617,
+      "years": 26.31,
+      "avg_close": 156.06,
+      "first_date": "2000-01-03",
+      "last_date": "2026-04-24"
+    },
+    {
+      "ticker": "PHM",
+      "n_bars": 6617,
+      "years": 26.31,
+      "avg_close": 31.01,
+      "first_date": "2000-01-03",
+      "last_date": "2026-04-24"
+    },
+    {
+      "ticker": "PLD",
+      "n_bars": 6610,
+      "years": 26.31,
+      "avg_close": 63.15,
+      "first_date": "2000-01-03",
+      "last_date": "2026-04-24"
+    },
+    {
+      "ticker": "PNC",
+      "n_bars": 6615,
+      "years": 26.31,
+      "avg_close": 82.79,
+      "first_date": "2000-01-03",
+      "last_date": "2026-04-24"
+    },
+    {
+      "ticker": "PNW",
+      "n_bars": 6617,
+      "years": 26.31,
+      "avg_close": 46.51,
+      "first_date": "2000-01-03",
+      "last_date": "2026-04-24"
+    },
+    {
+      "ticker": "PPG",
+      "n_bars": 6617,
+      "years": 26.31,
+      "avg_close": 68.15,
+      "first_date": "2000-01-03",
+      "last_date": "2026-04-24"
+    },
+    {
+      "ticker": "PPL",
+      "n_bars": 6615,
+      "years": 26.31,
+      "avg_close": 21.0,
+      "first_date": "2000-01-03",
+      "last_date": "2026-04-24"
+    },
+    {
+      "ticker": "PRDO",
+      "n_bars": 6609,
+      "years": 26.31,
+      "avg_close": 18.26,
+      "first_date": "2000-01-03",
+      "last_date": "2026-04-24"
+    },
+    {
+      "ticker": "PRU",
+      "n_bars": 6127,
+      "years": 24.36,
+      "avg_close": 60.71,
+      "first_date": "2001-12-13",
+      "last_date": "2026-04-24"
+    },
+    {
+      "ticker": "PTEN",
+      "n_bars": 6615,
+      "years": 26.31,
+      "avg_close": 15.16,
+      "first_date": "2000-01-03",
+      "last_date": "2026-04-24"
+    },
+    {
+      "ticker": "QCOM",
+      "n_bars": 6617,
+      "years": 26.31,
+      "avg_close": 61.62,
+      "first_date": "2000-01-03",
+      "last_date": "2026-04-24"
+    },
+    {
+      "ticker": "R",
+      "n_bars": 6617,
+      "years": 26.31,
+      "avg_close": 53.39,
+      "first_date": "2000-01-03",
+      "last_date": "2026-04-24"
+    },
+    {
+      "ticker": "RF",
+      "n_bars": 6269,
+      "years": 24.94,
+      "avg_close": 15.13,
+      "first_date": "2001-05-14",
+      "last_date": "2026-04-24"
+    },
+    {
+      "ticker": "RHI",
+      "n_bars": 6615,
+      "years": 26.31,
+      "avg_close": 38.84,
+      "first_date": "2000-01-03",
+      "last_date": "2026-04-24"
+    },
+    {
+      "ticker": "RIG",
+      "n_bars": 6616,
+      "years": 26.31,
+      "avg_close": 29.4,
+      "first_date": "2000-01-03",
+      "last_date": "2026-04-24"
+    },
+    {
+      "ticker": "ROK",
+      "n_bars": 6614,
+      "years": 26.31,
+      "avg_close": 116.29,
+      "first_date": "2000-01-03",
+      "last_date": "2026-04-24"
+    },
+    {
+      "ticker": "ROST",
+      "n_bars": 6615,
+      "years": 26.31,
+      "avg_close": 49.12,
+      "first_date": "2000-01-03",
+      "last_date": "2026-04-24"
+    },
+    {
+      "ticker": "RTX",
+      "n_bars": 6616,
+      "years": 26.31,
+      "avg_close": 52.1,
+      "first_date": "2000-01-03",
+      "last_date": "2026-04-24"
+    },
+    {
+      "ticker": "RVTY",
+      "n_bars": 6617,
+      "years": 26.31,
+      "avg_close": 55.47,
+      "first_date": "2000-01-03",
+      "last_date": "2026-04-24"
+    },
+    {
+      "ticker": "RYAAY",
+      "n_bars": 6615,
+      "years": 26.31,
+      "avg_close": 22.05,
+      "first_date": "2000-01-03",
+      "last_date": "2026-04-24"
+    },
+    {
+      "ticker": "SANM",
+      "n_bars": 6596,
+      "years": 26.31,
+      "avg_close": 26.88,
+      "first_date": "2000-01-03",
+      "last_date": "2026-04-24"
+    },
+    {
+      "ticker": "SBUX",
+      "n_bars": 6617,
+      "years": 26.31,
+      "avg_close": 39.72,
+      "first_date": "2000-01-03",
+      "last_date": "2026-04-24"
+    },
+    {
+      "ticker": "SCHW",
+      "n_bars": 6616,
+      "years": 26.31,
+      "avg_close": 32.18,
+      "first_date": "2000-01-03",
+      "last_date": "2026-04-24"
+    },
+    {
+      "ticker": "SEB",
+      "n_bars": 6537,
+      "years": 26.31,
+      "avg_close": 2342.22,
+      "first_date": "2000-01-03",
+      "last_date": "2026-04-24"
+    },
+    {
+      "ticker": "SEE",
+      "n_bars": 6603,
+      "years": 26.26,
+      "avg_close": 29.02,
+      "first_date": "2000-01-03",
+      "last_date": "2026-04-08"
+    },
+    {
+      "ticker": "SHW",
+      "n_bars": 6616,
+      "years": 26.31,
+      "avg_close": 101.14,
+      "first_date": "2000-01-03",
+      "last_date": "2026-04-24"
+    },
+    {
+      "ticker": "SLB",
+      "n_bars": 6617,
+      "years": 26.31,
+      "avg_close": 44.45,
+      "first_date": "2000-01-03",
+      "last_date": "2026-04-24"
+    },
+    {
+      "ticker": "SLM",
+      "n_bars": 6615,
+      "years": 26.31,
+      "avg_close": 11.02,
+      "first_date": "2000-01-03",
+      "last_date": "2026-04-24"
+    },
+    {
+      "ticker": "SNA",
+      "n_bars": 6615,
+      "years": 26.31,
+      "avg_close": 108.33,
+      "first_date": "2000-01-03",
+      "last_date": "2026-04-24"
+    },
+    {
+      "ticker": "SNPS",
+      "n_bars": 6615,
+      "years": 26.31,
+      "avg_close": 120.36,
+      "first_date": "2000-01-03",
+      "last_date": "2026-04-24"
+    },
+    {
+      "ticker": "SNV",
+      "n_bars": 6537,
+      "years": 25.99,
+      "avg_close": 38.44,
+      "first_date": "2000-01-03",
+      "last_date": "2025-12-31"
+    },
+    {
+      "ticker": "SO",
+      "n_bars": 6615,
+      "years": 26.31,
+      "avg_close": 36.05,
+      "first_date": "2000-01-03",
+      "last_date": "2026-04-24"
+    },
+    {
+      "ticker": "SPG",
+      "n_bars": 6614,
+      "years": 26.31,
+      "avg_close": 85.76,
+      "first_date": "2000-01-03",
+      "last_date": "2026-04-24"
+    },
+    {
+      "ticker": "SPGI",
+      "n_bars": 6617,
+      "years": 26.31,
+      "avg_close": 146.78,
+      "first_date": "2000-01-03",
+      "last_date": "2026-04-24"
+    },
+    {
+      "ticker": "SRE",
+      "n_bars": 6615,
+      "years": 26.31,
+      "avg_close": 36.48,
+      "first_date": "2000-01-03",
+      "last_date": "2026-04-24"
+    },
+    {
+      "ticker": "STT",
+      "n_bars": 6616,
+      "years": 26.31,
+      "avg_close": 55.28,
+      "first_date": "2000-01-03",
+      "last_date": "2026-04-24"
+    },
+    {
+      "ticker": "SWK",
+      "n_bars": 6617,
+      "years": 26.31,
+      "avg_close": 72.11,
+      "first_date": "2000-01-03",
+      "last_date": "2026-04-24"
+    },
+    {
+      "ticker": "SYK",
+      "n_bars": 6614,
+      "years": 26.31,
+      "avg_close": 117.87,
+      "first_date": "2000-01-03",
+      "last_date": "2026-04-24"
+    },
+    {
+      "ticker": "SYY",
+      "n_bars": 6615,
+      "years": 26.31,
+      "avg_close": 39.7,
+      "first_date": "2000-01-03",
+      "last_date": "2026-04-24"
+    },
+    {
+      "ticker": "T",
+      "n_bars": 6617,
+      "years": 26.31,
+      "avg_close": 14.47,
+      "first_date": "2000-01-03",
+      "last_date": "2026-04-24"
+    },
+    {
+      "ticker": "TER",
+      "n_bars": 6615,
+      "years": 26.31,
+      "avg_close": 44.66,
+      "first_date": "2000-01-03",
+      "last_date": "2026-04-24"
+    },
+    {
+      "ticker": "TEVA",
+      "n_bars": 6617,
+      "years": 26.31,
+      "avg_close": 27.14,
+      "first_date": "2000-01-03",
+      "last_date": "2026-04-24"
+    },
+    {
+      "ticker": "TFC",
+      "n_bars": 6615,
+      "years": 26.31,
+      "avg_close": 30.92,
+      "first_date": "2000-01-03",
+      "last_date": "2026-04-24"
+    },
+    {
+      "ticker": "TGNA",
+      "n_bars": 6589,
+      "years": 26.21,
+      "avg_close": 18.72,
+      "first_date": "2000-01-03",
+      "last_date": "2026-03-19"
+    },
+    {
+      "ticker": "TGT",
+      "n_bars": 6617,
+      "years": 26.31,
+      "avg_close": 69.31,
+      "first_date": "2000-01-03",
+      "last_date": "2026-04-24"
+    },
+    {
+      "ticker": "THC",
+      "n_bars": 6615,
+      "years": 26.31,
+      "avg_close": 56.68,
+      "first_date": "2000-01-03",
+      "last_date": "2026-04-24"
+    },
+    {
+      "ticker": "TJX",
+      "n_bars": 6614,
+      "years": 26.31,
+      "avg_close": 33.88,
+      "first_date": "2000-01-03",
+      "last_date": "2026-04-24"
+    },
+    {
+      "ticker": "TKO",
+      "n_bars": 6410,
+      "years": 25.49,
+      "avg_close": 34.55,
+      "first_date": "2000-10-25",
+      "last_date": "2026-04-24"
+    },
+    {
+      "ticker": "TMO",
+      "n_bars": 6617,
+      "years": 26.31,
+      "avg_close": 183.38,
+      "first_date": "2000-01-03",
+      "last_date": "2026-04-24"
+    },
+    {
+      "ticker": "TROW",
+      "n_bars": 6617,
+      "years": 26.31,
+      "avg_close": 61.18,
+      "first_date": "2000-01-03",
+      "last_date": "2026-04-24"
+    },
+    {
+      "ticker": "TT",
+      "n_bars": 6617,
+      "years": 26.31,
+      "avg_close": 79.11,
+      "first_date": "2000-01-03",
+      "last_date": "2026-04-24"
+    },
+    {
+      "ticker": "TXN",
+      "n_bars": 6613,
+      "years": 26.31,
+      "avg_close": 68.55,
+      "first_date": "2000-01-03",
+      "last_date": "2026-04-24"
+    },
+    {
+      "ticker": "TXT",
+      "n_bars": 6615,
+      "years": 26.31,
+      "avg_close": 42.33,
+      "first_date": "2000-01-03",
+      "last_date": "2026-04-24"
+    },
+    {
+      "ticker": "UIS",
+      "n_bars": 6617,
+      "years": 26.31,
+      "avg_close": 44.79,
+      "first_date": "2000-01-03",
+      "last_date": "2026-04-24"
+    },
+    {
+      "ticker": "UNH",
+      "n_bars": 6617,
+      "years": 26.31,
+      "avg_close": 149.76,
+      "first_date": "2000-01-03",
+      "last_date": "2026-04-24"
+    },
+    {
+      "ticker": "UNM",
+      "n_bars": 6616,
+      "years": 26.31,
+      "avg_close": 25.58,
+      "first_date": "2000-01-03",
+      "last_date": "2026-04-24"
+    },
+    {
+      "ticker": "UNP",
+      "n_bars": 6616,
+      "years": 26.31,
+      "avg_close": 88.12,
+      "first_date": "2000-01-03",
+      "last_date": "2026-04-24"
+    },
+    {
+      "ticker": "UPS",
+      "n_bars": 6614,
+      "years": 26.31,
+      "avg_close": 81.72,
+      "first_date": "2000-01-03",
+      "last_date": "2026-04-24"
+    },
+    {
+      "ticker": "USB",
+      "n_bars": 6612,
+      "years": 26.31,
+      "avg_close": 30.22,
+      "first_date": "2000-01-03",
+      "last_date": "2026-04-24"
+    },
+    {
+      "ticker": "VFC",
+      "n_bars": 6614,
+      "years": 26.31,
+      "avg_close": 30.23,
+      "first_date": "2000-01-03",
+      "last_date": "2026-04-24"
+    },
+    {
+      "ticker": "VIAV",
+      "n_bars": 6617,
+      "years": 26.31,
+      "avg_close": 30.36,
+      "first_date": "2000-01-03",
+      "last_date": "2026-04-24"
+    },
+    {
+      "ticker": "VMC",
+      "n_bars": 6614,
+      "years": 26.31,
+      "avg_close": 97.95,
+      "first_date": "2000-01-03",
+      "last_date": "2026-04-24"
+    },
+    {
+      "ticker": "VRSN",
+      "n_bars": 6617,
+      "years": 26.31,
+      "avg_close": 94.24,
+      "first_date": "2000-01-03",
+      "last_date": "2026-04-24"
+    },
+    {
+      "ticker": "VYX",
+      "n_bars": 6616,
+      "years": 26.31,
+      "avg_close": 16.04,
+      "first_date": "2000-01-03",
+      "last_date": "2026-04-24"
+    },
+    {
+      "ticker": "VZ",
+      "n_bars": 6615,
+      "years": 26.31,
+      "avg_close": 31.88,
+      "first_date": "2000-01-03",
+      "last_date": "2026-04-24"
+    },
+    {
+      "ticker": "WAT",
+      "n_bars": 6614,
+      "years": 26.31,
+      "avg_close": 140.24,
+      "first_date": "2000-01-03",
+      "last_date": "2026-04-24"
+    },
+    {
+      "ticker": "WEC",
+      "n_bars": 6610,
+      "years": 26.31,
+      "avg_close": 41.69,
+      "first_date": "2000-01-03",
+      "last_date": "2026-04-24"
+    },
+    {
+      "ticker": "WEN",
+      "n_bars": 6614,
+      "years": 26.31,
+      "avg_close": 9.47,
+      "first_date": "2000-01-03",
+      "last_date": "2026-04-24"
+    },
+    {
+      "ticker": "WFC",
+      "n_bars": 6614,
+      "years": 26.31,
+      "avg_close": 33.43,
+      "first_date": "2000-01-03",
+      "last_date": "2026-04-24"
+    },
+    {
+      "ticker": "WHR",
+      "n_bars": 6614,
+      "years": 26.31,
+      "avg_close": 91.95,
+      "first_date": "2000-01-03",
+      "last_date": "2026-04-24"
+    },
+    {
+      "ticker": "WMB",
+      "n_bars": 6614,
+      "years": 26.31,
+      "avg_close": 20.69,
+      "first_date": "2000-01-03",
+      "last_date": "2026-04-24"
+    },
+    {
+      "ticker": "WMT",
+      "n_bars": 6616,
+      "years": 26.31,
+      "avg_close": 27.81,
+      "first_date": "2000-01-03",
+      "last_date": "2026-04-24"
+    },
+    {
+      "ticker": "WOR",
+      "n_bars": 6613,
+      "years": 26.31,
+      "avg_close": 18.53,
+      "first_date": "2000-01-03",
+      "last_date": "2026-04-24"
+    },
+    {
+      "ticker": "WY",
+      "n_bars": 6614,
+      "years": 26.31,
+      "avg_close": 20.2,
+      "first_date": "2000-01-03",
+      "last_date": "2026-04-24"
+    },
+    {
+      "ticker": "XEL",
+      "n_bars": 6457,
+      "years": 25.67,
+      "avg_close": 32.39,
+      "first_date": "2000-08-21",
+      "last_date": "2026-04-24"
+    },
+    {
+      "ticker": "XOM",
+      "n_bars": 6616,
+      "years": 26.31,
+      "avg_close": 56.51,
+      "first_date": "2000-01-03",
+      "last_date": "2026-04-24"
+    },
+    {
+      "ticker": "XRAY",
+      "n_bars": 6612,
+      "years": 26.31,
+      "avg_close": 34.29,
+      "first_date": "2000-01-03",
+      "last_date": "2026-04-24"
+    },
+    {
+      "ticker": "XRX",
+      "n_bars": 6617,
+      "years": 26.31,
+      "avg_close": 21.68,
+      "first_date": "2000-01-03",
+      "last_date": "2026-04-24"
+    },
+    {
+      "ticker": "YUM",
+      "n_bars": 6617,
+      "years": 26.31,
+      "avg_close": 54.56,
+      "first_date": "2000-01-03",
+      "last_date": "2026-04-24"
+    },
+    {
+      "ticker": "ZBH",
+      "n_bars": 6214,
+      "years": 24.71,
+      "avg_close": 86.11,
+      "first_date": "2001-08-08",
+      "last_date": "2026-04-24"
+    },
+    {
+      "ticker": "ZION",
+      "n_bars": 6614,
+      "years": 26.31,
+      "avg_close": 38.86,
+      "first_date": "2000-01-03",
+      "last_date": "2026-04-24"
+    }
+  ]
+}
