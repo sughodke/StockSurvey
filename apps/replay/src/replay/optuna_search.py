@@ -22,7 +22,7 @@ import numpy as np
 import optuna
 
 from replay import reconstruct_indicators
-from ss_notebook.scalogram import load_prices, DEFAULT_STOOQ_DIR
+from ss_features import DEFAULT_STOOQ_DIR, load_prices
 from ss_wavelets import ALL_SCALES
 
 

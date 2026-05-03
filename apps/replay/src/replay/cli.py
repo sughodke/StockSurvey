@@ -30,7 +30,7 @@ import numpy as np
 from replay.features import TARGET_NAMES, load_ticker
 from replay.plot import plot_reconstruction
 from replay.reconstruct import fit_and_evaluate, fit_and_evaluate_ssl
-from ss_notebook.scalogram import DEFAULT_STOOQ_DIR
+from ss_features import DEFAULT_STOOQ_DIR
 from ss_wavelets import ALL_SCALES
 
 
