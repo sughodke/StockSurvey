@@ -234,14 +234,14 @@ use case; default is raw close.
     (canonical "broad encoding" path; see `replay/README.md`).
   - `probe_ssl.sh` — supervised heads on a frozen SSL backbone, the
     diagnostic that reads off per-indicator R² from the SSL latent.
-  - `stage1_ic_scorer.py` / `ssl_ic_scorer.py` / `zeroshot_eval.py`
-    — frozen-backbone IC heads against forward returns; the test
-    that matters for cross-sectional alpha.
+  - `zeroshot_eval.py` — uncond zero-shot indicator-decoding stats
+    on a held-out ticker.
   - `attention_macd_vol.py` / `film_attention.py` — diagnostic
     attention plots over channels / FiLM bandwidth.
-  - `no_backbone_baseline.py` / `no_backbone_baseline_matched.py`
-    (in `apps/notebook/scripts/`) — `identity_backbone` baseline:
-    raw bundle straight into the IC head, no encoder. Bracket for
-    the encoder-vs-noise comparison.
+  - **Cross-sectional IC scorer scripts moved to `apps/factor/scripts/`**
+    (`stage1_ic_scorer.py`, `ssl_ic_scorer.py`,
+    `no_backbone_baseline.py`, `no_backbone_baseline_matched.py`) —
+    frozen-backbone IC heads against forward returns. Lives with
+    the `factor` app.
 - Production trainer that consumes `ss_wavelets.causal_cwt` output:
   `apps/regime/src/regime/trainer.py`.

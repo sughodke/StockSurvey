@@ -7,7 +7,7 @@ to 2025-12-11.
 import time
 
 from factor import compute_input_stats, identity_backbone, train_scorer
-from ss_notebook.replay import load_ticker
+from ss_features import load_ticker
 from ss_wavelets import ALL_SCALES
 
 

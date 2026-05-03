@@ -43,7 +43,7 @@ tests/                     (empty placeholder; add tests here)
 
 ```python
 from factor import load_backbone, train_scorer
-from ss_notebook.replay import load_ticker
+from ss_features import load_ticker
 
 backbone, meta = load_backbone('Output/replay-cnn-2026-05-XX.npz')
 tickers = [
@@ -115,9 +115,12 @@ converges much faster than direct Sharpe optimization.
   `replay.reconstruct`) can read the format without depending on each
   other. The runtime forward pass (`apply_backbone`, conv stack, etc.)
   is here in `factor.backbone`.
-- `TickerData` + `realized_vol` + `load_prices` are in `ss_features`
-  too; `apps/notebook` re-exports them through `ss_notebook.replay.features`
-  and `ss_notebook.scalogram` for back-compat.
+- `TickerData`, `load_prices`, `realized_vol`, `log_returns`, the CWT
+  feature builders (`compute_scalogram`, `build_features_and_targets`,
+  `load_ticker`, etc.), and `TARGET_NAMES` all live in `ss_features`
+  too. `apps/notebook` re-exports the full set through
+  `ss_notebook.replay.features` + `ss_notebook.scalogram` for
+  back-compat with existing callers.
 
 ## Caveats
 
@@ -136,6 +139,6 @@ converges much faster than direct Sharpe optimization.
   backbone has no conv weights to update; only the head trains. Pass
   `finetune_steps=0` to skip the wasted second pass.
 - **No CLI.** Driven from notebooks and the four scripts under
-  `apps/notebook/scripts/` (`no_backbone_baseline*.py` and
+  `apps/factor/scripts/` (`no_backbone_baseline*.py` and
   `colab/{ssl,stage1}_ic_scorer.py`). Add an `[project.scripts]` entry
   to `pyproject.toml` if a CLI becomes useful.
