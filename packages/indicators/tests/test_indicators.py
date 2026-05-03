@@ -10,6 +10,7 @@ from ss_indicators import (
     bbands,
     cci,
     cci_strided,
+    cci_strided_grid,
     corwin_schultz_spread,
     ema,
     fibonacci_retracement,
@@ -17,6 +18,7 @@ from ss_indicators import (
     rolling_std,
     rsi,
     rsi_strided,
+    rsi_strided_grid,
     sma,
     symmetric_kl_divergence,
 )
@@ -120,6 +122,46 @@ def test_rsi_strided_validates_args():
         rsi_strided(p, n=1, w=5)
 
 
+def test_rsi_strided_grid_parity_with_per_cell():
+    """rsi_strided_grid produces bit-equivalent output to stacking
+    per-cell rsi_strided over the same (w, n) Cartesian product."""
+    rng = np.random.default_rng(17)
+    prices = (np.cumsum(rng.standard_normal(500)) + 100).astype(np.float64)
+    n_grid = (5, 7, 14, 21)
+    w_grid = (1, 5, 10, 21)
+    grid = rsi_strided_grid(prices, n_grid, w_grid)
+    assert grid.shape == (500, len(w_grid), len(n_grid))
+    for wi, w in enumerate(w_grid):
+        for ni, n in enumerate(n_grid):
+            ref = rsi_strided(prices, n=int(n), w=int(w))
+            np.testing.assert_allclose(
+                grid[:, wi, ni], ref, rtol=1e-12, atol=1e-12, equal_nan=True,
+                err_msg=f'mismatch at (w={w}, n={n})')
+
+
+def test_rsi_strided_grid_warmup_per_cell():
+    """Grid output preserves per-cell warmup: position `w + n - 1` is the
+    first non-NaN bar for each (w, n) cell."""
+    prices = np.arange(200, dtype=np.float64) * 0.5 + 100.0
+    n_grid = (5, 14)
+    w_grid = (3, 7)
+    grid = rsi_strided_grid(prices, n_grid, w_grid)
+    for wi, w in enumerate(w_grid):
+        for ni, n in enumerate(n_grid):
+            warmup = int(w) + int(n) - 1
+            assert np.isnan(grid[:warmup, wi, ni]).all(), \
+                f'(w={w}, n={n}) leaked finite values into warmup'
+            assert not np.isnan(grid[warmup, wi, ni])
+
+
+def test_rsi_strided_grid_validates_args():
+    p = np.arange(100, dtype=np.float64)
+    with pytest.raises(ValueError, match='every w >= 1'):
+        rsi_strided_grid(p, n_grid=(7,), w_grid=(0, 5))
+    with pytest.raises(ValueError, match='every n >= 2'):
+        rsi_strided_grid(p, n_grid=(1, 7), w_grid=(1,))
+
+
 def test_macd_identity(prices_1d):
     line, signal, hist = macd(prices_1d, fast=12, slow=26, signal=9)
     np.testing.assert_allclose(np.asarray(hist), np.asarray(line) - np.asarray(signal),
@@ -185,6 +227,46 @@ def test_cci_strided_validates_args():
         cci_strided(p, n=14, w=0)
     with pytest.raises(ValueError, match='n must be >= 2'):
         cci_strided(p, n=1, w=5)
+
+
+def test_cci_strided_grid_parity_with_per_cell():
+    """cci_strided_grid produces bit-equivalent output to stacking
+    per-cell cci_strided over the same (w, n) Cartesian product."""
+    rng = np.random.default_rng(19)
+    prices = (np.cumsum(rng.standard_normal(500)) + 100).astype(np.float64)
+    n_grid = (5, 10, 14, 20)
+    w_grid = (1, 5, 10, 21)
+    grid = cci_strided_grid(prices, n_grid, w_grid)
+    assert grid.shape == (500, len(w_grid), len(n_grid))
+    for wi, w in enumerate(w_grid):
+        for ni, n in enumerate(n_grid):
+            ref = cci_strided(prices, n=int(n), w=int(w))
+            np.testing.assert_allclose(
+                grid[:, wi, ni], ref, rtol=1e-12, atol=1e-12, equal_nan=True,
+                err_msg=f'mismatch at (w={w}, n={n})')
+
+
+def test_cci_strided_grid_warmup_per_cell():
+    """Per-cell warmup is `(n-1)*w + 1` — first valid bar at index
+    `(n-1)*w`, matching cci_strided."""
+    prices = np.arange(300, dtype=np.float64) * 0.3 + 100.0
+    n_grid = (5, 14)
+    w_grid = (3, 7)
+    grid = cci_strided_grid(prices, n_grid, w_grid)
+    for wi, w in enumerate(w_grid):
+        for ni, n in enumerate(n_grid):
+            warmup = (int(n) - 1) * int(w) + 1
+            assert np.isnan(grid[:warmup - 1, wi, ni]).all(), \
+                f'(w={w}, n={n}) leaked finite values into warmup'
+            assert not np.isnan(grid[warmup - 1, wi, ni])
+
+
+def test_cci_strided_grid_validates_args():
+    p = np.arange(100, dtype=np.float64)
+    with pytest.raises(ValueError, match='every w >= 1'):
+        cci_strided_grid(p, n_grid=(14,), w_grid=(0, 5))
+    with pytest.raises(ValueError, match='every n >= 2'):
+        cci_strided_grid(p, n_grid=(1, 14), w_grid=(1,))
 
 
 def test_symmetric_kl_zero_when_distributions_match():

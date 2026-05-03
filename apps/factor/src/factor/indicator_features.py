@@ -117,6 +117,13 @@ def build_indicator_features(
         F = cfg.feature_width()
         return np.empty((0, F), dtype=np.float32), np.empty((0,), dtype=bool)
 
+    # Per-cell rsi_strided / cci_strided here, not their grid-vectorized
+    # variants in `ss_indicators`. With the default cfg (n_grid ~6, w_grid
+    # ~5) the grid versions are ~30% slower because n=6 is too small to
+    # amortize numpy's per-op dispatch overhead — Python scalar Wilder is
+    # faster than numpy ops on tiny 6-element arrays. The grid variants
+    # become a win only when grids grow past ~30 cells, which would
+    # happen in apps/replay's FiLM head training, not here.
     cols: list[np.ndarray] = []
     for w in cfg.rsi_w_grid:
         for n in cfg.rsi_n_grid:

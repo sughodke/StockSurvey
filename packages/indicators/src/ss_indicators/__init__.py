@@ -25,7 +25,7 @@ Indicators
 """
 
 from ss_indicators.bbands import bbands
-from ss_indicators.cci import cci, cci_strided
+from ss_indicators.cci import cci, cci_strided, cci_strided_grid
 from ss_indicators.divergence import (
     DIVERGENCES,
     cosine_divergence,
@@ -37,7 +37,7 @@ from ss_indicators.divergence import (
 from ss_indicators.fibonacci import FIB_LEVELS, fibonacci_retracement
 from ss_indicators.macd import macd
 from ss_indicators.moving_average import ema, rolling_std, sma
-from ss_indicators.rsi import rsi, rsi_strided
+from ss_indicators.rsi import rsi, rsi_strided, rsi_strided_grid
 from ss_indicators.spread import corwin_schultz_spread
 
 __all__ = [
@@ -46,6 +46,7 @@ __all__ = [
     'bbands',
     'cci',
     'cci_strided',
+    'cci_strided_grid',
     'corwin_schultz_spread',
     'cosine_divergence',
     'ema',
@@ -57,6 +58,7 @@ __all__ = [
     'rolling_std',
     'rsi',
     'rsi_strided',
+    'rsi_strided_grid',
     'sma',
     'symmetric_kl_divergence',
 ]

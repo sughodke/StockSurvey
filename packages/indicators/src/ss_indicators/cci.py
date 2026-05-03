@@ -95,3 +95,64 @@ def cci_strided(prices: np.ndarray, n: int, w: int = 1) -> np.ndarray:
     raw = np.where(mad < EPS, 0.0, raw)
     out[span - 1:] = raw
     return out
+
+
+def cci_strided_grid(
+    prices: np.ndarray,
+    n_grid: tuple[int, ...] | list[int] | np.ndarray,
+    w_grid: tuple[int, ...] | list[int] | np.ndarray,
+) -> np.ndarray:
+    """CCI for every `(w, n)` in the Cartesian product of two grids.
+
+    Returns shape `(T, len(w_grid), len(n_grid))`. Bit-equivalent to
+    `np.stack([cci_strided(prices, n, w) for n in n_grid], axis=-1)` for
+    each `w`. Each cell preserves its own per-cell warmup: the first
+    valid bar for `(n, w)` is at index `(n - 1) * w`, exactly matching
+    `cci_strided`.
+
+    Unlike RSI's Wilder recurrence (which broadcasts cleanly across n),
+    the CCI mean-abs-deviation is non-linear and resists sharing
+    reductions across different n values. The inner `mean` + `abs`
+    reductions still happen per-cell.
+
+    **Performance caveat.** Same as `rsi_strided_grid`: at small grids
+    (~25 cells, the default in `factor.IndicatorGridConfig`) this is
+    not faster than 25 individual `cci_strided` calls because the
+    per-cell numpy work dominates and there's nothing to share. Useful
+    primarily as a single entry point for callers whose grids will grow.
+    """
+    n_arr_int = np.asarray(n_grid, dtype=np.int64)
+    w_arr_int = np.asarray(w_grid, dtype=np.int64)
+    if (n_arr_int < 2).any():
+        raise ValueError(f'cci_strided_grid requires every n >= 2, got {n_grid}')
+    if (w_arr_int < 1).any():
+        raise ValueError(f'cci_strided_grid requires every w >= 1, got {w_grid}')
+
+    prices = np.asarray(prices, dtype=np.float64)
+    T = len(prices)
+    n_n = len(n_arr_int)
+    out = np.full((T, len(w_arr_int), n_n), np.nan, dtype=np.float64)
+    if T == 0:
+        return out
+
+    for wi, w in enumerate(w_arr_int):
+        w = int(w)
+        for ni in range(n_n):
+            n_i = int(n_arr_int[ni])
+            span_i = (n_i - 1) * w + 1
+            if T < span_i:
+                continue
+            # Each cell uses its own sliding view so its valid output
+            # starts at `span_i - 1`, not the worst-case `max_span - 1`.
+            # `sliding_window_view` itself is a view (O(1)); the cost
+            # lives in the mean+abs reductions below.
+            full = sliding_window_view(prices, span_i)    # (M, span_i)
+            sub = full[:, ::w]                             # (M, n_i)
+            mu = sub.mean(axis=1)
+            mad = np.abs(sub - mu[:, None]).mean(axis=1)
+            safe_mad = np.where(mad < EPS, 1.0, mad)
+            raw = (prices[span_i - 1:] - mu) / (LAMBERT * safe_mad)
+            raw = np.where(mad < EPS, 0.0, raw)
+            out[span_i - 1:, wi, ni] = raw
+
+    return out
