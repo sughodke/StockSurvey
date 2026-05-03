@@ -2,9 +2,9 @@
 
 Runs the full pipeline (`build_indicator_features` →
 `make_indicator_backbone` → `train_scorer_indicators`) on a synthetic
-log-normal random-walk universe. The 5500-bar length is chosen to clear
-the largest CCI cell's warmup at the default `IndicatorGridConfig`
-(`(n-1)*w + 1 = 4978` bars for n=80, w=63).
+log-normal random-walk universe. 5500 bars clears every cell's warmup
+at the default `IndicatorGridConfig` with comfortable margin (the worst
+cell is CCI at n=40, w=21 — needs (40-1)*21+1 = 820 bars).
 
 Asserts shapes and that the optimizer ran — does not assert on IC
 magnitude. Random walks have no exploitable cross-sectional structure
@@ -43,8 +43,8 @@ def test_indicator_features_shape_and_warmup():
     F = cfg.feature_width()
     assert F == len(cfg.channel_names()), \
         'channel_names() must enumerate exactly feature_width() channels'
-    assert F == 83, \
-        f'default config width drifted: expected 83, got {F}'
+    assert F == 74, \
+        f'default config width drifted: expected 74, got {F}'
 
     rng = np.random.default_rng(0)
     prices = 100.0 * np.exp(np.cumsum(rng.normal(0.0002, 0.012, 5500)))
@@ -54,12 +54,12 @@ def test_indicator_features_shape_and_warmup():
     assert feats.dtype == np.float32
     assert valid.shape == (5500,)
     assert valid.dtype == bool
-    # Coherence warmup is realized_vol(252) + max(coherence_window_grid)-1
-    # = 252 + 119 = 371 bars; CCI at (n=80, w=63) needs 4978; CCI dominates,
-    # so adding the coherence block doesn't move first_valid.
+    # Worst-case warmup is now CCI(n=40, w=21) at (40-1)*21+1 = 820 bars;
+    # coherence is realized_vol(252) + max(coherence_window_grid)-1 = 371.
+    # CCI still dominates.
     first_valid = int(np.argmax(valid)) if valid.any() else len(valid)
-    assert first_valid <= 4978, \
-        f'first valid bar at {first_valid} > 4978 — warmup logic regressed'
+    assert first_valid <= 820, \
+        f'first valid bar at {first_valid} > 820 — warmup logic regressed'
     assert valid.any(), \
         '5500 bars should leave at least one fully-valid row'
 

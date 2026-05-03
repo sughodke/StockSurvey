@@ -72,8 +72,15 @@ class IndicatorGridConfig:
     """
     rsi_n_grid:    tuple[int, ...] = (5, 7, 10, 14, 21, 30)
     rsi_w_grid:    tuple[int, ...] = (1, 5, 10, 21, 63)
-    cci_n_grid:    tuple[int, ...] = (10, 14, 20, 40, 80)
-    cci_w_grid:    tuple[int, ...] = (1, 5, 10, 21, 63)
+    # CCI cells dominate the warmup floor because cci_strided needs
+    # (n-1)*w+1 bars before the first valid output. Capping at n=40
+    # AND w=21 keeps the worst cell at (40-1)*21+1 = 820 bars (~3.25y),
+    # vs the previous (n=80, w=63) which needed 4978 bars (~19.7y) and
+    # left walk-forward windows over the first 19y of the dataset
+    # uninformative. RSI-strided's warmup is w+n-1 (additive, not
+    # multiplicative) so its widest cell stays cheap.
+    cci_n_grid:    tuple[int, ...] = (10, 14, 20, 40)
+    cci_w_grid:    tuple[int, ...] = (1, 5, 10, 21)
     vol_n_grid:    tuple[int, ...] = (5, 10, 20, 60, 120, 252)
     macd_fast_grid: tuple[int, ...] = (5, 8, 12, 21, 34, 55)
     include_macd_signal: bool = True

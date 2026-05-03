@@ -69,7 +69,7 @@ print(f'val IC: {res.val_ic:+.4f}   val Sharpe (eval): {res.val_sharpe:+.3f}')
 ```python
 from factor import IndicatorGridConfig, load_ticker_indicators, train_scorer_indicators
 
-cfg = IndicatorGridConfig()    # default ≈ 79 channels, ~5000-bar warmup
+cfg = IndicatorGridConfig()    # default 74 channels, ~820-bar warmup
 tickers = [
     load_ticker_indicators(t, stooq_dir='./StooqData',
                            start='2010-01-01', end='2025-12-11', cfg=cfg)
