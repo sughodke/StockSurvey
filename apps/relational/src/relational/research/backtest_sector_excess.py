@@ -84,17 +84,15 @@ def run(
 ) -> None:
     """Programmatic entrypoint — called from `relational.cli`."""
     print(f'Loading Stooq prices from {data_dir} ...')
-    prices_full, _highs, _lows, _volume = load_stooq_matrix(
+    # `tickers=` filters at the file-walk level so we read 21 files
+    # instead of 12K. Tickers absent from the archive are silently
+    # dropped — Phase-2 names are all liquid US large-caps, so missing
+    # entries indicate a data-dir mismatch rather than a delisting we'd
+    # want to warn about.
+    prices, _highs, _lows, _volume = load_stooq_matrix(
         data_dir, min_history=lookback + n_tail + 10,
-        start_date=start, end_date=end)
-    # load_stooq_matrix returns the whole archive; subset to the
-    # Phase-2 universe so the sector aggregates have known constituents.
-    available = [t for t in PHASE2_TICKERS if t in prices_full.columns]
-    missing = [t for t in PHASE2_TICKERS if t not in prices_full.columns]
-    if missing:
-        print(f'  WARN: tickers missing from Stooq archive (insufficient '
-              f'history?): {missing}')
-    prices = prices_full[available].copy()
+        start_date=start, end_date=end,
+        tickers=list(PHASE2_TICKERS))
     print(f'  loaded {prices.shape[0]} dates x {prices.shape[1]} tickers '
           f'({list(prices.columns)})')
 

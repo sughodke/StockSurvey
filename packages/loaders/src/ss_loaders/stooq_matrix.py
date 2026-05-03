@@ -105,6 +105,7 @@ def load_stooq_matrix(
     end_date: str | None = None,
     include_etfs: bool = False,
     cache_path: str | os.PathLike | None = None,
+    tickers: list[str] | tuple[str, ...] | None = None,
 ) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame, pd.DataFrame]:
     """Load the Stooq daily archive into aligned wide DataFrames.
 
@@ -144,6 +145,18 @@ def load_stooq_matrix(
         Cache is invalidated manually (delete the file) — we don't
         track source file mtimes. Pickle keeps the loader free of a
         pyarrow/fastparquet dependency, and the file is local-only.
+    tickers :
+        Optional uppercase ticker whitelist. When provided, the file
+        scan stops at matching tickers (the path is `<lower>.us.txt`
+        so we can short-circuit by basename without parsing — saves
+        ~99% of the I/O on a 12K-archive when you want 20 names).
+        Tickers in the list that aren't present in the archive are
+        silently skipped — caller is responsible for warning if
+        completeness matters. Cache lookup is bypassed when this is
+        set: a cached panel built without `tickers` may still be
+        re-sliced cheaply at the column level after load, but the
+        whole point of `tickers=` is to skip the scan in the first
+        place.
 
     Returns
     -------
@@ -158,8 +171,17 @@ def load_stooq_matrix(
     """
     data_dir = Path(data_dir)
     cache = Path(cache_path) if cache_path else None
+    ticker_whitelist = (
+        {t.upper() for t in tickers} if tickers else None)
 
-    if cache and cache.exists():
+    if ticker_whitelist is not None:
+        # Bypass cache when filtering — the cached pickle is the full
+        # archive; a fresh scoped scan is cheaper than loading the cache
+        # then dropping 99% of the columns.
+        merged = _scan_archive(
+            data_dir, include_etfs=include_etfs,
+            ticker_whitelist=ticker_whitelist)
+    elif cache and cache.exists():
         merged = pd.read_pickle(cache)
     else:
         merged = _scan_archive(data_dir, include_etfs=include_etfs)
@@ -222,19 +244,35 @@ def load_stooq_matrix(
     return closes, highs, lows, volumes
 
 
-def _scan_archive(data_dir: Path, *, include_etfs: bool) -> pd.DataFrame:
+def _scan_archive(
+    data_dir: Path, *,
+    include_etfs: bool,
+    ticker_whitelist: set[str] | None = None,
+) -> pd.DataFrame:
     """Walk every ticker file and concat into a single long-form frame.
 
     Long-form (ticker, date, OHLCV) is cheaper to round-trip through
     parquet than four separate wide pivots, since wide pivots blow up
     to 12K columns and most cells are NaN. The caller pivots once on
     load; the cache stays compact.
+
+    `ticker_whitelist` filters by basename BEFORE opening files —
+    `aapl.us.txt` -> `AAPL` matched in O(1) per path, so a 20-ticker
+    request reads 20 files instead of 12K.
     """
     paths = iter_stooq_ticker_files(data_dir, include_etfs=include_etfs)
     if not paths:
         raise RuntimeError(
             f'no ticker files found under {data_dir} — expected a '
             'Stooq layout like daily/<country>/<exchange>/<bucket>/*.txt')
+
+    if ticker_whitelist is not None:
+        paths = [p for p in paths
+                 if stooq_ticker_from_path(p) in ticker_whitelist]
+        if not paths:
+            raise RuntimeError(
+                f'no ticker files matched whitelist {sorted(ticker_whitelist)} '
+                f'under {data_dir}')
 
     frames: list[pd.DataFrame] = []
     for path in tqdm(paths, desc='Loading Stooq', unit='file'):

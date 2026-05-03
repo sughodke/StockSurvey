@@ -159,6 +159,37 @@ def test_load_stooq_matrix_date_filter(tmp_path):
     assert close.index.max() <= pd.Timestamp('2021-12-31')
 
 
+def test_load_stooq_matrix_tickers_filter(tmp_path):
+    """`tickers=` should restrict the loaded panel to the named tickers
+    AND short-circuit the file scan (we don't measure the latter here,
+    just that the filter shape is right)."""
+    _write_synthetic_stooq(
+        tmp_path, tickers=['AAPL', 'MSFT', 'NVDA', 'TSLA'])
+    close, _, _, _ = load_stooq_matrix(
+        str(tmp_path), min_history=504, tickers=['AAPL', 'TSLA'])
+    assert set(close.columns) == {'AAPL', 'TSLA'}
+    assert close.shape[1] == 2
+
+
+def test_load_stooq_matrix_tickers_lowercase_input(tmp_path):
+    """Input ticker case shouldn't matter — internal comparison is upper."""
+    _write_synthetic_stooq(tmp_path, tickers=['AAPL', 'MSFT'])
+    close, _, _, _ = load_stooq_matrix(
+        str(tmp_path), min_history=504, tickers=['aapl'])
+    assert list(close.columns) == ['AAPL']
+
+
+def test_load_stooq_matrix_tickers_no_match_raises(tmp_path):
+    """If the whitelist matches no archive files, raise loudly so the
+    caller doesn't silently get an empty panel and crash deeper in the
+    pipeline."""
+    _write_synthetic_stooq(tmp_path, tickers=['AAPL', 'MSFT'])
+    import pytest
+    with pytest.raises(RuntimeError, match='no ticker files matched whitelist'):
+        load_stooq_matrix(str(tmp_path), min_history=504,
+                          tickers=['NONEXISTENT'])
+
+
 def test_load_stooq_matrix_excludes_etfs_by_default(tmp_path):
     """Stooq layout separates `<exchange> stocks` from `<exchange> etfs`;
     the regime app targets equities, so the loader skips ETFs unless
