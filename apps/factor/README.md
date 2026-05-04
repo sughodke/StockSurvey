@@ -276,15 +276,16 @@ Artifacts (regenerate via the `walkforward` entrypoint in
 - `Output/ssl-walkforward-summary.json` — aggregate stats per scorer
   + the backbone metadata it used.
 
-### Why `cwt-only`, not the documented `full` recipe
+### Why `cwt-only`, not `leak-close`
 
-The `full` bundle in `apps/replay`
-(`--include-zscore-stats --include-returns`) was tuned for
-*reconstruction R²* on the SSL pretrain task. Including raw returns
-as an input channel lets the price head shortcut via
-`price_t = price_{t-1} * exp(return_t)` and the vol head shortcut via
-`vol = std(returns over window)` — two of the five reconstruction
-heads can essentially ignore CWT, and reconstruction R² goes way up.
+`apps/replay`'s `leak-close` bundle (formerly named `full`,
+`--include-zscore-stats --include-returns`) feeds raw returns into
+the encoder alongside the CWT slices. That lets the price head
+shortcut via `price_t = price_{t-1} * exp(return_t)` and the vol head
+shortcut via `vol = std(returns over window)` — two of the five
+reconstruction heads can essentially ignore CWT, and reconstruction
+R² goes way up. The bundle was kept as the documented "full" recipe
+because the reconstruction probe was the original SSL evaluation.
 
 For an SSL → factor pipeline that quality is poison: it means the
 encoder is mostly a passthrough for returns, and the latent the
@@ -294,13 +295,16 @@ closed form. `cwt-only` strips both shortcuts and forces the encoder
 to learn from wavelet features only.
 
 `Output/ssl-attention-comparison.png` makes this visible: AAPL FiLM
-input-attention saliency for the rsi head under the `full` bundle
-(top, smoke run) shows the entire long-period saliency mass landing
-on the single `return` channel; under `cwt-only` (bottom, full
-pretrain) the saliency spreads across CWT coeff and power scales,
-with high-frequency scales dominating short-period RSI(7,1) and
+input-attention saliency for the rsi head under `leak-close` (top,
+smoke run) shows the entire long-period saliency mass landing on the
+single `return` channel; under `cwt-only` (bottom, full pretrain) the
+saliency spreads across CWT coeff and power scales, with
+high-frequency scales dominating short-period RSI(7,1) and
 low-frequency scales dominating long-period RSI(17,10) — exactly
-what we want from a CWT encoder.
+what we want from a CWT encoder. The `leak-close` bundle is now
+explicitly named for what it is (a leak diagnostic), not what it was
+historically called (the "full" / winning reconstruction recipe), and
+should not be used as a downstream factor backbone.
 
 ## Caveats
 

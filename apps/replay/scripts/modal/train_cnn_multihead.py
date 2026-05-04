@@ -78,29 +78,28 @@ STOOQ_SUBSET_REL = 'apps/notebook/data/stooq_us_long'
 STOOQ_SUBSET = f'{REMOTE_REPO}/{STOOQ_SUBSET_REL}'
 
 # Input-bundle configurations. Maps a single named experimental cell to the
-# ss-replay flags + target subset + artifact prefix. The 4 cells span the
-# experimentally meaningful subset of the (zscore on/off) x (returns mode
+# ss-replay flags + target subset + artifact prefix. The 3 cells span the
+# experimentally meaningful subset of the (zscore on/off) × (returns mode
 # in {none, raw, sign}) cross-product:
 #
-#   full       — zscore + raw returns + CWT (winning documented recipe)
-#   full-sign  — zscore + sign returns + CWT (magnitude-shortcut diagnostic)
-#   cwt-only   — CWT only (purest "scalogram alone" test)
-#   cwt-sign   — sign returns + CWT (direction anchor, no price level)
+#   cwt-only   — CWT only (default; canonical SSL recipe — encoder must
+#                learn from wavelet features, no closed-form shortcut).
+#   cwt-sign   — sign returns + CWT (direction anchor, no price level).
+#   leak-close — zscore + raw returns + CWT (diagnostic only — *leaks*
+#                close-derived inputs into the encoder, lets the price
+#                head shortcut via cumulative-product of returns and the
+#                vol head shortcut via std(returns over window). Reaches
+#                much higher reconstruction R² but the encoder ends up as
+#                a passthrough for returns rather than a CWT-feature
+#                extractor; downstream factor IC drops below the
+#                deterministic-indicator baseline. Kept for diagnostic
+#                attention plots showing the leak in action — see
+#                `apps/factor/README.md` "Why cwt-only").
 #
 # `price` head is dropped for the no-zscore cells: without rolling mu/sd,
 # level info is gone from the input, so the price head would train to a
 # useless ~0-R² constant.
 BUNDLE_CONFIGS: dict[str, dict] = {
-    'full': {
-        'flags': ['--include-zscore-stats', '--include-returns'],
-        'targets': 'rsi,macd,price,vol,cci',
-        'prefix': '',
-    },
-    'full-sign': {
-        'flags': ['--include-zscore-stats', '--include-return-sign'],
-        'targets': 'rsi,macd,price,vol,cci',
-        'prefix': 'fullsign-',
-    },
     'cwt-only': {
         'flags': [],
         'targets': 'rsi,macd,vol,cci',
@@ -110,6 +109,11 @@ BUNDLE_CONFIGS: dict[str, dict] = {
         'flags': ['--include-return-sign'],
         'targets': 'rsi,macd,vol,cci',
         'prefix': 'cwtsign-',
+    },
+    'leak-close': {
+        'flags': ['--include-zscore-stats', '--include-returns'],
+        'targets': 'rsi,macd,price,vol,cci',
+        'prefix': 'leakclose-',
     },
 }
 
@@ -203,7 +207,7 @@ def train_and_eval(
     end: str,
     min_history_bars: int,
     max_train_tickers: int,
-    bundle: str = 'full',
+    bundle: str = 'cwt-only',
 ) -> dict[str, bytes]:
     """Run multi-head CNN training, then zero-shot eval + attention.
 
@@ -335,7 +339,7 @@ def main(
     train_extra: str = '',
     start: str = '2000-01-03',
     end: str = '2026-04-01',
-    bundle: str = 'full',
+    bundle: str = 'cwt-only',
     min_history_bars: int = 6500,
     max_train_tickers: int = 0,
 ):
@@ -343,14 +347,17 @@ def main(
 
     `--bundle` selects the input channel mix and target set:
 
-      full       (default) zscore + raw-returns + CWT
-      full-sign            zscore + sign-returns + CWT
-      cwt-only             CWT only (purest scalogram-alone test)
-      cwt-sign             CWT + sign-returns (no price-level info)
+      cwt-only    (default) CWT only — canonical SSL recipe.
+      cwt-sign              CWT + sign-returns (no price-level info).
+      leak-close            zscore + raw-returns + CWT — *diagnostic
+                            only*, leaks close-derived inputs and lets
+                            the price/vol heads shortcut. Use for
+                            attention plots showing the leak; do not
+                            use as a downstream factor backbone.
 
-    Each non-`full` bundle's artifacts are written under a prefix
-    (`fullsign-`, `cwtonly-`, `cwtsign-`) so multiple bundles' results
-    coexist in Output/ without overwriting.
+    Artifacts go under a per-bundle prefix (`cwtonly-`, `cwtsign-`,
+    `leakclose-`) so multiple bundles' results coexist in Output/
+    without overwriting.
 
     `--train-extra` is empty by default → the train pool is built from
     `apps/notebook/data/stooq_us_long/manifest.json`, dropping tickers
