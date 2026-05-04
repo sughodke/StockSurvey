@@ -1,3 +1,19 @@
+## Trade types
+
+Statistical Arbitrage (StatArb): The broader category of quantitative strategies to which pair trading belongs
+Relative Value Trade: Focuses on the price difference (spread) between two related instruments rather than their absolute direction
+Convergence Trading: A strategy betting that the prices of two divergent assets will converge back to their historical relationship
+Mean Reversion Trading: Specifically refers to trading on the expectation that the spread between the pairs will return to its historical mean
+Spread Trading: Used when trading the difference between two related instruments, such as a long and short position, often in futures
+Market-Neutral Strategy: Highlights the goal of eliminating overall market risk
+
+### Related Concepts
+
+Long-Short Equity: A general strategy of buying undervalued stocks and selling overvalued ones
+Cointegration Trading: A specialized, technical approach to identifying pairs that maintain a long-term stable relationship
+Hedged Strategy: A form of hedging intended to minimize risk, often called an alpha extension
+
+
 ## Uses of CWT bundle
  Relational (cross-sectional)
 
