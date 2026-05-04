@@ -110,11 +110,24 @@ Hedging out market beta removes the largest alpha source.
 Rank-spread is even worse: bot-N has no negative alpha (it's just
 other up-trending names), so the short bleeds money in bull markets.
 
-V2 of this diagnostic adds idea-B long-short and an idea-A natural
-cluster-aware pair (`cluster_pair_weights` in `pairs.py`); see
-final-state run output if integrated. The expectation per the
-structural finding above is that intra-cluster hedging preserves
-more alpha than universe-wide hedging.
+V2 of this diagnostic added idea-B long-short and an idea-A natural
+cluster-aware pair (`cluster_pair_weights` in `pairs.py`), specifically
+to test two follow-up hypotheses:
+
+1. *A forecast-driven scorer (idea B) should preserve more alpha in
+   long-short* — directionally correct but tiny: `analog|rank-spread`
+   Sharpe **+0.03** vs `farthest|rank-spread` **-0.04**. Both still
+   bleed slightly negative.
+2. *Intra-cluster hedging (idea A) should preserve more alpha than
+   universe hedging* — **falsified**: `empirical|cluster-pair` Sharpe
+   **-0.07** vs `empirical|mkt-neutral` **+0.16**. With k=11 clusters
+   on 21 names, average cluster size ≈ 2 reduces "long winner / short
+   the rest" to noisy 1-vs-1 spreads, comparable DD (-22% vs -19%) but
+   worse Sharpe.
+
+Bonus finding: `analog|long-only` is real long-only alpha at Sharpe
+**1.07**, comparable to baseline. Worth keeping in the shippable set
+alongside empirical and farthest.
 
 ## Verdict on the original hypothesis
 
@@ -127,10 +140,11 @@ the same CWT bundle we have access to.
 
 ## What's shippable
 
-- **Long-only equity, equal-weight, top-10 by empirical (idea A) or
-  farthest (idea C)** on Phase-2: Sharpe 1.13, CAGR 21–22%, max DD
-  ~32–38%, Calmar 0.59–0.65 over 13 years (2013-2025, 10 bps
-  commission, 20-day rebal).
+- **Long-only equity, equal-weight, top-10 by empirical (idea A),
+  farthest (idea C), or analog (idea B)** on Phase-2: Sharpe
+  1.07-1.13, CAGR 21-22%, max DD ~32-38%, Calmar 0.56-0.65 over 13
+  years (2013-2025, 10 bps commission, 20-day rebal). Baseline is
+  also competitive (Sharpe 1.07).
 - **Universe-wide short-vol overlay** as a separate book if vol options
   are in scope: Sharpe ~0.5, BUT max DD -83% cumulative — needs a real
   risk overlay (vol-spike suspension, drawdown stop) before any
