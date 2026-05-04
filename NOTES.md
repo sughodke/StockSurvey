@@ -1,3 +1,22 @@
+## Strategy Weights
+
+interesting observation, we can represent the trading strategy as a dot product.
+
+cwt [ F, K, C ]
+x
+strat weight [xxx]
+=
+rebal vector [ ..., n_universe ]
+
+in this lens we actually have two possible loss functions
+
+1) Sharpe on the rebal positions
+- Rank IC for differentiable and more learnable signals
+
+2) Best Rebal vector calculation
+- Cross-entropy(?) loss between proposed rebal vector to best rebal?
+
+
 ## No-backbone IC baseline — encoder vs raw at matched setup (2026-04-30)
 
 Built `identity_backbone(K, F)` in `scoring/backbone.py` — a synthetic
