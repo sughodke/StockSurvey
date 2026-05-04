@@ -129,6 +129,74 @@ Bonus finding: `analog|long-only` is real long-only alpha at Sharpe
 **1.07**, comparable to baseline. Worth keeping in the shippable set
 alongside empirical and farthest.
 
+## Phase 8 — wider universe (`stooq_us_long`, 312 tickers, 2000-2026)
+
+Re-ran the pair-trade matrix on the curated 312-ticker subset to test
+the structural prediction that diversified factor exposure should let
+intra-cluster (cluster-pair) and rank-spread variants extract real
+cross-sectional alpha. **Falsified.**
+
+| strategy | Sharpe | CAGR | max DD |
+|---|---|---|---|
+| baseline \| long-only | 0.54 | 9.6% | -61% |
+| empirical \| long-only | 0.42 | 6.9% | -59% |
+| farthest \| long-only | 0.36 | 5.7% | -73% |
+| baseline \| mkt-neutral | -0.29 | -2.8% | -66% |
+| empirical \| mkt-neutral | -0.58 | -5.2% | -81% |
+| empirical \| cluster-pair | -0.62 | -7.0% | -87% |
+
+Two new findings:
+1. **Phase-2's Sharpe-1.13 long-only result was mega-cap-specific
+   alpha.** Same scorers drop to 0.4-0.5 on the diversified 312-ticker
+   universe. The "shippable" claim earlier in this doc is universe-
+   conditional and should be qualified accordingly.
+2. **Pair-trade variants are even worse on the wider universe** than
+   they were on Phase-2. Diversification didn't rescue the
+   cross-sectional construction; it amplified the negative result.
+
+## Phase 9 — transition-triggered rebal (the one that worked)
+
+Replaced fixed 20-day rebal cadence with **rebal triggers on cluster-
+membership transitions**. A stock moving from one Hungarian-stabilized
+empirical cluster to another (with 5-day persistence to filter
+boundary jitter) fires a rebal. Idea-A scorer, 312-ticker universe.
+
+| variant | Sharpe | CAGR | max DD | n_rebals |
+|---|---|---|---|---|
+| **transition-only** | **0.63** | 11.8% | -54% | **25** |
+| scheduled-20d | 0.42 | 6.9% | -59% | 325 |
+| transition-or-20d | 0.41 | 6.6% | -58% | 345 |
+
+**Triggering on the 25 actual cluster-transition events over 26 years
+beats the 325-trade scheduled cadence by +0.21 Sharpe.** Catching
+transitions early is meaningful; the scheduled-20d cadence dilutes the
+alpha by trading on dates that aren't synchronized with the
+fingerprint-space regime changes the scorer is actually detecting.
+
+This is the first scoreboard-class result of this arc that came from
+a *rebal-timing* change rather than a scorer or sizing change.
+Worth elevating in the shippable set.
+
+## Phase 10 — GMM soft-cluster replacement
+
+Replaced k-means with `sklearn.mixture.GaussianMixture(diag)` to test
+whether boundary-jitter was hurting cluster-pair (the v2 cluster-pair
+result was -0.07 Sharpe on Phase-2). 312-ticker universe.
+
+| strategy | Sharpe | CAGR | max DD |
+|---|---|---|---|
+| empirical \| gmm | 0.45 | 7.5% | -62% |
+| empirical \| kmeans | 0.42 | 6.9% | -59% |
+| empirical \| gmm \| cluster-pair | -0.40 | -4.6% | -77% |
+| empirical \| kmeans \| cluster-pair | -0.62 | -7.0% | -87% |
+
+GMM lifts long-only Sharpe by +0.03 (real but small) and recovers
+cluster-pair from -0.62 to -0.40 (+0.22) — but cluster-pair stays
+negative regardless. Hard-vs-soft cluster-aggregate correlation
+mean=0.58: meaningfully different but not transformative. Conclusion:
+jitter was a real second-order issue, but cluster-pair structure
+fundamentally isn't where the alpha lives; softening doesn't rescue it.
+
 ## Verdict on the original hypothesis
 
 **Refuted on this universe.** The CWT scorers produce real long-only
@@ -140,25 +208,41 @@ the same CWT bundle we have access to.
 
 ## What's shippable
 
-- **Long-only equity, equal-weight, top-10 by empirical (idea A),
-  farthest (idea C), or analog (idea B)** on Phase-2: Sharpe
-  1.07-1.13, CAGR 21-22%, max DD ~32-38%, Calmar 0.56-0.65 over 13
-  years (2013-2025, 10 bps commission, 20-day rebal). Baseline is
-  also competitive (Sharpe 1.07).
-- **Universe-wide short-vol overlay** as a separate book if vol options
-  are in scope: Sharpe ~0.5, BUT max DD -83% cumulative — needs a real
-  risk overlay (vol-spike suspension, drawdown stop) before any
-  capital is allocated.
+- **Long-only equity on Phase-2 only**, equal-weight, top-10 by
+  empirical (A), farthest (C), or analog (B): Sharpe 1.07-1.13, CAGR
+  21-22%, max DD 32-38%, Calmar 0.56-0.65 over 13 years (2013-2025,
+  10 bps, 20-day rebal). Phase-9 showed this is mega-cap-specific —
+  same scorers degrade to Sharpe ~0.4 on the 312-ticker universe.
+- **Transition-triggered rebal of idea A on the wider 312-ticker
+  universe**: Sharpe 0.63, CAGR 11.8%, max DD -54%, only **25 rebals
+  over 26 years**. The right strategy on the wider universe isn't a
+  pair trade — it's signal-triggered timing of the existing scorer.
+- **Universe-wide short-vol overlay** if vol options are in scope:
+  Sharpe ~0.5, BUT max DD -83% cumulative — needs a vol-spike
+  suspension / drawdown stop overlay before deployment.
 
-## What won't work without more data
+## What won't work — confirmed by Phase 8
 
-- Anything market-neutral, pair-trade, or stat-arb on Phase-2's 21
-  mega-caps. Universe is too small and too correlated. Wider universe
-  (DoltHub's 2,276 tickers) is the unlock that wasn't tested in this
-  arc.
-- Any options strategy beyond "sell vol on the universe with risk
-  overlay" — needs an informational edge against the IV market that
-  the CWT bundle doesn't seem to provide on these names.
+- **Pair-trade / market-neutral / rank-spread / cluster-pair on either
+  Phase-2 or stooq_us_long.** Phase-9's confirmation: the wider
+  universe didn't rescue any cross-sectional construction; some got
+  worse. The dislocation alpha is fundamentally long-side directional.
+- **Cluster-pair specifically.** Phase-10 showed that GMM softening
+  (which fixes the boundary-jitter root cause) recovers Sharpe from
+  -0.62 to -0.40 — meaningful improvement on the construction's
+  weakest link, but the construction is still negative.
+- **Options strategies beyond "sell vol on the universe with risk
+  overlay"** — the IV market efficiently incorporates whatever
+  dislocation information is in our CWT bundle.
+
+## Code-only / unrun
+
+- `regime_velocity.py` + `diagnostic_velocity.py` — vector-arithmetic
+  scorer (||v|| in fingerprint space, plus SVD-projected variant).
+  Code committed, diagnostic not yet executed.
+- `nn_pairs.py` + `diagnostic_nn_pairs.py` — per-pick nearest-neighbor
+  hedge construction (the cleanest test of the word2vec analog).
+  Code committed, diagnostic not yet executed.
 
 ## Reproducing
 
@@ -193,6 +277,15 @@ uv run python -m relational.research.diagnostic_dislocation_vs_vol \
 # Short-vol P&L leaderboard — Phase 5
 uv run python -m relational.research.diagnostic_short_vol_pnl \
     --data-dir ./StooqData --iv-source dolthub
+
+# Wide-universe pair-trade — Phase 8
+uv run python -m relational.research.diagnostic_pair_trades_wide
+
+# Transition-triggered rebal — Phase 9 (the unlock)
+uv run python -m relational.research.diagnostic_transition_triggered
+
+# GMM vs k-means — Phase 10
+uv run python -m relational.research.diagnostic_gmm_vs_kmeans
 
 # Sizing overlays on long equity — Phase 6
 uv run python -m relational.research.diagnostic_sizing_overlays \
