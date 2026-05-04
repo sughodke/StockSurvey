@@ -149,10 +149,19 @@ def _build_cluster_aggregate_prices(
     """Per-(date, ticker) cluster-aggregate price matrix.
 
     For each (t, i): mean of `prices[t, j]` over all tickers `j` whose
-    cluster id equals `cluster_ids[t, i]`. Tickers with cluster id -1
-    fall back to their own price (so the excess score collapses to 0
-    for that cell — same as the degenerate single-constituent GICS
-    case).
+    cluster id equals `cluster_ids[t, i]` **and `prices[t, j]` is finite**.
+    Tickers with cluster id -1 fall back to their own price (so the
+    excess score collapses to 0 for that cell — same as the degenerate
+    single-constituent GICS case). If every member of a cluster is NaN
+    on a given date, the aggregate falls back to the ticker's own price
+    (same null-pattern as the -1 / single-member fallback above).
+
+    The NaN-safe aggregation is critical on wider universes
+    (`stooq_us_long`, ~312 tickers) where many names have leading NaN
+    pre-IPO or trailing NaN post-delist; a single NaN in a cluster
+    used to propagate via matrix-multiply and destroy the entire
+    cluster's aggregate. The 21-mega-cap Phase-2 panel had no NaN so
+    this surfaced only on wider runs.
 
     Parameters
     ----------
@@ -167,31 +176,55 @@ def _build_cluster_aggregate_prices(
     agg = np.empty_like(prices, dtype=np.float64)
 
     # Vectorize over dates by detecting refit segments — within a
-    # segment, cluster_ids[t] is constant in t, so the aggregation is
-    # the same matrix multiply repeated across the segment's rows.
-    # We detect segment boundaries by comparing successive rows of
-    # cluster_ids.
+    # segment, cluster_ids[t] is constant in t. Inside a segment the
+    # *cluster membership* is fixed, but per-row NaN masking has to be
+    # row-wise (a member finite on day 1000 may be NaN on day 1500), so
+    # the aggregation can't reduce to a single matrix multiply when
+    # NaNs are possible. We still detect segments to amortize the
+    # `np.unique(ids)` call across all rows of the segment.
     seg_start = 0
     for t in range(1, n_dates + 1):
         if t == n_dates or not np.array_equal(
                 cluster_ids[t], cluster_ids[seg_start]):
             ids = cluster_ids[seg_start]              # (n_tickers,)
             seg_prices = prices[seg_start:t]          # (seg_len, n_tickers)
+            seg_finite = np.isfinite(seg_prices)
+            seg_agg = np.empty_like(seg_prices, dtype=np.float64)
 
-            # Build per-ticker aggregate via a (n_tickers, n_tickers)
-            # membership matrix M where M[i, j] = 1 / count(cluster of i)
-            # if cluster_ids[i] == cluster_ids[j] and >= 0, else 0.
-            # Fallback: if cluster_ids[i] < 0, M[i, i] = 1 (own price).
-            M = np.zeros((n_tickers, n_tickers), dtype=np.float64)
+            # Per-cluster: rowwise mean over finite members.
             for c in np.unique(ids):
                 if c < 0:
                     continue
                 members = np.where(ids == c)[0]
-                M[np.ix_(members, members)] = 1.0 / members.size
-            for i in np.where(ids < 0)[0]:
-                M[i, i] = 1.0
+                # (seg_len, m) slices restricted to this cluster's members.
+                vals = seg_prices[:, members]
+                mask = seg_finite[:, members]
+                # Row-wise: sum-of-finite-values / count-of-finite.
+                # `np.where(mask, vals, 0.0).sum(axis=1)` is the safe sum
+                # because NaN is replaced with 0 before the reduction.
+                num = np.where(mask, vals, 0.0).sum(axis=1)
+                den = mask.sum(axis=1).astype(np.float64)
+                den_safe = np.where(den > 0, den, 1.0)
+                cluster_mean = num / den_safe
+                # All-NaN cluster on a row → fall back to per-ticker
+                # own price for those (mask=0 sentinel below).
+                # We broadcast the cluster mean to all members on that row.
+                seg_agg[:, members] = cluster_mean[:, None]
+                # Where the cluster has zero finite members on a row,
+                # restore each member's own (NaN) price so the score
+                # collapses to 0 for that cell rather than being
+                # contaminated by a 0-fill.
+                no_finite = den == 0  # (seg_len,)
+                if no_finite.any():
+                    rows = np.where(no_finite)[0]
+                    for r in rows:
+                        seg_agg[r, members] = vals[r]
 
-            agg[seg_start:t] = seg_prices @ M.T
+            # Fallback for cluster_id < 0: own price.
+            for i in np.where(ids < 0)[0]:
+                seg_agg[:, i] = seg_prices[:, i]
+
+            agg[seg_start:t] = seg_agg
             seg_start = t
 
     return agg.astype(prices.dtype, copy=False)
