@@ -26,6 +26,7 @@
           packages = [
             pythonWithNumba
             pkgs.uv
+            pkgs.dolt
           ];
 
           # uv should use the nix Python (which already has numba) instead
@@ -38,6 +39,7 @@
             echo "StockSurvey dev shell"
             echo "  python : $(python3.13 --version)"
             echo "  uv     : $(uv --version)"
+            echo "  dolt   : $(dolt version 2>/dev/null | head -1 || echo not yet importable)"
             echo "  numba  : $(python3.13 -c 'import numba; print(numba.__version__)' 2>/dev/null || echo not yet importable)"
             echo ""
             echo "First-time setup:"
