@@ -219,6 +219,89 @@ config, ideally without the linear→MLP overfitting gap. If it can't,
 the encoder isn't learning anything that the trailing-window indicator
 grid doesn't already encode in closed form.
 
+## SSL backbone results (apples-to-apples, 2026-05-03)
+
+Backbone:
+`Output/cwtonly-AAPL+294tickers-h631e9d47-rsi+macd+vol+cci-cnn-nogit.npz`,
+produced by `apps/replay/scripts/modal/train_cnn_multihead.py
+--bundle cwt-only --steps 1000` on the same 297-ticker universe used
+by the deterministic baseline above (1000 steps, FiLM heads on
+rsi/cci/vol/macd, no zscore-stats, no returns input — see "Why
+cwt-only" below). Resulting encoder: K=96 lags × F=30 channels →
+2 conv layers (kernel=5, hidden=64) → flat representation **5632 dims
+per (date, ticker)**.
+
+Walk-forward evaluated via `train_scorer_walkforward` on the same
+6-window protocol (train=63 / val=39 / step=39 blocks, AdamW
+`n_steps=200 lr=1e-2 wd=1e-3`, scorers `linear` + `mlp`).
+
+| path | scorer | mean val IC | median val IC | pos-val-IC frac | mean train IC |
+|---|---|---|---|---|---|
+| **deterministic** | linear | **+0.0120** | +0.0168 | **5/6** | ~+0.10 |
+| deterministic    | mlp    | +0.0081     | +0.0075 | 4/6     | ~+0.36 |
+| SSL backbone     | linear | -0.0047     | -0.0109 | 2/6     | ~+0.55 |
+| SSL backbone     | mlp    | +0.0076     | +0.0099 | 4/6     | **~+0.91** |
+
+**Verdict: the SSL backbone does not earn its keep at this
+configuration.** Both SSL paths underperform `deterministic + linear`
+on every aggregate (mean / median val IC, positive-val-IC fraction).
+The diagnostic is sharp: train IC scales monotonically with head
+capacity (`0.10 → 0.36 → 0.55 → 0.91` as we go det-lin → det-mlp →
+SSL-lin → SSL-mlp) while val IC stays pinned near zero. Classic
+under-constrained-head overfitting — 5632 input dims × ~9400 train
+decisions/window = the head can memorize train without finding any
+generalizable structure.
+
+This is **not a death sentence for the SSL path**, but it does
+identify the next experiments to try, in increasing order of cost:
+
+1. **Crank weight_decay** (1e-3 → 1e-1 or 1e0). Pure CLI flip on the
+   same harness. Expect the highest-impact change because the
+   train→val gap is so wide.
+2. **PCA the 5632-dim representation to ~100 dims** before the head.
+   Forces the head to use only the high-variance directions of the
+   encoder. Code change in `factor.train`.
+3. **Stage 2 fine-tune** (unfreeze backbone, train head + backbone
+   jointly per window). `train_scorer_walkforward` deliberately
+   doesn't expose this — extension required. Highest potential
+   impact if the issue is that the SSL reconstruction objective
+   doesn't align with cross-sectional IC.
+
+Artifacts (regenerate via the `walkforward` entrypoint in
+`apps/factor/scripts/modal/train_ssl_walkforward.py`):
+- `Output/ssl-walkforward-comparison.png` — per-window train vs val IC
+  bars, one panel per scorer.
+- `Output/ssl-walkforward-{linear,mlp}-s200-wd0.001-windows.npz`
+  — per-window head params + IC + Sharpe + block bounds.
+- `Output/ssl-walkforward-summary.json` — aggregate stats per scorer
+  + the backbone metadata it used.
+
+### Why `cwt-only`, not the documented `full` recipe
+
+The `full` bundle in `apps/replay`
+(`--include-zscore-stats --include-returns`) was tuned for
+*reconstruction R²* on the SSL pretrain task. Including raw returns
+as an input channel lets the price head shortcut via
+`price_t = price_{t-1} * exp(return_t)` and the vol head shortcut via
+`vol = std(returns over window)` — two of the five reconstruction
+heads can essentially ignore CWT, and reconstruction R² goes way up.
+
+For an SSL → factor pipeline that quality is poison: it means the
+encoder is mostly a passthrough for returns, and the latent the
+factor head sees is "returns with a thin CWT layer," which contains
+nothing the deterministic indicator stack didn't already encode in
+closed form. `cwt-only` strips both shortcuts and forces the encoder
+to learn from wavelet features only.
+
+`Output/ssl-attention-comparison.png` makes this visible: AAPL FiLM
+input-attention saliency for the rsi head under the `full` bundle
+(top, smoke run) shows the entire long-period saliency mass landing
+on the single `return` channel; under `cwt-only` (bottom, full
+pretrain) the saliency spreads across CWT coeff and power scales,
+with high-frequency scales dominating short-period RSI(7,1) and
+low-frequency scales dominating long-period RSI(17,10) — exactly
+what we want from a CWT encoder.
+
 ## Caveats
 
 - **Default indicator grid needs ~820 bars of history.** The largest
