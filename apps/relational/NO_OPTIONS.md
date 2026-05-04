@@ -197,14 +197,104 @@ mean=0.58: meaningfully different but not transformative. Conclusion:
 jitter was a real second-order issue, but cluster-pair structure
 fundamentally isn't where the alpha lives; softening doesn't rescue it.
 
+## Phase 11 — regime velocity (motion in fingerprint space)
+
+The cluster-transition result (Phase 9) suggested fingerprint-space
+*motion* matters more than snapshot position. Tested two continuous
+versions of that idea (`regime_velocity.py`):
+- **velocity-magnitude**: `||fp[t, i] - fp[t-W, i]||` — undirected
+  motion ("how aggressively is this stock moving through fingerprint
+  space?")
+- **axis-alignment**: `max_k |v · axis_k|` over top-K SVD axes from a
+  training window — directed motion along stable behavioral axes
+
+312-ticker universe, same defaults, W=20:
+
+| strategy | Sharpe | CAGR | max DD | Calmar |
+|---|---|---|---|---|
+| **velocity-magnitude** | **0.60** | 10.9% | -60% | 0.18 |
+| baseline | 0.54 | 9.6% | -61% | 0.16 |
+| axis-alignment | 0.52 | 9.0% | -64% | 0.14 |
+| farthest (snapshot) | 0.36 | 5.7% | -73% | 0.08 |
+
+**Velocity-magnitude beats baseline by +0.06 and farthest by +0.24.**
+Two structural findings: (1) motion > position — the trajectory
+through fingerprint space carries more signal than where the stock
+currently sits; (2) magnitude > direction — undirected ||v|| beat
+the SVD-axis-projection variant. The signal is in *how much* the
+fingerprint is moving, not which interpretable axis it's moving along.
+
+This is the second independent confirmation (after Phase 9) that
+fingerprint-space motion is a real signal beyond snapshot dislocation.
+Velocity is the continuous + scheduled version; transition-triggered
+is the discrete + signal-triggered version. Both work.
+
+## Phase 12 — nearest-neighbor pair (the word2vec hedge falsified)
+
+Per-pick hedge construction: at each rebalance, for each top-N long,
+find its closest behavioral peer NOT in the top-N and short that
+specific name. The cleanest version of "trade the behavioral spread"
+from the word2vec-analog framing.
+
+312-ticker universe:
+
+| strategy | Sharpe | CAGR | max DD |
+|---|---|---|---|
+| empirical \| long-only | 0.42 | 6.9% | -59% |
+| farthest \| long-only | 0.36 | 5.7% | -73% |
+| farthest \| nn-pair | -0.20 | -4.3% | -75% |
+| farthest \| mkt-neutral | -0.41 | -6.5% | -83% |
+| empirical \| mkt-neutral | -0.57 | -5.0% | -80% |
+| **empirical \| nn-pair** | **-1.12** | **-14.5%** | **-99%** |
+
+Sanity checks confirmed the construction was correct (0 distinctness
+violations, 0 collapses, healthy distance distributions). The
+*premise* failed.
+
+**Why empirical|nn-pair was catastrophic.** Empirical's score is
+already excess-divergence vs cluster aggregate — its top-N picks are
+stocks with the most idiosyncratic move *relative to their cluster
+peers*. The "nearest behavioral peer" is by construction another
+stock from the same cluster — a name that is *correlated*, not
+anti-correlated, with the long. Shorting it doesn't hedge; it doubles
+the bet (and pays commissions both ways). -99% drawdown follows.
+
+**Why farthest|nn-pair was less bad.** Farthest picks names far from
+the universe centroid; the "nearest non-top peer" is the next-most-
+distant ticker, whose idiosyncratic moves are less correlated. Some
+hedging happens — just not enough to clear costs.
+
+**The word2vec analogy works for *similarity selection* (find behaviorally
+similar names → expect similar behavior) but not for *anti-hedging*
+(the nearest behavioral peer is the worst possible short for a name
+that's outperforming because of behavioral cohort effects).** Document
+as a falsified hypothesis with a clear mechanism, not a noisy null.
+
+## Combined synthesis — three word2vec-analog tests
+
+| construction | physical meaning | Sharpe lift vs baseline | verdict |
+|---|---|---|---|
+| Phase 11 — velocity magnitude | continuous motion | **+0.06** | works |
+| Phase 9 — cluster transitions | discrete motion (rebal trigger) | **+0.21** | works clearly |
+| Phase 12 — NN-pair | nearest-peer hedge | **-1.5 to -1.6** | fails badly |
+
+Pattern: the fingerprint embedding has real predictive content for
+**positional dynamics** (where a stock is moving and when it crosses
+regime boundaries), but **negative content for hedge selection** (the
+nearest peer is the most dangerous short, not the safest). Use the
+embedding for selection and timing; do not use it for hedging.
+
 ## Verdict on the original hypothesis
 
-**Refuted on this universe.** The CWT scorers produce real long-only
-equity alpha (empirical / farthest at Sharpe 1.13) but not enough
-*cross-sectional* alpha to support market-neutral, pair-trade, or
-vol-arbitrage strategies that survive transaction costs. The IV market
-appears to efficiently incorporate dislocation-style information from
-the same CWT bundle we have access to.
+**Refuted on this universe** for cross-sectional / pair-trade / options
+constructions; **confirmed and elevated** for signal-triggered timing
+of the existing long-only scorer. The CWT scorers produce real long-
+only equity alpha and the fingerprint space carries genuinely useful
+motion / regime-change information. What it doesn't have is enough
+cross-sectional alpha to make pair trades, market-neutral hedges, or
+options strategies clear transaction costs. The IV market and the
+cross-sectional equity market both efficiently incorporate the
+dislocation information from the same CWT-style features.
 
 ## What's shippable
 
@@ -217,6 +307,12 @@ the same CWT bundle we have access to.
   universe**: Sharpe 0.63, CAGR 11.8%, max DD -54%, only **25 rebals
   over 26 years**. The right strategy on the wider universe isn't a
   pair trade — it's signal-triggered timing of the existing scorer.
+- **Velocity-magnitude scorer on the wider 312-ticker universe**:
+  Sharpe 0.60, CAGR 10.9%, max DD -60%, scheduled-20d. The continuous
+  analog of the transition-triggered finding — same physics
+  (fingerprint-space motion), different mechanic (magnitude as
+  ranking score rather than transition as rebal trigger). Independent
+  confirmation that motion is the signal.
 - **Universe-wide short-vol overlay** if vol options are in scope:
   Sharpe ~0.5, BUT max DD -83% cumulative — needs a vol-spike
   suspension / drawdown stop overlay before deployment.
@@ -235,14 +331,10 @@ the same CWT bundle we have access to.
   overlay"** — the IV market efficiently incorporates whatever
   dislocation information is in our CWT bundle.
 
-## Code-only / unrun
+## All diagnostics complete
 
-- `regime_velocity.py` + `diagnostic_velocity.py` — vector-arithmetic
-  scorer (||v|| in fingerprint space, plus SVD-projected variant).
-  Code committed, diagnostic not yet executed.
-- `nn_pairs.py` + `diagnostic_nn_pairs.py` — per-pick nearest-neighbor
-  hedge construction (the cleanest test of the word2vec analog).
-  Code committed, diagnostic not yet executed.
+(Earlier draft of this doc had `regime_velocity` and `nn_pairs` as
+"code-only / unrun" — Phases 11 and 12 above are their results.)
 
 ## Reproducing
 
@@ -286,6 +378,12 @@ uv run python -m relational.research.diagnostic_transition_triggered
 
 # GMM vs k-means — Phase 10
 uv run python -m relational.research.diagnostic_gmm_vs_kmeans
+
+# Regime velocity — Phase 11
+uv run python -m relational.research.diagnostic_velocity
+
+# NN-pair — Phase 12
+uv run python -m relational.research.diagnostic_nn_pairs
 
 # Sizing overlays on long equity — Phase 6
 uv run python -m relational.research.diagnostic_sizing_overlays \
