@@ -36,6 +36,7 @@ from factor.backbone import (
 )
 from factor.data import (
     AlignedTickers, align_tickers, forward_log_returns,
+    forward_sign_demeaned,
 )
 from factor.objectives import block_sharpe, pearson_rank_ic
 from factor.scorers import get_scorer
@@ -94,6 +95,7 @@ def precompute_inputs(
     tickers: list[TickerData], backbone: Backbone, *,
     rebal_days: int, max_spread: float | None = None,
     spread: np.ndarray | None = None,
+    forward_target_kind: str = 'log_return',
 ) -> dict[str, np.ndarray]:
     """Run the frozen backbone over every (date, ticker) and prep tensors.
 
@@ -107,6 +109,14 @@ def precompute_inputs(
     `spread`, if given, must be aligned to the same dates / tickers as
     the ticker list (caller's responsibility — we do not compute it
     here). Cells with `spread > max_spread` are masked out.
+
+    `forward_target_kind` controls what gets stored in `fwd_ret_rb`:
+      * `'log_return'` (default): summed forward log returns over the
+        rebal horizon. The historical IC training target.
+      * `'sign_demeaned'`: ±1/0 sign of the cross-sectionally demeaned
+        forward log return at each rebal bar. Discards magnitude, keeps
+        direction-vs-peers. `block_log_ret_rb` is independent of this
+        choice — Sharpe eval always sees actual realized returns.
     """
     aligned = align_tickers(tickers, K=backbone.K, F=backbone.F)
     D, N, K, F = aligned.features.shape
@@ -140,6 +150,19 @@ def precompute_inputs(
             raise ValueError('spread provided but max_spread is None')
         base_mask &= spread <= max_spread
 
+    if forward_target_kind == 'log_return':
+        target = fwd_ret
+    elif forward_target_kind == 'sign_demeaned':
+        # Demean against only the liquid peer set at each bar — must
+        # match what the IC eval will see, otherwise the target would
+        # be centered on a different cross-section than the loss reads.
+        target = forward_sign_demeaned(
+            aligned.prices, rebal_days=rebal_days, valid=base_mask)
+    else:
+        raise ValueError(
+            f'forward_target_kind={forward_target_kind!r} not in '
+            "{'log_return', 'sign_demeaned'}")
+
     rebal_idx = np.arange(0, D, rebal_days)
     rebal_idx = rebal_idx[rebal_idx + rebal_days < D]
     n_blocks = len(rebal_idx)
@@ -153,7 +176,7 @@ def precompute_inputs(
         block_log_ret[b] = daily_log_ret[i + 1: i + rebal_days + 1].sum(axis=0)
 
     repr_rb = np.nan_to_num(repr_full[rebal_idx], nan=0.0).astype(np.float32)
-    fwd_rb = np.nan_to_num(fwd_ret[rebal_idx], nan=0.0).astype(np.float32)
+    fwd_rb = np.nan_to_num(target[rebal_idx], nan=0.0).astype(np.float32)
     blr_rb = np.nan_to_num(block_log_ret, nan=0.0).astype(np.float32)
     return {
         'aligned': aligned,

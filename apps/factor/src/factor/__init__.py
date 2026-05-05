@@ -50,6 +50,7 @@ from factor.backbone import (
 )
 from factor.data import (
     AlignedTickers, align_tickers, forward_log_returns,
+    forward_sign_demeaned,
 )
 from factor.indicator_features import (
     IndicatorGridConfig, build_indicator_features, load_ticker_indicators,
@@ -85,6 +86,7 @@ __all__ = [
     'build_indicator_features',
     'compute_input_stats',
     'forward_log_returns',
+    'forward_sign_demeaned',
     'get_scorer',
     'identity_backbone',
     'init_linear',

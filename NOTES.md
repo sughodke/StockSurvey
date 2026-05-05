@@ -324,3 +324,67 @@ Want me to sketch the masked AE decoder + the `--freeze-backbone` flag as a conc
 
 include CWT of volume
 each day has a vector, it is 2d because (n_samples, n_days)
+
+## Forecast-target probe — sign-of-demeaned ties/loses to raw-return target (2026-05-04)
+
+Tested whether replacing the rank-IC training target with a sign-reduced
+forecast target lifts val IC over the documented +0.0120 baseline on the
+297-ticker stooq_us_long walk-forward universe (`min_history_bars=6500`,
+rebal=20d, train=63 / val=39 / step=39 blocks, AdamW lr=1e-2 wd=1e-3,
+n_steps=200, linear head). Pearson IC already subtracts per-bar
+cross-sectional means inside the correlation, so the demean prescription
+from 2026-04-30 is **already structurally present** in the loss — the
+new variable is the target *reduction*.
+
+**Setup:**
+- Control: `forward_target_kind='log_return'` (existing pipeline).
+- Probe:   `forward_target_kind='sign_demeaned'` — `sign(fwd_log_ret −
+  cross_sectional_mean(fwd_log_ret))` per bar against the same liquid
+  peer set the IC eval mask uses. ±1/0 target.
+- Loss stays Pearson IC; Sharpe eval stays on actual block returns.
+- Driver: `apps/factor/scripts/forecast_probe_walkforward.py`.
+
+**Results:**
+
+| Metric | Control (log_return) | Probe (sign_demeaned) | Δ |
+|---|---:|---:|---:|
+| Mean val IC | **+0.0120** | +0.0088 | **−0.0032** (−27%) |
+| Median val IC | +0.0168 | +0.0166 | −0.0002 (tied) |
+| Mean val Sharpe | +0.440 | +0.379 | −0.060 |
+| Pos-val-IC fraction | 5/6 | 5/6 | tied |
+
+Per-window val IC (Δ vs control): w0 −0.009, w1 +0.016, w2 −0.002,
+w3 −0.008, w4 −0.014, w5 −0.002. 5/6 windows degrade; only w1
+improves. Loss windows lose more (worst −0.014) than the winning
+window wins (+0.016).
+
+**Read.** The control reproduces the +0.0120 documented baseline
+exactly, validating the wiring. The probe loses cleanly. Mechanism:
+Pearson IC on raw forward returns weighs each ticker's contribution by
+its squared deviation from the per-bar mean — so big movers (whose
+signs are most predictable due to fat-tailed return distributions)
+carry more weight than middle-of-the-pack noise. Reducing the target
+to ±1 flattens this, treating a +5% mover and a +0.5% mover equally
+and discarding the heteroskedasticity-driven asymmetry that was
+carrying the +0.012 IC. Median is preserved (the typical window's
+signal lives where magnitudes are similar); mean is hurt because the
+*strong* windows lost their tails.
+
+**Implication.** +0.0120 is not the floor of this feature/head combo —
+it's near the **ceiling**. Throwing away magnitude moves down, not up.
+Combined with the 2026-04-30 finding (encoder-vs-raw ties at noise
+floor), this strengthens the read that the deterministic indicator
+stack saturates the predictable signal in its own descriptive scope.
+Lifting past +0.0120 needs a genuinely orthogonal target (e.g. vol
+innovation — different prediction problem entirely, not a reduction
+of the return target) or a different feature class.
+
+Artifacts: `Output/forecast-probe-{control,probe}-windows.npz`,
+`Output/forecast-probe-summary.json`. Reproduce with `uv run python
+apps/factor/scripts/forecast_probe_walkforward.py` (~5 min wall on
+8-core CPU; feature build ~50 s, two arms ~130 s each).
+
+Don't re-cite "Pearson-on-residuals demean" in isolation as an
+unimplemented lever — Pearson IC already does it. The actionable form
+of that prescription is target *redefinition* (sign reduction here,
+falsified) plus orthogonal target choice (vol innovation, pending).

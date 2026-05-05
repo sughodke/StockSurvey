@@ -106,3 +106,40 @@ def forward_log_returns(
     if D > rebal_days:
         fwd[:D - rebal_days] = log_p[rebal_days:] - log_p[:D - rebal_days]
     return fwd
+
+
+def forward_sign_demeaned(
+    prices: np.ndarray, *, rebal_days: int,
+    valid: np.ndarray | None = None,
+) -> np.ndarray:
+    """`(D, N)` of `sign(fwd_log_ret − cross_sectional_mean(fwd_log_ret))`.
+
+    Per-bar cross-sectional mean is computed over the *valid* peer set
+    at that bar — passing the same liquid-universe mask the IC eval will
+    use keeps the demean target consistent with what the head sees.
+    When `valid` is None, every finite forward return participates.
+
+    Returns ±1 for tickers strictly above / below the per-bar peer mean,
+    and 0 for ties or undefined cells (preserving the float dtype the
+    downstream Pearson IC expects). Pearson IC against a ±1 target is
+    point-biserial correlation — directly comparable in scale to the
+    raw-fwd-return IC baseline since both are bounded in [-1, +1].
+
+    Bars with fewer than two valid peers produce all-zero rows (no
+    cross-section to demean against); they get filtered out by the
+    eval mask anyway, but the explicit zeroing avoids div-by-zero.
+    """
+    fwd = forward_log_returns(prices, rebal_days=rebal_days)
+    if valid is None:
+        valid = np.isfinite(fwd)
+    else:
+        valid = valid & np.isfinite(fwd)
+    valid_f = valid.astype(np.float64)
+    counts = valid_f.sum(axis=1, keepdims=True)
+    fwd_safe = np.where(valid, fwd, 0.0)
+    sums = fwd_safe.sum(axis=1, keepdims=True)
+    means = np.where(counts >= 2, sums / np.maximum(counts, 1.0), 0.0)
+    centered = np.where(valid, fwd - means, 0.0)
+    out = np.sign(centered).astype(np.float64)
+    out = np.where(counts >= 2, out, 0.0)
+    return out

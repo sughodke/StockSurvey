@@ -67,6 +67,7 @@ class WalkForwardResult:
     step_window_blocks:    int
     feature_width:         int
     aligned:               AlignedTickers
+    forward_target_kind:   str = 'log_return'
     windows:               list[WalkForwardWindow] = field(default_factory=list)
 
     @property
@@ -147,6 +148,7 @@ def train_scorer_walkforward(
     init_log_temperature: float = 0.0,
     spread:      np.ndarray | None = None,
     max_spread:  float | None = None,
+    forward_target_kind: str = 'log_return',
     verbose:     bool = True,
 ) -> WalkForwardResult:
     """Walk-forward variant of `train_scorer`.
@@ -163,13 +165,19 @@ def train_scorer_walkforward(
     every backbone update). Walk-forward eval is cheap *because* we
     precompute. If you want fine-tune-vs-frozen comparison, use
     `train_scorer` and a single split.
+
+    `forward_target_kind` is forwarded to `precompute_inputs` (see its
+    docstring). val_ic / train_ic are computed against whatever target
+    the loss saw, so they remain comparable to the loss value; val_sharpe
+    / train_sharpe are always against actual block log returns.
     """
     if step_window_blocks is None:
         step_window_blocks = val_window_blocks
 
     pre = precompute_inputs(
         tickers, backbone, rebal_days=rebal_days,
-        max_spread=max_spread, spread=spread)
+        max_spread=max_spread, spread=spread,
+        forward_target_kind=forward_target_kind)
     repr_rb_np: np.ndarray = pre['representation_rb']
     fwd_rb_np:  np.ndarray = pre['fwd_ret_rb']
     mask_rb_np: np.ndarray = pre['mask_rb']
@@ -192,7 +200,8 @@ def train_scorer_walkforward(
         print(f'walk-forward: {len(slices)} windows over {n_blocks} blocks  '
               f'(train={train_window_blocks}, val={val_window_blocks}, '
               f'step={step_window_blocks})  scorer={scorer} '
-              f'n_steps={n_steps} lr={learning_rate} wd={weight_decay}')
+              f'n_steps={n_steps} lr={learning_rate} wd={weight_decay} '
+              f'target={forward_target_kind}')
 
     result = WalkForwardResult(
         scorer=scorer, n_steps=n_steps, learning_rate=learning_rate,
@@ -201,6 +210,7 @@ def train_scorer_walkforward(
         val_window_blocks=val_window_blocks,
         step_window_blocks=step_window_blocks,
         feature_width=backbone.F, aligned=aligned,
+        forward_target_kind=forward_target_kind,
     )
 
     pbar = tqdm(slices, desc=f'walk-forward ({scorer})', unit='window',
