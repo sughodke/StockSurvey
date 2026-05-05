@@ -36,7 +36,7 @@ from factor.backbone import (
 )
 from factor.data import (
     AlignedTickers, align_tickers, forward_log_returns,
-    forward_sign_demeaned,
+    forward_sign_demeaned, forward_vol_innovation,
 )
 from factor.objectives import block_sharpe, pearson_rank_ic
 from factor.scorers import get_scorer
@@ -115,8 +115,13 @@ def precompute_inputs(
         rebal horizon. The historical IC training target.
       * `'sign_demeaned'`: ±1/0 sign of the cross-sectionally demeaned
         forward log return at each rebal bar. Discards magnitude, keeps
-        direction-vs-peers. `block_log_ret_rb` is independent of this
-        choice — Sharpe eval always sees actual realized returns.
+        direction-vs-peers.
+      * `'vol_innovation'`: log(σ_fwd / σ_trail) with both vols computed
+        over `rebal_days` of squared log returns. Predicts vol-regime
+        change rather than direction; the trivial vol-persistence piece
+        is subtracted by the ratio form.
+    `block_log_ret_rb` is independent of this choice — Sharpe eval
+    always sees actual realized returns.
     """
     aligned = align_tickers(tickers, K=backbone.K, F=backbone.F)
     D, N, K, F = aligned.features.shape
@@ -158,10 +163,18 @@ def precompute_inputs(
         # be centered on a different cross-section than the loss reads.
         target = forward_sign_demeaned(
             aligned.prices, rebal_days=rebal_days, valid=base_mask)
+    elif forward_target_kind == 'vol_innovation':
+        target = forward_vol_innovation(
+            aligned.prices, rebal_days=rebal_days)
+        # Vol innovation has its own NaN edges (leading + trailing
+        # rebal_days rows, plus zero-variance windows). Tighten the
+        # mask so the IC eval doesn't see those cells as "valid with
+        # zero target" after the nan_to_num below.
+        base_mask &= np.isfinite(target)
     else:
         raise ValueError(
             f'forward_target_kind={forward_target_kind!r} not in '
-            "{'log_return', 'sign_demeaned'}")
+            "{'log_return', 'sign_demeaned', 'vol_innovation'}")
 
     rebal_idx = np.arange(0, D, rebal_days)
     rebal_idx = rebal_idx[rebal_idx + rebal_days < D]

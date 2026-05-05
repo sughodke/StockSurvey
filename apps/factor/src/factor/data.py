@@ -143,3 +143,65 @@ def forward_sign_demeaned(
     out = np.sign(centered).astype(np.float64)
     out = np.where(counts >= 2, out, 0.0)
     return out
+
+
+def forward_vol_innovation(
+    prices: np.ndarray, *, rebal_days: int,
+) -> np.ndarray:
+    """`(D, N)` of log(realized_vol_forward / realized_vol_trailing).
+
+    Both realized vols use a window of `rebal_days` bars of squared
+    log returns:
+      * trailing var at `t` = mean of `r²[t-rebal_days+1 .. t]`
+      * forward  var at `t` = mean of `r²[t+1 .. t+rebal_days]`
+
+    Then innovation `= 0.5 · log(var_fwd / var_trail) = log(σ_fwd / σ_trail)`.
+    Symmetric in sign (positive = vol expanding, negative = contracting),
+    dimensionless, and the "trivial" piece of forward-vol prediction —
+    vol persistence (clustering autocorrelation) — is structurally
+    subtracted by the ratio form. The IC head's task therefore reduces
+    to predicting *vol-regime change* given current features, not just
+    re-emitting the trailing-vol channel it already gets as input.
+
+    Edges: returns NaN in the leading `rebal_days` rows (no trailing
+    window), the trailing `rebal_days` rows (no forward window), and
+    wherever either variance is non-positive (zero-return windows).
+    Caller's mask filters these via `np.isfinite` like every other
+    target.
+    """
+    prices = np.asarray(prices, dtype=np.float64)
+    T, N = prices.shape
+    out = np.full((T, N), np.nan, dtype=np.float64)
+    if T <= rebal_days * 2:
+        return out
+
+    log_p = np.log(np.maximum(prices, 1e-12))
+    # Daily log returns aligned at the bar where the move *closes*: r[t]
+    # is the move from t-1 to t. r[0] is undefined, set to NaN so the
+    # cumulative path never propagates a zero.
+    log_ret = np.full((T, N), np.nan, dtype=np.float64)
+    log_ret[1:] = log_p[1:] - log_p[:-1]
+    sq_ret = log_ret ** 2
+
+    # Trailing var at t covers bars (t-rebal_days+1 .. t), forward var
+    # at t covers bars (t+1 .. t+rebal_days). Cumulative-sum trick keeps
+    # this O(T) regardless of rebal_days.
+    csum = np.zeros((T + 1, N), dtype=np.float64)
+    csum[1:] = np.cumsum(np.where(np.isfinite(sq_ret), sq_ret, 0.0), axis=0)
+    cnt = np.zeros((T + 1, N), dtype=np.float64)
+    cnt[1:] = np.cumsum(np.isfinite(sq_ret).astype(np.float64), axis=0)
+
+    def window_mean(start: int, end: int) -> np.ndarray:
+        """Mean over bars [start, end) per ticker; NaN where any input
+        window had zero finite cells."""
+        s = csum[end] - csum[start]
+        c = cnt[end] - cnt[start]
+        return np.where(c > 0, s / np.maximum(c, 1.0), np.nan)
+
+    eps = 1e-18
+    for t in range(rebal_days, T - rebal_days):
+        trail = window_mean(t - rebal_days + 1, t + 1)
+        fwd = window_mean(t + 1, t + rebal_days + 1)
+        good = (trail > eps) & (fwd > eps) & np.isfinite(trail) & np.isfinite(fwd)
+        out[t] = np.where(good, 0.5 * (np.log(fwd) - np.log(trail)), np.nan)
+    return out

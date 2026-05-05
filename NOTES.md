@@ -2,13 +2,38 @@
 
 interesting observation, we can represent the trading strategy as a dot product.
 
-cwt [ F, K, C ]
-x
-strat weight [xxx]
-=
-rebal vector [ ..., n_universe ]
+Per-rebalance-bar shapes (cleanest form):
 
-in this lens we actually have two possible loss functions
+```
+X  ∈ ℝ^{N × K × F}     # features:  N tickers, K scales, F per-(ticker,scale) channels
+W  ∈ ℝ^{K × F}         # strategy:  shared across the universe
+s  = einsum('nkf,kf->n', X, W)   ∈ ℝ^N      # cross-sectional scores
+r  = π(s)              ∈ ℝ^N     # rebal vector: π = softmax_τ → top-N → water-fill cap
+```
+
+`N = n_universe`, `K = len(ALL_SCALES)` for the CWT view (or 1 for the flat indicator
+stack), `F` = per-(ticker,scale) channels (recent power, hist power, divergence, etc.).
+
+How the existing strategies map onto `(K, F, W)`:
+
+| Strategy | K | F | W |
+|---|---|---|---|
+| `weights_regime` (KL/JS/cos/L2) | `|ALL_SCALES|` | 1 (precomputed divergence per scale) | uniform mean over K |
+| `optimize_adam` | `|ALL_SCALES|` | 1 | learned softmax-over-K (collapsed to 126d≈48%) |
+| `factor` linear head, indicator grid | 1 | 74 (RSI+CCI+MACD+vol+coh) | learned, rank-IC objective |
+| `factor` linear head, CNN backbone | — | F_backbone | learned over backbone embedding |
+
+The unified pipeline is just: pick a featurizer that emits `X[N,K,F]`, learn `W[K,F]`
+against rank-IC, project through `π`. Everything else is a special case
+(fixed W, F=1, or K=1).
+
+**Where the framing breaks:** `π` is *not* linear — softmax temperature, top-N, and
+water-fill position cap are all non-linear. The dot product gives cross-sectional
+scores per ticker; the universe → weights map is a separate non-linear projection.
+The regime trainer's "temperature collapsed to 0.005, weight piled into 126d" finding
+lives entirely in `π`, not in `W`.
+
+In this lens we actually have two possible loss functions:
 
 1) Sharpe on the rebal positions
 - Rank IC for differentiable and more learnable signals
@@ -388,3 +413,94 @@ Don't re-cite "Pearson-on-residuals demean" in isolation as an
 unimplemented lever — Pearson IC already does it. The actionable form
 of that prescription is target *redefinition* (sign reduction here,
 falsified) plus orthogonal target choice (vol innovation, pending).
+
+## Forecast-target probe — vol innovation hits +0.47 val IC but doesn't transfer to Sharpe (2026-05-04)
+
+Follow-up to the sign-demeaned probe. Same 297-ticker walk-forward
+config (min_history_bars=6500, rebal=20d, train=63 / val=39 /
+step=39 blocks, AdamW lr=1e-2 wd=1e-3, n_steps=200, linear head).
+Third arm added: `forward_target_kind='vol_innovation'` —
+`log(σ_fwd / σ_trail)` where both vols are realized over `rebal_days`
+of squared log returns. Genuinely orthogonal prediction problem (vol
+regime change rather than directional return); the trivial
+vol-persistence piece is structurally subtracted by the ratio form.
+
+**Three-arm leaderboard:**
+
+| arm           | target           | mean_ic   | median_ic | mean_sh | posfrac | Δ_ic    |
+|---------------|------------------|----------:|----------:|--------:|--------:|--------:|
+| control       | log_return       | +0.0120   | +0.0168   | +0.440  | 5/6     | +0.0000 |
+| probe-sign    | sign_demeaned    | +0.0088   | +0.0166   | +0.379  | 5/6     | -0.0032 |
+| **probe-vol** | **vol_innovation** | **+0.4743** | **+0.4735** | +0.515  | **6/6** | **+0.4622** |
+
+Per-window val IC for vol_innovation: +0.4008, +0.4386, +0.4398,
++0.5303, +0.5071, +0.5289. Range 0.40–0.53, basically flat across
+windows; train IC range 0.435–0.536 — train and val are tight, so it
+isn't overfit. ~40× control on IC.
+
+**This is a real signal, but it's *not* return alpha.** Mean val
+Sharpe only nudges +0.075 (0.515 vs 0.440) despite IC blowing up
+40×. The reason is that Sharpe is computed against actual block log
+returns regardless of what the loss optimizes; the vol_innovation arm
+trains a head whose scores correlate strongly with future vol-regime
+change but only weakly with future return direction. Picking
+top-N-by-vol-expansion produces a portfolio with mediocre risk-adjusted
+returns — high-vol expanders go up *or* down with about equal frequency.
+
+**Mechanism is vol clustering, not novel insight.** The
+`IndicatorGridConfig` features include rolling vol channels at
+multiple windows (`vol_n5, vol_n10, vol_n20, vol_n60, vol_n120,
+vol_n252`). The head's task on the vol_innovation target reduces to
+"given the ratio of short-window to long-window realized vol at t,
+predict log(σ_fwd / σ_trail) over the next 20 bars." This is
+fundamentally vol-of-vol persistence — one of the strongest empirical
+regularities in finance, well-known since Engle/Bollerslev. The
++0.47 IC is the deterministic indicator stack saturating that
+predictability ceiling, not finding new signal.
+
+**What this says about the original question (forecast SSL).** The
+result clears the question this whole arc was built around: *can
+deterministic indicator features encode a forecast signal at all?*
+Yes — for vol forecasting, plainly. The indicator stack is not stuck
+at the +0.012 ceiling generically; it's stuck there *for return
+forecasting*. Return prediction at this universe is bounded by ~+0.012
+val IC because returns are autocorrelation-poor; vol prediction is
+bounded by ~+0.47 because vol clusters. The 40× gap is the
+fundamental tractability gap between these two prediction problems,
+not a feature-engineering deficit.
+
+**Implications for SSL pretrain plan.** A forecast-style SSL using
+vol_innovation as the target *would* learn predictive structure (the
+loss has signal, unlike a vol-persistence-only sign-of-return SSL).
+But the resulting embedding's value to a *return scorer* downstream
+is bounded by whether vol forecast information transfers to return
+prediction — and our Sharpe nudge says it transfers only weakly
+(+0.07 Sharpe). The honest path forward is two-stage:
+
+1. **Use vol forecast as a risk-targeting overlay**, not a direct
+   return predictor. Vol-target the existing return scorer's portfolio
+   so position sizes shrink ahead of forecast vol expansion. This is
+   the natural use of a +0.47-IC vol forecast and is one-script-away
+   in `apps/factor` (apply `vol_target_weights` from
+   `apps/relational/src/relational/sizing.py` with the head's score
+   as the input).
+2. **Use vol forecast as a regime gate.** When forecast cross-sectional
+   vol is *high*, return signals are noisier; when it's *low*, signals
+   may be cleaner. Gate strategy on/off based on forecast vol regime.
+   See the dispersion-CWT discussion above — same intuition, with the
+   forecast head as the operational handle.
+
+A forecast-SSL pretrain on vol_innovation targets is interesting only
+if it improves either of these, not for IC chasing in isolation.
+
+Artifacts: `Output/forecast-probe-{control,probe-sign,probe-vol}-windows.npz`,
+`Output/forecast-probe-summary.json`. Reproduce with `uv run python
+apps/factor/scripts/forecast_probe_walkforward.py` (~7 min wall on
+8-core CPU; feature build ~50 s, three arms ~130 s each).
+
+**Don't celebrate the +0.47 IC as alpha.** Cite it correctly: "the
+indicator stack hits +0.47 IC on cross-sectional vol prediction at
+20-day horizon, near the well-known vol-clustering ceiling." It
+validates the feature pipeline as forecast-capable on a tractable
+target; it does not solve the return-prediction problem the +0.012
+control was bounded by.

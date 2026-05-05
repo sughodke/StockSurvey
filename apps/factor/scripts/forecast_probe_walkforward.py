@@ -1,19 +1,23 @@
 """Forecast-target probe vs the +0.012 IC deterministic baseline.
 
 Tests whether replacing the rank-IC training target (raw forward log
-return) with a sign-of-cross-sectionally-demeaned target lifts val IC on
-the same 297-ticker walk-forward universe used in the documented
-indicator baseline (NOTES.md 2026-04-30, factor README).
+return) with an alternative forecast target lifts val IC on the
+297-ticker walk-forward universe used in the documented indicator
+baseline (NOTES.md 2026-04-30, factor README).
 
 The Pearson IC loss already subtracts per-bar cross-sectional means
-inside the correlation, so the ":+0.012 baseline" already is the
-demeaned IC. The change here is at the *target*: discard magnitude,
-keep direction-vs-peers (±1). Two arms run back-to-back at the same
-walk-forward config so the comparison is direct:
+inside the correlation, so the "+0.012 baseline" already is the
+demeaned IC. The lever is target *redefinition*. Three arms run
+back-to-back at the same walk-forward config so the comparisons are
+direct:
 
-  * `log_return`  — control. Reproduces the documented +0.012 val IC.
-  * `sign_demeaned` — probe. Same features / head / loss / eval, but
-                       the target is sign(fwd_log_ret − cross_sectional_mean).
+  * `log_return`     — control. Reproduces the documented +0.012 val IC.
+  * `sign_demeaned`  — probe A. sign(fwd_log_ret − cross_sectional_mean).
+                        Discards magnitude, keeps direction-vs-peers.
+                        Falsified at -27% mean val IC (NOTES 2026-05-04).
+  * `vol_innovation` — probe B. log(σ_fwd / σ_trail) per ticker. A
+                        genuinely orthogonal prediction problem — vol
+                        regime change rather than directional return.
 
 Sharpe eval is identical across arms (block-Sharpe always uses actual
 realized returns); only the IC training signal changes.
@@ -160,8 +164,9 @@ def main() -> None:
     p.add_argument('--max-tickers',      type=int, default=0,
                    help='0 = all tickers passing min_history_bars filter')
     p.add_argument('--n-workers',     type=int, default=mp.cpu_count())
-    p.add_argument('--targets', default='log_return,sign_demeaned',
-                   help='comma-separated subset of {log_return,sign_demeaned}')
+    p.add_argument('--targets', default='log_return,sign_demeaned,vol_innovation',
+                   help='comma-separated subset of '
+                        '{log_return,sign_demeaned,vol_innovation}')
     p.add_argument('--output-dir', default=str(DEFAULT_OUTPUT))
     p.add_argument('--seed', type=int, default=0)
     args = p.parse_args()
@@ -170,7 +175,7 @@ def main() -> None:
     output.mkdir(parents=True, exist_ok=True)
 
     targets = [t.strip() for t in args.targets.split(',') if t.strip()]
-    valid_targets = {'log_return', 'sign_demeaned'}
+    valid_targets = {'log_return', 'sign_demeaned', 'vol_innovation'}
     if not set(targets).issubset(valid_targets):
         raise SystemExit(
             f'--targets must be subset of {sorted(valid_targets)}; '
@@ -209,9 +214,15 @@ def main() -> None:
         for name, err in failed[:10]:
             print(f'    {name}: {err}')
 
+    label_for: dict[str, str] = {
+        'log_return':     'control',
+        'sign_demeaned':  'probe-sign',
+        'vol_innovation': 'probe-vol',
+    }
+
     summary_arms: list[dict] = []
     for target_kind in targets:
-        label = 'control' if target_kind == 'log_return' else 'probe'
+        label = label_for[target_kind]
         save_path = output / f'forecast-probe-{label}-windows.npz'
         print(f'\n--- arm: {label} (forward_target_kind={target_kind}) ---')
         t1 = time.perf_counter()
@@ -231,26 +242,22 @@ def main() -> None:
         print(f'arm wall: {time.perf_counter() - t1:.1f}s')
         summary_arms.append(_summarize_arm(label, wf, save_path))
 
-    if len(summary_arms) == 2:
-        ctrl = next(a for a in summary_arms if a['target'] == 'log_return')
-        prob = next(a for a in summary_arms if a['target'] == 'sign_demeaned')
-        d_ic = prob['mean_val_ic'] - ctrl['mean_val_ic']
-        d_sh = prob['mean_val_sharpe'] - ctrl['mean_val_sharpe']
-        print('\n' + '=' * 72)
-        print('Forecast-target probe — control (log_return) vs probe (sign_demeaned)')
-        print('=' * 72)
-        print(f'{"metric":<28} {"control":>12} {"probe":>12} {"delta":>12}')
-        print(f'{"mean val IC":<28} {ctrl["mean_val_ic"]:>+12.4f} '
-              f'{prob["mean_val_ic"]:>+12.4f} {d_ic:>+12.4f}')
-        print(f'{"median val IC":<28} {ctrl["median_val_ic"]:>+12.4f} '
-              f'{prob["median_val_ic"]:>+12.4f} '
-              f'{prob["median_val_ic"] - ctrl["median_val_ic"]:>+12.4f}')
-        print(f'{"mean val Sharpe":<28} {ctrl["mean_val_sharpe"]:>+12.3f} '
-              f'{prob["mean_val_sharpe"]:>+12.3f} {d_sh:>+12.3f}')
-        print(f'{"positive-val-IC fraction":<28} '
-              f'{ctrl["positive_val_ic_fraction"]:>12.2f} '
-              f'{prob["positive_val_ic_fraction"]:>12.2f} '
-              f'{prob["positive_val_ic_fraction"] - ctrl["positive_val_ic_fraction"]:>+12.2f}')
+    ctrl = next((a for a in summary_arms if a['target'] == 'log_return'), None)
+    if ctrl is not None and len(summary_arms) > 1:
+        print('\n' + '=' * 96)
+        print('Forecast-target probe — leaderboard (vs control = log_return)')
+        print('=' * 96)
+        print(f'{"arm":<22} {"target":<18} {"mean_ic":>10} '
+              f'{"median_ic":>10} {"mean_sh":>10} {"posfrac":>10} '
+              f'{"d_ic":>10}')
+        for a in summary_arms:
+            d_ic = a['mean_val_ic'] - ctrl['mean_val_ic']
+            print(f'{a["arm"]:<22} {a["target"]:<18} '
+                  f'{a["mean_val_ic"]:>+10.4f} '
+                  f'{a["median_val_ic"]:>+10.4f} '
+                  f'{a["mean_val_sharpe"]:>+10.3f} '
+                  f'{a["positive_val_ic_fraction"]:>10.2f} '
+                  f'{d_ic:>+10.4f}')
         print()
         print(f'documented baseline (NOTES.md / factor README): val IC ≈ +0.0120')
         print(f'control reproduces this within walk-forward seed noise')
