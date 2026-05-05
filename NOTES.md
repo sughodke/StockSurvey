@@ -618,3 +618,68 @@ tickers, rebal=20d. Earlier attempt at K=96 OOM'd a 32GB Mac at the
 
 Driver: `apps/factor/scripts/cwt_bundle_walkforward.py`. Artifacts:
 `Output/cwt-bundle-{summary.json,cwt-return-windows.npz,cwt-vol-windows.npz}`.
+
+## Feature augmentation — vol forecast as 75th feature is ignored by the return head (2026-05-04)
+
+Third operational test of the +0.4743 vol forecast: feed it as a
+deterministic feature to the return scorer. Per walk-forward window:
+train vol head on train slice → calibrate score to log(σ_fwd / σ_trail)
+via lstsq → apply across full date range → concat as a 75th channel
+to the IndicatorGridConfig 74-channel base → train two return heads
+from scratch with the same seed (one on 74 base channels, one on the
+75 augmented channels) → compare val IC + val Sharpe.
+
+**Aggregate over 6 windows** (linear head, n_steps=200, AdamW lr=1e-2
+wd=1e-3, 297-ticker / rebal=20d):
+
+| metric | base (74ch) | aug (75ch) | Δ |
+|---|---:|---:|---:|
+| mean val IC      | +0.0120 | +0.0117 | **−0.0004** |
+| median val IC    | +0.0168 | +0.0164 | −0.0005 |
+| pos-val-IC frac  | 5/6     | 5/6     | 0 |
+| mean val Sharpe  | +0.446  | +0.442  | −0.004 |
+
+Per-window Δ ranges −0.0032 to +0.0015 — pure noise around zero.
+Mean cal corr (vol head score → log-vol-ratio target on train) =
++0.415, so the calibration is good and the forecast feature is
+genuinely informative about vol — the head just doesn't find it
+useful for *return* direction.
+
+**Smoking gun: forecast-feature L1 share = 0.014, exactly uniform
+allocation (1/75 = 0.0133).** Gradient descent looked at the +0.47-IC
+vol forecast channel and put no more weight on it than any other
+random direction. This is the strongest possible null — the head
+isn't even *trying* to use the forecast; it's actively neutral on it.
+
+**This closes the operational test arc on the +0.47 vol forecast.**
+Three pathways tested (sign reduction, sizing overlay, feature
+augmentation), all null. The signal is real but **operationally
+orthogonal** to cross-sectional return prediction at 297 tickers /
+20d. Vol clustering and return direction live on different cross-
+sectional axes.
+
+**Implication for the broader research program.** The original arc
+(deterministic indicators → forecast SSL → predictive embedding →
+vector-relational ops) is bounded above by the +0.012 return-IC
+ceiling that holds across CWT, indicators, and indicators-augmented-
+with-vol-forecast. SSL pretraining on this universe/horizon would
+inherit that ceiling. **The data is the bottleneck, not the
+architecture.**
+
+Honest pivots from here (not continuations of this arc):
+1. **Different horizon** — `rebal=63d` (quarterly). Cross-sectional
+   return autocorrelation is documented to be larger at classical
+   alpha horizons than 20d. Cheapest screen of "is +0.012 horizon-
+   bound or universe-bound?".
+2. **Wider universe** — drop `min_history_bars` to ~2500 (~10y),
+   admit smaller-cap less-arbed names. Trades date axis for cross-
+   section.
+3. **Different prediction problem** — pair-spread mean reversion,
+   drawdown forecasting, options IV-vs-realized (DoltHub IV from the
+   relational arc is on hand).
+4. **Regime gate** — the one operational use of the +0.47 vol
+   forecast not yet tested. Use aggregate forecast vol to turn
+   return strategies on/off rather than resize them.
+
+Driver: `apps/factor/scripts/feature_aug_walkforward.py`. Artifacts:
+`Output/feature-aug-summary.json`. Reproduce ~10 min wall.
