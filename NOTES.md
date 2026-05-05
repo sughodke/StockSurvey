@@ -683,3 +683,50 @@ Honest pivots from here (not continuations of this arc):
 
 Driver: `apps/factor/scripts/feature_aug_walkforward.py`. Artifacts:
 `Output/feature-aug-summary.json`. Reproduce ~10 min wall.
+
+## Horizon pivot — quarterly is worse, not better (2026-05-04)
+
+First of two pivots from the dead-end indicator/vol arc: try `rebal=63d`
+(quarterly, classical alpha horizon) at the same 297-ticker universe.
+Window blocks scaled by `20/63` so train / val durations stay
+comparable in years (train=20 blocks ≈ 5y, val=12 ≈ 3y, step=12 ≈ 3y).
+6 walk-forward windows fit. Same `IndicatorGridConfig` (74 channels),
+same linear head, same n_steps=200 / lr=1e-2 / wd=1e-3.
+
+**Results:**
+
+| arm           | rebal | target           | mean_ic   | median_ic | mean_sh   | posfrac |
+|---------------|------:|------------------|----------:|----------:|----------:|--------:|
+| q-return      |   63d | log_return       | **−0.0019** | +0.0062  | +0.654    | 4/6     |
+| q-vol         |   63d | vol_innovation   | +0.3439   | +0.3458   | +0.631    | 6/6     |
+| control (20d) |   20d | log_return       | +0.0120   | +0.0168   | +0.440    | 5/6     |
+| vol (20d)     |   20d | vol_innovation   | +0.4743   | +0.4735   | +0.515    | 6/6     |
+
+**Read.**
+
+1. **Return-prediction skill *falls* at quarterly**, from +0.012 mean
+   val IC to −0.002 (basically zero). 4/6 windows positive vs 5/6 at
+   20d. The +0.012 ceiling is **not horizon-bound** in the direction
+   we hoped — going longer makes it worse, not better. The hypothesis
+   that "classical alpha horizons carry more cross-sectional return
+   signal" doesn't survive on this universe.
+2. **Vol IC drops too** (+0.47 → +0.34, −28%). Vol clustering
+   autocorrelation decays with horizon; predicting 63-day forward vol
+   regime is harder than 20-day. Still 6/6 positive — vol is just less
+   sharply forecast-able at longer windows.
+3. **Sharpe rises for both arms despite IC falling.** This is
+   mechanical, not skill: quarterly rebal pays one-sided commission
+   1/3 as often as 20d, so even a near-zero-IC portfolio gains Sharpe
+   from lower turnover. The +0.654 q-return Sharpe at IC ≈ 0 is *not*
+   a return-prediction success — it's the cost of trading falling.
+
+**Implication.** The +0.012 ceiling is a property of cross-sectional
+return-prediction signal at this universe, not at this horizon. The
+remaining diagnostic lever is universe size: does the same indicator
+stack at the same 20-day horizon hit higher IC on a wider universe?
+(NOTES 2026-04-30 listed "larger universe (50-100 tickers)" as the
+top supervision-side lever.)
+
+Driver: `apps/factor/scripts/horizon_pivot_walkforward.py`. Artifacts:
+`Output/horizon-pivot-{summary.json,q-return-windows.npz,q-vol-windows.npz}`.
+Reproduce ~3 min wall.
