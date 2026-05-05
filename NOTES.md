@@ -504,3 +504,117 @@ indicator stack hits +0.47 IC on cross-sectional vol prediction at
 validates the feature pipeline as forecast-capable on a tractable
 target; it does not solve the return-prediction problem the +0.012
 control was bounded by.
+
+## Vol-target overlay — +0.47 forecast IC does not transfer to Sharpe (2026-05-04)
+
+Operational follow-up to the +0.4743 val-IC vol forecast: use it to
+size the existing return scorer's top-N basket via diagonal-cov
+vol-target overlay (`σ_p ≈ √Σ (w_i σ_i)²`, scale to `target_vol /
+σ_p` clipped at `max_leverage=2.0`). Three portfolio variants on
+the same return-scorer top-10 basket per walk-forward window:
+EW (1/N), trail-VT (σ from `vol_n20` channel), fcst-VT (σ from
+calibrated vol head). Calibration is a 1-D linear regression on the
+train slice of `head_score → log(σ_fwd / σ_trail)` since Pearson IC
+loss is scale-invariant; mean train calibration `r=+0.41`.
+
+**Aggregate over 6 windows (linear head, n_steps=200, top_n=10,
+target_vol=0.15, commission_bps=10, 297-ticker / rebal=20d):**
+
+| variant | mean Sharpe | median | pos-frac | mean gross | Δ vs EW |
+|---|---:|---:|---:|---:|---:|
+| EW         | +0.215 | +0.270 | 5/6 | 1.00 | — |
+| trail-VT   | +0.231 | +0.318 | 4/6 | 1.47 | +0.016 |
+| fcst-VT    | +0.232 | +0.219 | 3/6 | 1.48 | +0.017 |
+
+**`fcst-VT − trail-VT = +0.001`. The forecast adds nothing over
+trailing vol for sizing.** Per-window deltas are ±0.17 — pure noise
+around zero with one big winner (window 2, +0.167) offsetting one
+big loser (window 3, −0.171). Mechanism: the forecast head predicts
+the *change* `log(σ_fwd / σ_trail)`; for vol-target sizing you need
+the absolute *level* of forward σ, and trailing vol already gives
+that level (vol clusters → σ_fwd ≈ σ_trail in expectation). The
++0.47 IC measures something orthogonal to what the overlay needs.
+
+EW Sharpe (+0.215) is well below the +0.440 reported by the original
+walkforward driver because that driver uses a softmax-temperature
+soft top-N (universe-weighted, much less concentrated); this
+test uses hard top-10 + commission, which is more turnover-heavy and
+small-basket-noisier.
+
+Verdict: vol forecast is real signal but **not operationally useful
+as a sizing input** at this universe / horizon. The signal would need
+a different operational use (regime gate, options pricing, or
+downstream feature for a return scorer) to be tradeable. Driver:
+`apps/factor/scripts/vol_overlay_walkforward.py`. Artifacts:
+`Output/vol-overlay-{summary.json,windows.npz}`.
+
+## Pure-CWT bundle vs IndicatorGridConfig at matched setup (2026-05-04)
+
+The earlier "indicators forecast, raw CWT doesn't" framing rested on
+the 2026-04-30 No-backbone IC baseline at 30 tickers / rebal=5d. The
+indicator probe ran at 297 tickers / rebal=20d. Different universe
+and horizon — the comparison wasn't apples-to-apples. This driver
+re-runs raw CWT at the indicator's setup.
+
+**Featurizer**: pure CWT bundle = `[coeffs, power]` per scale, no
+prices, no close, no raw or log returns, no z-norm stats. Confirmed
+at the channel-build site (`ss_features.compute_scalogram` → only
+those two channel families). The `coeffs` come out of `causal_cwt`,
+which z-norms prices over the lookback before the Ricker convolution
+— absolute price level is stripped at the wavelet stage.
+
+**Setup**: `K=1` (point-in-time CWT, matching IndicatorGridConfig's
+K=1 framing exactly), F=2×13=26 channels (13 scales = ALL_SCALES),
+hidden_flat=26 (vs indicator's 74). Same identity backbone (z-norm +
+flatten only), same linear head, same walk-forward config, same 297
+tickers, rebal=20d. Earlier attempt at K=96 OOM'd a 32GB Mac at the
+`(D, 297, 96, 26)` aligned tensor — K=1 stays under 200 MB.
+
+**Results:**
+
+| arm                | mean val IC | median | mean Sharpe | pos-frac |
+|--------------------|----------:|----------:|----------:|---------:|
+| **cwt-return**     | +0.0091   | +0.0059   | **+0.461** | 4/6      |
+| **cwt-vol**        | +0.2165   | +0.2131   | +0.453    | 6/6      |
+| indicator-control  | +0.0120   | +0.0168   | +0.440    | 5/6      |
+| indicator-vol      | **+0.4743** | +0.4735 | +0.515    | 6/6      |
+
+**Read.**
+
+1. **CWT and indicators are statistically tied on return prediction**
+   (+0.0091 vs +0.0120, both at the noise-floor `+0.012` we've been
+   citing as the "indicator ceiling"). CWT's *Sharpe* is actually
+   slightly higher (+0.461 vs +0.440). The +0.012 IC ceiling is a
+   **return-prediction ceiling at this universe / horizon**, not an
+   indicator-specific ceiling — different bases get to roughly the
+   same place.
+2. **Indicators dominate CWT on vol prediction by ~2×** (+0.4743 vs
+   +0.2165). CWT power *is* a multi-horizon vol signature, and a
+   linear head should approximate `vol_n20` from scale combinations
+   `(15, 21, 26)` — but it gets ~half the IC. CWT power and realized
+   vol of returns are not the same object: CWT applies causal Ricker
+   convolution to *z-normed* prices, not squared returns directly.
+   The mapping is related but lossy. Explicit `vol_n{k}` channels at
+   the right window are strictly stronger as a linear feature for
+   forecasting realized vol.
+3. **6/6 windows positive on vol for both bases** — both featurizers
+   carry robust vol signal; only the magnitude differs.
+
+**Implications for prior work and SSL plan:**
+
+- Don't relabel earlier work as "should have used CWT" or "should
+  have used indicators" — for *return* prediction (the load-bearing
+  target) they are equivalent within noise.
+- For SSL pretraining, raw CWT input has **no advantage over
+  indicators** at the linear-head capacity. The only argument for
+  CWT-based SSL is that a learned encoder might extract nonlinear
+  structure that linear-on-CWT misses (where linear-on-indicators
+  cannot, because indicators are already nonlinear summaries). That
+  is a thesis to test, not an established result.
+- The 2026-04-30 "encoder vs raw both at noise floor" finding now
+  has a counterpart: at 297 tickers / 20d, raw CWT *does* lift off
+  the noise floor on vol (+0.22 IC) and ties indicators on returns.
+  Universe size mattered, not the encoder.
+
+Driver: `apps/factor/scripts/cwt_bundle_walkforward.py`. Artifacts:
+`Output/cwt-bundle-{summary.json,cwt-return-windows.npz,cwt-vol-windows.npz}`.
