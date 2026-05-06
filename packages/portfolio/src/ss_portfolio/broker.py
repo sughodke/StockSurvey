@@ -59,6 +59,18 @@ class Trade:
     last_price: float
 
 
+@dataclass
+class OrderRejection:
+    """A submit_order failure that was logged-and-skipped rather than
+    aborting the batch. Surfaced to the live-run caller so partial-
+    submit days don't go unnoticed (one reject is normal — fractionable
+    rejection on a non-fractionable; many rejects in a row may indicate
+    auth or API issues)."""
+    symbol: str
+    qty: float
+    reason: str
+
+
 class AlpacaBroker:
     """Thin wrapper over alpaca-py's trading + data clients."""
 
@@ -177,15 +189,25 @@ class AlpacaBroker:
             ))
         return trades
 
-    def submit_orders(self, trades: list[Trade]) -> list[str]:
-        """Submit each trade as a fractional market DAY order. Returns order IDs.
+    def submit_orders(
+        self, trades: list[Trade],
+    ) -> tuple[list[str], list[OrderRejection]]:
+        """Submit each trade as a fractional market DAY order.
 
-        Per-order failures (most commonly: non-fractionable symbol rejecting a
-        fractional qty) are logged and skipped rather than aborting the batch
-        — otherwise one bad symbol mid-loop leaves the portfolio half-rebalanced.
+        Returns `(order_ids, rejections)`. Per-order failures (most
+        commonly: non-fractionable symbol rejecting a fractional qty)
+        are logged, captured into `rejections`, and skipped rather than
+        aborting the batch — otherwise one bad symbol mid-loop leaves
+        the portfolio half-rebalanced. Callers should check
+        `len(rejections)` and decide whether to alert.
+
+        TODO(review #5): distinguish 4xx (per-symbol skip+log, current
+        behavior) from 5xx/connection errors (re-raise+abort) so an
+        intermittent Alpaca outage doesn't silently zero every order.
         """
         import logging
         order_ids: list[str] = []
+        rejections: list[OrderRejection] = []
         for t in trades:
             req = MarketOrderRequest(
                 symbol=t.symbol,
@@ -199,7 +221,11 @@ class AlpacaBroker:
             except Exception as e:
                 logging.warning(
                     'submit_order failed for %s qty=%g: %s', t.symbol, t.qty, e)
-        return order_ids
+                rejections.append(OrderRejection(
+                    symbol=t.symbol, qty=t.qty, reason=str(e)))
+        return order_ids, rejections
 
 
-__all__ = ['Account', 'Trade', 'AlpacaBroker', 'PAPER_BASE_URL']
+__all__ = [
+    'Account', 'Trade', 'OrderRejection', 'AlpacaBroker', 'PAPER_BASE_URL',
+]

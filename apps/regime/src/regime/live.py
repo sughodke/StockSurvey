@@ -26,6 +26,7 @@ from regime.broker import Account, AlpacaBroker, Trade
 from regime.inference import target_weights
 from regime.persist import Checkpoint, load_checkpoint
 from ss_portfolio import apply_position_cap
+from ss_portfolio.broker import OrderRejection
 from ss_wavelets import KERNEL_HALF_EXTENT
 
 
@@ -44,6 +45,7 @@ class LiveRunResult:
     target_weights: pd.Series
     trades: list[Trade]
     submitted_order_ids: list[str] = field(default_factory=list)
+    rejected_orders: list[OrderRejection] = field(default_factory=list)
     aborted_reason: str | None = None
 
 
@@ -136,8 +138,9 @@ def run_live(
     )
 
     order_ids: list[str] = []
+    rejections: list[OrderRejection] = []
     if not dry_run and trades:
-        order_ids = broker.submit_orders(trades)
+        order_ids, rejections = broker.submit_orders(trades)
 
     return LiveRunResult(
         timestamp=timestamp,
@@ -149,6 +152,7 @@ def run_live(
         target_weights=capped,
         trades=trades,
         submitted_order_ids=order_ids,
+        rejected_orders=rejections,
     )
 
 
@@ -187,4 +191,11 @@ def format_run(result: LiveRunResult) -> str:
             lines.append(f'    ... {len(result.trades) - 20} more')
     if result.submitted_order_ids:
         lines.append(f'  submitted  : {len(result.submitted_order_ids)} orders')
+    if result.rejected_orders:
+        lines.append(f'  REJECTED   : {len(result.rejected_orders)} orders '
+                     f'(check logs for per-symbol reasons)')
+        for rej in result.rejected_orders[:5]:
+            lines.append(f'    {rej.symbol:<6s} qty={rej.qty:.4f}: {rej.reason}')
+        if len(result.rejected_orders) > 5:
+            lines.append(f'    ... {len(result.rejected_orders) - 5} more')
     return '\n'.join(lines)
