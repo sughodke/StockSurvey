@@ -26,6 +26,7 @@ from regime.broker import Account, AlpacaBroker, Trade
 from regime.inference import target_weights
 from regime.persist import Checkpoint, load_checkpoint
 from ss_portfolio import apply_position_cap
+from ss_wavelets import KERNEL_HALF_EXTENT
 
 
 DEFAULT_KILLSWITCH: str = '~/.regime-killswitch'
@@ -76,8 +77,11 @@ def run_live(
         Abort if this file exists (allows an operator to halt trading
         without touching the cron entry).
     bar_buffer_days :
-        Extra calendar days to fetch beyond `lookback` so weekend/holiday
-        gaps don't underfill the trailing window.
+        Extra trading-day safety margin on top of the wavelet support.
+        Total trading bars requested = lookback + KERNEL_HALF_EXTENT *
+        max(scales) + bar_buffer_days, so the latest bar's CWT has full
+        kernel support — not zero-padded as it would be with a tighter
+        fetch. Default 60 trading days ≈ 3 calendar months of cushion.
     """
     cp = load_checkpoint(checkpoint_path)
     broker = broker or AlpacaBroker()
@@ -93,8 +97,15 @@ def run_live(
             target_weights=pd.Series(dtype=float), trades=[],
             aborted_reason=f'kill-switch present at {ks}')
 
+    # Per-day data dependency for `coeffs[scale, t]` is
+    # KERNEL_HALF_EXTENT*scale + lookback bars (see CLAUDE.md
+    # "Important implementation notes"). Without this, the latest-bar
+    # CWT runs against zero-padded history and silently degrades vs
+    # train. RSI checkpoints have empty scales -> max=0 -> no addition.
+    max_scale = max(cp.scales) if cp.scales else 0
+    n_trading_bars = cp.lookback + KERNEL_HALF_EXTENT * max_scale + bar_buffer_days
     prices, highs, lows = broker.get_recent_bars(
-        cp.universe, n_days=cp.lookback + bar_buffer_days)
+        cp.universe, n_days=n_trading_bars)
     last_bar = prices.index[-1]
     # `pd.Timestamp.utcnow()` is deprecated in pandas 2.x; the canonical
     # replacement is `Timestamp.now('UTC')`. Strip tz before diffing

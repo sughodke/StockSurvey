@@ -34,7 +34,7 @@ from regime.persist import Checkpoint
 from regime.trainer import _log_returns
 from ss_indicators import corwin_schultz_spread, get_divergence, rsi
 from ss_indicators import symmetric_kl_divergence as regime_scores
-from ss_wavelets import causal_cwt, precompute_windows
+from ss_wavelets import KERNEL_HALF_EXTENT, causal_cwt, precompute_windows
 
 
 def target_weights(
@@ -97,9 +97,17 @@ def _validate_inputs(prices, highs, lows, checkpoint):
         raise ValueError('prices/highs/lows must share columns')
     if not (prices.index.equals(highs.index) and prices.index.equals(lows.index)):
         raise ValueError('prices/highs/lows must share index')
-    if len(prices) < checkpoint.lookback + 1:
+    # CWT-using strategies need KERNEL_HALF_EXTENT*max_scale + lookback
+    # bars for the latest-bar wavelet to have full kernel support
+    # (otherwise it's silently zero-padded). RSI checkpoints have empty
+    # scales and only need lookback+1.
+    max_scale = max(checkpoint.scales) if checkpoint.scales else 0
+    min_bars = KERNEL_HALF_EXTENT * max_scale + checkpoint.lookback + 1
+    if len(prices) < min_bars:
         raise ValueError(
-            f'need at least {checkpoint.lookback + 1} bars, got {len(prices)}')
+            f'need at least {min_bars} bars (KERNEL_HALF_EXTENT*max_scale + '
+            f'lookback + 1 = {KERNEL_HALF_EXTENT}*{max_scale} + '
+            f'{checkpoint.lookback} + 1), got {len(prices)}')
 
 
 def _score_latest_bar(prices, highs, lows, checkpoint):

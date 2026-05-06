@@ -20,6 +20,7 @@ import pandas as pd
 
 from relational.persist import RelationalCheckpoint
 from ss_indicators import corwin_schultz_spread
+from ss_wavelets import KERNEL_HALF_EXTENT
 
 
 def target_weights(
@@ -60,9 +61,16 @@ def _validate_inputs(prices, highs, lows, checkpoint):
         raise ValueError('prices/highs/lows must share columns')
     if not (prices.index.equals(highs.index) and prices.index.equals(lows.index)):
         raise ValueError('prices/highs/lows must share index')
-    if len(prices) < checkpoint.lookback + 1:
+    # All relational strategies use the CWT, so the latest bar's
+    # wavelet needs KERNEL_HALF_EXTENT*max_scale + lookback bars to
+    # have full kernel support — otherwise it's silently zero-padded.
+    max_scale = max(checkpoint.scales) if checkpoint.scales else 0
+    min_bars = KERNEL_HALF_EXTENT * max_scale + checkpoint.lookback + 1
+    if len(prices) < min_bars:
         raise ValueError(
-            f'need at least {checkpoint.lookback + 1} bars, got {len(prices)}')
+            f'need at least {min_bars} bars (KERNEL_HALF_EXTENT*max_scale + '
+            f'lookback + 1 = {KERNEL_HALF_EXTENT}*{max_scale} + '
+            f'{checkpoint.lookback} + 1), got {len(prices)}')
 
 
 def _build_weights_panel(
