@@ -7,7 +7,7 @@ dependencies = [
     "ss-loaders",
     "ss-wavelets",
     "ss-indicators",
-    "ss-portfolio",
+    "ss-portfolio[alpaca]",
     "ss-plotting",
     "numpy",
     "pandas",

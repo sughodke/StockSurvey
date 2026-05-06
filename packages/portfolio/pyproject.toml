@@ -12,6 +12,9 @@ dependencies = [
     "ss-indicators",
 ]
 
+[project.optional-dependencies]
+alpaca = ["alpaca-py>=0.30"]
+
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"

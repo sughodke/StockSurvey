@@ -3881,7 +3881,6 @@ name = "regime"
 version = "0.1.0"
 source = { editable = "apps/regime" }
 dependencies = [
-    { name = "alpaca-py" },
     { name = "jax" },
     { name = "jaxlib" },
     { name = "matplotlib" },
@@ -3893,7 +3892,7 @@ dependencies = [
     { name = "ss-indicators" },
     { name = "ss-loaders" },
     { name = "ss-plotting" },
-    { name = "ss-portfolio" },
+    { name = "ss-portfolio", extra = ["alpaca"] },
     { name = "ss-wavelets" },
     { name = "tqdm" },
 ]
@@ -3907,7 +3906,6 @@ research = [
 
 [package.metadata]
 requires-dist = [
-    { name = "alpaca-py", specifier = ">=0.30" },
     { name = "bt", marker = "extra == 'research'" },
     { name = "jax", specifier = "<0.5" },
     { name = "jaxlib", specifier = "<0.5" },
@@ -3921,7 +3919,7 @@ requires-dist = [
     { name = "ss-indicators", editable = "packages/indicators" },
     { name = "ss-loaders", editable = "packages/loaders" },
     { name = "ss-plotting", editable = "packages/plotting" },
-    { name = "ss-portfolio", editable = "packages/portfolio" },
+    { name = "ss-portfolio", extras = ["alpaca"], editable = "packages/portfolio" },
     { name = "ss-wavelets", editable = "packages/wavelets" },
     { name = "tqdm" },
     { name = "vectorbt", marker = "extra == 'research'", specifier = ">=1.0,<2.0" },
@@ -3939,7 +3937,7 @@ dependencies = [
     { name = "ss-indicators" },
     { name = "ss-loaders" },
     { name = "ss-plotting" },
-    { name = "ss-portfolio" },
+    { name = "ss-portfolio", extra = ["alpaca"] },
     { name = "ss-wavelets" },
 ]
 
@@ -3960,7 +3958,7 @@ requires-dist = [
     { name = "ss-indicators", editable = "packages/indicators" },
     { name = "ss-loaders", editable = "packages/loaders" },
     { name = "ss-plotting", editable = "packages/plotting" },
-    { name = "ss-portfolio", editable = "packages/portfolio" },
+    { name = "ss-portfolio", extras = ["alpaca"], editable = "packages/portfolio" },
     { name = "ss-wavelets", editable = "packages/wavelets" },
     { name = "vectorbt", marker = "extra == 'research'", specifier = ">=1.0,<2.0" },
 ]
@@ -4652,8 +4650,14 @@ dependencies = [
     { name = "ss-wavelets" },
 ]
 
+[package.optional-dependencies]
+alpaca = [
+    { name = "alpaca-py" },
+]
+
 [package.metadata]
 requires-dist = [
+    { name = "alpaca-py", marker = "extra == 'alpaca'", specifier = ">=0.30" },
     { name = "jax", specifier = "<0.5" },
     { name = "jaxlib", specifier = "<0.5" },
     { name = "numpy" },
@@ -4661,6 +4665,7 @@ requires-dist = [
     { name = "ss-indicators", editable = "packages/indicators" },
     { name = "ss-wavelets", editable = "packages/wavelets" },
 ]
+provides-extras = ["alpaca"]
 
 [[package]]
 name = "ss-stream"
