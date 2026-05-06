@@ -19,6 +19,7 @@ import numpy as np
 from tinygrad.tensor import Tensor
 
 from ss_features import Backbone, load_backbone
+from ss_tg_ops import conv1d_nhc
 
 
 def identity_backbone(
@@ -81,18 +82,6 @@ def compute_input_stats(
     return mu, sd
 
 
-def _conv1d(x: Tensor, W: Tensor, b: Tensor) -> Tensor:
-    """`x` is `(B, L, Cin)` (NHC), `W` is `(kernel, Cin, Cout)` (HIO).
-
-    Tinygrad's `Tensor.conv2d` expects `(B, Cin, ...)`, so we transpose
-    in/out and reshape weights to `(Cout, Cin, kernel)` to match.
-    """
-    x_bcl = x.permute(0, 2, 1)                     # (B, Cin, L)
-    W_oik = W.permute(2, 1, 0)                     # (Cout, Cin, kernel)
-    y_bcl = x_bcl.conv2d(W_oik)                    # (B, Cout, L_post)
-    return y_bcl.permute(0, 2, 1) + b              # (B, L_post, Cout)
-
-
 def apply_backbone(bb: Backbone, X: Tensor) -> Tensor:
     """Run the frozen backbone over `X` of shape `(n, K, F)`.
 
@@ -111,7 +100,7 @@ def apply_backbone(bb: Backbone, X: Tensor) -> Tensor:
     for W_np, b_np in bb.conv_params:
         W = Tensor(W_np)
         b = Tensor(b_np)
-        h = _conv1d(h, W, b).relu()
+        h = conv1d_nhc(h, W, b).relu()
     return h.reshape(h.shape[0], -1)
 
 
@@ -145,5 +134,5 @@ def apply_backbone_pytree(bb_params: dict, X: Tensor) -> Tensor:
     """
     h = (X - bb_params['feat_mu']) / bb_params['feat_sd']
     for layer in bb_params['conv']:
-        h = _conv1d(h, layer['W'], layer['b']).relu()
+        h = conv1d_nhc(h, layer['W'], layer['b']).relu()
     return h.reshape(h.shape[0], -1)

@@ -28,43 +28,14 @@ import pandas as pd
 
 from ss_loaders import load_stooq_matrix
 from ss_portfolio import weights_regime as _baseline_weights_regime
+from ss_portfolio.bt_helpers import build_strategy
 
 from relational.empirical_sectors import weights_excess_regime_empirical
 from relational.farthest import weights_regime_farthest
 from relational.sizing import risk_parity_weights, vol_target_weights
+from relational.sectors import PHASE2_TICKERS
 
 warnings.filterwarnings('ignore')
-
-
-PHASE2_TICKERS: tuple[str, ...] = (
-    'AAPL', 'MSFT', 'GOOGL', 'AMZN', 'META', 'NVDA', 'NFLX', 'CRM', 'CSCO',
-    'JPM', 'BAC', 'GE', 'BA', 'XOM', 'KO', 'WMT', 'JNJ', 'UNH', 'T', 'DIS',
-    'TSLA',
-)
-
-
-def _make_commission_fn(bps: float):
-    frac = bps / 10000.0
-
-    def commission(q, p):
-        return abs(q) * p * frac
-
-    return commission
-
-
-def _build_strategy(
-    name: str, prices: pd.DataFrame, weights: pd.DataFrame,
-    *, rebal_days: int, commission_bps: float,
-) -> bt.Backtest:
-    rebal_weights = weights.iloc[::rebal_days]
-    strategy = bt.Strategy(name, [
-        bt.algos.RunOnDate(*rebal_weights.index),
-        bt.algos.WeighTarget(rebal_weights),
-        bt.algos.Rebalance(),
-    ])
-    return bt.Backtest(strategy, prices,
-                       commissions=_make_commission_fn(commission_bps),
-                       integer_positions=False)
 
 
 def run(
@@ -127,7 +98,7 @@ def run(
             label = f'{strat_name}|{variant_name}'
             print(f'  building {label}: '
                   f'mean_gross={w.iloc[::rebal_days].sum(axis=1).mean():.3f}')
-            backtests.append(_build_strategy(
+            backtests.append(build_strategy(
                 label, prices, w,
                 rebal_days=rebal_days, commission_bps=commission_bps))
 

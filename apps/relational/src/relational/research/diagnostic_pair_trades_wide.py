@@ -47,6 +47,7 @@ import numpy as np
 import pandas as pd
 
 from ss_loaders import load_stooq_matrix
+from ss_portfolio.bt_helpers import build_strategy
 from ss_portfolio import (
     apply_nan_mask, select_top_n_matrix, weights_regime as _baseline_long,
 )
@@ -55,38 +56,12 @@ from relational.empirical_sectors import (
     empirical_excess_divergence_scores, weights_excess_regime_empirical,
 )
 from relational.farthest import centroid_distance_scores, weights_regime_farthest
+from relational.scoring import baseline_divergence_scores
 from relational.pairs import (
     cluster_pair_weights, market_neutral_weights, rank_spread_weights,
 )
 
 warnings.filterwarnings('ignore')
-
-
-def _make_commission_fn(bps: float):
-    frac = bps / 10000.0
-
-    def commission(q, p):
-        return abs(q) * p * frac
-
-    return commission
-
-
-def _bt_safe_prices(prices: pd.DataFrame) -> pd.DataFrame:
-    """Forward-fill + back-fill NaN prices for bt's price-feed.
-
-    bt's rebalance solver raises if a held position's price becomes NaN
-    mid-holding (e.g. a ticker delists between rebalance dates). The
-    Phase-2 21-mega-cap panel had no such gaps, but the wider 312-name
-    `stooq_us_long` subset has plenty. We forward-fill so a delisted /
-    gapped name's last known price persists until the next rebalance
-    closes the position; back-fill handles tickers whose first NaN-free
-    price is after the panel start (early-listed names not yet trading).
-
-    Returns a *separate* DataFrame so the scoring path keeps the
-    original NaN-laden prices (NaN is meaningful there — `apply_nan_mask`
-    needs it). Only the bt price-feed sees the filled version.
-    """
-    return prices.ffill().bfill()
 
 
 def _mask_weights_to_active(
@@ -107,45 +82,6 @@ def _mask_weights_to_active(
         sums = np.where(sums > 0, sums, 1.0)
         w[is_long_only] = w[is_long_only] / sums
     return pd.DataFrame(w, index=weights.index, columns=weights.columns)
-
-
-def _build_strategy(
-    name: str, prices: pd.DataFrame, weights: pd.DataFrame,
-    *, rebal_days: int, commission_bps: float,
-) -> bt.Backtest:
-    rebal_weights = weights.iloc[::rebal_days]
-    # Drop the first rebalance row(s) where the score isn't fully
-    # populated yet (gross < 0.1 → no actionable basket). Keeps bt from
-    # holding a ~0 basket through the first 20 days then snapping into
-    # a full position at the first useful rebalance.
-    nonzero = rebal_weights.abs().sum(axis=1) > 0.1
-    if nonzero.any():
-        rebal_weights = rebal_weights.loc[nonzero]
-    strategy = bt.Strategy(name, [
-        bt.algos.RunOnDate(*rebal_weights.index),
-        bt.algos.WeighTarget(rebal_weights),
-        bt.algos.Rebalance(),
-    ])
-    bt_prices = _bt_safe_prices(prices)
-    return bt.Backtest(strategy, bt_prices,
-                       commissions=_make_commission_fn(commission_bps),
-                       integer_positions=False)
-
-
-def _baseline_scores(prices: pd.DataFrame, *, lookback, n_tail, scales,
-                     divergence='kl') -> np.ndarray:
-    """Replicate `weights_regime`'s per-stock CWT-power KL divergence,
-    but return the raw `(n_eval, n_tickers)` score matrix so we can also
-    pull bot-N picks for rank-spread."""
-    from ss_indicators import get_divergence
-    from ss_wavelets import causal_cwt, precompute_windows
-    coeffs = causal_cwt(prices.values, scales, lookback)
-    power = (coeffs ** 2).astype(np.float32)
-    recent, historical = precompute_windows(power, lookback, n_tail)
-    div_fn = get_divergence(divergence)
-    scale_log_weights = np.zeros(len(scales), dtype=np.float32)
-    return np.array(
-        div_fn(recent, historical, scale_log_weights), copy=True)
 
 
 def _bot_weights_from_scores(
@@ -177,9 +113,10 @@ def _run_one_backtest(args) -> tuple[str, pd.DataFrame]:
     plot without re-running anything.
     """
     label, prices, weights, rebal_days, commission_bps = args
-    backtest = _build_strategy(
+    backtest = build_strategy(
         label, prices, weights,
-        rebal_days=rebal_days, commission_bps=commission_bps)
+        rebal_days=rebal_days, commission_bps=commission_bps,
+        drop_empty=True, safe_prices=True)
     result = bt.run(backtest)
     stats = result.stats
     # Equity series for the plot.
@@ -222,7 +159,7 @@ def run(
 
     # --- baseline (per-stock CWT-power KL divergence) ----------------
     print('  baseline (CWT-power KL)...')
-    base_scores = _baseline_scores(
+    base_scores = baseline_divergence_scores(
         prices, lookback=lookback, n_tail=n_tail, scales=scales)
     base_top = _baseline_long(
         prices, lookback=lookback, n_tail=n_tail, top_n=top_n, scales=scales)

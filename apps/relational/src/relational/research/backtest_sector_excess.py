@@ -28,46 +28,20 @@ import pandas as pd
 
 from ss_loaders import load_stooq_matrix
 from ss_portfolio import weights_regime as _weights_regime_baseline
+from ss_portfolio.bt_helpers import build_strategy
 
 from relational.scoring import weights_excess_regime
+from relational.sectors import PHASE2_TICKERS
 
 warnings.filterwarnings('ignore')
 
 
 # Phase-2 universe (mirrors the Stooq subset baked into apps/notebook/data/).
-PHASE2_TICKERS: tuple[str, ...] = (
-    'AAPL', 'MSFT', 'GOOGL', 'AMZN', 'META', 'NVDA', 'NFLX', 'CRM', 'CSCO',
-    'JPM', 'BAC', 'GE', 'BA', 'XOM', 'KO', 'WMT', 'JNJ', 'UNH', 'T', 'DIS',
-    'TSLA',
-)
 
 
 # `_weights_regime_baseline` is re-exported from
 # `ss_portfolio.weights_regime` (the canonical home post-refactor).
 # Local alias keeps the call sites below stable; no inline copy needed.
-
-
-def _make_commission_fn(bps: float):
-    frac = bps / 10000.0
-
-    def commission(q, p):
-        return abs(q) * p * frac
-
-    return commission
-
-
-def _build_strategy(name: str, prices: pd.DataFrame,
-                    weight_df: pd.DataFrame, *,
-                    rebal_days: int, commission_bps: float):
-    rebal_weights = weight_df.iloc[::rebal_days]
-    strategy = bt.Strategy(name, [
-        bt.algos.RunOnDate(*rebal_weights.index),
-        bt.algos.WeighTarget(rebal_weights),
-        bt.algos.Rebalance(),
-    ])
-    return bt.Backtest(strategy, prices,
-                       commissions=_make_commission_fn(commission_bps),
-                       integer_positions=False)
 
 
 def run(
@@ -113,10 +87,10 @@ def run(
         scales=scales, divergence=divergence, sector_mode='equal')
 
     print('\nRunning bt backtests...')
-    bt_baseline = _build_strategy(
+    bt_baseline = build_strategy(
         'regime', prices, w_baseline,
         rebal_days=rebal_days, commission_bps=commission_bps)
-    bt_excess = _build_strategy(
+    bt_excess = build_strategy(
         'excess-regime', prices, w_excess,
         rebal_days=rebal_days, commission_bps=commission_bps)
     result = bt.run(bt_baseline, bt_excess)

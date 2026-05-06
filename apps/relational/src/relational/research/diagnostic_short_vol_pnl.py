@@ -28,33 +28,19 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
-from ss_features.vol import realized_vol
+from ss_features import realized_vol_matrix
 from ss_loaders import load_stooq_matrix
 
 from relational.iv_data import load_atm_iv, load_dolthub_iv_parquet
 from relational.research.diagnostic_dislocation_vs_vol import (
     ALL_SCORERS, BRAINSTORM_SCORERS, _compute_scores,
 )
+from relational.sectors import PHASE2_TICKERS
 from relational.short_vol import (
     evaluate_short_vol, evaluate_universe_short_vol,
 )
 
 warnings.filterwarnings('ignore')
-
-
-PHASE2_TICKERS: tuple[str, ...] = (
-    'AAPL', 'MSFT', 'GOOGL', 'AMZN', 'META', 'NVDA', 'NFLX', 'CRM', 'CSCO',
-    'JPM', 'BAC', 'GE', 'BA', 'XOM', 'KO', 'WMT', 'JNJ', 'UNH', 'T', 'DIS',
-    'TSLA',
-)
-
-
-def _per_ticker_realized_vol(prices: pd.DataFrame, window: int) -> np.ndarray:
-    out = np.full(prices.shape, np.nan, dtype=np.float64)
-    arr = prices.values
-    for j in range(arr.shape[1]):
-        out[:, j] = realized_vol(arr[:, j], window)
-    return out
 
 
 def run(
@@ -81,7 +67,7 @@ def run(
     scales = [5, 7, 10, 12, 21, 26, 50, 90]
 
     print('\nComputing forward realized vol...')
-    rv = _per_ticker_realized_vol(prices, vol_window)
+    rv = realized_vol_matrix(prices, vol_window)
     forward_ann = rv * np.sqrt(252)
 
     print(f'Loading ATM IV (source={iv_source})...')

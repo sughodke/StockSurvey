@@ -25,6 +25,30 @@ from relational.aggregates import sector_series
 from relational.sectors import ticker_to_sector_idx
 
 
+def baseline_divergence_scores(
+    prices: pd.DataFrame,
+    *,
+    lookback: int,
+    n_tail: int,
+    scales: list[int],
+    divergence: str = 'kl',
+) -> np.ndarray:
+    """Per-(date, ticker) baseline CWT-power divergence scores.
+
+    The non-relational comparison point: same divergence math
+    `weights_regime` uses, but returns the raw `(n_eval, n_tickers)`
+    score matrix rather than top-N weights, so callers can also pull
+    bot-N picks for rank-spread / pair-trade variants.
+    """
+    coeffs = causal_cwt(prices.values, scales, lookback)
+    power = (coeffs ** 2).astype(np.float32)
+    recent, historical = precompute_windows(power, lookback, n_tail)
+    div_fn = get_divergence(divergence)
+    scale_log_weights = np.zeros(len(scales), dtype=np.float32)
+    return np.array(
+        div_fn(recent, historical, scale_log_weights), copy=True)
+
+
 def excess_divergence_scores(
     prices: pd.DataFrame,
     *,

@@ -27,18 +27,14 @@ from __future__ import annotations
 import numpy as np
 import pandas as pd
 
-from ss_features.vol import realized_vol
+from ss_features import realized_vol_matrix
 
 
 def _trailing_realized_vol_annualized(
     prices: pd.DataFrame, window: int,
 ) -> pd.DataFrame:
     """Per-ticker causal rolling std of log returns × √252."""
-    arr = prices.values
-    out = np.full(arr.shape, np.nan, dtype=np.float64)
-    for j in range(arr.shape[1]):
-        out[:, j] = realized_vol(arr[:, j], window)
-    out *= np.sqrt(252.0)
+    out = realized_vol_matrix(prices, window, annualize=True)
     return pd.DataFrame(out, index=prices.index, columns=prices.columns)
 
 

@@ -20,6 +20,7 @@ from __future__ import annotations
 
 import argparse
 import logging
+import os
 import warnings
 
 import bt
@@ -32,7 +33,9 @@ from tqdm import tqdm
 from ss_indicators import corwin_schultz_spread, symmetric_kl_divergence
 from ss_indicators import rsi as rsi_indicator
 from ss_loaders import load_price_matrix
+from ss_cli import add_save_args, add_universe_loader_args
 from ss_portfolio import apply_nan_mask, apply_spread_mask, select_top_n_matrix
+from ss_portfolio.bt_helpers import build_strategy
 from ss_wavelets import causal_cwt
 
 warnings.filterwarnings('ignore')
@@ -139,57 +142,14 @@ WEIGHT_BUILDERS = {
 }
 
 
-def print_rebalance_events(weight_df, name, rebalance_days):
-    """Print each rebalance event: date, holdings, additions, removals."""
-    rebal_weights = weight_df.iloc[::rebalance_days]
-    prev_holdings: set[str] = set()
-    for date, row in rebal_weights.iterrows():
-        held = row[row > 0].sort_values(ascending=False)
-        current = set(held.index)
-        added = current - prev_holdings
-        removed = prev_holdings - current
-        tickers_str = ', '.join(f'{t} ({w:.0%})' for t, w in held.items())
-        changes: list[str] = []
-        if added:
-            changes.append(f'+{",".join(sorted(added))}')
-        if removed:
-            changes.append(f'-{",".join(sorted(removed))}')
-        change_str = f'  [{" | ".join(changes)}]' if changes else ''
-        print(f'  [{name}] {date.date()}  {tickers_str}{change_str}')
-        prev_holdings = current
-
-
-def make_commission_fn(spread_bps=10):
-    """Flat per-side commission as a fraction of notional."""
-    frac = spread_bps / 10000.0
-
-    def commission(q, p):
-        return abs(q) * p * frac
-
-    return commission
-
-
-def build_strategy(name, prices, weight_df, rebalance_days=5, verbose=False,
-                   commission_bps=10):
-    """Wrap a weight DataFrame in a `bt.Backtest` rebalanced every N days."""
-    rebal_weights = weight_df.iloc[::rebalance_days]
-    if verbose:
-        print_rebalance_events(weight_df, name, rebalance_days)
-    strategy = bt.Strategy(name, [
-        bt.algos.RunOnDate(*rebal_weights.index),
-        bt.algos.WeighTarget(rebal_weights),
-        bt.algos.Rebalance(),
-    ])
-    return bt.Backtest(strategy, prices,
-                       commissions=make_commission_fn(commission_bps),
-                       integer_positions=False)
-
-
 def main(argv: list[str] | None = None) -> None:
     parser = argparse.ArgumentParser(
         description='Portfolio backtest of ranking strategies using bt')
-    parser.add_argument('--data-dir', required=True,
-                        help='Path to Kaggle NASDAQ daily CSV directory')
+    add_universe_loader_args(
+        parser,
+        default_start='2000-01-01',
+        default_end='2025-12-31',
+        data_dir_help='Path to Kaggle NASDAQ daily CSV directory.')
     parser.add_argument('--rankers', nargs='+',
                         default=['rsi', 'scalogram', 'regime', 'equal'],
                         choices=list(WEIGHT_BUILDERS.keys()),
@@ -197,11 +157,8 @@ def main(argv: list[str] | None = None) -> None:
     parser.add_argument('--top-n', type=int, default=20)
     parser.add_argument('--rebalance', type=int, default=5,
                         help='Rebalance every N trading days')
-    parser.add_argument('--start', default='2000-01-01')
-    parser.add_argument('--end', default='2025-12-31')
     parser.add_argument('--min-history', type=int, default=504)
-    parser.add_argument('--save', action='store_true',
-                        help='Save plots and stats to Output/')
+    add_save_args(parser)
     parser.add_argument('--verbose', action='store_true',
                         help='Print each rebalance event')
     parser.add_argument('--commission-bps', type=int, default=10)
@@ -225,7 +182,8 @@ def main(argv: list[str] | None = None) -> None:
         weight_df = builder(prices, top_n=args.top_n,
                             spread_df=spread_df, max_spread=args.max_spread)
         backtests.append(build_strategy(
-            name, prices, weight_df, args.rebalance,
+            name, prices, weight_df,
+            rebal_days=args.rebalance,
             verbose=args.verbose, commission_bps=args.commission_bps))
 
     print('\nRunning backtests...')
@@ -240,11 +198,14 @@ def main(argv: list[str] | None = None) -> None:
     fig.tight_layout()
 
     if args.save:
-        fig.savefig('Output/backtest-bt-comparison.png', dpi=150)
-        print('\nSaved Output/backtest-bt-comparison.png')
-        with open('Output/backtest-bt-stats.txt', 'w') as f:
+        os.makedirs(args.output_dir, exist_ok=True)
+        png_path = os.path.join(args.output_dir, 'backtest-bt-comparison.png')
+        stats_path = os.path.join(args.output_dir, 'backtest-bt-stats.txt')
+        fig.savefig(png_path, dpi=150)
+        print(f'\nSaved {png_path}')
+        with open(stats_path, 'w') as f:
             f.write(str(result.stats))
-        print('Saved Output/backtest-bt-stats.txt')
+        print(f'Saved {stats_path}')
         plt.close(fig)
     else:
         plt.show()

@@ -35,7 +35,7 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
-from ss_features.vol import realized_vol
+from ss_features import realized_vol_matrix
 from ss_indicators import get_divergence
 from ss_loaders import load_stooq_matrix
 from ss_wavelets import causal_cwt, precompute_windows
@@ -49,16 +49,11 @@ from relational.iv_data import (
 from relational.ot_stress import ot_stress_scores
 from relational.scale_energy import (
     scale_energy_ratio_scores, scale_entropy_scores)
-from relational.scoring import excess_divergence_scores
+from relational.scoring import baseline_divergence_scores, excess_divergence_scores
+from relational.sectors import PHASE2_TICKERS
 
 warnings.filterwarnings('ignore')
 
-
-PHASE2_TICKERS: tuple[str, ...] = (
-    'AAPL', 'MSFT', 'GOOGL', 'AMZN', 'META', 'NVDA', 'NFLX', 'CRM', 'CSCO',
-    'JPM', 'BAC', 'GE', 'BA', 'XOM', 'KO', 'WMT', 'JNJ', 'UNH', 'T', 'DIS',
-    'TSLA',
-)
 
 SCORER_CHOICES = (
     'baseline', 'farthest', 'empirical', 'analog', 'gics',
@@ -69,28 +64,11 @@ ALL_SCORERS = ('baseline', 'farthest', 'empirical', 'analog', 'gics')
 BRAINSTORM_SCORERS = ('n1_ratio', 'n1_entropy', 'n2_bocpd', 'r1_ot')
 
 
-def _per_ticker_realized_vol(prices: pd.DataFrame, window: int) -> np.ndarray:
-    out = np.full(prices.shape, np.nan, dtype=np.float64)
-    arr = prices.values
-    for j in range(arr.shape[1]):
-        out[:, j] = realized_vol(arr[:, j], window)
-    return out
-
-
-def _baseline_scores(prices, *, lookback, n_tail, scales, divergence='kl'):
-    coeffs = causal_cwt(prices.values, scales, lookback)
-    power = (coeffs ** 2).astype(np.float32)
-    recent, historical = precompute_windows(power, lookback, n_tail)
-    div_fn = get_divergence(divergence)
-    scale_log_weights = np.zeros(len(scales), dtype=np.float32)
-    return np.array(div_fn(recent, historical, scale_log_weights), copy=True)
-
-
 def _compute_scores(name: str, prices: pd.DataFrame, *,
                     lookback: int, n_tail: int, scales: list[int],
                     fp_window: int, k_clusters: int) -> np.ndarray:
     if name == 'baseline':
-        return _baseline_scores(
+        return baseline_divergence_scores(
             prices, lookback=lookback, n_tail=n_tail, scales=scales)
     if name == 'farthest':
         return centroid_distance_scores(
@@ -233,7 +211,7 @@ def run(
     print(f'  anchor: {"ATM IV (HF gauss314)" if iv_anchor else "trailing realized vol"}')
 
     print('\nComputing per-ticker rolling realized vol (forward target)...')
-    rv = _per_ticker_realized_vol(prices, vol_window)
+    rv = realized_vol_matrix(prices, vol_window)
     forward_ann = rv * np.sqrt(252)  # daily std → annualized fractional
 
     if iv_anchor:

@@ -23,12 +23,14 @@ members = [
     "regime",
     "relational",
     "replay",
+    "ss-cli",
     "ss-features",
     "ss-indicators",
     "ss-loaders",
     "ss-plotting",
     "ss-portfolio",
     "ss-stream",
+    "ss-tg-ops",
     "ss-wavelets",
     "stocksurvey",
     "stocksurvey-notebook",
@@ -1067,6 +1069,7 @@ dependencies = [
     { name = "ss-features" },
     { name = "ss-indicators" },
     { name = "ss-loaders" },
+    { name = "ss-tg-ops" },
     { name = "tinygrad", version = "0.11.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11'" },
     { name = "tinygrad", version = "0.12.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.11'" },
     { name = "tqdm" },
@@ -1086,6 +1089,7 @@ requires-dist = [
     { name = "ss-features", editable = "packages/features" },
     { name = "ss-indicators", editable = "packages/indicators" },
     { name = "ss-loaders", editable = "packages/loaders" },
+    { name = "ss-tg-ops", editable = "packages/tg_ops" },
     { name = "tinygrad", specifier = ">=0.10.0" },
     { name = "tqdm" },
 ]
@@ -3884,6 +3888,8 @@ dependencies = [
     { name = "numpy" },
     { name = "optax" },
     { name = "pandas" },
+    { name = "ss-cli" },
+    { name = "ss-features" },
     { name = "ss-indicators" },
     { name = "ss-loaders" },
     { name = "ss-plotting" },
@@ -3910,6 +3916,8 @@ requires-dist = [
     { name = "optax", specifier = ">=0.2.5" },
     { name = "optuna", marker = "extra == 'research'" },
     { name = "pandas" },
+    { name = "ss-cli", editable = "packages/cli" },
+    { name = "ss-features", editable = "packages/features" },
     { name = "ss-indicators", editable = "packages/indicators" },
     { name = "ss-loaders", editable = "packages/loaders" },
     { name = "ss-plotting", editable = "packages/plotting" },
@@ -3971,6 +3979,7 @@ dependencies = [
     { name = "ss-features" },
     { name = "ss-indicators" },
     { name = "ss-loaders" },
+    { name = "ss-tg-ops" },
     { name = "ss-wavelets" },
     { name = "tinygrad", version = "0.11.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11'" },
     { name = "tinygrad", version = "0.12.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.11'" },
@@ -3992,6 +4001,7 @@ requires-dist = [
     { name = "ss-features", editable = "packages/features" },
     { name = "ss-indicators", editable = "packages/indicators" },
     { name = "ss-loaders", editable = "packages/loaders" },
+    { name = "ss-tg-ops", editable = "packages/tg_ops" },
     { name = "ss-wavelets", editable = "packages/wavelets" },
     { name = "tinygrad", specifier = ">=0.10.0" },
     { name = "tqdm" },
@@ -4551,6 +4561,11 @@ wheels = [
 ]
 
 [[package]]
+name = "ss-cli"
+version = "0.1.0"
+source = { editable = "packages/cli" }
+
+[[package]]
 name = "ss-features"
 version = "0.1.0"
 source = { editable = "packages/features" }
@@ -4669,6 +4684,18 @@ requires-dist = [
 ]
 
 [[package]]
+name = "ss-tg-ops"
+version = "0.1.0"
+source = { editable = "packages/tg_ops" }
+dependencies = [
+    { name = "tinygrad", version = "0.11.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11'" },
+    { name = "tinygrad", version = "0.12.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.11'" },
+]
+
+[package.metadata]
+requires-dist = [{ name = "tinygrad" }]
+
+[[package]]
 name = "ss-wavelets"
 version = "0.1.0"
 source = { editable = "packages/wavelets" }
@@ -4743,6 +4770,7 @@ dependencies = [
     { name = "matplotlib" },
     { name = "numpy" },
     { name = "pandas" },
+    { name = "ss-cli" },
     { name = "ss-features" },
     { name = "ss-indicators" },
     { name = "ss-loaders" },
@@ -4757,6 +4785,7 @@ requires-dist = [
     { name = "matplotlib" },
     { name = "numpy" },
     { name = "pandas" },
+    { name = "ss-cli", editable = "packages/cli" },
     { name = "ss-features", editable = "packages/features" },
     { name = "ss-indicators", editable = "packages/indicators" },
     { name = "ss-loaders", editable = "packages/loaders" },

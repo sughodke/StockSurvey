@@ -27,41 +27,13 @@ import pandas as pd
 
 from ss_loaders import load_stooq_matrix
 from ss_portfolio import weights_regime as _weights_regime_baseline
+from ss_portfolio.bt_helpers import build_strategy
 
 from relational.empirical_sectors import weights_excess_regime_empirical
 from relational.scoring import weights_excess_regime
+from relational.sectors import PHASE2_TICKERS
 
 warnings.filterwarnings('ignore')
-
-
-PHASE2_TICKERS: tuple[str, ...] = (
-    'AAPL', 'MSFT', 'GOOGL', 'AMZN', 'META', 'NVDA', 'NFLX', 'CRM', 'CSCO',
-    'JPM', 'BAC', 'GE', 'BA', 'XOM', 'KO', 'WMT', 'JNJ', 'UNH', 'T', 'DIS',
-    'TSLA',
-)
-
-
-def _make_commission_fn(bps: float):
-    frac = bps / 10000.0
-
-    def commission(q, p):
-        return abs(q) * p * frac
-
-    return commission
-
-
-def _build_strategy(name: str, prices: pd.DataFrame,
-                    weight_df: pd.DataFrame, *,
-                    rebal_days: int, commission_bps: float):
-    rebal_weights = weight_df.iloc[::rebal_days]
-    strategy = bt.Strategy(name, [
-        bt.algos.RunOnDate(*rebal_weights.index),
-        bt.algos.WeighTarget(rebal_weights),
-        bt.algos.Rebalance(),
-    ])
-    return bt.Backtest(strategy, prices,
-                       commissions=_make_commission_fn(commission_bps),
-                       integer_positions=False)
 
 
 def run(
@@ -113,13 +85,13 @@ def run(
         refit_days=refit_days)
 
     print('\nRunning bt backtests...')
-    bt_baseline = _build_strategy(
+    bt_baseline = build_strategy(
         'regime', prices, w_baseline,
         rebal_days=rebal_days, commission_bps=commission_bps)
-    bt_excess_gics = _build_strategy(
+    bt_excess_gics = build_strategy(
         'excess-gics', prices, w_excess_gics,
         rebal_days=rebal_days, commission_bps=commission_bps)
-    bt_excess_emp = _build_strategy(
+    bt_excess_emp = build_strategy(
         'excess-empirical', prices, w_excess_emp,
         rebal_days=rebal_days, commission_bps=commission_bps)
     result = bt.run(bt_baseline, bt_excess_gics, bt_excess_emp)

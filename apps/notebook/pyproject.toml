@@ -4,6 +4,7 @@ version = "0.1.0"
 requires-python = ">=3.10"
 description = "Jupyter playground + scalogram visualizers (`ss-scalogram`, `ss-scalogram-video`). The CNN trainer was extracted to apps/replay; the factor scorer to apps/factor."
 dependencies = [
+    "ss-cli",
     "ss-features",
     "ss-loaders",
     "ss-indicators",

@@ -78,6 +78,7 @@ def _configure_ffmpeg() -> str:
     except ImportError:
         return 'none'
 
+from ss_cli import add_single_ticker_loader_args
 from ss_plotting.scalogram import INDICATOR_SCALES
 
 from ss_notebook.scalogram import (
@@ -291,12 +292,7 @@ def main() -> None:
     parser = argparse.ArgumentParser(
         description='Day-by-day animation of the causal scalogram.')
     parser.add_argument('tickers', nargs='+', help='Ticker symbols')
-    parser.add_argument('--stooq-dir', default=None,
-                        help='Stooq archive root (default ./StooqData).')
-    parser.add_argument('--kaggle-dir', default=None,
-                        help='Use Nasdaq3347-style CSV matrix instead.')
-    parser.add_argument('--start', default=None, help='YYYY-MM-DD')
-    parser.add_argument('--end', default=None, help='YYYY-MM-DD')
+    add_single_ticker_loader_args(parser)
     parser.add_argument('--lookback', type=int, default=90,
                         help='Causal z-norm + historical window length '
                              '(default 90, sized for log-returns input — '

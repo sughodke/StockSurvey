@@ -29,6 +29,8 @@ from tinygrad.tensor import Tensor
 from tinygrad import dtypes
 from tinygrad.nn.optim import Adam
 
+from ss_tg_ops import conv1d_nhc
+
 
 # ---- shared utilities -------------------------------------------------------
 
@@ -49,18 +51,6 @@ def _maybe_bf16(x: Tensor, use_bf16: bool) -> Tensor:
 def _he_normal_np(rng: np.random.Generator, shape: tuple[int, ...],
                   fan_in: int) -> np.ndarray:
     return rng.standard_normal(shape).astype(np.float32) * (2.0 / fan_in) ** 0.5
-
-
-def _conv1d(x: Tensor, W: Tensor, b: Tensor) -> Tensor:
-    """`x` `(B, L, Cin)` (NHC), `W` `(kernel, Cin, Cout)` (HIO).
-
-    Tinygrad's `conv2d` is NCHW; we permute in/out to match the JAX
-    NHC/HIO layout the npz expects on disk.
-    """
-    x_bcl = x.permute(0, 2, 1)
-    W_oik = W.permute(2, 1, 0)
-    y_bcl = x_bcl.conv2d(W_oik)
-    return y_bcl.permute(0, 2, 1) + b
 
 
 # ---- public fits ------------------------------------------------------------
@@ -265,7 +255,7 @@ def fit_cnn(
         for W, b in conv_params:
             Wc = _maybe_bf16(W, use_bf16)
             bc = _maybe_bf16(b, use_bf16)
-            h = _conv1d(h, Wc, bc).relu()
+            h = conv1d_nhc(h, Wc, bc).relu()
         h = h.reshape(h.shape[0], -1)
         Wh = _maybe_bf16(W_head, use_bf16)
         bh = _maybe_bf16(b_head, use_bf16)
@@ -415,7 +405,7 @@ def fit_cnn_masked_ae(
         for W, b in conv_params:
             Wc = _maybe_bf16(W, use_bf16)
             bc = _maybe_bf16(b, use_bf16)
-            h = _conv1d(h, Wc, bc).relu()
+            h = conv1d_nhc(h, Wc, bc).relu()
         return h.reshape(h.shape[0], -1)
 
     def decoder_fwd(z: Tensor) -> Tensor:
@@ -730,7 +720,7 @@ def fit_cnn_multihead(
         for W, b in conv_params:
             Wc = _maybe_bf16(W, use_bf16)
             bc = _maybe_bf16(b, use_bf16)
-            h = _conv1d(h, Wc, bc).relu()
+            h = conv1d_nhc(h, Wc, bc).relu()
         h = h.reshape(h.shape[0], -1)
         if freeze_backbone_flag:
             h = h.detach()

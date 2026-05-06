@@ -7,6 +7,7 @@ dependencies = [
     "ss-features",
     "ss-loaders",
     "ss-indicators",
+    "ss-tg-ops",
     "numpy",
     "pandas",
     "matplotlib",

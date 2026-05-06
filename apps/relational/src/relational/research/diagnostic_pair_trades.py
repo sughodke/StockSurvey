@@ -36,6 +36,7 @@ from ss_loaders import load_stooq_matrix
 from ss_portfolio import (
     apply_nan_mask, select_top_n_matrix, weights_regime as _baseline_long,
 )
+from ss_portfolio.bt_helpers import build_strategy
 
 from relational.analog_knn import (
     analog_knn_scores, weights_regime_analog,
@@ -47,52 +48,10 @@ from relational.farthest import centroid_distance_scores, weights_regime_farthes
 from relational.pairs import (
     cluster_pair_weights, market_neutral_weights, rank_spread_weights,
 )
+from relational.scoring import baseline_divergence_scores
+from relational.sectors import PHASE2_TICKERS
 
 warnings.filterwarnings('ignore')
-
-
-PHASE2_TICKERS: tuple[str, ...] = (
-    'AAPL', 'MSFT', 'GOOGL', 'AMZN', 'META', 'NVDA', 'NFLX', 'CRM', 'CSCO',
-    'JPM', 'BAC', 'GE', 'BA', 'XOM', 'KO', 'WMT', 'JNJ', 'UNH', 'T', 'DIS',
-    'TSLA',
-)
-
-
-def _make_commission_fn(bps: float):
-    frac = bps / 10000.0
-
-    def commission(q, p):
-        return abs(q) * p * frac
-
-    return commission
-
-
-def _build_strategy(
-    name: str, prices: pd.DataFrame, weights: pd.DataFrame,
-    *, rebal_days: int, commission_bps: float,
-) -> bt.Backtest:
-    rebal_weights = weights.iloc[::rebal_days]
-    strategy = bt.Strategy(name, [
-        bt.algos.RunOnDate(*rebal_weights.index),
-        bt.algos.WeighTarget(rebal_weights),
-        bt.algos.Rebalance(),
-    ])
-    return bt.Backtest(strategy, prices,
-                       commissions=_make_commission_fn(commission_bps),
-                       integer_positions=False)
-
-
-def _baseline_scores(prices: pd.DataFrame, *, lookback, n_tail, scales,
-                     divergence='kl') -> np.ndarray:
-    from ss_indicators import get_divergence
-    from ss_wavelets import causal_cwt, precompute_windows
-    coeffs = causal_cwt(prices.values, scales, lookback)
-    power = (coeffs ** 2).astype(np.float32)
-    recent, historical = precompute_windows(power, lookback, n_tail)
-    div_fn = get_divergence(divergence)
-    scale_log_weights = np.zeros(len(scales), dtype=np.float32)
-    return np.array(
-        div_fn(recent, historical, scale_log_weights), copy=True)
 
 
 def _bot_weights_from_scores(
@@ -136,7 +95,7 @@ def run(
     print('\n[scoring] computing top-N and bot-N weights for each scorer...')
 
     # baseline (per-stock CWT-power KL divergence)
-    base_scores = _baseline_scores(
+    base_scores = baseline_divergence_scores(
         prices, lookback=lookback, n_tail=n_tail, scales=scales)
     base_top = _baseline_long(
         prices, lookback=lookback, n_tail=n_tail, top_n=top_n, scales=scales)
@@ -198,7 +157,7 @@ def run(
             print(f'  {label}: '
                   f'mean_net={row_sums.mean():+.3f} '
                   f'gross={w.iloc[::rebal_days].abs().sum(axis=1).mean():.3f}')
-            backtests.append(_build_strategy(
+            backtests.append(build_strategy(
                 label, prices, w,
                 rebal_days=rebal_days, commission_bps=commission_bps))
 
@@ -209,7 +168,7 @@ def run(
     print(f'  {label}: '
           f'mean_net={row_sums.mean():+.3f} '
           f'gross={emp_cluster_pair.iloc[::rebal_days].abs().sum(axis=1).mean():.3f}')
-    backtests.append(_build_strategy(
+    backtests.append(build_strategy(
         label, prices, emp_cluster_pair,
         rebal_days=rebal_days, commission_bps=commission_bps))
 

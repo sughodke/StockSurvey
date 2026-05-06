@@ -46,6 +46,7 @@ from ss_loaders import load_stooq_matrix
 
 from relational.cluster_tracking import stabilize_cluster_ids
 from ss_portfolio import apply_nan_mask, select_top_n_matrix
+from ss_portfolio.bt_helpers import bt_safe_prices, make_commission_fn
 
 from relational.empirical_sectors import empirical_excess_divergence_scores
 from relational.fingerprints import extract_fingerprints
@@ -56,19 +57,6 @@ from relational.transitions import (
 )
 
 warnings.filterwarnings('ignore')
-
-
-def _make_commission_fn(bps: float):
-    frac = bps / 10000.0
-
-    def commission(q, p):
-        return abs(q) * p * frac
-
-    return commission
-
-
-def _bt_safe_prices(prices: pd.DataFrame) -> pd.DataFrame:
-    return prices.ffill().bfill()
 
 
 def _mask_weights_to_active(
@@ -109,10 +97,10 @@ def _build_strategy(
         bt.algos.WeighTarget(rebal_weights),
         bt.algos.Rebalance(),
     ])
-    bt_prices = _bt_safe_prices(prices)
+    bt_prices = bt_safe_prices(prices)
     return (
         bt.Backtest(strategy, bt_prices,
-                    commissions=_make_commission_fn(commission_bps),
+                    commissions=make_commission_fn(commission_bps),
                     integer_positions=False),
         n_rebals,
     )

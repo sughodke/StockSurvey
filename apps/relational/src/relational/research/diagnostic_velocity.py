@@ -47,6 +47,7 @@ import numpy as np
 import pandas as pd
 
 from ss_loaders import load_stooq_matrix
+from ss_portfolio.bt_helpers import build_strategy
 from ss_portfolio import (
     apply_nan_mask, select_top_n_matrix, weights_regime as _weights_regime_baseline,
 )
@@ -107,21 +108,8 @@ def _weights_farthest(
 
 
 # ---------------------------------------------------------------------
-# bt plumbing — identical to other relational diagnostics.
+# Weight-mask helper (kept here — local to the velocity diagnostic).
 # ---------------------------------------------------------------------
-
-def _make_commission_fn(bps: float):
-    frac = bps / 10000.0
-
-    def commission(q, p):
-        return abs(q) * p * frac
-
-    return commission
-
-
-def _bt_safe_prices(prices: pd.DataFrame) -> pd.DataFrame:
-    return prices.ffill().bfill()
-
 
 def _mask_weights_to_active(
     weights: pd.DataFrame, prices: pd.DataFrame,
@@ -133,26 +121,6 @@ def _mask_weights_to_active(
     sums = np.where(sums > 0, sums, 1.0)
     w = w / sums
     return pd.DataFrame(w, index=weights.index, columns=weights.columns)
-
-
-def _build_strategy(
-    name: str, prices: pd.DataFrame, weight_df: pd.DataFrame, *,
-    rebal_days: int, commission_bps: float,
-):
-    rebal_weights = weight_df.iloc[::rebal_days]
-    nonzero = rebal_weights.abs().sum(axis=1) > 0.1
-    if nonzero.any():
-        rebal_weights = rebal_weights.loc[nonzero]
-    strategy = bt.Strategy(name, [
-        bt.algos.RunOnDate(*rebal_weights.index),
-        bt.algos.WeighTarget(rebal_weights),
-        bt.algos.Rebalance(),
-    ])
-    bt_prices = _bt_safe_prices(prices)
-    return bt.Backtest(
-        strategy, bt_prices,
-        commissions=_make_commission_fn(commission_bps),
-        integer_positions=False)
 
 
 # ---------------------------------------------------------------------
@@ -337,9 +305,10 @@ def run(
         ('velocity-magnitude', w_velmag),
         ('axis-alignment',     w_axis),
     ]:
-        backtests.append(_build_strategy(
+        backtests.append(build_strategy(
             label, prices, w,
-            rebal_days=rebal_days, commission_bps=commission_bps))
+            rebal_days=rebal_days, commission_bps=commission_bps,
+            drop_empty=True, safe_prices=True))
 
     result = bt.run(*backtests)
 

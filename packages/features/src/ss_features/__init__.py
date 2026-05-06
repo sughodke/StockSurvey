@@ -24,15 +24,21 @@ from ss_features.cwt_features import (
 )
 from ss_features.metrics import fit_stats
 from ss_features.ticker import DEFAULT_STOOQ_DIR, TickerData, load_prices
-from ss_features.vol import log_returns, realized_vol
+from ss_features.vol import log_returns, realized_vol, realized_vol_matrix
+from ss_features.walkforward import (
+    CalendarWindow, block_windows, calendar_windows,
+)
 
 __all__ = [
     'Backbone',
+    'CalendarWindow',
     'DEFAULT_STOOQ_DIR',
     'TARGET_NAMES',
     'TickerData',
+    'block_windows',
     'build_features_and_targets',
     'build_lagged_features',
+    'calendar_windows',
     'channels_per_lag',
     'compute_scalogram',
     'fit_stats',
@@ -42,5 +48,6 @@ __all__ = [
     'log_return_signs',
     'log_returns',
     'realized_vol',
+    'realized_vol_matrix',
     'rolling_zscore_stats',
 ]

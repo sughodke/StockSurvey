@@ -4,7 +4,9 @@ version = "0.1.0"
 requires-python = ">=3.10"
 description = "Differentiable CWT-regime portfolio strategy: train, backtest, trade live."
 dependencies = [
+    "ss-cli",
     "ss-loaders",
+    "ss-features",
     "ss-indicators",
     "ss-wavelets",
     "ss-portfolio",

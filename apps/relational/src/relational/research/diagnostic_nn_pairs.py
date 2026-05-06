@@ -44,6 +44,7 @@ import numpy as np
 import pandas as pd
 
 from ss_loaders import load_stooq_matrix
+from ss_portfolio.bt_helpers import build_strategy
 
 from relational.empirical_sectors import weights_excess_regime_empirical
 from relational.farthest import weights_regime_farthest
@@ -59,31 +60,6 @@ warnings.filterwarnings('ignore')
 _DEFAULT_DATA_DIR = (Path(__file__).resolve().parents[4]
                      / 'notebook' / 'data' / 'stooq_us_long')
 _DEFAULT_CACHE_DIR = '/Users/sidghodke/Code/StockSurvey/.scalogram-cache'
-
-
-def _make_commission_fn(bps: float):
-    frac = bps / 10000.0
-
-    def commission(q, p):
-        return abs(q) * p * frac
-
-    return commission
-
-
-def _build_strategy(
-    name: str, prices: pd.DataFrame, weights: pd.DataFrame,
-    *, rebal_days: int, commission_bps: float,
-) -> bt.Backtest:
-    rebal_weights = weights.iloc[::rebal_days]
-    strategy = bt.Strategy(name, [
-        bt.algos.RunOnDate(*rebal_weights.index),
-        bt.algos.WeighTarget(rebal_weights),
-        bt.algos.Rebalance(),
-    ])
-    return bt.Backtest(
-        strategy, prices,
-        commissions=_make_commission_fn(commission_bps),
-        integer_positions=False)
 
 
 def _diagnostics(
@@ -253,7 +229,7 @@ def run(
             print(f'  {label}: '
                   f'mean_net={row_sums.mean():+.3f} '
                   f'gross={gross:.3f}')
-            backtests.append(_build_strategy(
+            backtests.append(build_strategy(
                 label, prices, w,
                 rebal_days=rebal_days, commission_bps=commission_bps))
 

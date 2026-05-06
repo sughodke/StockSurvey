@@ -39,3 +39,23 @@ def realized_vol(prices: np.ndarray, window: int) -> np.ndarray:
         v = max(s2 / window - m * m, 0.0)
         out[i] = np.sqrt(v)
     return out
+
+
+def realized_vol_matrix(
+    prices, window: int, *, annualize: bool = False,
+) -> np.ndarray:
+    """Per-ticker `realized_vol` applied across a `(T, N)` price matrix.
+
+    Accepts a numpy array or pandas DataFrame; returns a `(T, N)` numpy
+    array of trailing-window realized volatilities, NaN until each
+    column's window fills. If `annualize=True`, scales by `sqrt(252)`
+    so the result is annualized vol (used by the relational sizing
+    pipeline; raw rolling std is the default for SSL feature targets).
+    """
+    arr = prices.values if hasattr(prices, 'values') else prices
+    out = np.full(arr.shape, np.nan, dtype=np.float64)
+    for j in range(arr.shape[1]):
+        out[:, j] = realized_vol(arr[:, j], window)
+    if annualize:
+        out *= np.sqrt(252.0)
+    return out

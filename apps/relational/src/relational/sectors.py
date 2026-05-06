@@ -90,6 +90,22 @@ PHASE2_TICKER_TO_SECTOR: dict[str, str] = {
 }
 
 
+# Canonical ordered Phase-2 ticker tuple. Used by every research diagnostic
+# under `relational.research.*` to filter the loaded universe — order
+# matches the original copy-paste declarations across the diagnostics
+# (mega-cap tech first, then financials/industrials/staples/etc.) so
+# downstream pickled output that keys by tuple position stays stable.
+PHASE2_TICKERS: tuple[str, ...] = (
+    'AAPL', 'MSFT', 'GOOGL', 'AMZN', 'META', 'NVDA', 'NFLX', 'CRM', 'CSCO',
+    'JPM', 'BAC', 'GE', 'BA', 'XOM', 'KO', 'WMT', 'JNJ', 'UNH', 'T', 'DIS',
+    'TSLA',
+)
+assert set(PHASE2_TICKERS) == set(PHASE2_TICKER_TO_SECTOR), (
+    'PHASE2_TICKERS must contain exactly the keys of '
+    'PHASE2_TICKER_TO_SECTOR — keep the two in sync.'
+)
+
+
 def sectors_for_universe(
     tickers: list[str],
     *,

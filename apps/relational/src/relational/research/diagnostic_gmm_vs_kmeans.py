@@ -61,6 +61,7 @@ import numpy as np
 import pandas as pd
 
 from ss_loaders import load_stooq_matrix
+from ss_portfolio.bt_helpers import build_strategy
 
 from relational.empirical_sectors import (
     empirical_excess_divergence_scores, weights_excess_regime_empirical,
@@ -85,21 +86,6 @@ warnings.filterwarnings('ignore')
 _SHARED_CACHE_DIR = '/Users/sidghodke/Code/StockSurvey/apps/.scalogram-cache'
 
 
-def _make_commission_fn(bps: float):
-    frac = bps / 10000.0
-
-    def commission(q, p):
-        return abs(q) * p * frac
-
-    return commission
-
-
-def _bt_safe_prices(prices: pd.DataFrame) -> pd.DataFrame:
-    """Forward+back-fill NaN prices for bt's price feed (delisted /
-    pre-IPO names). Same helper as the wide pair-trade diagnostic."""
-    return prices.ffill().bfill()
-
-
 def _mask_weights_to_active(
     weights: pd.DataFrame, prices: pd.DataFrame,
 ) -> pd.DataFrame:
@@ -117,30 +103,12 @@ def _mask_weights_to_active(
     return pd.DataFrame(w, index=weights.index, columns=weights.columns)
 
 
-def _build_strategy(
-    name: str, prices: pd.DataFrame, weights: pd.DataFrame,
-    *, rebal_days: int, commission_bps: float,
-) -> bt.Backtest:
-    rebal_weights = weights.iloc[::rebal_days]
-    nonzero = rebal_weights.abs().sum(axis=1) > 0.1
-    if nonzero.any():
-        rebal_weights = rebal_weights.loc[nonzero]
-    strategy = bt.Strategy(name, [
-        bt.algos.RunOnDate(*rebal_weights.index),
-        bt.algos.WeighTarget(rebal_weights),
-        bt.algos.Rebalance(),
-    ])
-    bt_prices = _bt_safe_prices(prices)
-    return bt.Backtest(strategy, bt_prices,
-                       commissions=_make_commission_fn(commission_bps),
-                       integer_positions=False)
-
-
 def _run_one_backtest(args) -> tuple[str, pd.Series, pd.Series]:
     label, prices, weights, rebal_days, commission_bps = args
-    backtest = _build_strategy(
+    backtest = build_strategy(
         label, prices, weights,
-        rebal_days=rebal_days, commission_bps=commission_bps)
+        rebal_days=rebal_days, commission_bps=commission_bps,
+        drop_empty=True, safe_prices=True)
     result = bt.run(backtest)
     stats = result.stats
     equity = result.prices[label].copy()

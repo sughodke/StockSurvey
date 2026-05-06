@@ -24,6 +24,7 @@ import numpy as np
 import pandas as pd
 from tqdm import tqdm
 
+from ss_cli import add_save_args, add_universe_loader_args
 from ss_indicators import rsi as rsi_indicator
 from ss_indicators import symmetric_kl_divergence
 
@@ -255,17 +256,15 @@ def print_summary(all_results):
 def main(argv: list[str] | None = None) -> None:
     parser = argparse.ArgumentParser(
         description='Walk-forward backtest of stock ranking strategies')
-    parser.add_argument('--data-dir', required=True,
-                        help='Path to Kaggle NASDAQ daily CSV directory')
+    add_universe_loader_args(
+        parser, data_dir_help='Path to Kaggle NASDAQ daily CSV directory.')
     parser.add_argument('--rankers', nargs='+', default=['rsi', 'scalogram'],
                         choices=list(RANKERS.keys()))
     parser.add_argument('--horizon', type=int, default=5)
     parser.add_argument('--top-n', type=int, default=10)
     parser.add_argument('--rebalance-freq', type=int, default=5)
-    parser.add_argument('--start-date', default=None)
-    parser.add_argument('--end-date', default=None)
     parser.add_argument('--min-history', type=int, default=252)
-    parser.add_argument('--save', action='store_true')
+    add_save_args(parser)
     args = parser.parse_args(argv)
 
     prices_dict = load_kaggle_csvs(args.data_dir, min_history=args.min_history)
@@ -275,10 +274,10 @@ def main(argv: list[str] | None = None) -> None:
     for df in prices_dict.values():
         all_dates = set(df.index) if all_dates is None else (all_dates & set(df.index))
     all_dates = sorted(all_dates or [])
-    if args.start_date:
-        all_dates = [d for d in all_dates if d >= pd.Timestamp(args.start_date)]
-    if args.end_date:
-        all_dates = [d for d in all_dates if d <= pd.Timestamp(args.end_date)]
+    if args.start:
+        all_dates = [d for d in all_dates if d >= pd.Timestamp(args.start)]
+    if args.end:
+        all_dates = [d for d in all_dates if d <= pd.Timestamp(args.end)]
 
     warmup = 120
     all_dates = all_dates[warmup:-args.horizon]

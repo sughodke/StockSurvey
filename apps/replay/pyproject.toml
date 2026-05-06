@@ -8,6 +8,7 @@ dependencies = [
     "ss-indicators",
     "ss-wavelets",
     "ss-loaders",
+    "ss-tg-ops",
     "numpy",
     "pandas",
     "matplotlib",

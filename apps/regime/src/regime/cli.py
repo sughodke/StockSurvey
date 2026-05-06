@@ -31,6 +31,7 @@ from pathlib import Path
 
 from regime.persist import save_checkpoint_from_window
 from regime.trainer import DEFAULT_PER_WINDOW_MIN_HISTORY, print_summary, train
+from ss_cli import add_universe_loader_args
 from ss_indicators import corwin_schultz_spread
 from ss_loaders import load_price_matrix, load_stooq_matrix
 
@@ -56,9 +57,12 @@ def _add_train_args(p: argparse.ArgumentParser) -> None:
                         '`daily/<country>/<exchange>/<bucket>/*.txt` (split/'
                         'dividend-adjusted, has volume, includes delistings). '
                         '`kaggle`: per-ticker CSVs (no volume, no adj_close).')
-    p.add_argument('--data-dir', required=True,
-                   help='For stooq: the directory that contains `daily/`. '
-                        'For kaggle: the directory of per-ticker CSVs.')
+    add_universe_loader_args(
+        p,
+        default_start='2010-01-01',
+        default_end='2025-12-31',
+        data_dir_help='For stooq: the directory that contains `daily/`. '
+                      'For kaggle: the directory of per-ticker CSVs.')
     p.add_argument('--cache-path',
                    help='Pickle cache for the loaded panel. Subsequent runs '
                         'with the same source skip the file scan. Defaults to '
@@ -93,8 +97,6 @@ def _add_train_args(p: argparse.ArgumentParser) -> None:
                         '(= val-years, so val periods do not overlap successor '
                         'train periods). Setting < val-years leaks val data '
                         'into the next window\'s training.')
-    p.add_argument('--start', default='2010-01-01')
-    p.add_argument('--end', default='2025-12-31')
     p.add_argument('--min-history', type=int, default=252,
                    help='Lenient panel-wide ghost filter — drops tickers with '
                         'fewer than this many bars in the requested date range. '

@@ -24,7 +24,7 @@ from tqdm import tqdm
 from tinygrad.tensor import Tensor
 from tinygrad.nn.optim import AdamW
 
-from ss_features import TickerData
+from ss_features import TickerData, block_windows
 from factor.backbone import Backbone
 from factor.data import AlignedTickers
 from factor.objectives import block_sharpe, pearson_rank_ic
@@ -103,32 +103,6 @@ class WalkForwardResult:
         return float(np.mean([w.val_ic > 0 for w in self.windows]))
 
 
-def _generate_window_slices(
-    n_blocks: int, train_w: int, val_w: int, step_w: int,
-) -> list[tuple[slice, slice]]:
-    """Roll a (train_w, val_w) pair forward by `step_w` blocks at a time.
-
-    Returns one (train_slice, val_slice) per window that fits entirely
-    inside `n_blocks`. The last window may not align to the end exactly;
-    we don't pad — better to drop a partial window than evaluate on too
-    few val blocks.
-    """
-    if train_w < 2 or val_w < 2:
-        raise ValueError(
-            f'train_window_blocks={train_w} and val_window_blocks={val_w} '
-            'must each be >= 2 for a meaningful IC evaluation')
-    if step_w < 1:
-        raise ValueError(f'step_window_blocks={step_w} must be >= 1')
-
-    out: list[tuple[slice, slice]] = []
-    cursor = 0
-    needed = train_w + val_w
-    while cursor + needed <= n_blocks:
-        train_slc = slice(cursor, cursor + train_w)
-        val_slc = slice(cursor + train_w, cursor + needed)
-        out.append((train_slc, val_slc))
-        cursor += step_w
-    return out
 
 
 def train_scorer_walkforward(
@@ -185,7 +159,7 @@ def train_scorer_walkforward(
     aligned:    AlignedTickers = pre['aligned']
 
     n_blocks = repr_rb_np.shape[0]
-    slices = _generate_window_slices(
+    slices = block_windows(
         n_blocks, train_window_blocks, val_window_blocks, step_window_blocks)
     if not slices:
         raise ValueError(

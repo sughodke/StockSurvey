@@ -25,8 +25,11 @@ import numpy as np
 import optuna
 import pandas as pd
 
-from regime.research.backtest_bt import make_commission_fn, select_top_n_matrix
+from ss_portfolio import select_top_n_matrix
+from ss_portfolio.bt_helpers import make_commission_fn
 from ss_indicators import corwin_schultz_spread
+from ss_cli import add_save_args, add_universe_loader_args
+from ss_features import calendar_windows
 from ss_loaders import load_price_matrix
 from ss_wavelets import ALL_SCALES, causal_cwt
 
@@ -167,29 +170,24 @@ def walk_forward_optimize(prices, n_trials, rebalance_days, metric,
                           commission_bps=10, max_spread=0.02, spread_df=None,
                           train_years=5, val_years=3, step_years=2):
     """Rolling walk-forward Optuna optimization. Returns one dict per window."""
-    start = prices.index[0]
-    end = prices.index[-1]
     results: list[dict] = []
-    window_start = start
 
-    while True:
-        train_end = window_start + pd.DateOffset(years=train_years)
-        val_end = train_end + pd.DateOffset(years=val_years)
-        if val_end > end:
-            break
-
-        prices_train = prices.loc[window_start:train_end]
-        prices_val = prices.loc[train_end:val_end]
-        spread_train = spread_df.loc[window_start:train_end] if spread_df is not None else None
-        spread_val = spread_df.loc[train_end:val_end] if spread_df is not None else None
+    for win in calendar_windows(
+            prices.index, train_years=train_years, val_years=val_years,
+            step_years=step_years):
+        prices_train = prices.loc[win.window_start:win.train_end]
+        prices_val = prices.loc[win.train_end:win.val_end]
+        spread_train = (spread_df.loc[win.window_start:win.train_end]
+                        if spread_df is not None else None)
+        spread_val = (spread_df.loc[win.train_end:win.val_end]
+                      if spread_df is not None else None)
 
         if len(prices_train) < 252 or len(prices_val) < 126:
-            window_start += pd.DateOffset(years=step_years)
             continue
 
         print(f'\n{"=" * 70}')
-        print(f'Window: train {window_start.date()}-{train_end.date()}, '
-              f'validate {train_end.date()}-{val_end.date()}')
+        print(f'Window: train {win.window_start.date()}-{win.train_end.date()}, '
+              f'validate {win.train_end.date()}-{win.val_end.date()}')
         print(f'  Train: {len(prices_train)} days, Validate: {len(prices_val)} days')
         print(f'  Transaction costs: {commission_bps} bps, max spread: {max_spread:.1%}')
 
@@ -217,10 +215,13 @@ def walk_forward_optimize(prices, n_trials, rebalance_days, metric,
         print(f'  Validation {metric}: {val_score:.4f}')
 
         results.append({
-            'train_start': window_start, 'train_end': train_end, 'val_end': val_end,
-            'best_params': best, 'train_score': train_score, 'val_score': val_score,
+            'train_start': win.window_start,
+            'train_end':   win.train_end,
+            'val_end':     win.val_end,
+            'best_params': best,
+            'train_score': train_score,
+            'val_score':   val_score,
         })
-        window_start += pd.DateOffset(years=step_years)
     return results
 
 
@@ -261,8 +262,11 @@ def plot_optimization_results(wf_results, metric):
 def main(argv: list[str] | None = None) -> None:
     parser = argparse.ArgumentParser(
         description='Walk-forward hyperparameter optimization for regime strategy')
-    parser.add_argument('--data-dir', required=True,
-                        help='Path to Kaggle NASDAQ daily CSV directory')
+    add_universe_loader_args(
+        parser,
+        default_start='2000-01-01',
+        default_end='2025-12-31',
+        data_dir_help='Path to Kaggle NASDAQ daily CSV directory.')
     parser.add_argument('--n-trials', type=int, default=50)
     parser.add_argument('--objective', default='sharpe',
                         choices=['sharpe', 'calmar', 'cagr', 'sortino'])
@@ -272,9 +276,7 @@ def main(argv: list[str] | None = None) -> None:
     parser.add_argument('--step-years', type=int, default=2)
     parser.add_argument('--commission-bps', type=int, default=10)
     parser.add_argument('--max-spread', type=float, default=0.02)
-    parser.add_argument('--start', default='2000-01-01')
-    parser.add_argument('--end', default='2025-12-31')
-    parser.add_argument('--save', action='store_true')
+    add_save_args(parser)
     args = parser.parse_args(argv)
 
     prices, highs, lows = load_price_matrix(

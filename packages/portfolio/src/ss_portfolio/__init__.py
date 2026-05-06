@@ -15,6 +15,11 @@
     in `relational.research`.
   * `vbt_backtest`              — vectorbt-backed daily-return backtest;
     used by the production trainer at `regime.trainer`.
+
+The `bt`-library helpers live in the `ss_portfolio.bt_helpers` submodule
+and are not re-exported from the top-level package — `bt` is an optional
+dep, importing it eagerly would break installs that don't need backtests.
+Import as `from ss_portfolio.bt_helpers import build_strategy, ...`.
 """
 
 from ss_portfolio.backtest import vbt_backtest

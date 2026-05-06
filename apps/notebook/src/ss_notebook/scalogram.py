@@ -38,6 +38,7 @@ import os
 import matplotlib.pyplot as plt
 import numpy as np
 
+from ss_cli import add_save_args, add_single_ticker_loader_args
 from ss_features import DEFAULT_STOOQ_DIR, load_prices
 from ss_indicators import ema, macd, rolling_std, rsi
 from ss_plotting import plot_scalogram_heatmap
@@ -209,21 +210,12 @@ def main() -> None:
     parser = argparse.ArgumentParser(
         description='Wavelet scalogram with indicator-comparison strips.')
     parser.add_argument('tickers', nargs='+', help='Ticker symbols')
-    parser.add_argument('--stooq-dir', default=None,
-                        help=f'Stooq archive root (contains daily/). '
-                             f'Default: {DEFAULT_STOOQ_DIR}.')
-    parser.add_argument('--kaggle-dir', default=None,
-                        help='Slice one column from a Nasdaq3347-style CSV '
-                             'matrix instead of using Stooq.')
-    parser.add_argument('--start', default=None, help='YYYY-MM-DD')
-    parser.add_argument('--end', default=None, help='YYYY-MM-DD')
+    add_single_ticker_loader_args(parser)
     parser.add_argument('--lookback', type=int, default=90,
                         help='Causal z-norm window for the CWT (default 90, '
                              'sized for log-returns input). Use 252 for raw-'
                              'close input.')
-    parser.add_argument('--save', action='store_true',
-                        help='Save to Output/ instead of showing.')
-    parser.add_argument('--output-dir', default='Output')
+    add_save_args(parser)
     args = parser.parse_args()
 
     if args.save:
