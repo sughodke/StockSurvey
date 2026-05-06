@@ -69,9 +69,36 @@ def test_softmax_weights_sums_to_one():
 
 
 def test_apply_position_cap_uniform_when_too_few_names():
+    # n_nonzero=2, cap=0.25, 2*0.25=0.5 < 1 -> uniform 1/n_nonzero across nonzero
     w = pd.Series([0.5, 0.5], index=['A', 'B'])
     capped = apply_position_cap(w, max_position=0.25)
-    np.testing.assert_allclose(capped.values, [0.5, 0.5])  # n*cap < 1 -> uniform 1/n
+    np.testing.assert_allclose(capped.values, [0.5, 0.5])
+
+
+def test_apply_position_cap_skips_zero_weight_names():
+    """Sparse input (most names zero, 20 nonzero) with a cap so small
+    that the degenerate branch trips. The redistribution must NOT
+    re-introduce the zero names — they were zeroed out by an upstream
+    spread gate or selection step and must stay out.
+
+    Regression for code-review finding #1 (2026-05-06).
+    """
+    n_total, n_nonzero = 250, 20
+    values = np.zeros(n_total)
+    values[:n_nonzero] = 1.0 / n_nonzero
+    w = pd.Series(values, index=[f'T{i}' for i in range(n_total)])
+    # 20 * 0.003 = 0.06 < 1 -> degenerate branch
+    capped = apply_position_cap(w, max_position=0.003)
+    assert capped.sum() == pytest.approx(1.0, abs=1e-9)
+    assert (capped.iloc[n_nonzero:] == 0).all(), 'zero-weight names must stay zero'
+    np.testing.assert_allclose(
+        capped.iloc[:n_nonzero].values, np.full(n_nonzero, 1.0 / n_nonzero))
+
+
+def test_apply_position_cap_all_zero_input():
+    w = pd.Series([0.0, 0.0, 0.0], index=list('ABC'))
+    capped = apply_position_cap(w, max_position=0.25)
+    np.testing.assert_allclose(capped.values, [0.0, 0.0, 0.0])
 
 
 def test_apply_position_cap_water_fill():

@@ -60,19 +60,30 @@ def apply_position_cap(weights: pd.Series, max_position: float) -> pd.Series:
     Names above the cap are pinned at the cap; the remaining
     `(1 - n_capped * cap)` mass is redistributed proportionally to the
     free names' original weights. Repeats until no free name exceeds
-    the cap. If `n_names * max_position < 1`, the result is uniform at
-    `1 / n_names` (cap is binding for everyone).
+    the cap.
+
+    Degenerate small-universe handling: if the number of *nonzero*
+    input weights times `max_position` is less than 1, the cap is
+    binding for everyone — distribute uniformly across the nonzero
+    names only. Zero-weight names stay at zero (e.g. spread-gated
+    illiquid names must not get re-introduced by the cap step).
+    All-zero input short-circuits to all-zero output.
     """
     if not 0 < max_position <= 1:
         raise ValueError(f'max_position must be in (0, 1], got {max_position}')
-    n = len(weights)
-    if n * max_position < 1.0 - 1e-9:
-        return pd.Series(1.0 / n, index=weights.index)
+    nonzero_mask = weights > 0
+    n_nonzero = int(nonzero_mask.sum())
+    if n_nonzero == 0:
+        return weights.copy()
+    if n_nonzero * max_position < 1.0 - 1e-9:
+        out = pd.Series(0.0, index=weights.index, name=weights.name)
+        out.loc[nonzero_mask] = 1.0 / n_nonzero
+        return out
 
     base = weights / weights.sum() if weights.sum() > 0 else weights
     w = base.copy()
     fixed: set[str] = set()
-    for _ in range(n + 1):
+    for _ in range(len(weights) + 1):
         over = w[(w > max_position + 1e-12) & (~w.index.isin(fixed))].index
         if not len(over):
             break
