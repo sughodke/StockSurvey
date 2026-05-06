@@ -822,3 +822,65 @@ Drivers: `apps/factor/scripts/universe_pivot_walkforward.py`
 (local), `apps/factor/scripts/modal/universe_pivot_vol_arm.py` (Modal
 T4 recovery). Artifacts: `Output/universe-pivot-{summary.json,
 wide-return-windows.npz, wide-vol-windows.npz, close.pkl}`.
+
+## Regime gate — aggregate forecast vol does not gate the return signal (2026-05-06)
+
+Fourth and final operational test of the +0.4743 vol forecast. Three
+prior pathways closed (sign-of-demeaned `def3ac9`, vol-target overlay
+`9cbf8bb`, feature augmentation `75839f8`) — all *return-prediction-
+via-vol* mechanisms. The remaining untested pathway is the **regime
+gate**: instead of resizing positions continuously off the forecast,
+flip the strategy ON/OFF per rebal bar based on aggregate forecast vol.
+
+Hypothesis: when aggregate forecast vol is high, the cross-sectional
+return signal is noisier (returns dominated by macro / surprise events
+not anticipated by the indicator stack). When forecast vol is low,
+signals are cleaner. Sit out the high-forecast-vol bars → fewer losing
+periods → higher Sharpe even if mean return drops.
+
+Per walk-forward window: train return + vol heads; calibrate vol head
+on train slice via lstsq → `(intercept, slope)`; apply to val to get
+per-(bar, ticker) `σ_fcst[t,i] = σ_trail[t,i] · exp(calibrated_log_ratio)`;
+aggregate per bar = mean over active tickers. Threshold = 70th / 80th /
+90th percentile of train-slice aggregate forecast vol. On val: weights
+= top-10 return basket if `agg_val[t] < threshold`, else 0 (cash).
+
+**Aggregate over 6 windows (linear head, n_steps=200, top_n=10,
+commission_bps=10, 297-ticker / rebal=20d):**
+
+| variant | mean Sharpe | median | pos-frac | mean off | mean gross | Δ vs always |
+|---|---:|---:|---:|---:|---:|---:|
+| always-on | +0.215 | +0.270 | 5/6 | 0.00 | 1.00 | — |
+| gate-70   | +0.015 | +0.192 | 4/6 | 0.44 | 0.56 | −0.200 |
+| gate-80   | +0.195 | +0.145 | 5/6 | 0.31 | 0.69 | −0.020 |
+| gate-90   | +0.240 | +0.292 | 5/6 | 0.21 | 0.79 | +0.025 |
+
+Mean train calibration r=+0.414 (consistent with the +0.47 head IC).
+Per-window deltas across gates are large (±1.0), driven by win 1 (gate-70
+sits out 69% and crashes a +1.04 Sharpe to +0.31) and win 4 (gate-70
+sits out 87% and drops a +0.14 always-on to −1.02). Gate-90 fires
+rarely (mean 21% off) and its lift is within noise.
+
+**Regime gate either ties or degrades the always-on baseline.**
+Strictest threshold (gate-70, 44% off) is the worst arm — sitting out
+the most bars destroys the signal rather than concentrating it. The
+two windows where gate-70 most aggressively triggers (win 1, win 4)
+are precisely the windows where always-on did *fine* — high forecast
+vol does not coincide with bad-return regimes for this signal. Gate-90
+nudges +0.025 with 21% off, but per-window pos-frac stays at 5/6 just
+like always-on, and the median Sharpe lift (+0.292 vs +0.270) is well
+inside ±0.17 noise envelope from the vol-overlay null. Median across
+all four variants stays in the +0.15..+0.29 band.
+
+**This closes the operational test arc on the +0.47 vol forecast for
+the second time.** Four pathways tested (sign reduction, sizing
+overlay, feature augmentation, regime gate), all null. The signal is
+real but **operationally orthogonal** to cross-sectional return
+prediction at 297 tickers / 20d. Forecast vol does not align with
+return-signal quality regimes. Vol forecast remains a candidate for
+options pricing or non-cross-sectional uses (drawdown forecasting,
+single-name vol-trading), but it does not gate, size, augment, or
+direction-flip the return scorer at this universe / horizon.
+
+Driver: `apps/factor/scripts/regime_gate_walkforward.py`. Artifacts:
+`Output/regime-gate-{summary.json,windows.npz}`. Reproduce ~5 min wall.
