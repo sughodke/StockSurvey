@@ -37,8 +37,12 @@ apps/regime/src/regime/
   inference.py         pure forward pass: Checkpoint + prices -> target weights
   persist.py           JSON checkpoint round-trip (currently JAX-Adam format only)
   reporting.py         TrainResult -> ss_plotting wrappers
-  broker.py            Alpaca adapter: account, positions, bars, orders
-  live.py              orchestration with risk rails
+  broker.py            re-export shim — canonical AlpacaBroker now lives
+                       at `ss_portfolio.broker` (shared with apps/relational)
+  live.py              orchestration with risk rails (kill-switch / freshness
+                       / per-name cap / dry-run default). Bar fetch covers
+                       KERNEL_HALF_EXTENT*max(scales) + lookback so the
+                       latest CWT has full kernel support.
   research/
     optimize_adam.py    JAX-Adam gradient-descent alternative trainer
     optimize_regime.py  legacy reference: Optuna + bt-library walk-forward
@@ -330,14 +334,26 @@ aborts the run with a clear reason rather than silently coercing values:
    frozen feed.
 3. **Per-name cap** — `--max-position` (default 0.25) clips and
    redistributes target weights so no single name exceeds the cap
-   (water-fill via `ss_portfolio.apply_position_cap`).
+   (water-fill via `ss_portfolio.apply_position_cap`). Cap distributes
+   among nonzero-weight names only — illiquid names already zeroed out
+   by an upstream gate cannot be re-introduced.
 4. **Dry-run by default** — `--dry-run` is the default; `--live` is
    opt-in. A misconfigured cron entry never accidentally trades.
 
-`regime.broker.AlpacaBroker.submit_orders` also catches per-order
-failures (e.g., non-fractionable symbols rejecting fractional qty)
-and continues the batch instead of aborting halfway through a
-rebalance.
+Two implicit prerequisites:
+- **Wavelet support** — bar fetch covers
+  `KERNEL_HALF_EXTENT*max(scales) + lookback + bar_buffer_days` trading
+  bars so the latest-bar CWT runs on full kernel support, not zero-
+  padded history.
+- **Order-rejection observability** — `submit_orders` returns
+  `(order_ids, rejections)`; per-symbol failures (non-fractionable,
+  sub-cent notional, etc.) are logged + captured into
+  `LiveRunResult.rejected_orders` rather than silently dropped.
+
+The `AlpacaBroker` itself now lives at `ss_portfolio.broker` (shared
+with `apps/relational`); `regime/broker.py` is a re-export shim so
+existing imports keep working. `alpaca-py` is gated behind the
+`ss-portfolio[alpaca]` optional extra.
 
 Always paper-trade for a full rebalance cycle before pointing
 `ALPACA_BASE_URL` at the live endpoint.

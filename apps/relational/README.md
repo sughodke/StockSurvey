@@ -26,23 +26,44 @@ Dep-wise, this app intentionally avoids the trainer-side dragons (no tinygrad, n
 apps/relational/
 ├── pyproject.toml
 ├── README.md
+├── NO_OPTIONS.md              full research log of phases 1-12
+├── ideas.md                   open recipe sketches
+├── scripts/
+│   └── build_canonical_checkpoints.py
+│                              writes Output/relational-{strategy}.json for
+│                              the six scoreboard winners
 └── src/relational/
     ├── __init__.py            re-exports the public API
-    ├── sectors.py             ticker → GICS sector mapping (Phase-2 universe);
-                               canonical 11 SPDR sector ETFs
-    ├── aggregates.py          sector_series(prices, mode='equal') —
-                               equal-weighted constituent aggregate; ETF
-                               and cap-weighted modes are TODO
-    ├── scoring.py             excess_divergence_scores(...) +
-                               weights_excess_regime(...) — drop-in for
-                               any vectorbt/bt loop that already accepts
-                               a (n_dates, n_tickers) weights df
-    ├── cli.py                 ss-relational subcommands
-    └── research/
-        └── backtest_sector_excess.py
-                               head-to-head bt backtest: weights_regime
-                               (baseline) vs weights_excess_regime on
-                               the Phase-2 universe + dates
+    ├── sectors.py             PHASE2_TICKERS + GICS mapping; SPDR ETF set
+    ├── aggregates.py          sector_series(prices, mode='equal') aggregate
+    ├── fingerprints.py        per-(ticker, date) CWT scalogram fingerprints
+    ├── scalogram_cache.py     disk-cached CWT bundles (cache key = inputs hash)
+    ├── scoring.py             original sector-excess (idea-1)
+    ├── empirical_sectors.py   k-means cluster aggregate (idea-A)
+    ├── empirical_sectors_gmm.py
+    │                          soft-cluster GMM variant (Phase-10)
+    ├── analog_knn.py          k-NN analog forecasting (idea-B)
+    ├── farthest.py            centroid-distance scoring (idea-C)
+    ├── diversify.py           greedy farthest-first thinning (idea-D)
+    ├── regime_velocity.py     fingerprint-space directed motion (Phase-11)
+    ├── transitions.py         transition-triggered rebal gate (Phase-9)
+    ├── cluster_tracking.py    Hungarian-stabilized cluster IDs across refits
+    ├── pairs.py               pair-trade construction (falsified, Phase-7)
+    ├── nn_pairs.py            nearest-peer hedge (falsified, Phase-12)
+    ├── short_vol.py           short-vol overlay (falsified, Phase-5)
+    ├── iv_data.py             DoltHub IV loaders (Phase 1-3)
+    ├── ot_stress.py           optimal-transport stress overlay
+    ├── bocpd.py               Bayesian online change-point detector
+    ├── scale_energy.py        scale-energy aggregation primitives
+    ├── sizing.py              vol-target / risk-parity overlays
+    ├── persist.py             RelationalCheckpoint JSON I/O
+    ├── inference.py           target_weights(...) — strategy dispatch +
+                               Corwin-Schultz spread gate + last-bar slice
+    ├── live.py                run_live(...) sharing ss_portfolio.broker +
+                               the four risk rails (kill-switch / freshness
+                               / per-name cap / dry-run default)
+    ├── cli.py                 ss-relational live + ss-relational head-to-head
+    └── research/              full bt diagnostic suite (10+ scripts)
 ```
 
 ## Math (idea #1)
@@ -147,14 +168,67 @@ Internal name for any composite blend: **dislocation score**. Avoid
 will happily flag a stock crashing on bad earnings, and that's a
 real failure mode of the strategy rather than a bug in the score.
 
+## Paper trading via Alpaca
+
+Six scoreboard winners are wired through `ss-relational live` for paper
+trading, sharing `ss_portfolio.broker.AlpacaBroker` and the same four
+risk rails as `regime live`.
+
+```bash
+# 1. Generate the canonical checkpoints (~30s; loads stooq_us_long for velocity)
+uv run python apps/relational/scripts/build_canonical_checkpoints.py
+
+# 2. Set Alpaca paper credentials (defaults to paper endpoint)
+export ALPACA_API_KEY=...
+export ALPACA_SECRET_KEY=...
+
+# 3. Dry-run before submitting anything
+uv run ss-relational live --params Output/relational-empirical.json --dry-run
+
+# 4. Flip to live submit (still paper, still capped, still observable)
+uv run ss-relational live --params Output/relational-empirical.json --live
+```
+
+Six checkpoints are produced:
+
+| file | strategy | universe | top_n | docked Sharpe |
+|---|---|---:|---:|---:|
+| `relational-empirical.json` | k-means cluster (idea-A) | 21 (Phase-2) | 10 | +1.07 |
+| `relational-gmm.json` | GMM soft-cluster (Phase-10) | 21 (Phase-2) | 10 | +1.10 |
+| `relational-analog.json` | k-NN analog (idea-B) | 21 (Phase-2) | 10 | +1.10 |
+| `relational-farthest.json` | centroid-distance (idea-C) | 21 (Phase-2) | 10 | +1.07 |
+| `relational-diversified.json` | farthest-first thin (idea-D) | 21 (Phase-2) | 10 | +1.07 |
+| `relational-velocity.json` | fingerprint velocity (Phase-11) | 312 (wide) | 20 | +0.60 |
+
+**Phase-2 wins are mega-cap-specific.** Phase-8 of the NO_OPTIONS arc
+showed all four ideas (A/B/C/D) degrade from Sharpe ~1.1 to ~0.4 when
+run on the wider 312-ticker `stooq_us_long` universe instead. The
+checkpoint `train_sharpe`/`val_sharpe` fields record the actual
+Phase-2 result; do not extrapolate to other universes without
+retraining. Velocity is the only winner that was specifically
+designed for and validated on the wide universe.
+
+Risk rails (mirroring `regime live` exactly):
+1. Kill-switch file (default `~/.relational-killswitch`).
+2. Data freshness — abort if latest bar > `--max-data-age-days` (default 3).
+3. Per-name cap — `--max-position` (default 0.25), water-fill via
+   `ss_portfolio.apply_position_cap`. Cap distributes among nonzero
+   names only, so spread-gated illiquid names cannot be re-introduced.
+4. Dry-run by default — `--live` is opt-in.
+
+`LiveRunResult.rejected_orders` surfaces per-symbol Alpaca rejections
+(non-fractionable / sub-cent notional / etc.) so partial-submit days
+don't go unnoticed.
+
 ## Open questions / TODO
 
-- Promote `weights_regime` baseline to ss_portfolio so this app and
-  `apps/regime/` share one canonical impl (currently inlined in the
-  research script to keep relational independent of regime).
 - Ideas #2-4 from NOTES.md (cross-sectional dispersion, correlation,
   sector-pair coherence) — same scaffolding pattern: add a scoring
   function, register a `weights_<name>` builder, optional CLI subcommand.
 - Walk-forward Optuna sweep — once the head-to-head shows a meaningful
   edge, add `research/optimize_excess_regime.py` mirroring
   `regime.research.optimize_regime`.
+- Transition-triggered cron mode (Phase-9) — wraps `ss-relational live`
+  in a "should I trade today?" gate, only fires on detected fingerprint-
+  cluster transitions. Reduces 325 scheduled rebals to ~25 over the
+  same period; +0.21 Sharpe in the diagnostic.

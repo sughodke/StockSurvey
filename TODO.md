@@ -1,5 +1,48 @@
 # TODO
 
+## Recently shipped (and dropped from this list)
+
+- `ss-portfolio.broker` (Alpaca adapter shared between regime + relational) +
+  `ss-relational live` paper-trade stack with the four risk rails.
+- `apps/relational/scripts/build_canonical_checkpoints.py` — six canonical
+  RelationalCheckpoint JSONs covering the scoreboard winners.
+- Three critical live-trading code-review fixes: `apply_position_cap` no
+  longer re-introduces zero-weight names; live bar fetch covers full CWT
+  kernel support; `submit_orders` surfaces per-symbol rejections to
+  `LiveRunResult.rejected_orders`. (commits a1beead / 8c21c9b / 4ee4d0d)
+- `ss_cli` (shared CLI flag groups) + `ss_portfolio.bt_helpers` (shared
+  bt.Strategy template) + `packages/tg_ops/` (shared `_conv1d` permute) +
+  block-windows generator → `ss_features.walkforward`. (commit ddfadce)
+
+## Review follow-ups — paper-trade can proceed without these
+
+Inline `TODO(review #N)` markers point to the file:line. Grep
+`TODO(review` to surface the full backlog.
+
+- **#4** — walk-forward train/val slices double-count the boundary bar
+  via end-inclusive pandas `.loc` (`apps/regime/src/regime/trainer.py:522`).
+  Research-only, no live impact.
+- **#5** — `submit_orders` swallows transport-layer (5xx / connection)
+  errors the same way it swallows fractionability rejections. Distinguish
+  4xx (skip+log, current) from 5xx (re-raise+abort) so an Alpaca outage
+  doesn't silently zero every order. (`ss_portfolio/broker.py:submit_orders`)
+- **#6** — `gmm_cluster_pair_weights` produces signed long/short. Not
+  exposed via the relational dispatch but importable; document /
+  assert long-only invariant at the inference boundary if anyone wires
+  it in. (`relational/empirical_sectors_gmm.py:409`)
+- **#7** — `rsi` (matrix) and `rsi_strided` use different lag conventions
+  (`up[t-1]` vs `up[t]`). Both causal but not interchangeable.
+  (`ss_indicators/rsi.py:17`)
+- **#10** — `precompute_windows` per-ticker mean is over ALL TIME, not
+  causal. Safe under scale-axis-normalized divergences (KL/JS/cosine/L2)
+  only — assert that at call sites, or refactor to a causal rolling
+  mean before exposing to non-scale-invariant downstream ops.
+  (`ss_wavelets/windowing.py:42`)
+- **#3 follow-up** — `min_notional` gate in `build_trades` uses full-
+  precision notional but ships `round(qty_diff, 6)` qty. Penny-stock
+  edge case; surfaced via `rejected_orders` already.
+  (`ss_portfolio/broker.py:build_trades`)
+
 ## Different prediction problem — pair-spread / drawdown / IV-vs-realized
 
 The +0.012 ceiling is for *cross-sectional return direction* at 297 tickers / 20d. Other targets may carry more signal:
@@ -15,152 +58,6 @@ Different prediction problems have different data ceilings; not all are bounded 
 We are use patches hold out on the CWT and asking the SSL to guess what they
 are. This should now apply to future patches as well. Our val scores of SSL were
 okay, not amazing. But it does mean that we have learned some structure of the CWT.
-
-## Extract shared CLI args into `packages/cli` (`ss_cli`)
-
-CLI flags for "where's the data + when + save where" are duplicated across
-~7 scripts in two apps. Two distinct flag groupings exist; both should
-live in a single shared package so future scripts opt-in by one
-function call instead of copying argparse blocks.
-
-**Distribution name:** `ss-cli` &nbsp;**Import name:** `ss_cli`
-**Layout:** `packages/cli/src/ss_cli/__init__.py` (mirrors the
-`ss-loaders` / `ss-indicators` convention).
-
-**API to export:**
-
-```python
-add_single_ticker_loader_args(parser)
-    # --stooq-dir, --kaggle-dir, --start, --end
-add_universe_loader_args(parser)
-    # --data-dir (required), --start, --end
-add_save_args(parser, *, default_output_dir='Output')
-    # --save, --output-dir
-```
-
-The two loader helpers stay separate because the flag names actually
-differ (single-ticker scripts can pick one of two sources;
-universe scripts have a single `--data-dir`). `add_save_args` is
-shared by both groupings.
-
-**Call sites to migrate:**
-
-Single-ticker (notebook app):
-- `apps/notebook/src/ss_notebook/scalogram.py`
-- `apps/notebook/src/ss_notebook/scalogram_video.py`
-- `apps/notebook/src/ss_notebook/replay.py`
-
-Universe (regime app):
-- `apps/regime/src/regime/cli.py`
-- `apps/regime/src/regime/research/backtest_bt.py`
-- `apps/regime/src/regime/research/optimize_regime.py`
-- `apps/regime/src/regime/research/backtest_ranking.py`
-
-**Drift to normalize during migration:**
-- `backtest_ranking.py` uses `--start-date` / `--end-date`; everything
-  else uses `--start` / `--end`. Standardize on `--start` / `--end`
-  and keep `--start-date` / `--end-date` as deprecated aliases for
-  one release if any external scripts call it.
-
-**Workspace wiring:**
-- `packages/cli/pyproject.toml` with `[tool.hatch.build.targets.wheel]
-  packages = ["src/ss_cli"]`.
-- Root `pyproject.toml` already includes `packages/*` in the workspace
-  members glob, so `uv sync --all-packages --inexact` picks it up.
-- Each consumer adds `ss-cli` to its `dependencies` and
-  `[tool.uv.sources] ss-cli = { workspace = true }`.
-
-**Out of scope:**
-- Legacy `apps/v1/scripts/*` `--save` flags. Parked workflow.
-- The `regime live` arg block (`--params`, `--dry-run`, `--max-position`,
-  `--killswitch`, `--max-data-age-days`) — single call site, no reuse.
-
-## Extract shared `bt`-backtest helpers into `ss_portfolio.bt_helpers`
-
-Every `relational/research/*.py` diagnostic + `regime/research/backtest_bt.py`
-re-implements the same `bt.Strategy` template + per-side commission
-function. 13 files × 2 dups each = ~190 LOC of pure copy-paste, plus
-the "I edited the commission fn in one diagnostic but not the other 12"
-sync hazard. This is the highest-leverage DRY item in the workspace
-(~290 LOC total across the cluster, ~250 of it in this entry alone).
-
-**Distribution name:** existing `ss-portfolio` &nbsp;**Import name:** `ss_portfolio.bt_helpers`
-**Layout:** `packages/portfolio/src/ss_portfolio/bt_helpers.py` (new
-submodule; gates the `bt` import so the rest of `ss_portfolio` stays
-bt-free).
-
-**API to export:**
-
-```python
-make_commission_fn(bps: float)
-    # returns lambda(q, p): abs(q) * p * (bps / 1e4) — matches every
-    # existing _make_commission_fn body verbatim.
-build_strategy(
-    name: str,
-    rebal_weights: pd.DataFrame,
-    *,
-    commission_bps: float = 0,
-    integer_positions: bool = False,
-    verbose: bool = False,
-) -> bt.Backtest
-    # collapses the RunOnDate(*rebal_weights.index) / WeighTarget /
-    # Rebalance / bt.Strategy / bt.Backtest 5-line template into one
-    # call. `verbose=True` enables the per-rebal-event printer that
-    # `regime/research/backtest_bt.py:142-159` adds for debugging.
-```
-
-**Call sites to migrate (~14 total):**
-
-`apps/relational/src/relational/research/`:
-- `backtest_sector_excess.py`
-- `idea_a_empirical_sectors.py`
-- `idea_b_analog_knn.py`
-- `idea_c_farthest.py`
-- `idea_d_diversified.py`
-- `diagnostic_pair_trades.py`
-- `diagnostic_pair_trades_wide.py`
-- `diagnostic_velocity.py`
-- `diagnostic_nn_pairs.py`
-- `diagnostic_gmm_vs_kmeans.py`
-- `diagnostic_sizing_overlays.py`
-- `diagnostic_transition_triggered.py`
-
-`apps/regime/src/regime/research/`:
-- `backtest_bt.py`
-
-**Workspace wiring:**
-- No new package — `bt_helpers` lives inside existing `ss-portfolio`.
-- Add `bt>=1.0,<2.0` to `packages/portfolio/pyproject.toml` as an
-  optional dep (`[project.optional-dependencies] bt = ["bt>=1.0,<2.0"]`)
-  and import bt lazily inside `bt_helpers.py` so callers without bt
-  installed only fail when they touch that submodule.
-- Consumer apps that already depend on `bt` add `ss-portfolio[bt]`
-  to their `dependencies`.
-
-**Other dups worth folding into the same PR (smaller wins, same touch surface):**
-
-| Item | Locations | Saved | Home |
-|---|---|---:|---|
-| `PHASE2_TICKERS` 21-name tuple | 9 `relational/research/*` files | ~36 | `relational/sectors.py` — derive `PHASE2_TICKERS = tuple(PHASE2_TICKER_TO_SECTOR)` |
-| `_baseline_scores` (CWT power → divergence per-block) | `diagnostic_pair_trades{,_wide}.py`, `diagnostic_dislocation_vs_vol.py` | ~22 | `relational/scoring.py:baseline_divergence_scores` (sibling to existing `relational.scoring`) |
-| Per-ticker `realized_vol` matrix loop | `relational/sizing.py`, `diagnostic_short_vol_pnl.py`, `diagnostic_dislocation_vs_vol.py` | ~14 | `ss_features/vol.py:realized_vol_matrix(prices, window, annualize=False)` — `sizing.py` passes `annualize=True` for its `√252` factor |
-| `_conv1d` (NHC↔NCHW permute for tinygrad) | `factor/backbone.py:84`, `replay/decoders.py:54` | ~10 | new `packages/tg_ops/` (avoid making `ss_features` tinygrad-dependent) |
-| Walk-forward windowing slice generator | `factor/train_walkforward.py:106` (block ints), `regime/research/optimize_regime.py:166` (calendar) | ~15 | new `ss_features/walkforward.py` with `block_windows(...)` + `calendar_windows(...)` (different index types, but same protocol) |
-
-**Out of scope:**
-- `regime/research/optimize_regime.py:38::weights_regime_parameterized`
-  looks like a dup of `ss_portfolio.weights_regime` but exposes
-  `divergence` choice + `spread_df` filter that the canonical version
-  doesn't. Easier to widen `ss_portfolio.weights_regime`'s signature
-  in a separate PR than to back-port the Optuna call site.
-- Modal/Colab scripts under `apps/*/scripts/` — intentional one-off
-  harnesses, dups acceptable.
-- `apps/v1/util/indicators.py` — parked, intentional preservation per
-  CLAUDE.md.
-
-**Total LOC saved across this entry: ~290** (190 from bt_helpers +
-~100 from the smaller items in the table). All consolidations are
-behavior-preserving copy-paste collapses; no semantic changes.
 
 ## Ablation — disentangle why long-period RSI underperforms
 
