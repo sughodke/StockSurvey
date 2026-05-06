@@ -519,6 +519,11 @@ def train(
         if val_end > end:
             break
 
+        # TODO(review #4): pandas .loc is end-inclusive on both sides,
+        # so the bar at `train_end` lands in BOTH train and val. One-bar
+        # warm-start leaks into val and inflates train metrics. Fix:
+        # `prices.loc[window_start:train_end].iloc[:-1]` for the train
+        # slice (research-only — does not affect live).
         prices_train_full = prices.loc[window_start:train_end]
         prices_val_full = prices.loc[train_end:val_end]
 

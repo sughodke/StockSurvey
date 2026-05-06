@@ -17,6 +17,12 @@ import numpy as np
 def rsi(prices: np.ndarray, n: int = 7) -> np.ndarray:
     """Wilder RSI of period `n` over axis 0.
 
+    TODO(review #7): this matrix-form RSI uses `up[t-1]` to compute
+    `out[t]` (one-bar lag); `rsi_strided` below uses `up[t]` (same-bar).
+    Both are causal but not interchangeable — code that swaps one for
+    the other shifts the signal by one bar. Live regime/relational use
+    this matrix form; factor + replay use the stride form.
+
     Output range [0, 100]. Positions before index `n` are filled with the
     neutral value 50. Vectorized over all trailing axes (e.g. `(T, N)`
     input gives `(T, N)` output). Time-recurrent so the smoothing tail

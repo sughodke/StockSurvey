@@ -171,11 +171,21 @@ class AlpacaBroker:
             current_qty = float(current_positions.get(sym, 0.0))
             price = float(last_prices.get(sym, 0.0))
             if price <= 0:
+                # TODO(review-Low): held positions in halted symbols
+                # (price <= 0 from the data feed) are skipped here, so
+                # they remain on the book until the price returns.
+                # Operationally important if a name halts mid-strategy.
                 continue
             current_w = (current_qty * price) / equity if equity > 0 else 0.0
             target_qty = (target_w * equity) / price
             qty_diff = target_qty - current_qty
             notional = qty_diff * price
+            # TODO(review #3 follow-up): min_notional gate uses the full-
+            # precision `notional`, but the order ships round(qty_diff, 6).
+            # For very-low-priced names the rounded notional can fall
+            # below the gate after submission. Symptom would be an
+            # OrderRejection in the new rejected_orders list, which is
+            # observable but worth a tighter gate someday.
             if abs(notional) < min_notional:
                 continue
             trades.append(Trade(

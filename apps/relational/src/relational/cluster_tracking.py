@@ -128,6 +128,11 @@ def stabilize_cluster_ids(
             mapping[n] = o
 
         # Apply the permutation across the segment's rows for valid ids.
+        # TODO(review #12): the np.clip(..., 0, k_max-1) is needed only
+        # to make `mapping[seg_block]` index-safe for the -1 cells that
+        # the np.where then masks out. Cleaner: precompute on the valid
+        # slice only — `result = np.full_like(seg_block, -1); result[valid]
+        # = mapping[seg_block[valid]]`. Pure readability, behavior identical.
         seg_block = stable[t_refit:seg_end]
         valid = seg_block >= 0
         seg_block = np.where(valid, mapping[np.clip(seg_block, 0, k_max - 1)],

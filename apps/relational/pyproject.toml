@@ -12,6 +12,11 @@ dependencies = [
     "numpy",
     "pandas",
     "matplotlib",
+    # Direct deps for empirical_sectors{,_gmm}.py + cluster_tracking.py.
+    # Were transitively present via regime[research]; declared explicitly
+    # so a clean `relational`-only install doesn't ImportError. (review #8)
+    "scikit-learn",
+    "scipy",
 ]
 
 [project.optional-dependencies]

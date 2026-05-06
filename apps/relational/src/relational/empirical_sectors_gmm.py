@@ -417,6 +417,13 @@ def gmm_cluster_pair_weights(
     posterior to define cluster membership for the long/short
     construction.
 
+    TODO(review #6): output is SIGNED (long+short, sum near zero), not
+    long-only. NOT wired into `relational.inference.target_weights`'s
+    long-only dispatch — `apply_position_cap`'s normalize-then-clip
+    math would misbehave on a near-zero-sum series. Falsified in
+    NO_OPTIONS.md phase 7 anyway. If ever wired in, gate behind an
+    explicit long_short=True flag in RelationalCheckpoint.
+
     For each MAP-cluster `c` on date `t`:
       - long the highest-`scores[t]` ticker among MAP-members of `c`
       - short equal-weight all MAP-members of `c` (cluster aggregate)

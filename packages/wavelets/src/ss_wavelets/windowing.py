@@ -39,6 +39,12 @@ def precompute_windows(
     n_valid = n_dates - lookback
     n_hist = lookback - n_tail
 
+    # TODO(review #10): per-ticker mean uses ALL TIME (axis 0=scales,
+    # axis 1=dates). Safe today only because every active divergence
+    # (KL/JS/cosine/L2) is invariant to a per-ticker uniform rescaling
+    # — see docstring above. Add an `assert divergence in {...}` at the
+    # call sites or refactor to a causal rolling mean before exposing
+    # this to a non-scale-invariant downstream op.
     pm = power.mean(axis=(0, 1), keepdims=True)
     power = power / np.maximum(pm, 1e-12)
 
