@@ -730,3 +730,95 @@ top supervision-side lever.)
 Driver: `apps/factor/scripts/horizon_pivot_walkforward.py`. Artifacts:
 `Output/horizon-pivot-{summary.json,q-return-windows.npz,q-vol-windows.npz}`.
 Reproduce ~3 min wall.
+
+## Universe pivot — 7× wider universe doesn't lift the ceiling either (2026-05-06)
+
+Second of the two pivots. The curated `stooq_us_long` subset is
+pre-filtered for long histories — dropping `min_history_bars` from
+6500 to 2500 only adds 14 tickers (297 → 311). Real wider-universe
+test has to come from the full `StooqData/` archive (12K tickers
+incl. delisted).
+
+**Universe construction.** `load_stooq_matrix(StooqData,
+min_history=3500)` returns 2404 raw US tickers. The first-valid-date
+distribution shows a hard gap: 305 tickers start by 2000-01-01, then
+only 9 in 2001-2004, then 1858 in 2005-2009. To capture the 2005-2009
+cohort we set `start_grace_days=3650` (10y), giving a target start
+date of 2010-01-01 and **2162 keep-tickers**. The common date axis
+stays at 2000-2026 because `load_stooq_matrix` returns the full
+panel with NaN where untraded — late-listing tickers' valid mask
+just kicks in later, and per-bar cross-section grows over time.
+
+**Critical bug fix (drove a 14% build success rate to 96%).** The
+naive feature-build path had `valid.sum() == 0` for late-listing
+tickers because `ss_indicators.macd` seeds its EMA on the first
+sample — if `prices[0] == NaN`, the EMA is NaN forever and all 18
+MACD channels are NaN, which AND-fails the per-bar valid mask. Fix
+in `_build_one_ticker_args`: trim leading NaN before
+`build_indicator_features`, then pad features and valid mask back
+onto the full date axis so `align_tickers` sees a single common
+axis. Without this, 1868 / 2162 tickers got dropped silently.
+
+**Recovery via Modal.** The local 297→2073 walkforward crashed
+mid-vol-arm (laptop crash). Re-ran the vol arm via Modal-T4 with the
+parallel `mp.Pool` feature-build pattern from
+`apps/factor/scripts/modal/train_indicator.py`. Local prep step
+pickles the 2162-ticker close DataFrame (~109 MB) and ships it
+through Modal RPC; the remote function builds TickerData per column
+in parallel (24 workers on T4 instance, 53s for 2162 tickers) and
+runs the walkforward (~87s on T4). Driver:
+`apps/factor/scripts/modal/universe_pivot_vol_arm.py` + prep helper
+`prep_universe_pivot_data.py`. First Modal run timed out at 60min
+because the feature-build was sequential — bumped `cpu=8`,
+`timeout=2*60*60`, used `mp.Pool` inside the remote.
+
+**Results (vs documented 297-ticker baseline at same setup):**
+
+| arm           | universe | mean_ic    | median_ic | mean_sh   | posfrac |
+|---------------|---------:|-----------:|----------:|----------:|--------:|
+| wide-return   |     2073 | **+0.0106** | +0.0092   | +0.205    | 3/6     |
+| wide-vol      |     2073 | **+0.4091** | +0.4619   | +0.366    | 6/6     |
+| narrow-return |      297 | +0.0120    | +0.0168   | +0.440    | 5/6     |
+| narrow-vol    |      297 | +0.4743    | +0.4735   | +0.515    | 6/6     |
+
+Per-window val IC for wide-vol: `[0.449, 0.135, 0.438, 0.479, 0.479,
+0.475]` — 5 of 6 windows in the +0.44..+0.48 range, w1 outlier at
++0.135. Stable signal across the late-period windows.
+
+**Read.**
+
+1. **Return IC ties at noise floor.** +0.0106 (wide) vs +0.0120
+   (narrow) — within 0.003 of each other, both at the documented
+   +0.012 ceiling. **7× the universe doesn't lift return prediction.**
+   The ceiling is data-side, not supervision-side. The 2026-04-30
+   prescription "larger universe (50-100 tickers)" was right
+   directionally for sharpening the *measurement* but doesn't
+   translate to lifting the *signal* ceiling — the underlying
+   cross-sectional return-predictability at 20d horizon on US equities
+   simply isn't there to extract.
+2. **Vol IC drops slightly** (+0.41 vs +0.47, −13%). Possible cause:
+   the wider universe includes more late-listing tickers whose
+   per-bar mask kicks in later, making early-window cross-sections
+   more variable in size. The signal is still robust (6/6 positive)
+   but slightly noisier.
+3. **Sharpe drops** for both arms in the wider universe (return
+   +0.205 vs +0.440; vol +0.366 vs +0.515). Likely commission /
+   per-bar mask variation effect on softmax-temperature top-N
+   weighting at the larger panel — when the universe size varies
+   per-bar (late-listing names invalid in early bars), turnover
+   structure changes.
+
+**Implication: both pivots from the dead-end arc closed.** Quarterly
+horizon (NOTES above): IC fell to ~zero. Wider universe: IC tied at
++0.012. The +0.012 return-prediction ceiling is a property of the
+data — US equity 20d cross-sectional return signal at this scale —
+not a property of the indicator stack, the universe filter, the
+horizon choice, or the SSL pretraining state. Honest move: accept
+this and pivot to a different prediction problem (pair-spread,
+drawdown, IV-vs-realized) or a different operational use of the +0.41
+vol forecast (regime gate, options pricing).
+
+Drivers: `apps/factor/scripts/universe_pivot_walkforward.py`
+(local), `apps/factor/scripts/modal/universe_pivot_vol_arm.py` (Modal
+T4 recovery). Artifacts: `Output/universe-pivot-{summary.json,
+wide-return-windows.npz, wide-vol-windows.npz, close.pkl}`.
