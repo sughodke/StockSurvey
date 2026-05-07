@@ -343,6 +343,8 @@ STRATEGIES = ('regime', 'scalogram', 'rsi')
 def _build_weights(
     strategy: str, prices: pd.DataFrame, params: dict, *,
     use_log_returns: bool = False,
+    volumes: pd.DataFrame | None = None,
+    use_market_cwt: bool = False,
 ) -> pd.DataFrame:
     """Dispatch (strategy, params) → weight matrix. Single source of truth
     for what each strategy's hyperparameter dict means; used by both the
@@ -352,6 +354,10 @@ def _build_weights(
     hyperparameter) that toggles the CWT input. See the comment block
     above `_log_returns` for why this defaults to False. RSI ignores it
     — RSI is a price-percentile statistic, not a wavelet input.
+
+    `volumes` (per-ticker) and `use_market_cwt` (compute internally)
+    are research-only optional augmented inputs forwarded into
+    `weights_regime`; defaults match the production scoring path.
     """
     base = dict(
         lookback=int(params['lookback']), n_tail=int(params['n_tail']),
@@ -363,7 +369,9 @@ def _build_weights(
         use_log_returns=use_log_returns)
     if strategy == 'regime':
         return weights_regime(prices, **cwt_common,
-                              divergence=str(params['divergence']))
+                              divergence=str(params['divergence']),
+                              volumes=volumes,
+                              use_market_cwt=use_market_cwt)
     if strategy == 'scalogram':
         return weights_scalogram(prices, **cwt_common)
     raise ValueError(f'unknown strategy {strategy!r}; available: {STRATEGIES}')
@@ -372,6 +380,8 @@ def _build_weights(
 def _make_objective(
     prices, *, strategy, rebalance_days, metric, commission_bps, spread_df,
     use_log_returns: bool = False,
+    volumes: pd.DataFrame | None = None,
+    use_market_cwt: bool = False,
 ):
     """Build an Optuna objective closed over the train slice and strategy.
 
@@ -380,6 +390,10 @@ def _make_objective(
     search the three scale-subset booleans; regime adds `divergence`
     (kl/js/cosine/l2). RSI skips scales entirely and instead searches
     `rsi_n` ∈ {5, 7, 10, 14}.
+
+    `volumes` and `use_market_cwt` are forwarded into `_build_weights`
+    only when `strategy == 'regime'` (the only strategy with augmented-
+    input support today).
     """
     def objective(trial: optuna.Trial) -> float:
         lookback = trial.suggest_int(
@@ -403,7 +417,8 @@ def _make_objective(
 
         try:
             weight_df = _build_weights(
-                strategy, prices, params, use_log_returns=use_log_returns)
+                strategy, prices, params, use_log_returns=use_log_returns,
+                volumes=volumes, use_market_cwt=use_market_cwt)
             if weight_df.values.sum() == 0:
                 return float('-inf')
             metrics = vbt_backtest(
@@ -435,6 +450,8 @@ def train(
     seed: int = 42,
     per_window_min_history: int = DEFAULT_PER_WINDOW_MIN_HISTORY,
     use_log_returns: bool = False,
+    volumes: pd.DataFrame | None = None,
+    use_market_cwt: bool = False,
 ) -> TrainResult:
     """Walk-forward Optuna+vectorbt search over regime hyperparameters.
 
@@ -552,6 +569,10 @@ def train(
                         if spread_df is not None else None)
         spread_val = (spread_df.loc[train_end:val_end, keep_val]
                       if spread_df is not None else None)
+        volumes_train = (volumes.loc[window_start:train_end, keep_train]
+                         if volumes is not None else None)
+        volumes_val = (volumes.loc[train_end:val_end, keep_val]
+                       if volumes is not None else None)
 
         print(f'\nWindow: train {window_start.date()}-{train_end.date()} '
               f'({len(keep_train)} tickers), '
@@ -566,7 +587,9 @@ def train(
             rebalance_days=rebalance_days, metric=metric,
             commission_bps=commission_bps,
             spread_df=spread_train,
-            use_log_returns=use_log_returns)
+            use_log_returns=use_log_returns,
+            volumes=volumes_train,
+            use_market_cwt=use_market_cwt)
         study.optimize(objective, n_trials=n_trials, n_jobs=n_jobs,
                        show_progress_bar=True)
 
@@ -576,7 +599,8 @@ def train(
 
         try:
             weight_df = _build_weights(
-                strategy, prices_val, best, use_log_returns=use_log_returns)
+                strategy, prices_val, best, use_log_returns=use_log_returns,
+                volumes=volumes_val, use_market_cwt=use_market_cwt)
             metrics = vbt_backtest(
                 prices_val, weight_df,
                 rebalance_days=rebalance_days,

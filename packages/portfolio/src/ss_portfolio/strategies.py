@@ -53,6 +53,8 @@ def weights_regime(
     scales: list[int],
     divergence: str = 'kl',
     use_log_returns: bool = False,
+    volumes: pd.DataFrame | None = None,
+    use_market_cwt: bool = False,
 ) -> pd.DataFrame:
     """Hard-top-N basket ranked by CWT-power-distribution divergence.
 
@@ -79,15 +81,62 @@ def weights_regime(
     (vol forecasting, regime-break detection); empirically worse on
     the cross-sectional ranking objective, see CLAUDE.md "Key findings"
     for the controlled walk-forward eval evidence.
+
+    Optional augmented inputs (research; defaults None preserve baseline
+    behavior):
+
+      * `volumes` — per-ticker volume DataFrame aligned to `prices`.
+        CWT is built on `log1p(volume)` (compresses the wide cap
+        spread; non-negative so log is safe). Stacked along the scale
+        axis so the divergence becomes "joint price + volume regime
+        shift."
+      * `use_market_cwt` — when True, compute an equal-weighted market
+        series internally as `prices.mean(axis=1, skipna=True)`, run
+        the same CWT on it, and stack the result (broadcast across
+        tickers) along the scale axis. Adds a market-shift reference
+        channel without requiring the caller to pass anything extra —
+        the CWT z-norm strips level info, so the EW mean-close has
+        the same spectral content as a more elaborate EW-return index.
+
+    With both extras stacked, the per-stock score reflects how much
+    its own joint price/volume fingerprint has shifted *relative to*
+    the prior window's joint fingerprint, with the market's shift in
+    the mix as another reference channel.
     """
     cwt_input = (log_returns_matrix(prices.values)
                  if use_log_returns else prices.values)
     coeffs = causal_cwt(cwt_input, scales, lookback)
-    power = (coeffs ** 2).astype(np.float32)
+    bundles = [coeffs ** 2]
+
+    if volumes is not None:
+        vol_arr = volumes.reindex_like(prices).to_numpy(dtype=np.float64)
+        # Volume is non-negative; log1p compresses the dynamic range.
+        # Replace non-finite or strictly-zero entries with NaN so the
+        # CWT's NaN-propagating cumsum z-norm masks them just like it
+        # would a missing price (rather than silently flat-lining
+        # log1p(0)=0 across the panel).
+        bad = ~np.isfinite(vol_arr) | (vol_arr <= 0.0)
+        safe = np.where(bad, np.nan, vol_arr)
+        vol_input = np.log1p(safe)
+        vol_coeffs = causal_cwt(vol_input, scales, lookback)
+        bundles.append(vol_coeffs ** 2)
+
+    if use_market_cwt:
+        m_arr = (prices.mean(axis=1, skipna=True)
+                 .to_numpy(dtype=np.float64).reshape(-1, 1))
+        if use_log_returns:
+            m_arr = log_returns_matrix(m_arr)
+        m_coeffs = causal_cwt(m_arr, scales, lookback)
+        m_power = (m_coeffs ** 2).astype(np.float32)
+        m_bundle = np.broadcast_to(
+            m_power, (m_power.shape[0], m_power.shape[1], prices.shape[1]))
+        bundles.append(m_bundle)
+
+    power = np.concatenate(bundles, axis=0).astype(np.float32)
     recent, historical = precompute_windows(power, lookback, n_tail)
 
     div_fn = get_divergence(divergence)
-    scale_log_weights = np.zeros(len(scales), dtype=np.float32)
+    scale_log_weights = np.zeros(power.shape[0], dtype=np.float32)
     scores = np.array(div_fn(recent, historical, scale_log_weights),
                       copy=True)
     scores = apply_nan_mask(scores, prices.values, lookback)
