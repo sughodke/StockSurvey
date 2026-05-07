@@ -10,9 +10,8 @@ Two routines:
                            scoring downstream.
 
 Implementation runs on numpy + scipy (FFT convolution + cumsum tricks).
-The output arrays are plain numpy, not JAX — these are heavy one-shot
-precomputes, not part of any autograd path. Cast to `jnp.asarray(...)`
-at the JAX boundary in your training loop.
+The output arrays are plain numpy; CWT itself is a heavy one-shot
+precompute that the rest of the monorepo treats as fixed input.
 
 `ALL_SCALES` provides a sensible 13-point logarithmic grid from 3 days
 to 126 days for equity strategies.

@@ -2,7 +2,7 @@
 name = "regime"
 version = "0.1.0"
 requires-python = ">=3.10"
-description = "Differentiable CWT-regime portfolio strategy: train, backtest, trade live."
+description = "CWT-regime portfolio strategy: Optuna walk-forward search, backtest, trade live."
 dependencies = [
     "ss-cli",
     "ss-loaders",
@@ -13,9 +13,6 @@ dependencies = [
     "ss-plotting",
     "numpy",
     "pandas",
-    "jax<0.5",
-    "jaxlib<0.5",
-    "optax>=0.2.5",
     "tqdm",
     "matplotlib",
 ]
