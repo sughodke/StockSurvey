@@ -2,13 +2,16 @@
 
 A uv-workspace monorepo for trading-strategy research and live execution.
 
-- **`apps/regime/`** — JAX-Adam differentiable CWT-regime portfolio strategy + Alpaca live runner. `research/` subpackage holds bt-library backtests and Optuna walk-forward search.
-- **`apps/v1/`** — legacy single-ticker workflow (`Security` → `Span` → `Decider` → `Evaluator` → `Plot`) plus the aiohttp web service. Parked.
-- **`apps/notebook/`** — Jupyter notebooks (CWT-vision multi-head decoder, etc.).
-- **`packages/loaders/`** (`ss_loaders`) — Kaggle CSV matrix, Yahoo, CryptoCompare, symbol lists.
-- **`packages/indicators/`** (`ss_indicators`) — JAX matrix-form RSI/MACD/BBands/SMA/EMA, Corwin-Schultz spread, KL/JS/cosine/L2 divergences.
+- **`apps/regime/`** — CWT-regime portfolio strategy (Optuna+vectorbt walk-forward search over discrete hyperparameters) + Alpaca live runner. `research/` subpackage holds bt-library backtests and the legacy Optuna optimizer.
+- **`apps/relational/`** — sector-relative + fingerprint-space CWT scorers (six scoreboard winners) + Alpaca paper-trading via `ss-relational live`.
+- **`apps/factor/`** — cross-sectional rank-IC scorer (tinygrad). Walk-forward eval over CWT-backbone or deterministic-indicator inputs.
+- **`apps/replay/`** — multi-head CNN trainer (tinygrad) reconstructing technical indicators from causal CWT slices. Produces backbones consumed by `apps/factor`.
+- **`apps/v1/`** — legacy single-ticker workflow plus the aiohttp web service. Parked.
+- **`apps/notebook/`** — Jupyter notebooks + scalogram visualizer CLIs.
+- **`packages/loaders/`** (`ss_loaders`) — Kaggle CSV matrix, Stooq archive, Yahoo, CryptoCompare, symbol lists.
+- **`packages/indicators/`** (`ss_indicators`) — numpy matrix-form RSI/MACD/BBands/SMA/EMA + CCI, Corwin-Schultz spread, KL/JS/cosine/L2 divergences.
 - **`packages/wavelets/`** (`ss_wavelets`) — strictly-causal Ricker CWT + windowed power means.
-- **`packages/portfolio/`** (`ss_portfolio`) — JAX block-Sharpe with costs, CAGR/drawdown/Sortino/Calmar, water-fill weight cap.
+- **`packages/portfolio/`** (`ss_portfolio`) — numpy block-Sharpe with costs, CAGR/drawdown/Sortino/Calmar, water-fill weight cap, and the canonical Alpaca broker (`[alpaca]` extra).
 - **`packages/plotting/`** (`ss_plotting`) — training curve, equity comparison, scalogram heatmap helpers.
 
 See **`CLAUDE.md`** for deeper architecture notes, key historical findings, and platform constraints.
@@ -59,7 +62,7 @@ uv run pytest
 
 ## Why nix
 
-PyPI dropped Intel macOS x86_64 wheels for the heavy ML/scientific stack starting in 2024-2025 — JAX 0.5+, numba 0.65+, llvmlite 0.47+ all fall back to source builds that fail without a careful LLVM toolchain. nixpkgs still provides binary builds for `x86_64-darwin` (until nixpkgs 26.05; ~12 months from now), so the devShell is the cleanest stopgap.
+PyPI dropped Intel macOS x86_64 wheels for the heavy ML/scientific stack starting in 2024-2025 — numba 0.65+, llvmlite 0.47+ both fall back to source builds that fail without a careful LLVM toolchain. nixpkgs still provides binary builds for `x86_64-darwin` (until nixpkgs 26.05; ~12 months from now), so the devShell is the cleanest stopgap. (JAX was previously another casualty of this — it's no longer in the workspace, but the same nix-binary rationale applies to numba/llvmlite for vectorbt.)
 
 The `[[tool.uv.dependency-metadata]]` override in the root `pyproject.toml` strips `numba` from `vectorbt`'s declared deps so uv doesn't try to install (and rebuild) it. nix provides numba, vectorbt picks it up at runtime.
 

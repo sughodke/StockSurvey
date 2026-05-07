@@ -17,10 +17,14 @@ ranking direction. Pick which one to train via `--strategy`.
     (ascending rank).
 
 Operates on the Stooq daily archive (split/dividend-adjusted, has
-volume, includes delistings) or the legacy Kaggle dump. Production
-training is Optuna walk-forward search over discrete hyperparameters
-using a vectorbt backtest engine; an alternative gradient-descent
-trainer (JAX-Adam) for regime lives under `research/`.
+volume, includes delistings) or the legacy Kaggle dump. Training is
+an Optuna walk-forward search over discrete hyperparameters using a
+vectorbt backtest engine. (A JAX-Adam differentiable trainer used
+to live under `research/optimize_adam.py`; it was deleted along
+with the JAX dependency once `ss_indicators` migrated to numpy and
+the autograd path was severed. See git history if you want the
+prior implementation; rebuild on tinygrad like `apps/factor` if you
+want differentiable regime training back.)
 
 > **Setup**: this app needs the workspace's nix devShell to provide
 > numba/llvmlite for vectorbt. See the top-level `README.md` for
@@ -35,8 +39,7 @@ apps/regime/src/regime/
   cli.py               argparse subcommands `train` and `live`
   __main__.py          `python -m regime` entry
   inference.py         pure forward pass: Checkpoint + prices -> target weights
-  persist.py           JSON checkpoint round-trip (currently JAX-Adam format only)
-  reporting.py         TrainResult -> ss_plotting wrappers
+  persist.py           JSON checkpoint round-trip
   broker.py            re-export shim — canonical AlpacaBroker now lives
                        at `ss_portfolio.broker` (shared with apps/relational)
   live.py              orchestration with risk rails (kill-switch / freshness
@@ -44,7 +47,6 @@ apps/regime/src/regime/
                        KERNEL_HALF_EXTENT*max(scales) + lookback so the
                        latest CWT has full kernel support.
   research/
-    optimize_adam.py    JAX-Adam gradient-descent alternative trainer
     optimize_regime.py  legacy reference: Optuna + bt-library walk-forward
     backtest_bt.py      bt-library multi-strategy comparison (rsi/scalogram/regime/equal)
     backtest_ranking.py plain-numpy long/short walk-forward
@@ -123,61 +125,60 @@ Optuna searches a 7-dimensional discrete space per walk-forward window:
 | `use_long_scales` | bool | Include scales [42, 50, 63, 90, 126]? |
 
 Per-scale weights are *equal* within the chosen subset — Optuna picks
-which scales to include, not how to weight them. (The JAX-Adam
-trainer in `research/optimize_adam.py` does the opposite: fixed
-hyperparameters, learned per-scale weights.)
+which scales to include, not how to weight them.
 
 The walk-forward driver rolls a 5y train / 3y val window forward by
 2y at a time (configurable), reporting per-window best params and
 their out-of-sample Sharpe.
 
-### Why search (Optuna), not optimize (Adam)?
+### Why search (Optuna), not gradient descent?
 
-The production trainer is a Bayesian search, not gradient descent.
-Both are wired in (Adam lives at `research/optimize_adam.py`); search
-won the bake-off because of the structure of *this* problem, not
-because gradients are bad in general.
+A JAX-Adam trainer was previously wired in alongside Optuna; it lost
+the bake-off and was removed when the JAX dep came out. Search wins
+on the structure of *this* problem, not because gradients are bad in
+general:
 
 1. **The decisions are discrete.** Choice of divergence (kl/js/cosine/l2),
    choice of scale subset, choice of `top_n` — these are
-   non-differentiable. Adam can only optimize continuous knobs, so it
-   has to settle for a softmax over scales + a temperature-softened
-   top-N, which is a *different and weaker* strategy than the hard
-   selections Optuna tries.
+   non-differentiable. A gradient trainer can only optimize continuous
+   knobs, so it has to settle for a softmax over scales + a temperature-
+   softened top-N, which is a *different and weaker* strategy than the
+   hard selections Optuna tries.
 
 2. **Sharpe through real costs is non-differentiable.** Per-side
    commissions, per-name spread costs, equal-weight allocation, and
-   integer rebalances all introduce kinks in the objective. Adam needs
-   a smooth surrogate (`block_sharpe_with_costs` in `ss_portfolio`)
-   which approximates daily-return Sharpe but doesn't equal it.
+   integer rebalances all introduce kinks in the objective. A gradient
+   trainer needs a smooth surrogate (`block_sharpe_with_costs`, the
+   numpy mirror of which still lives in `ss_portfolio` for offline
+   diagnostics) which approximates daily-return Sharpe but doesn't
+   equal it.
 
 3. **Returns are noisy; overfitting risk &gt; gradient efficiency.**
    Search with walk-forward windows naturally validates each candidate
-   on held-out periods. Adam optimizes a single train/val split — one
-   chance to overfit, one chance to validate.
+   on held-out periods. The single train/val gradient run had one
+   chance to overfit and one chance to validate.
 
-4. **Empirical bake-off (post strict-causality fix)**:
+4. **Empirical bake-off (post strict-causality fix, before the JAX
+   trainer was removed)**:
 
    | Trainer | Best val Sharpe | Notes |
    |---|---|---|
    | Optuna + vectorbt (`regime.trainer`) | **+0.46** | hard top-N, cosine, mid scales |
    | Optuna + bt (`research/optimize_regime`) | +0.46 | reference; same math, slower engine |
-   | JAX-Adam (`research/optimize_adam`) | +0.16 | matched window, KL only |
-   | JAX-Adam, full data | -0.33 | overfits to single train slice |
+   | JAX-Adam (now removed) | +0.16 | matched window, KL only |
+   | JAX-Adam, full data (now removed) | -0.33 | overfit to single train slice |
 
-   Adam can't reach the search result because soft-top-N over
-   ~1000 names spreads weight across dozens of names even at low
-   temperature, while Optuna's hard top-N=5 puts 20% on each of 5
-   names. That concentration is where the alpha lives in this
-   strategy.
+   The gradient trainer couldn't reach the search result because
+   soft-top-N over ~1000 names spreads weight across dozens of names
+   even at low temperature, while Optuna's hard top-N=5 puts 20% on
+   each of 5 names. That concentration is where the alpha lives in
+   this strategy.
 
-When would Adam win? If we ever stack a **learned-feature backbone**
-on top of the regime score — e.g., a CNN on the CWT scalogram
-(`apps/notebook/notebooks/cwt_vision_multihead.ipynb`) feeding into
-the same rank-and-hold pipeline. Search can't enumerate over tens of
-thousands of neural-net weights; gradients are mandatory there. Adam
-is research scaffolding for *that* future, not an alternative to the
-current production path.
+When would gradients win again? If we ever stack a **learned-feature
+backbone** on top of the regime score — search can't enumerate over
+tens of thousands of neural-net weights. That kind of trainer should
+be rebuilt on tinygrad following the `apps/factor` pattern, not
+revived from the deleted JAX implementation.
 
 ### Liquidity handling
 
@@ -273,9 +274,6 @@ Cron entry that rebalances every weekday at 09:35 ET:
 ### Alternative trainers (research)
 
 ```
-# JAX-Adam: gradient descent over per-scale weights and temperature.
-uv run python -c "from regime.research.optimize_adam import train; ..."
-
 # Original Optuna + bt-library reference (slower; kept for comparison).
 uv run python -m regime.research.optimize_regime --data-dir ./Nasdaq3347
 ```
@@ -360,37 +358,24 @@ Always paper-trade for a full rebalance cycle before pointing
 
 ## Checkpoint format
 
-Two checkpoint *modes* share the same JSON schema, distinguished by
-the `mode` field:
+Single Optuna+vectorbt schema, produced by `regime.trainer.train()`
+via `save_checkpoint_from_window()` (`regime train --save-params`
+serializes the highest-val-Sharpe window).
 
-  * **`adam`** — JAX-Adam output. `scale_log_weights` (13 floats,
-    softmaxed at inference) and `log_temperature` (1 float, controls
-    soft-top-N sharpness) carry the model. Produced by
-    `regime.research.optimize_adam.train()` via `save_checkpoint()`.
-  * **`optuna`** — Optuna+vectorbt output. `top_n` (int), `divergence`
-    (`kl|js|cosine|l2`), and a resolved `scales` subset carry the
-    model. Produced by `regime.trainer.train()` via
-    `save_checkpoint_from_window()` — `regime train --save-params`
-    serializes the highest-val-Sharpe window.
+Carries: `top_n` (int), `divergence` (`kl|js|cosine|l2`), `rsi_n`
+(int, only for the `rsi` strategy), the resolved `scales` subset,
+the strategy hyperparameters (`lookback`, `n_tail`, `rebal_days`,
+`max_spread`, `commission_bps`), the training-time universe
+(`universe`), and provenance (`trained_at`, `train_start/end`,
+`val_start/end`, `train_sharpe`, `val_sharpe`).
 
-Old checkpoints written before the `mode` field existed default to
-`adam` on load — fully backwards-compatible.
-
-`regime.inference.target_weights` dispatches on `cp.mode`:
-soft-top-N via temperature softmax for `adam`, hard-top-N
-equal-weight basket for `optuna`. `regime live` consumes either
-without caring which trainer produced it.
-
-Common fields (both modes):
-
-  * scale grid (`scales`)
-  * strategy hyperparameters (`lookback`, `n_tail`, `rebal_days`,
-    `max_spread`, `commission_bps`)
-  * training-time universe (`universe`)
-  * provenance (`trained_at`, `train_start/end`, `val_start/end`,
-    `train_sharpe`, `val_sharpe`)
+`regime.inference.target_weights` dispatches on `cp.strategy` ∈
+`{regime, scalogram, rsi}` and produces a hard-top-N equal-weight
+basket. `regime live` consumes any of the three.
 
 It's plain JSON: human-readable, diffable, and safe to load without
 arbitrary-code-execution risk. Forward-compatible — `load_checkpoint`
 ignores unknown keys, so future schema additions don't break old
-readers.
+readers (and legacy adam-mode fields like `mode`,
+`scale_log_weights`, `log_temperature` are silently dropped from
+old JSONs on load).

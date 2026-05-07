@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 StockSurvey is a uv-workspace monorepo containing trading-strategy research and live execution. Layout:
 
-- `apps/regime/`   — CWT-regime portfolio strategy. Optuna+vectorbt walk-forward search by default; `research/optimize_adam.py` is the JAX-Adam differentiable variant — **parked** since `ss_indicators` was migrated to numpy (its `jax.value_and_grad` no longer flows through `get_divergence`). Persists a JSON checkpoint, trades live via Alpaca. Active development.
+- `apps/regime/`   — CWT-regime portfolio strategy. Optuna+vectorbt walk-forward search over discrete hyperparameters (lookback, n_tail, top_n, divergence, scale subset, optional rsi_n). Persists a JSON checkpoint, trades live via Alpaca. Active development. (The previous JAX-Adam differentiable variant `research/optimize_adam.py` was deleted along with the JAX dependency once `ss_indicators` went numpy and severed the autograd path; if a gradient-based regime trainer becomes interesting again, rebuild on tinygrad like `apps/factor` does.)
 - `apps/v1/`       — legacy single-ticker workflow (`Security` → `Span` → `Decider` → `Evaluator` → `Plot`) plus the aiohttp web service. Parked.
 - `apps/notebook/` — Jupyter playground + scalogram visualizer CLIs (`ss-scalogram`, `ss-scalogram-video`). Source in `src/ss_notebook/`. The CNN trainer was extracted to `apps/replay/`; the rank-IC scorer to `apps/factor/`.
 - `apps/replay/`   — multi-head CNN trainer (`ss-replay`) that reconstructs technical indicators (RSI/MACD/vol/CCI/price) from causal CWT slices, with FiLM conditioning over (n, w) parameter grids. Tinygrad runtime. Produces backbone npz artifacts that `apps/factor/` consumes for downstream rank-IC scoring. `scripts/modal/train_cnn_multihead.py` is the Modal-T4 4-step harness (train + CSCO zero-shot + AAPL FiLM/uncond attention) for cloud runs against the baked-in 21-ticker Stooq subset under `data/stooq_phase2/`.
@@ -17,10 +17,10 @@ StockSurvey is a uv-workspace monorepo containing trading-strategy research and 
 - `packages/indicators/` (`ss_indicators`) — **numpy** matrix-form RSI/MACD/BBands/SMA/EMA + CCI, plus stride-w variants (`rsi_strided`, `cci_strided`) for FiLM-conditioned head training, plus Corwin-Schultz spread, KL/JS/cosine/L2 divergences, Fibonacci levels, and `rolling_pearson_corr` (O(T) cumsum-based, used by `factor`'s coherence channels). Pure numpy after the JAX migration; no autograd path.
 - `packages/wavelets/`   (`ss_wavelets`)   — causal Ricker CWT + windowed power means. `KERNEL_HALF_EXTENT=3` and `ALL_SCALES` exposed.
 - `packages/stream/`     (`ss_stream`)     — point-in-time universe iterator over the Stooq archive (incremental loader for live trading).
-- `packages/portfolio/`  (`ss_portfolio`)  — JAX block-Sharpe with costs, CAGR/drawdown/Sortino/Calmar, water-fill weight cap, masked softmax. Also houses `ss_portfolio.broker` (the canonical Alpaca adapter, gated by the `[alpaca]` optional extra) — both `regime live` and `ss-relational live` share it.
+- `packages/portfolio/`  (`ss_portfolio`)  — numpy block-Sharpe with costs, CAGR/drawdown/Sortino/Calmar, water-fill weight cap, masked softmax. Also houses `ss_portfolio.broker` (the canonical Alpaca adapter, gated by the `[alpaca]` optional extra) — both `regime live` and `ss-relational live` share it.
 - `packages/plotting/`   (`ss_plotting`)   — training-curve, equity-comparison, scalogram-heatmap helpers.
 
-`ss_indicators` is numpy; `ss_portfolio` is still JAX (block-Sharpe needs autograd in the regime trainer's loss). `apps/replay` and `apps/factor` use **tinygrad**. The legacy v1 indicators in `v1/util/indicators.py` are preserved untouched for the parked workflow but are not the canonical implementation; new code uses `ss_indicators`.
+`ss_indicators`, `ss_portfolio`, and `ss_wavelets` are all pure numpy — there is no JAX in the workspace anymore. `apps/replay` and `apps/factor` use **tinygrad** (the only autograd runtime in the repo). The legacy v1 indicators in `v1/util/indicators.py` are preserved untouched for the parked workflow but are not the canonical implementation; new code uses `ss_indicators`.
 
 ## Workspace conventions
 
@@ -48,11 +48,10 @@ uv run python apps/relational/scripts/build_canonical_checkpoints.py
 uv run ss-relational live --params Output/relational-empirical.json --dry-run
 uv run ss-relational live --params Output/relational-empirical.json --live  # real submit
 
-# Regime research scripts (bt backtests, Optuna, Adam)
+# Regime research scripts (bt backtests, Optuna)
 uv run python -m regime.research.backtest_bt        --data-dir ./Nasdaq3347 --top-n 20
 uv run python -m regime.research.backtest_ranking   --data-dir ./Nasdaq3347 --top-n 10
 uv run python -m regime.research.optimize_regime    --data-dir ./Nasdaq3347 --n-trials 50
-uv run python -m regime.research.optimize_adam      --data-dir ./Nasdaq3347
 
 # Scalogram tools (apps/notebook)
 uv run ss-scalogram --stooq-dir ./StooqData TSLA                    # static composite figure
@@ -74,13 +73,12 @@ Run `jupyter notebook` from the workspace root so the notebook's `data_dir = './
 
 `apps/regime/src/regime/`:
 - `trainer.py`   — Optuna+vectorbt walk-forward search. `weights_regime` ranks by recent-vs-historical CWT-power divergence (KL/JS/cosine/L2); `weights_scalogram` ranks by direction−momentum×coherence. Both call `ss_wavelets.causal_cwt` + `precompute_windows`. CWT input is **raw close by default**; `_log_returns` is opt-in via `use_log_returns=True` (preserved as a flag — see "Key findings"). `DEFAULT_PER_WINDOW_MIN_HISTORY = KERNEL_HALF_EXTENT * max(LONG_SCALES) + LOOKBACK_SEARCH_MAX = 630` is the survivorship floor — derived, not hardcoded, so it follows kernel/lookback constants.
-- `persist.py`   — JSON checkpoint serialization (no pickle). `Checkpoint` dataclass captures params + scales + hyperparams + universe + provenance + `use_log_returns` (so live inference matches train-time input).
-- `inference.py` — pure forward pass that loads a `Checkpoint` and returns soft top-N target weights for the latest bar. Reads `checkpoint.use_log_returns` to mirror the trainer's input mode.
+- `persist.py`   — JSON checkpoint serialization (no pickle). `Checkpoint` dataclass captures Optuna-search hyperparams (`lookback`, `n_tail`, `top_n`, `divergence`, `rsi_n`) + scales + universe + provenance + `use_log_returns` (so live inference matches train-time input). Legacy adam-mode fields (`mode`, `scale_log_weights`, `log_temperature`) from older JSONs are silently dropped on load.
+- `inference.py` — pure forward pass that loads a `Checkpoint` and returns hard top-N target weights for the latest bar. Dispatches on `checkpoint.strategy` ∈ `{regime, scalogram, rsi}`; reads `checkpoint.use_log_returns` to mirror the trainer's input mode.
 - `broker.py`    — re-export shim. The canonical `AlpacaBroker` (account, positions, recent bars, build trades, submit orders) now lives at `ss_portfolio.broker`. Credentials still read from `ALPACA_API_KEY` / `ALPACA_SECRET_KEY` / `ALPACA_BASE_URL`; defaults to paper.
 - `live.py`      — orchestration: load checkpoint → fetch bars → score universe → cap weights via `ss_portfolio.apply_position_cap` → diff vs current positions → submit. Risk rails: kill-switch file, data-freshness check, per-name cap, dry-run by default.
 - `cli.py`       — argparse subcommands `train` and `live`. `--use-log-returns` flag exposed on `train` (off by default).
-- `reporting.py` — thin adapters from `TrainResult` to `ss_plotting.plot_training_curves` / `print_scale_weights`.
-- `research/`    — alternative search/eval (`backtest_bt.py`, `backtest_ranking.py`, `optimize_regime.py`, `optimize_adam.py` — JAX-Adam differentiable optimizer, **parked** since `ss_indicators` migrated to numpy).
+- `research/`    — alternative search/eval (`backtest_bt.py`, `backtest_ranking.py`, `optimize_regime.py`).
 
 ## Relational app architecture
 
@@ -109,7 +107,7 @@ Run `jupyter notebook` from the workspace root so the notebook's `data_dir = './
 - **Baseline regime (default params: lookback=120, n_tail=20, top_n=20, KL divergence):** CAGR 31.2%, total return 3234%, daily Sharpe **0.63**, max drawdown -59.5%. Daily kurtosis 750 — fat-tailed, dominated by a 150% best-day spike. High return but poor risk-adjusted.
 - **Equal-weight baseline:** CAGR 27.6%, Sharpe **1.26**, max drawdown -30.8%. Better Sharpe despite lower return.
 - **Optuna walk-forward best params vary wildly across windows** (lookback 144–246, n_tail 3–110, top_n 6–24, divergence bounces cosine/js/kl) — the signal is unstable. Val Sharpe in later windows reaches ~1.36–1.63.
-- **JAX differentiable optimizer** (lookback=229, n_tail=106, 500 Adam steps, train 70% / val 30%): train Sharpe +1.22, val Sharpe **+0.80** out-of-sample. Learned scale weights collapse to long horizons: **126d (48%), 90d (18%), 26d (16%), 42d (15%)** — all short scales (≤21d) drop to <1%. Temperature drops to 0.005 (near-hard top-1 concentration).
+- **JAX differentiable optimizer (now removed; finding preserved)** — lookback=229, n_tail=106, 500 Adam steps, train 70% / val 30%: train Sharpe +1.22, val Sharpe **+0.80** out-of-sample. Learned scale weights collapsed to long horizons: **126d (48%), 90d (18%), 26d (16%), 42d (15%)** — all short scales (≤21d) dropped to <1%. Temperature dropped to 0.005 (near-hard top-1 concentration). Implementation deleted with the JAX dep drop; if differentiable regime training is wanted again, rebuild on tinygrad following the `apps/factor` pattern.
 - **The regime signal works on monthly-to-biannual horizons, not short-term noise.**
 - **Log-returns CWT input degrades Sharpe (controlled walk-forward eval, Stooq 2010-2024, 20 trials/window, kernel half-extent 3 fixed in both arms):** raw close beats log-returns on val Sharpe in every window. Median val Sharpe `+0.15` (raw) vs `+0.03` (log-returns); mean `+0.07` vs `-0.29`; worst window `-0.41` vs `-1.06`. Per-window: log-returns has **higher train but lower val** Sharpe — overfitting signature. Theory: raw close bleeds price-level trend into long-scale wavelet power, embedding an implicit cross-sectional momentum factor; log-returns purifies trend out, leaving only "vol regime shift" which is not a known cross-sectional return predictor. Default is therefore raw close; `--use-log-returns` flag preserved for non-ranking research (vol forecasting, regime-break detection). Eval artifacts: `Output/regime-eval-{rawclose-kernel3,logreturns}.{log,json}`.
 - **Factor deterministic-indicator baseline (Stooq 2000-2026, 297 tickers after `min_history_bars=6500`, 6-window walk-forward, train=63/val=39/step=39 blocks at rebal_days=20, AdamW lr=1e-2 wd=1e-3, n_steps=200):** linear head mean val IC `+0.0120` / median `+0.0168` / **5/6 windows positive**; mlp head `+0.0081` / `+0.0075` / 4/6 (mlp triples train IC over linear but lower val IC and 2 negative windows — overfitting signature). Mean val Sharpe (linear) ~+0.44, broadly consistent with Grinold's IR ≈ IC·sqrt(BR) after sector/beta-correlation breadth deflation. Establishes the bar the SSL-pretrained CWT backbone path must beat (mean val IC > +0.012, pos-val-IC frac ≥ 5/6) on the same universe and walk-forward config. Artifacts: `Output/walkforward-{linear,mlp}-s200-wd0.001-windows.npz`, `Output/walkforward-comparison.png`, `Output/walkforward-summary.json`.
@@ -135,9 +133,9 @@ Two on-disk sources, picked via `regime train --source {stooq,kaggle} --data-dir
 ## Platform constraints
 
 - Python 3.13.x on macOS **x86_64 (Intel)** Darwin 22.6.0
-- **PyTorch unavailable** — wheels dropped after torch 2.2.x, which doesn't support Python 3.13+. `apps/notebook/` uses tinygrad for trainers; `apps/regime` + `packages/portfolio` use JAX; `packages/indicators` + `packages/wavelets` are pure numpy.
-- **JAX pinned to `<0.5`** (jax==0.4.38, jaxlib==0.4.38) — required by `apps/regime` + `packages/portfolio` (jaxlib 0.10+ dropped Intel macOS wheels). `packages/indicators` was migrated off JAX (numpy-only since the cci+rsi_strided refactor); `apps/notebook` doesn't depend on JAX directly. JAX remains in the env transitively via `ss_portfolio` whenever the regime trainer runs.
-- **tinygrad** for `apps/notebook`. Default backend is auto-selected (Metal on macOS, CUDA on NVIDIA, AMD KFD on Linux+ROCm hardware, CPU fallback). bf16 mixed precision is default-on; `--cnn-no-bf16` disables it for backends without bf16 (Metal on Intel macOS) or fp32 reproducibility.
+- **PyTorch unavailable** — wheels dropped after torch 2.2.x, which doesn't support Python 3.13+. `apps/replay` and `apps/factor` use **tinygrad** for trainers; the rest of the workspace (`apps/regime`, `apps/relational`, all `packages/*`) is pure numpy.
+- **No JAX in the workspace.** It was previously pinned to `<0.5` for Intel-macOS wheel availability, but `ss_indicators` / `ss_portfolio` / `ss_wavelets` are all numpy now and the JAX-Adam regime trainer was deleted. The `apps/replay/scripts/colab/*` scripts still import JAX, but those run on Colab/GPU instances that provide JAX out of band — they are not in this venv.
+- **tinygrad** for `apps/replay` + `apps/factor`. Default backend is auto-selected (Metal on macOS, CUDA on NVIDIA, AMD KFD on Linux+ROCm hardware, CPU fallback). bf16 mixed precision is default-on; `--cnn-no-bf16` disables it for backends without bf16 (Metal on Intel macOS) or fp32 reproducibility.
 - `uv` is the package manager.
 
 ## Live-trading risk rails
@@ -182,8 +180,8 @@ Two implicit prerequisites enforced earlier in the pipeline:
 
 ## Important implementation notes
 
-- **`ss_indicators` returns numpy** since the JAX migration. `ss_portfolio` JAX functions still return `jnp.ndarray` — cast with `np.asarray(...)` at numpy/pandas boundaries.
-- **`ss_wavelets.causal_cwt` is numpy + scipy**, not JAX. It's a one-shot precompute (no autograd flows through wavelet coefficients). Cast to `jnp.asarray(...)` at the JAX boundary if a downstream `ss_portfolio` op needs it.
+- **`ss_indicators`, `ss_portfolio`, `ss_wavelets` all return plain numpy.** No JAX anywhere in the workspace; if you need autograd, use tinygrad in an `apps/factor`-style trainer.
+- **`ss_wavelets.causal_cwt`** is a one-shot numpy + scipy precompute (no autograd flows through wavelet coefficients regardless).
 - **`KERNEL_HALF_EXTENT = 3`** in `ss_wavelets.cwt` truncates the Ricker at |t|=3 in scale-normalized time (under 0.3% energy loss vs |t|=4). Single source of truth — `regime.trainer.DEFAULT_PER_WINDOW_MIN_HISTORY` derives from it.
 - **Per-day data dependency for `coeffs[scale, t]`** is `KERNEL_HALF_EXTENT * scale + lookback` bars. At trainer defaults that's `3 * 126 + 252 = 630` for the largest scale — also the universe-filter floor. Smaller scales (and shorter Optuna-chosen lookbacks) saturate sooner per element, but `weights_regime` requires *all* scales to be populated, so the largest scale gates everything.
 - **Symbol prefix for crypto** (legacy v1): tickers starting with `coin` are treated as cryptocurrencies (`coinBTC`).
