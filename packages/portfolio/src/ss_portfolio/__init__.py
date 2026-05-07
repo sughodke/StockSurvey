@@ -1,7 +1,7 @@
 """ss_portfolio: portfolio metrics + weighting utilities + strategies + backtester.
 
-  * `block_sharpe_with_costs`   — differentiable Sharpe for the JAX-Adam
-    optimizer (autograd-friendly, block-level approximation).
+  * `block_sharpe_with_costs`   — block-level Sharpe with transaction
+    costs (numpy; forward-only metric used by Optuna trials).
   * `annualized_sharpe`, `cagr`, `max_drawdown`, `sortino`, `calmar`
     — standard performance metrics on a daily return series.
   * `softmax_weights`           — temperature-scaled softmax with mask.

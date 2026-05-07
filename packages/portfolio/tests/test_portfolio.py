@@ -1,9 +1,7 @@
-"""Tests for ss_portfolio: metrics, weight cap, differentiable Sharpe."""
+"""Tests for ss_portfolio: metrics, weight cap, block Sharpe."""
 
 from __future__ import annotations
 
-import jax
-import jax.numpy as jnp
 import numpy as np
 import pandas as pd
 import pytest
@@ -284,26 +282,27 @@ def test_vbt_backtest_spread_increases_cost():
 def test_block_sharpe_with_costs_shape():
     n_blocks, n_tickers = 12, 5
     rng = np.random.default_rng(0)
-    scores = jnp.asarray(rng.standard_normal((n_blocks, n_tickers)))
-    block_log_ret = jnp.asarray(rng.standard_normal((n_blocks, n_tickers)) * 0.01)
-    mask = jnp.ones((n_blocks, n_tickers))
+    scores = rng.standard_normal((n_blocks, n_tickers))
+    block_log_ret = rng.standard_normal((n_blocks, n_tickers)) * 0.01
+    mask = np.ones((n_blocks, n_tickers))
     s = block_sharpe_with_costs(
-        scores, jnp.log(jnp.asarray(0.5)),
+        scores, np.log(0.5),
         block_log_ret, mask, rebal_days=20, commission_frac=0.001)
     assert s.shape == ()  # scalar
-    assert np.isfinite(np.asarray(s))
+    assert np.isfinite(s)
 
 
-def test_block_sharpe_differentiable():
-    n_blocks, n_tickers = 8, 4
-    rng = np.random.default_rng(1)
-    scores = jnp.asarray(rng.standard_normal((n_blocks, n_tickers)))
-    block_log_ret = jnp.asarray(rng.standard_normal((n_blocks, n_tickers)) * 0.01)
-    mask = jnp.ones((n_blocks, n_tickers))
-
-    def loss(log_temp):
-        return -block_sharpe_with_costs(
-            scores, log_temp, block_log_ret, mask, 20, 0.001)
-
-    g = jax.grad(loss)(jnp.log(jnp.asarray(0.5)))
-    assert np.isfinite(np.asarray(g))
+def test_block_sharpe_with_costs_costs_reduce_sharpe():
+    # Higher commission must reduce the reported Sharpe (or leave it equal
+    # only in the degenerate zero-turnover case, which this random init
+    # is not).
+    n_blocks, n_tickers = 12, 5
+    rng = np.random.default_rng(0)
+    scores = rng.standard_normal((n_blocks, n_tickers))
+    block_log_ret = rng.standard_normal((n_blocks, n_tickers)) * 0.01
+    mask = np.ones((n_blocks, n_tickers))
+    s_cheap = block_sharpe_with_costs(
+        scores, np.log(0.5), block_log_ret, mask, 20, 0.0)
+    s_expensive = block_sharpe_with_costs(
+        scores, np.log(0.5), block_log_ret, mask, 20, 0.05)
+    assert s_expensive < s_cheap
