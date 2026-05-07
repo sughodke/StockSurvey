@@ -10,14 +10,10 @@ def test_imports():
     import regime.inference
     import regime.live
     import regime.persist
-    import regime.reporting
-    import regime.research.optimize_adam
     from regime.research import backtest_bt, backtest_ranking, optimize_regime
 
     # Public API surface
-    assert hasattr(regime, 'TrainResult')
     assert hasattr(regime, 'Checkpoint')
-    assert hasattr(regime, 'train')
     assert hasattr(regime, 'target_weights')
     assert callable(backtest_bt.WEIGHT_BUILDERS['regime'])
     assert callable(backtest_ranking.RANKERS['rsi'])

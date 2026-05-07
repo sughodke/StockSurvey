@@ -18,7 +18,6 @@ import logging
 import os
 import warnings
 
-import jax.numpy as jnp
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
@@ -136,9 +135,8 @@ def rank_regime_change(prices_dict, date, lookback=120, n_tail=20):
         power = coeffs ** 2
         recent = np.mean(power[:, -n_tail:], axis=1)
         historical = np.mean(power[:, :-n_tail], axis=1)
-        log_w = jnp.zeros(len(scales))  # uniform scale weights
-        kl = float(symmetric_kl_divergence(
-            jnp.asarray(recent), jnp.asarray(historical), log_w))
+        log_w = np.zeros(len(scales))  # uniform scale weights
+        kl = float(symmetric_kl_divergence(recent, historical, log_w))
         scores[ticker] = -kl
     return scores
 

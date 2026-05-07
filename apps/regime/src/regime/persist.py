@@ -1,21 +1,17 @@
 """Checkpoint serialization for trained regime models.
 
 A checkpoint captures everything `live.py` needs to score the universe
-at a future date: the model parameters, the scale grid, the strategy
-hyperparameters, and the training-time universe + metadata.
+at a future date: discrete strategy hyperparameters from the Optuna
+walk-forward search, the scale grid, the chosen divergence, the training-
+time universe, and provenance metadata.
 
-Two checkpoint *modes* are supported, distinguished by the `mode`
-field:
-
-  * **`adam`** — JAX-Adam output: 13 continuous `scale_log_weights`
-    (softmaxed at inference) + a learned `log_temperature` for soft
-    top-N. Produced by `regime.research.optimize_adam.train()`.
-  * **`optuna`** — Optuna+vectorbt output: discrete `top_n` count +
-    `divergence` choice + scale subset (encoded directly in the
-    `scales` field). Produced by `regime.trainer.train()` via
-    `save_checkpoint_from_window()`.
-
-Old `mode`-less checkpoints default to `adam` so they keep loading.
+The checkpoint is produced by `regime.trainer.train()` via
+`save_checkpoint_from_window()` and consumed by `regime.inference` and
+`regime.live`. There is no "adam" mode anymore — the JAX-Adam differen-
+tiable variant was removed when `ss_indicators` migrated to numpy
+(autograd no longer flows through `get_divergence`); see git history
+for the original implementation if you ever want to rebuild that path
+on top of tinygrad.
 
 Stored as JSON (not pickle) so checkpoints are portable across Python
 versions, inspectable in a text editor, and safe to load from disk
@@ -29,27 +25,16 @@ from dataclasses import dataclass, asdict, fields
 from datetime import datetime, timezone
 from pathlib import Path
 
-import jax.numpy as jnp
-import numpy as np
-
-from regime.research.optimize_adam import TrainResult
-
 
 CHECKPOINT_VERSION: int = 1
 
 
 @dataclass
 class Checkpoint:
-    """In-memory representation of a saved regime model.
-
-    Fields below `val_sharpe` are populated only for `mode == 'optuna'`
-    checkpoints; `adam` checkpoints leave them at the default.
-    """
+    """In-memory representation of a saved regime model."""
 
     version: int
     scales: list[int]
-    scale_log_weights: list[float]
-    log_temperature: float
     lookback: int
     n_tail: int
     rebal_days: int
@@ -63,9 +48,6 @@ class Checkpoint:
     val_end: str
     train_sharpe: float
     val_sharpe: float
-    # Optuna-mode-only fields (with defaults for back-compat with adam
-    # checkpoints written before this schema existed).
-    mode: str = 'adam'
     top_n: int | None = None
     divergence: str | None = None
     # Which weight builder produced this checkpoint. Defaults to
@@ -82,51 +64,6 @@ class Checkpoint:
     # CWT-based strategies (regime, scalogram) which don't use RSI.
     rsi_n: int | None = None
 
-    def jax_params(self) -> dict[str, jnp.ndarray]:
-        """Return params in the dict form expected by the JAX divergence
-        functions. Used by the adam-mode inference path; for optuna mode
-        the scale weights default to zeros (uniform softmax = equal
-        per-scale weighting, which matches Optuna's search semantics)."""
-        return {
-            'scale_log_weights': jnp.asarray(self.scale_log_weights, dtype=jnp.float32),
-            'log_temperature': jnp.asarray(self.log_temperature, dtype=jnp.float32),
-        }
-
-
-def save_checkpoint(
-    path: str | Path,
-    result: TrainResult,
-    *,
-    universe: list[str],
-    lookback: int,
-    n_tail: int,
-    rebal_days: int,
-    max_spread: float,
-    commission_bps: float,
-) -> Path:
-    """Serialize a JAX-Adam `TrainResult` + run hyperparams to JSON."""
-    cp = Checkpoint(
-        version=CHECKPOINT_VERSION,
-        mode='adam',
-        scales=list(result.scales),
-        scale_log_weights=np.asarray(result.params['scale_log_weights']).tolist(),
-        log_temperature=float(result.params['log_temperature']),
-        lookback=lookback,
-        n_tail=n_tail,
-        rebal_days=rebal_days,
-        max_spread=max_spread,
-        commission_bps=commission_bps,
-        universe=list(universe),
-        trained_at=datetime.now(timezone.utc).isoformat(timespec='seconds'),
-        train_start=result.train_dates[0].date().isoformat(),
-        train_end=result.train_dates[1].date().isoformat(),
-        val_start=result.val_dates[0].date().isoformat(),
-        val_end=result.val_dates[1].date().isoformat(),
-        train_sharpe=result.train_sharpe,
-        val_sharpe=result.val_sharpe,
-    )
-    return _write_checkpoint(path, cp)
-
 
 def save_checkpoint_from_window(
     path: str | Path,
@@ -139,17 +76,12 @@ def save_checkpoint_from_window(
 ) -> Path:
     """Serialize an Optuna `WindowResult` to a checkpoint file.
 
-    Sets `mode='optuna'` and `strategy=window.strategy`. Strategy-
-    specific fields are populated only when the strategy uses them:
+    Strategy-specific fields are populated only when the strategy uses
+    them:
 
       * regime    — `scales` (from subset flags), `divergence`
       * scalogram — `scales` (from subset flags)
       * rsi       — `rsi_n`; `scales` left empty, `divergence` None
-
-    `scale_log_weights` stays at zeros (length matches `scales`) so the
-    inference-time CWT divergence sees uniform per-scale weighting,
-    matching what the Optuna search used. RSI checkpoints carry an
-    empty `scale_log_weights` since they never invoke the CWT path.
     """
     from regime.trainer import _resolve_scales
 
@@ -160,11 +92,8 @@ def save_checkpoint_from_window(
         scales = _resolve_scales(window.best_params)
     cp = Checkpoint(
         version=CHECKPOINT_VERSION,
-        mode='optuna',
         strategy=strategy,
         scales=scales,
-        scale_log_weights=[0.0] * len(scales),
-        log_temperature=0.0,
         lookback=int(window.best_params['lookback']),
         n_tail=int(window.best_params['n_tail']),
         top_n=int(window.best_params['top_n']),
@@ -201,6 +130,9 @@ def load_checkpoint(path: str | Path) -> Checkpoint:
     Unknown keys in the JSON are ignored so a v1 reader can tolerate a
     forward-compatible v1.x file with extra metadata; missing required
     keys still surface as a TypeError from the dataclass constructor.
+    Legacy fields from the removed adam mode (`mode`, `scale_log_weights`,
+    `log_temperature`) are filtered out by the unknown-key handling and
+    do not need explicit migration.
     """
     raw = json.loads(Path(path).read_text())
     if raw.get('version') != CHECKPOINT_VERSION:

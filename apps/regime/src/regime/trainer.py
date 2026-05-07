@@ -51,7 +51,6 @@ import argparse
 import warnings
 from dataclasses import dataclass
 
-import jax.numpy as jnp
 import numpy as np
 import optuna
 import pandas as pd

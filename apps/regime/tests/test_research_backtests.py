@@ -55,7 +55,6 @@ def test_weights_regime_matches_direct_kl_call(synthetic_prices):
     + ss_portfolio.select_top_n_matrix. Recompute via those primitives
     directly and check the output DataFrames are identical — this is the
     regression test that protects the dedup we just did."""
-    import jax.numpy as jnp
     from ss_indicators import symmetric_kl_divergence
     from ss_portfolio import select_top_n_matrix
     from ss_wavelets import causal_cwt
@@ -72,12 +71,11 @@ def test_weights_regime_matches_direct_kl_call(synthetic_prices):
     power = coeffs ** 2
     n_dates, n_tickers = synthetic_prices.shape
     scores = np.full((n_dates - lookback, n_tickers), np.nan)
-    log_w = jnp.zeros(len(scales))
+    log_w = np.zeros(len(scales))
     for i in range(lookback, n_dates):
         recent = np.mean(power[:, i - n_tail + 1:i + 1, :], axis=1)
         historical = np.mean(power[:, i - lookback:i - n_tail + 1, :], axis=1)
-        kl = symmetric_kl_divergence(jnp.asarray(recent),
-                                     jnp.asarray(historical), log_w)
+        kl = symmetric_kl_divergence(recent, historical, log_w)
         scores[i - lookback] = np.asarray(kl)
     w_direct = select_top_n_matrix(scores, top_n, ascending=False)
 
@@ -131,14 +129,13 @@ def test_rank_regime_change_matches_direct_kl_call(synthetic_prices_dict,
     """Same regression test as for weights_regime: recompute directly via
     ss_indicators.symmetric_kl_divergence and confirm the per-ticker
     scores agree to float32 precision."""
-    import jax.numpy as jnp
     from ss_indicators import symmetric_kl_divergence
     from regime.research.backtest_ranking import rank_regime_change, _ricker_cwt_1d
 
     date = synthetic_prices.index[-1]
     lookback, n_tail = 120, 20
     scales = np.array([5, 7, 10, 12, 21, 26, 50, 90])
-    log_w = jnp.zeros(len(scales))
+    log_w = np.zeros(len(scales))
 
     expected: dict[str, float] = {}
     for ticker, df in synthetic_prices_dict.items():
@@ -149,8 +146,7 @@ def test_rank_regime_change_matches_direct_kl_call(synthetic_prices_dict,
         power = coeffs ** 2
         recent = np.mean(power[:, -n_tail:], axis=1)
         historical = np.mean(power[:, :-n_tail], axis=1)
-        kl = float(symmetric_kl_divergence(
-            jnp.asarray(recent), jnp.asarray(historical), log_w))
+        kl = float(symmetric_kl_divergence(recent, historical, log_w))
         expected[ticker] = -kl
 
     scores = rank_regime_change(synthetic_prices_dict, date,

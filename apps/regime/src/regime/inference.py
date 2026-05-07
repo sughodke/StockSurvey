@@ -1,39 +1,30 @@
 """Inference forward pass: prices in, target weights out.
 
 Loads a `Checkpoint` and returns target weights for the *latest* date
-in the supplied OHLC frames. The dispatch is two-dimensional:
+in the supplied OHLC frames. Dispatch is on `checkpoint.strategy`:
 
-  * `checkpoint.mode` ∈ {'adam', 'optuna'} — how the model was trained.
-  * `checkpoint.strategy` ∈ {'regime', 'scalogram', 'rsi'} — which
-    weight builder produced the score.
+  * **regime**   — hard top-N equal-weight basket using the checkpoint-
+    recorded divergence (`kl`/`js`/`cosine`/`l2`) with uniform per-scale
+    weighting.
+  * **scalogram** — hard top-N equal-weight basket ranked ascending by
+    `direction − momentum × coherence`.
+  * **rsi**      — hard top-N equal-weight basket ranked ascending by
+    trailing-`n_tail` mean Wilder RSI(`rsi_n`); lowest score = most
+    oversold. No CWT.
 
-Combinations:
-
-  * **adam + regime**     — soft top-N via temperature-scaled softmax
-    of the symmetric-KL score with learned per-scale weights.
-  * **optuna + regime**   — hard top-N equal-weight basket using the
-    checkpoint-recorded divergence (`kl`/`js`/`cosine`/`l2`) with
-    uniform per-scale weighting.
-  * **optuna + scalogram** — hard top-N equal-weight basket ranked
-    ascending by `direction − momentum × coherence`.
-  * **optuna + rsi**       — hard top-N equal-weight basket ranked
-    ascending by trailing-`n_tail` mean Wilder RSI(`rsi_n`); lowest
-    score = most oversold. No CWT.
-
-Adam-mode is regime-only — scalogram and rsi have no continuous
-parameters to gradient-descend over.
+All three are Optuna-search outputs; the legacy "adam" mode (gradient-
+descended scale weights + soft top-N) was removed when the autograd
+path was severed by the ss_indicators numpy migration.
 """
 
 from __future__ import annotations
 
-import jax.numpy as jnp
 import numpy as np
 import pandas as pd
 
 from regime.persist import Checkpoint
 from regime.trainer import _log_returns
 from ss_indicators import corwin_schultz_spread, get_divergence, rsi
-from ss_indicators import symmetric_kl_divergence as regime_scores
 from ss_wavelets import KERNEL_HALF_EXTENT, causal_cwt, precompute_windows
 
 
@@ -63,31 +54,19 @@ def target_weights(
     """
     _validate_inputs(prices, highs, lows, checkpoint)
 
-    # Branch on strategy first — scalogram and rsi each have their own
-    # scoring math, ranking direction (both ascending: smallest score
-    # wins), and only exist in optuna (hard top-N) form today.
     if checkpoint.strategy == 'scalogram':
         scores, liquid_last = _score_latest_bar_scalogram(
             prices, highs, lows, checkpoint)
         weights = _hard_top_n(
             scores, liquid_last, checkpoint.top_n, ascending=True)
-        return pd.Series(weights, index=prices.columns, name=prices.index[-1])
-
-    if checkpoint.strategy == 'rsi':
+    elif checkpoint.strategy == 'rsi':
         scores, liquid_last = _score_latest_bar_rsi(
             prices, highs, lows, checkpoint)
         weights = _hard_top_n(
             scores, liquid_last, checkpoint.top_n, ascending=True)
-        return pd.Series(weights, index=prices.columns, name=prices.index[-1])
-
-    # Regime strategy — same score code path for both adam and optuna,
-    # only the allocation rule differs.
-    scores, liquid_last = _score_latest_bar(prices, highs, lows, checkpoint)
-
-    if checkpoint.mode == 'optuna':
-        weights = _hard_top_n(scores, liquid_last, checkpoint.top_n)
     else:
-        weights = _soft_top_n(scores, liquid_last, checkpoint.log_temperature)
+        scores, liquid_last = _score_latest_bar(prices, highs, lows, checkpoint)
+        weights = _hard_top_n(scores, liquid_last, checkpoint.top_n)
 
     return pd.Series(weights, index=prices.columns, name=prices.index[-1])
 
@@ -133,18 +112,10 @@ def _score_latest_bar(prices, highs, lows, checkpoint):
     spread_df = corwin_schultz_spread(highs, lows)
     liquid_last = (spread_df.values[-1] <= checkpoint.max_spread).astype(np.float32)
 
-    # Pick the divergence by checkpoint mode. Adam mode uses the trained
-    # symmetric-KL with learned per-scale weights. Optuna mode uses the
-    # checkpoint-recorded divergence with uniform per-scale weights.
-    if checkpoint.mode == 'optuna':
-        div_fn = get_divergence(checkpoint.divergence or 'kl')
-        scale_log_weights = jnp.zeros(len(checkpoint.scales), dtype=jnp.float32)
-    else:
-        div_fn = regime_scores
-        scale_log_weights = checkpoint.jax_params()['scale_log_weights']
-
-    recent_last = jnp.asarray(recent[:, -1:, :])
-    historical_last = jnp.asarray(historical[:, -1:, :])
+    div_fn = get_divergence(checkpoint.divergence or 'kl')
+    scale_log_weights = np.zeros(len(checkpoint.scales), dtype=np.float32)
+    recent_last = recent[:, -1:, :]
+    historical_last = historical[:, -1:, :]
     scores = np.asarray(div_fn(
         recent_last, historical_last, scale_log_weights))[0]
     return scores, liquid_last
@@ -205,15 +176,6 @@ def _score_latest_bar_rsi(prices, highs, lows, checkpoint):
     return scores, liquid_last
 
 
-def _soft_top_n(scores: np.ndarray, mask: np.ndarray, log_temperature: float) -> np.ndarray:
-    """Adam-mode allocation: temperature-scaled softmax × liquidity mask."""
-    temp = float(np.exp(log_temperature))
-    s = scores / temp + np.log(mask + 1e-12)
-    s = s - s.max()
-    exp_s = np.exp(s) * mask
-    return exp_s / (exp_s.sum() + 1e-12)
-
-
 def _hard_top_n(
     scores: np.ndarray,
     mask: np.ndarray,
@@ -221,15 +183,15 @@ def _hard_top_n(
     *,
     ascending: bool = False,
 ) -> np.ndarray:
-    """Optuna-mode allocation: pick `top_n` liquid names, allocate
-    `1/top_n` each. `ascending=False` (default) keeps the largest
-    scores (regime: highest divergence). `ascending=True` keeps the
-    smallest scores (scalogram: most negative direction−momentum×
-    coherence). If fewer than `top_n` liquid names exist, equal-
-    weight whatever's left.
+    """Pick `top_n` liquid names, allocate `1/top_n` each.
+
+    `ascending=False` (default) keeps the largest scores (regime: highest
+    divergence). `ascending=True` keeps the smallest scores (scalogram:
+    most negative direction−momentum×coherence). If fewer than `top_n`
+    liquid names exist, equal-weight whatever's left.
     """
     if top_n is None or top_n < 1:
-        raise ValueError(f'optuna checkpoint missing or invalid top_n: {top_n!r}')
+        raise ValueError(f'checkpoint missing or invalid top_n: {top_n!r}')
 
     masked = np.where(mask >= 0.5, scores, np.nan)
     valid = ~np.isnan(masked)

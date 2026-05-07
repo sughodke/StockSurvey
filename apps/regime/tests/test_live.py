@@ -11,37 +11,35 @@ from dataclasses import dataclass
 from pathlib import Path
 from unittest.mock import MagicMock
 
-import jax.numpy as jnp
 import numpy as np
 import pandas as pd
 import pytest
 
 from regime.broker import Account, Trade
 from regime.live import LiveRunResult, run_live
-from regime.persist import save_checkpoint
-from regime.research.optimize_adam import TrainResult
+from regime.persist import save_checkpoint_from_window
+from regime.trainer import WindowResult
 
 
 def _checkpoint(tmp_path: Path, *, lookback: int = 30, n_tail: int = 5,
-                universe: list[str]) -> Path:
-    """Write a synthetic checkpoint and return its path."""
-    result = TrainResult(
-        params={
-            'scale_log_weights': jnp.zeros(3, dtype=jnp.float32),
-            'log_temperature': jnp.asarray(np.log(0.5), dtype=jnp.float32),
+                universe: list[str], top_n: int = 4) -> Path:
+    """Write a synthetic optuna-mode checkpoint and return its path."""
+    window = WindowResult(
+        train_start=pd.Timestamp('2020-01-01'),
+        train_end=pd.Timestamp('2020-12-31'),
+        val_end=pd.Timestamp('2021-12-31'),
+        best_params={
+            'lookback': lookback, 'n_tail': n_tail, 'top_n': top_n,
+            'divergence': 'kl',
+            'use_short_scales': True,   # → [3, 5, 7]
+            'use_mid_scales': False,
+            'use_long_scales': False,
         },
-        train_history=[0.0],
-        val_history=[(0, 0.0)],
-        train_sharpe=0.0,
-        val_sharpe=0.0,
-        scales=[5, 12, 21],
-        train_dates=(pd.Timestamp('2020-01-01'), pd.Timestamp('2020-12-31')),
-        val_dates=(pd.Timestamp('2021-01-01'), pd.Timestamp('2021-12-31')),
+        train_score=0.0, val_score=0.0,
     )
-    return save_checkpoint(
-        tmp_path / 'cp.json', result,
-        universe=universe, lookback=lookback, n_tail=n_tail,
-        rebal_days=20, max_spread=0.02, commission_bps=10)
+    return save_checkpoint_from_window(
+        tmp_path / 'cp.json', window,
+        universe=universe, rebal_days=20, max_spread=0.02, commission_bps=10)
 
 
 def _stub_broker(*, last_bar_offset_days: int = 1,
@@ -72,7 +70,7 @@ def _stub_broker(*, last_bar_offset_days: int = 1,
               last_price=100.0)
         for s, w in kw['target_weights'].items() if w > 0
     ][:3]  # keep small
-    broker.submit_orders.return_value = ['order-1', 'order-2']
+    broker.submit_orders.return_value = (['order-1', 'order-2'], [])
     return broker
 
 
@@ -137,16 +135,30 @@ def test_run_live_submits_when_live(tmp_path: Path):
 
 
 def test_run_live_caps_per_name_weight(tmp_path: Path):
-    """The water-fill cap kicks in before trade construction."""
-    cp = _checkpoint(tmp_path, universe=['A', 'B', 'C', 'D'])
-    broker = _stub_broker()
-    cap = 0.30
+    """Verify apply_position_cap is wired into the live path. Optuna hard
+    top-N produces uniform 1/top_n weights, so a binding cap only fires
+    in the degenerate case top_n*cap < 1 (water-fill returns uniform
+    over nonzero names). We test both regimes:
 
-    result = run_live(cp, broker=broker, dry_run=True,
-                      max_position=cap,
-                      killswitch_path=tmp_path / 'nope.killswitch')
+      * Non-binding (cap > 1/top_n): max stays at 1/top_n, sum=1.
+      * Degenerate (cap < 1/top_n with top_n*cap < 1): max equals
+        1/top_n (uniform redistribute), sum=1.
+    """
+    universe = ['A', 'B', 'C', 'D', 'E', 'F']
+    cp = _checkpoint(tmp_path, universe=universe, top_n=4)
 
-    assert result.target_weights.max() <= cap + 1e-9
-    # Caller passed a 4-name universe with cap=0.30 (= 1.20 total); not
-    # uniform-degenerate, so weights still sum to ~1.
-    assert result.target_weights.sum() == pytest.approx(1.0, rel=1e-6)
+    # Non-binding cap: 1/4 = 0.25 < 0.5, so max=0.25.
+    result_loose = run_live(
+        cp, broker=_stub_broker(universe=universe), dry_run=True,
+        max_position=0.5, killswitch_path=tmp_path / 'nope.killswitch')
+    assert result_loose.target_weights.sum() == pytest.approx(1.0, rel=1e-6)
+    assert result_loose.target_weights.max() == pytest.approx(0.25, abs=1e-9)
+
+    # Degenerate (4*0.20=0.80 < 1): water-fill returns uniform 1/4=0.25
+    # across the 4 nonzero names — exceeds the cap intentionally because
+    # the cap is infeasible.
+    result_tight = run_live(
+        cp, broker=_stub_broker(universe=universe), dry_run=True,
+        max_position=0.20, killswitch_path=tmp_path / 'nope.killswitch')
+    assert result_tight.target_weights.sum() == pytest.approx(1.0, rel=1e-6)
+    assert result_tight.target_weights.max() == pytest.approx(0.25, abs=1e-9)

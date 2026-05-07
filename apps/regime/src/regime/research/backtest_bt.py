@@ -24,7 +24,6 @@ import os
 import warnings
 
 import bt
-import jax.numpy as jnp
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
@@ -105,12 +104,12 @@ def weights_regime(prices, lookback=120, n_tail=20, top_n=20,
 
     n_dates, n_tickers = prices.shape
     scores = np.full((n_dates - lookback, n_tickers), np.nan)
-    log_w = jnp.zeros(len(scales))  # uniform scale weights — softmax(0) = 1/n_scales
+    log_w = np.zeros(len(scales))  # uniform scale weights — softmax(0) = 1/n_scales
 
     for i in tqdm(range(lookback, n_dates), desc='Regime scores', unit='day'):
         recent = np.mean(power[:, i - n_tail + 1:i + 1, :], axis=1)
         historical = np.mean(power[:, i - lookback:i - n_tail + 1, :], axis=1)
-        kl = symmetric_kl_divergence(jnp.asarray(recent), jnp.asarray(historical), log_w)
+        kl = symmetric_kl_divergence(recent, historical, log_w)
         scores[i - lookback] = np.asarray(kl)
 
     scores = apply_nan_mask(scores, prices.values, lookback)

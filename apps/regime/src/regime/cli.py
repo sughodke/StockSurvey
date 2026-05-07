@@ -18,9 +18,6 @@ Two subcommands:
     regime live --params model.json --dry-run
         Load a checkpoint, fetch recent OHLC from Alpaca, compute target
         weights, and submit (or print) the trades needed to reach them.
-
-For the gradient-descent alternative on continuous params, call
-`regime.research.optimize_adam.train()` directly — no CLI shim.
 """
 
 from __future__ import annotations
