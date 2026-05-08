@@ -170,7 +170,8 @@ def run_arms(prices_pkl: bytes) -> dict[str, bytes]:
               f'{(weights_by_arm[name].sum(axis=1) > 0).sum()} '
               f'rebalances rows', flush=True)
 
-    print(f'\n=== Step 3/3: bt backtests ===', flush=True)
+    print(f'\n=== Step 3/3: bt backtests + per-arm walk-forward split ===',
+          flush=True)
     strategies = [
         build_strategy(name, prices, w,
                        rebal_days=rebal_days, commission_bps=commission_bps)
@@ -179,10 +180,59 @@ def run_arms(prices_pkl: bytes) -> dict[str, bytes]:
     result = bt.run(*strategies)
     result.display()
 
+    # Per-arm walk-forward segmentation. Same canonical Phase-2 split as
+    # `idea_b_analog_knn_dwt_walkforward.py` (mirrors
+    # `build_canonical_checkpoints.PHASE2_TRAIN/VAL_*`). Verdict for
+    # WALKFORWARD.md is per-arm: train Sharpe and val Sharpe land
+    # alongside the full-period number so we can flag any arm where the
+    # train edge does not survive OOS — same failure mode the
+    # cross_ticker analog already exhibited.
+    from relational.research.idea_b_analog_knn_dwt_walkforward import (
+        TRAIN_END, TRAIN_START, VAL_END, VAL_START, segment_stats,
+    )
+    eq_panel = result.prices
+    seg_rows: list[dict] = []
+    for arm_name in weights_by_arm:
+        equity = eq_panel[arm_name]
+        for window_label, w_start, w_end in (
+            ('full',  TRAIN_START, VAL_END),
+            ('train', TRAIN_START, TRAIN_END),
+            ('val',   VAL_START,   VAL_END),
+        ):
+            stats = segment_stats(equity, w_start, w_end)
+            stats.update({'arm': arm_name, 'window': window_label,
+                          'start': w_start, 'end': w_end})
+            seg_rows.append(stats)
+
+    import pandas as _pd_local
+    summary = _pd_local.DataFrame(seg_rows)[
+        ['arm', 'window', 'start', 'end', 'n_bars',
+         'total_return', 'cagr', 'sharpe', 'sortino', 'max_dd']]
+
+    print('\n=== Per-arm walk-forward segmented stats ===', flush=True)
+    _pd_local.set_option('display.float_format', lambda v: f'{v:.4f}')
+    print(summary.to_string(index=False), flush=True)
+
+    print('\n--- per-arm delta (val − train) ---', flush=True)
+    for arm_name in weights_by_arm:
+        tr = summary[(summary.arm == arm_name)
+                     & (summary.window == 'train')].iloc[0]
+        va = summary[(summary.arm == arm_name)
+                     & (summary.window == 'val')].iloc[0]
+        print(f'  {arm_name:24s}  '
+              f'Δsharpe={va.sharpe - tr.sharpe:+.4f}  '
+              f'Δsortino={va.sortino - tr.sortino:+.4f}  '
+              f'Δcagr={va.cagr - tr.cagr:+.4f}  '
+              f'Δmaxdd={va.max_dd - tr.max_dd:+.4f}', flush=True)
+
     output = Path(REMOTE_REPO) / 'Output'
     output.mkdir(parents=True, exist_ok=True)
     fig, ax = plt.subplots(figsize=(14, 8))
     result.plot(ax=ax)
+    split_date = _pd_local.Timestamp(VAL_START)
+    ax.axvline(split_date, color='k', ls='--', alpha=0.5,
+               label=f'train/val split ({VAL_START})')
+    ax.legend(loc='upper left', fontsize=8, ncol=2)
     ax.set_title(
         f'Relational distance scorers — DWT-L1 vs full-res fingerprint '
         f'(Phase-2, {start} → {end}, top-{top_n}, rebal={rebal_days}d)')
@@ -194,8 +244,26 @@ def run_arms(prices_pkl: bytes) -> dict[str, bytes]:
     stats_path = output / 'relational-dwt-phase2-stats.txt'
     stats_path.write_text(str(result.stats))
 
+    seg_csv_path = output / 'relational-dwt-phase2-walkforward.csv'
+    summary.to_csv(seg_csv_path, index=False)
+
+    seg_txt_path = output / 'relational-dwt-phase2-walkforward.txt'
+    with seg_txt_path.open('w') as f:
+        f.write(summary.to_string(index=False))
+        f.write('\n\n--- per-arm delta (val − train) ---\n')
+        for arm_name in weights_by_arm:
+            tr = summary[(summary.arm == arm_name)
+                         & (summary.window == 'train')].iloc[0]
+            va = summary[(summary.arm == arm_name)
+                         & (summary.window == 'val')].iloc[0]
+            f.write(f'  {arm_name:24s}  '
+                    f'Δsharpe={va.sharpe - tr.sharpe:+.4f}  '
+                    f'Δsortino={va.sortino - tr.sortino:+.4f}  '
+                    f'Δcagr={va.cagr - tr.cagr:+.4f}  '
+                    f'Δmaxdd={va.max_dd - tr.max_dd:+.4f}\n')
+
     artifacts: dict[str, bytes] = {}
-    for p in [fig_path, stats_path]:
+    for p in [fig_path, stats_path, seg_csv_path, seg_txt_path]:
         artifacts[p.name] = p.read_bytes()
     print(f'\nbundling {len(artifacts)} artifacts', flush=True)
     return artifacts

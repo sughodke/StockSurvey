@@ -51,12 +51,13 @@ VAL_END = '2025-12-11'
 TRADING_DAYS_PER_YEAR = 252
 
 
-def _segment_stats(
+def segment_stats(
     equity: pd.Series, start: str, end: str,
 ) -> dict[str, float]:
     """Annualised Sharpe / Sortino / MaxDD / CAGR / total return on a
     date-bounded slice of an equity curve. The slice is `[start, end]`
-    inclusive at both ends."""
+    inclusive at both ends. Public so the Modal multi-arm entrypoint
+    can reuse the same segmentation logic."""
     seg = equity.loc[start:end].astype(float)
     if len(seg) < 2:
         return {'n_bars': 0}
@@ -150,7 +151,7 @@ def run(
         for window_name, w_start, w_end in (('full', TRAIN_START, VAL_END),
                                             ('train', TRAIN_START, TRAIN_END),
                                             ('val', VAL_START, VAL_END)):
-            stats = _segment_stats(equity, w_start, w_end)
+            stats = segment_stats(equity, w_start, w_end)
             stats.update({'arm': name, 'window': window_name,
                           'start': w_start, 'end': w_end})
             rows.append(stats)
