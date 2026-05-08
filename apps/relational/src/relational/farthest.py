@@ -30,6 +30,7 @@ from __future__ import annotations
 import numpy as np
 import pandas as pd
 
+from ss_features import Compression
 from ss_portfolio import apply_nan_mask, select_top_n_matrix
 
 from relational.fingerprints import extract_fingerprints
@@ -43,6 +44,7 @@ def centroid_distance_scores(
     scales: list[int],
     fp_window: int = 21,
     cache_dir=None,
+    compression: Compression | None = None,
 ) -> np.ndarray:
     """Per-(date, ticker) cross-sectional centroid distance.
 
@@ -57,7 +59,8 @@ def centroid_distance_scores(
     """
     coeffs = load_or_compute_cwt(
         prices, scales, lookback, cache_dir=cache_dir)
-    fps = extract_fingerprints(coeffs, w=fp_window, znorm=True)
+    fps = extract_fingerprints(
+        coeffs, w=fp_window, znorm=True, compression=compression)
     fps_eval = fps[lookback:]    # (n_eval, n_tickers, fp_dim)
 
     n_eval, n_tickers, _ = fps_eval.shape
@@ -87,6 +90,7 @@ def weights_regime_farthest(
     scales: list[int],
     fp_window: int = 21,
     cache_dir=None,
+    compression: Compression | None = None,
 ) -> pd.DataFrame:
     """Hard-top-N basket ranked by cross-sectional centroid distance.
 
@@ -102,7 +106,8 @@ def weights_regime_farthest(
     """
     scores = centroid_distance_scores(
         prices, lookback=lookback, scales=scales,
-        fp_window=fp_window, cache_dir=cache_dir)
+        fp_window=fp_window, cache_dir=cache_dir,
+        compression=compression)
     scores = apply_nan_mask(scores, prices.values, lookback)
     weights = select_top_n_matrix(scores, top_n, ascending=False)
     return pd.DataFrame(

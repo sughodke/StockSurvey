@@ -19,8 +19,25 @@ import numpy as np
 import pandas as pd
 
 from relational.persist import RelationalCheckpoint
+from ss_features import Compression
 from ss_indicators import corwin_schultz_spread
 from ss_wavelets import KERNEL_HALF_EXTENT
+
+
+def _maybe_compression(kw: dict) -> Compression | None:
+    """Build a `Compression` from `strategy_kwargs` keys when
+    `compress_levels > 0`, else return None (full-resolution
+    fingerprints, the legacy behaviour). Defaults match the
+    `Compression` defaults so older checkpoints without these keys
+    keep the same uncompressed behaviour."""
+    levels = int(kw.get('compress_levels', 0))
+    if levels < 1:
+        return None
+    return Compression(
+        kind=str(kw.get('compress_kind', 'dwt')),
+        levels=levels,
+        wavelet=str(kw.get('compress_wavelet', 'haar')),
+        pad_mode=str(kw.get('compress_pad_mode', 'periodization')))
 
 
 def target_weights(
@@ -115,6 +132,7 @@ def _build_weights_panel(
             forward_horizon=int(kw.get('forward_horizon', 20)),
             min_sep_days=int(kw.get('min_sep_days', 21)),
             pool_mode=str(kw.get('pool_mode', 'cross_ticker')),
+            compression=_maybe_compression(kw),
         )
 
     if cp.strategy == 'farthest':
@@ -122,6 +140,7 @@ def _build_weights_panel(
         return weights_regime_farthest(
             prices, lookback=cp.lookback, top_n=cp.top_n, scales=cp.scales,
             fp_window=int(kw.get('fp_window', 21)),
+            compression=_maybe_compression(kw),
         )
 
     if cp.strategy == 'diversified':
@@ -133,6 +152,7 @@ def _build_weights_panel(
             top_pool=int(kw.get('top_pool', max(2 * cp.top_n, 20))),
             divergence=str(kw.get('divergence', 'kl')),
             fp_window=int(kw.get('fp_window', 21)),
+            compression=_maybe_compression(kw),
         )
 
     if cp.strategy == 'velocity':

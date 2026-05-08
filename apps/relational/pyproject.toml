@@ -9,6 +9,7 @@ dependencies = [
     "ss-indicators",
     "ss-portfolio[alpaca]",
     "ss-plotting",
+    "ss-features",        # Compression (2D DWT keep-LL) for fingerprint dim-reduction.
     "numpy",
     "pandas",
     "matplotlib",

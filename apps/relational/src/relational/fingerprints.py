@@ -25,12 +25,15 @@ from __future__ import annotations
 
 import numpy as np
 
+from ss_features import Compression, compress_tiles
+
 
 def extract_fingerprints(
     coeffs: np.ndarray,
     *,
     w: int,
     znorm: bool = True,
+    compression: Compression | None = None,
 ) -> np.ndarray:
     """Compute per-(date, ticker) scalogram fingerprints.
 
@@ -48,34 +51,51 @@ def extract_fingerprints(
         Makes distance comparisons scale-invariant across tickers
         (otherwise a high-vol ticker's fingerprint just has bigger
         coefficients and looks "far" from everything). Recommended on.
+    compression : Compression | None
+        Optional 2D DWT keep-LL compression of each `(S, w)` per-bar
+        tile before flattening. With L levels of Haar DWT keep-LL the
+        fingerprint dim shrinks `S*w → ceil(S/2^L) * ceil(w/2^L)`.
+        Causality is preserved because each tile contains only past
+        bars. None = the original full-resolution fingerprint.
 
     Returns
     -------
-    fps : np.ndarray, shape `(n_dates, n_tickers, S*w)`, float32
-        For dates `t < w-1`, the fingerprint is computed against a
-        zero-padded window — caller should drop those rows or apply
-        the same `lookback` floor used elsewhere.
+    fps : np.ndarray, shape `(n_dates, n_tickers, fp_dim)`, float32
+        `fp_dim = S*w` when `compression is None`, else
+        `ceil(S/2^L) * ceil(w/2^L)` after the LL keep. For dates
+        `t < w-1`, the fingerprint is computed against a zero-padded
+        window — caller should drop those rows or apply the same
+        `lookback` floor used elsewhere. L2-normalization (when on)
+        runs *after* compression, so the unit-norm property is
+        preserved in the compressed space.
     """
     n_scales, n_dates, n_tickers = coeffs.shape
-    fp_dim = n_scales * w
 
-    # Pad with `w-1` rows of zeros at the front so a sliding window of
-    # length `w` ending at `t` is well-defined for every t.
     pad = np.zeros((n_scales, w - 1, n_tickers), dtype=coeffs.dtype)
     padded = np.concatenate([pad, coeffs], axis=1)
-    # `(n_scales, n_dates+w-1, n_tickers)` → use stride trick to build
-    # `(w, n_dates, n_scales, n_tickers)`. Cheap; avoids a Python loop.
     sw = np.lib.stride_tricks.sliding_window_view(
         padded, window_shape=w, axis=1)
-    # `sw` shape: `(n_scales, n_dates, n_tickers, w)`. Reorder so each
-    # fingerprint is `(S, w)` flattened in scale-major order.
-    fps = np.transpose(sw, (1, 2, 0, 3)).reshape(
-        n_dates, n_tickers, fp_dim).astype(np.float32, copy=False)
+    # `sw` shape: `(n_scales, n_dates, n_tickers, w)`. Move tile axes
+    # to the end for either flatten-only or DWT-then-flatten.
+    tiles = np.transpose(sw, (1, 2, 0, 3)).astype(np.float32, copy=False)
+    # `tiles` shape: `(n_dates, n_tickers, n_scales, w)`.
+
+    if compression is not None:
+        # Apply the chosen 2D transform independently per (date, ticker)
+        # tile. Reshape to a flat batch so the underlying scipy/pywt
+        # call vectorises over all tiles in one pass. DWT returns
+        # `(n_batch, S', W')`, DCT returns `(n_batch, k)` — both
+        # collapse to a flat fp via `reshape(..., -1)`.
+        flat = tiles.reshape(n_dates * n_tickers, n_scales, w)
+        compressed = compress_tiles(flat, compression)
+        fps = compressed.reshape(n_dates, n_tickers, -1)
+    else:
+        fps = tiles.reshape(n_dates, n_tickers, n_scales * w)
 
     if znorm:
         norms = np.linalg.norm(fps, axis=-1, keepdims=True)
         fps = fps / np.maximum(norms, 1e-8)
-    return fps
+    return fps.astype(np.float32, copy=False)
 
 
 def cross_sectional_centroid(fps_t: np.ndarray) -> np.ndarray:

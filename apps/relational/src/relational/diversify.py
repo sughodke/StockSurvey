@@ -28,6 +28,7 @@ from __future__ import annotations
 import numpy as np
 import pandas as pd
 
+from ss_features import Compression
 from ss_indicators import get_divergence
 from ss_portfolio import apply_nan_mask
 from ss_wavelets import precompute_windows
@@ -85,6 +86,7 @@ def weights_regime_diversified(
     divergence: str = 'kl',
     fp_window: int = 21,
     cache_dir=None,
+    compression: Compression | None = None,
 ) -> pd.DataFrame:
     """`weights_regime` + greedy farthest-first thinning on scalogram
     fingerprints. Returns one-hot equal-weight DataFrame of shape
@@ -119,7 +121,8 @@ def weights_regime_diversified(
     # --- fingerprints for the same dates ---
     # `coeffs` is over all `n_dates` rows; the score matrix is over
     # rows `lookback:`. Slice fingerprints accordingly.
-    fps = extract_fingerprints(coeffs, w=fp_window, znorm=True)
+    fps = extract_fingerprints(
+        coeffs, w=fp_window, znorm=True, compression=compression)
     fps = fps[lookback:]   # (n_eval, n_tickers, fp_dim)
 
     n_eval, n_tickers = scores.shape

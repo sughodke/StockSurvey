@@ -31,6 +31,7 @@ from __future__ import annotations
 import numpy as np
 import pandas as pd
 
+from ss_features import Compression
 from ss_portfolio import apply_nan_mask, select_top_n_matrix
 
 from relational.fingerprints import extract_fingerprints
@@ -96,6 +97,7 @@ def analog_knn_scores(
     min_sep_days: int = 21,
     pool_mode: str = 'cross_ticker',
     cache_dir=None,
+    compression: Compression | None = None,
 ) -> np.ndarray:
     """Per-(date, ticker) forecasted forward-horizon return from
     k-NN analog matching on historical fingerprints.
@@ -121,7 +123,8 @@ def analog_knn_scores(
 
     coeffs = load_or_compute_cwt(
         prices, scales, lookback, cache_dir=cache_dir)
-    fps = extract_fingerprints(coeffs, w=fp_window, znorm=True)
+    fps = extract_fingerprints(
+        coeffs, w=fp_window, znorm=True, compression=compression)
     n_dates, n_tickers, fp_dim = fps.shape
 
     fwd = _forward_returns(prices.values.astype(np.float32), forward_horizon)
@@ -200,6 +203,7 @@ def weights_regime_analog(
     min_sep_days: int = 21,
     pool_mode: str = 'cross_ticker',
     cache_dir=None,
+    compression: Compression | None = None,
 ) -> pd.DataFrame:
     """Top-N basket ranked by k-NN analog forecast score.
 
@@ -211,7 +215,8 @@ def weights_regime_analog(
         prices, lookback=lookback, scales=scales,
         fp_window=fp_window, k_neighbors=k_neighbors,
         forward_horizon=forward_horizon, min_sep_days=min_sep_days,
-        pool_mode=pool_mode, cache_dir=cache_dir)
+        pool_mode=pool_mode, cache_dir=cache_dir,
+        compression=compression)
     scores = apply_nan_mask(scores, prices.values, lookback)
     weights = select_top_n_matrix(scores, top_n, ascending=False)
     return pd.DataFrame(
