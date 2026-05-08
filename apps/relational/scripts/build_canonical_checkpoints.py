@@ -124,31 +124,32 @@ def build_phase2_checkpoints() -> list[RelationalCheckpoint]:
                 refit_days=252,
             ),
         ),
-        # idea-B — k-NN analog forecasting on DWT-L1 compressed
-        # fingerprints. Per the 2026-05-07 head-to-head on Phase-2,
-        # 2D Haar keep-LL at 1 level beats the 168-dim raw fingerprint
-        # on every return-based metric (Daily Sharpe 1.11 vs 1.07,
-        # CAGR 21.83% vs 20.92%, Total Return 1169% vs 1053%) — the
-        # compression denoises the kNN distance metric. fp_dim shrinks
-        # 168 → 44. See CLAUDE.md "Relational analog-kNN — DWT-L1
-        # compressed fingerprints beat..." for the full table.
+        # idea-B — k-NN analog forecasting on full-resolution
+        # fingerprints (NO compression). The earlier 2026-05-07 in-
+        # sample head-to-head suggested DWT-L1 helped (Daily Sharpe
+        # 1.11 vs 1.07 over 12y in-sample), but the segmented
+        # walk-forward eval showed the train edge does NOT survive
+        # OOS — full 8-arm Modal A/B over (analog cross/per_ticker ×
+        # farthest × diversified) × ±DWT-L1 confirmed the reversal:
+        # the uncompressed cross_ticker baseline is the ONLY arm
+        # whose val Sharpe (1.146) exceeds its train Sharpe (1.032);
+        # every compressed arm shows train > val by 0.02-0.44
+        # Sharpe. See WALKFORWARD.md for the full per-arm table.
+        # Operational verdict: keep this checkpoint at full-resolution
+        # fingerprints. compress_levels intentionally absent.
         RelationalCheckpoint(
             **_common('analog'),
             universe=universe,
             **{k: PHASE2_HPARAMS[k] for k in ('lookback', 'top_n')},
             train_start=PHASE2_TRAIN_START, train_end=PHASE2_TRAIN_END,
             val_start=PHASE2_VAL_START, val_end=PHASE2_VAL_END,
-            train_sharpe=1.11, val_sharpe=1.11,
+            train_sharpe=1.032, val_sharpe=1.146,
             strategy_kwargs=dict(
                 fp_window=PHASE2_HPARAMS['fp_window'],
                 k_neighbors=50,
                 forward_horizon=20,
                 min_sep_days=21,
                 pool_mode='cross_ticker',
-                compress_levels=1,
-                compress_kind='dwt',
-                compress_wavelet='haar',
-                compress_pad_mode='periodization',
             ),
         ),
         # idea-C — centroid distance scoring

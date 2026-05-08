@@ -87,16 +87,25 @@ Metric is what train / val numbers refer to.
 | 2026-05-06 | factor    | Regime gate via aggregate forecast vol (gate-70/80/90) | factor-narrow | 6-window factor | mean val Sharpe | n/a | always-on +0.215, gate-70 +0.015, gate-80 +0.195, gate-90 +0.240 | gate-90 +0.025 over always-on (within ±0.17 noise) | confirmed-null | vol forecast doesn't gate return signal; `Output/regime-gate-{summary.json,windows.npz}` |
 | 2026-05-07 | replay    | 2D Haar DWT-L1 keep-LL CWT-tile compression vs uncompressed (cwt-only bundle) | stooq_us_long (295-ticker pool, AAPL primary, NVDA val) | single train+val ticker | NVDA val R² (rsi / cci / vol / macd) | not reported | rsi 0.576 vs 0.582 ; cci 0.610 vs 0.603 ; vol −0.30 vs −0.38 ; macd both broken | rsi −0.006 ; cci +0.007 ; vol +0.084 ; macd N/A | partial-OOS | SSL reconstruction R², not a portfolio metric; CSCO zero-shot peaks (RSI 0.92 vs 0.90 ; CCI 0.89 vs 0.85) marginally favor compressed; MACD head broken in both arms (orthogonal bug); `Output/cwtonly-{,dwtL1-}*` |
 | 2026-05-07 | relational | Analog-kNN DWT-L1 vs uncompressed fingerprint | phase-2 | phase-2 split | Daily Sharpe | dwt-L1 1.116 vs baseline 1.032 (Δ +0.084) | dwt-L1 1.099 vs baseline 1.146 (Δ −0.046) | val edge reverses sign | **reversed-OOS** | full-period in-sample +0.04 Sharpe was driven entirely by 2013-2020 sub-period; do NOT pin compress_levels=1 on canonical analog checkpoint; `Output/relational-idea-b-analog-knn-dwt-walkforward-{equity.png,stats.txt}` |
-| 2026-05-07 | relational | 8-arm distance-scorer × ±DWT-L1 (analog cross_ticker / per_ticker / farthest / diversified) | phase-2 | full-period only (Modal in flight) | Daily Sharpe | pending | pending | pending | pending | running on Modal job `b37lawczo`; needs walk-forward segmentation post-completion before any verdict |
+| 2026-05-08 | relational | 8-arm distance-scorer × ±DWT-L1 — **analog cross_ticker baseline** | phase-2 | phase-2 split | Daily Sharpe | 1.032 | 1.146 | **+0.114** | **confirmed-OOS** | only arm whose val *exceeds* train; this is the canonical `Output/relational-analog.json`; `Output/relational-dwt-phase2-walkforward.{csv,txt}` |
+| 2026-05-08 | relational | 8-arm — analog cross_ticker DWT-L1 (supersedes 2026-05-07 single-arm row above) | phase-2 | phase-2 split | Daily Sharpe | 1.116 | 1.099 | −0.016 | reversed-OOS | confirms prior single-arm walkforward; do NOT pin compress_levels=1 on canonical analog |
+| 2026-05-08 | relational | 8-arm — analog **per_ticker** baseline | phase-2 | phase-2 split | Daily Sharpe | 1.305 | 0.824 | **−0.482** | reversed-OOS, severe | per_ticker pool gives best in-sample Sharpe (1.305) of any arm but loses 0.48 OOS; not shippable |
+| 2026-05-08 | relational | 8-arm — analog per_ticker DWT-L1 | phase-2 | phase-2 split | Daily Sharpe | 1.320 | 0.876 | **−0.444** | reversed-OOS, severe | DWT-L1 marginally rescues per_ticker val (+0.052 over uncompressed pt), but absolute level is still 0.27 below uncompressed cross_ticker val |
+| 2026-05-08 | relational | 8-arm — farthest baseline | phase-2 | phase-2 split | Daily Sharpe | 1.321 | 0.828 | **−0.493** | reversed-OOS, catastrophic | most extreme train→val gap of any arm; train-only artifact |
+| 2026-05-08 | relational | 8-arm — farthest DWT-L1 | phase-2 | phase-2 split | Daily Sharpe | 1.102 | 0.833 | −0.269 | reversed-OOS but smaller | DWT compresses train Sharpe back toward val level; val Sharpe nearly identical to uncompressed (0.833 vs 0.828) — DWT doesn't add OOS skill, just reduces in-sample inflation |
+| 2026-05-08 | relational | 8-arm — diversified baseline | phase-2 | phase-2 split | Daily Sharpe | 1.222 | 1.002 | −0.220 | partial-OOS | only non-cross_ticker-analog arm with val Sharpe > 1.0; better than DWT version |
+| 2026-05-08 | relational | 8-arm — diversified DWT-L1 | phase-2 | phase-2 split | Daily Sharpe | 1.245 | 0.832 | **−0.413** | reversed-OOS | strictly worse than uncompressed diversified on val (0.832 vs 1.002); clearest "compression hurts OOS" signal in the table |
 
 ## Pending walk-forward checks called out elsewhere
 
 These have hypotheses to test but no results yet; they're tracked in
 `TODO.md` and should land here as new rows when run:
 
-- **DWT wider-universe validation** (factor-wide or stooq_us_long) — does the
-  Phase-2 DWT-L1 mega-cap edge hold up on a wider Stooq universe, or
-  is the analog-DWT-L1 reversal worse on broader names?
+- **DWT wider-universe validation** (factor-wide or stooq_us_long) —
+  given the 8-arm Phase-2 result confirms DWT-L1 OOS-reverses across
+  every distance scorer, the wider-universe test is now mostly a
+  falsification check ("does the failure mode hold on broader
+  names?") rather than a hopeful exploration.
 - **Rebal-days sweep** (factor-narrow or phase-2) — sweep
   `rebal_days ∈ {5, 10, 20, 40}` to determine whether DWT-L1 supports
   a faster rebalance cadence than 20d. Gates the daily-cron-with-trigger
