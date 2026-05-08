@@ -53,6 +53,7 @@ stocksurvey-notebook = { workspace = true }
 factor = { workspace = true }
 replay = { workspace = true }
 relational = { workspace = true }
+lie = { workspace = true }
 
 [dependency-groups]
 dev = [
