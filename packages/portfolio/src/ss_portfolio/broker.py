@@ -27,6 +27,7 @@ from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 
 import pandas as pd
+from alpaca.data.enums import DataFeed
 from alpaca.data.historical import StockHistoricalDataClient
 from alpaca.data.requests import StockBarsRequest
 from alpaca.data.timeframe import TimeFrame
@@ -36,6 +37,17 @@ from alpaca.trading.requests import MarketOrderRequest
 
 
 PAPER_BASE_URL: str = 'https://paper-api.alpaca.markets'
+
+# Free Alpaca accounts (paper or real) only have IEX market data;
+# SIP requires a paid Algo Trader Plus subscription. Defaulting to
+# IEX makes the broker work with a fresh paper-trading API key out
+# of the box. Override via `ALPACA_FEED=sip` (or the kwarg) on a
+# subscribed account.
+_FEED_BY_NAME: dict[str, DataFeed] = {
+    'iex': DataFeed.IEX,
+    'sip': DataFeed.SIP,
+    'otc': DataFeed.OTC,
+}
 
 
 @dataclass
@@ -79,6 +91,7 @@ class AlpacaBroker:
         api_key: str | None = None,
         secret_key: str | None = None,
         base_url: str | None = None,
+        feed: str | None = None,
     ) -> None:
         api_key = api_key or os.environ.get('ALPACA_API_KEY')
         secret_key = secret_key or os.environ.get('ALPACA_SECRET_KEY')
@@ -93,6 +106,12 @@ class AlpacaBroker:
         self._paper = 'paper' in base_url.lower()
         self._trading = TradingClient(api_key, secret_key, paper=self._paper)
         self._data = StockHistoricalDataClient(api_key, secret_key)
+        feed_name = (feed or os.environ.get('ALPACA_FEED', 'iex')).lower()
+        if feed_name not in _FEED_BY_NAME:
+            raise ValueError(
+                f"unknown ALPACA_FEED={feed_name!r}; "
+                f"valid: {sorted(_FEED_BY_NAME)}")
+        self._feed = _FEED_BY_NAME[feed_name]
 
     def get_account(self) -> Account:
         a = self._trading.get_account()
@@ -127,6 +146,7 @@ class AlpacaBroker:
             timeframe=TimeFrame.Day,
             start=start,
             end=end,
+            feed=self._feed,
         )
         bars = self._data.get_stock_bars(req).df
         if bars.empty:
