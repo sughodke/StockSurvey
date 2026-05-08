@@ -17,6 +17,12 @@
   depend on replay just to compute eval stats.
 """
 from ss_features.backbone_io import Backbone, load_backbone
+from ss_features.compression import (
+    Compression,
+    compress_tiles,
+    compress_tiles_2d_dct_zigzag,
+    compress_tiles_2d_dwt,
+)
 from ss_features.cwt_features import (
     TARGET_NAMES, build_features_and_targets, build_lagged_features,
     channels_per_lag, compute_scalogram, load_ticker, log_return_signs,
@@ -32,6 +38,7 @@ from ss_features.walkforward import (
 __all__ = [
     'Backbone',
     'CalendarWindow',
+    'Compression',
     'DEFAULT_STOOQ_DIR',
     'TARGET_NAMES',
     'TickerData',
@@ -40,6 +47,9 @@ __all__ = [
     'build_lagged_features',
     'calendar_windows',
     'channels_per_lag',
+    'compress_tiles',
+    'compress_tiles_2d_dct_zigzag',
+    'compress_tiles_2d_dwt',
     'compute_scalogram',
     'fit_stats',
     'load_backbone',
