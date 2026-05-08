@@ -7,3 +7,6 @@ Output/
 StooqData/
 .scalogram-cache/
 .iv-cache/
+.env
+.env.*
+!.env.example
