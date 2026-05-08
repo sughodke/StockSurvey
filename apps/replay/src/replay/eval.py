@@ -46,10 +46,14 @@ def _load_npz_meta(npz_path: Path):
     """Shared npz + meta loader.
 
     Returns (data, meta, K, scales, rsi_n_grid, rsi_w_grid, n_max, w_max).
+
+    `K` is the effective window — `effective_window_cols` (the K' the
+    CNN sees) when compression was applied at train time, falling back
+    to `window_cols` for backbones trained pre-compression.
     """
     data = np.load(npz_path, allow_pickle=False)
     meta = json.loads(data['_meta'].item())
-    K = int(meta['window_cols'])
+    K = int(meta.get('effective_window_cols', meta['window_cols']))
     scales = [int(s) for s in meta['scales']]
     rsi_n_grid = tuple(meta.get('rsi_n_grid') or ())
     rsi_w_grid = tuple(meta.get('rsi_w_grid') or ())
@@ -75,9 +79,17 @@ def _load_eval_ticker(
     raises — caller must specify a data source.
     """
     from replay.features import load_ticker
+    from ss_features import Compression
     if stooq_dir is None and kaggle_dir is None and not use_yahoo:
         raise ValueError(
             'specify one of stooq_dir, kaggle_dir, or use_yahoo=True')
+    compression = None
+    if meta.get('compress', 'none') != 'none':
+        compression = Compression(
+            kind=str(meta['compress']),
+            levels=int(meta.get('compress_levels', 1)),
+            wavelet=str(meta.get('compress_wavelet', 'haar')),
+            pad_mode=str(meta.get('compress_pad_mode', 'periodization')))
     return load_ticker(
         ticker,
         stooq_dir=stooq_dir, kaggle_dir=kaggle_dir, use_yahoo=use_yahoo,
@@ -96,14 +108,34 @@ def _load_eval_ticker(
         cci_n=int(meta.get('cci_n', 20)),
         rsi_n_grid=(), rsi_w_grid=(),
         cci_n_grid=(), cci_w_grid=(),
+        compression=compression,
     )
 
 
 def _channel_labels(meta: dict, scales: list[int]) -> list[str]:
-    """Per-channel label list matching the trainer's input stack."""
+    """Per-channel label list matching the trainer's input stack.
+
+    Under DWT compression the scale axis is also compressed
+    (n_scales → S'), so per-scale labels no longer correspond 1:1 to
+    channels — fall back to generic `coeff-LL i` / `power-LL i` labels
+    indexed by the compressed scale-axis position.
+    """
     return_label = ('return-sign' if meta.get('include_return_sign')
                     else 'return' if meta.get('include_returns')
                     else None)
+    if meta.get('compress', 'none') != 'none':
+        # Scale labels are no longer per-original-scale under DWT keep-LL;
+        # the LL band averages neighboring scales together.
+        n_features = int(meta.get('n_features', 0))
+        K = int(meta.get('effective_window_cols', meta['window_cols']))
+        F = (n_features // K) if K else 0
+        # Two CWT-derived stacks (signed coeffs + power) are concatenated
+        # along the channel axis, so half the channels are coeffs and
+        # half are power. Optional channels are forbidden under compression
+        # so this split is exact.
+        s_compressed = max(1, F // 2)
+        return ([f'coeff-LL {i}' for i in range(s_compressed)]
+                + [f'power-LL {i}' for i in range(s_compressed)])
     return (
         [f'coeff s={s}' for s in scales]
         + [f'power s={s}' for s in scales]

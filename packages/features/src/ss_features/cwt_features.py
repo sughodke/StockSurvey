@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import numpy as np
 
+from ss_features.compression import Compression, compress_tiles_2d_dwt
 from ss_features.ticker import TickerData, load_prices
 from ss_features.vol import log_returns, realized_vol
 from ss_indicators import cci, cci_strided, macd, rsi, rsi_strided
@@ -114,6 +115,24 @@ def build_lagged_features(
     return feats.reshape(n_dates, window_cols * C)
 
 
+def _build_per_bar_tiles(
+    channels_cn: np.ndarray, window_cols: int,
+) -> np.ndarray:
+    """Per-bar `(K, S)` tile stack from `(S, n_dates)` channels.
+
+    Same lag convention as `build_lagged_features`: index 0 along the
+    K axis is the current bar, index `K-1` is the oldest. NaN for warmup
+    rows.
+    """
+    if window_cols < 1:
+        raise ValueError(f'window_cols must be >= 1, got {window_cols}')
+    S, n_dates = channels_cn.shape
+    tiles = np.full((n_dates, window_cols, S), np.nan, dtype=np.float32)
+    for k in range(window_cols):
+        tiles[k:, k] = channels_cn[:, :n_dates - k].T
+    return tiles
+
+
 def build_features_and_targets(
     prices: np.ndarray, *,
     scales: list[int], lookback: int, window_cols: int,
@@ -128,6 +147,7 @@ def build_features_and_targets(
     vol_n_grid: tuple[int, ...] = (),
     macd_fast_grid: tuple[int, ...] = (),
     include_return_sign: bool = False,
+    compression: Compression | None = None,
 ) -> tuple[np.ndarray, dict[str, np.ndarray], np.ndarray,
            dict[str, np.ndarray]]:
     """Returns `(features, gt-by-target, valid-mask, target-grids)` for
@@ -163,22 +183,56 @@ def build_features_and_targets(
         raise ValueError('include_returns and include_return_sign are '
                          'mutually exclusive — they share a channel slot.')
     coeffs, power = compute_scalogram(prices, scales, lookback=lookback)
-    # All channels kept in float32 — float64 was a 2x memory tax with no
-    # accuracy benefit (downstream JAX trainer casts to float32 anyway).
-    channels: list[np.ndarray] = [
-        coeffs.astype(np.float32),
-        power.astype(np.float32),
-    ]
-    if include_zscore_stats:
-        mu, std = rolling_zscore_stats(prices, lookback=lookback)
-        channels.append(mu[None, :].astype(np.float32))
-        channels.append(std[None, :].astype(np.float32))
-    if include_returns:
-        channels.append(log_returns(prices)[None, :].astype(np.float32))
-    elif include_return_sign:
-        channels.append(log_return_signs(prices)[None, :].astype(np.float32))
-    channels_cn = np.vstack(channels)
-    features = build_lagged_features(channels_cn, window_cols)
+    if compression is not None:
+        if compression.kind != 'dwt':
+            raise NotImplementedError(
+                f'compression.kind={compression.kind!r} is not yet wired '
+                'into the feature builder; only dwt is supported (DCT '
+                'zigzag-keep-top-k loses the (K, C) tile structure the '
+                'CNN reshape relies on and needs a separate decoder path)')
+        if include_zscore_stats or include_returns or include_return_sign:
+            raise ValueError(
+                'compression is CWT-only; pass --no-include-zscore-stats / '
+                '--no-include-returns / --no-include-return-sign when '
+                '--compress is set (optional channels have no scale axis '
+                'and would need a separate handling path)')
+        # Per-bar tile compression for each CWT-derived channel stack
+        # independently. Tiles are (n_dates, K, S); after L levels of
+        # 2D DWT keep-LL each becomes (n_dates, K', S'); concat along
+        # the channel axis gives (n_dates, K', 2*S') which flattens to
+        # the feature row the downstream CNN reshape expects.
+        coeff_tiles = _build_per_bar_tiles(
+            coeffs.astype(np.float32), window_cols)
+        power_tiles = _build_per_bar_tiles(
+            power.astype(np.float32), window_cols)
+        coeff_ll = compress_tiles_2d_dwt(coeff_tiles, compression)
+        power_ll = compress_tiles_2d_dwt(power_tiles, compression)
+        # NaN through the LL: the DWT smears warmup NaNs across the LL
+        # band, so any tile that started NaN ends up NaN somewhere — the
+        # finite-row mask below catches it correctly.
+        compressed = np.concatenate(
+            [coeff_ll, power_ll], axis=-1).astype(np.float32)
+        n_dates = compressed.shape[0]
+        features = compressed.reshape(n_dates, -1)
+    else:
+        # All channels kept in float32 — float64 was a 2x memory tax
+        # with no accuracy benefit (downstream JAX trainer casts to
+        # float32 anyway).
+        channels: list[np.ndarray] = [
+            coeffs.astype(np.float32),
+            power.astype(np.float32),
+        ]
+        if include_zscore_stats:
+            mu, std = rolling_zscore_stats(prices, lookback=lookback)
+            channels.append(mu[None, :].astype(np.float32))
+            channels.append(std[None, :].astype(np.float32))
+        if include_returns:
+            channels.append(log_returns(prices)[None, :].astype(np.float32))
+        elif include_return_sign:
+            channels.append(
+                log_return_signs(prices)[None, :].astype(np.float32))
+        channels_cn = np.vstack(channels)
+        features = build_lagged_features(channels_cn, window_cols)
 
     rsi_gt = rsi(prices, n=rsi_n).astype(np.float64)
     macd_line, _, _ = macd(prices, fast=macd_fast, slow=macd_slow,
@@ -273,6 +327,7 @@ def load_ticker(
     vol_n_grid: tuple[int, ...] = (),
     macd_fast_grid: tuple[int, ...] = (),
     include_return_sign: bool = False,
+    compression: Compression | None = None,
 ) -> TickerData:
     """Load one ticker and pre-compute features + targets + valid mask."""
     series = load_prices(
@@ -292,6 +347,7 @@ def load_ticker(
         include_return_sign=include_return_sign,
         rsi_n_grid=rsi_n_grid, rsi_w_grid=rsi_w_grid,
         cci_n_grid=cci_n_grid, cci_w_grid=cci_w_grid,
-        vol_n_grid=vol_n_grid, macd_fast_grid=macd_fast_grid)
+        vol_n_grid=vol_n_grid, macd_fast_grid=macd_fast_grid,
+        compression=compression)
     return TickerData(name, prices, dates, features, targets, valid,
                       target_grids=target_grids)

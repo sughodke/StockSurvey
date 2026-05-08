@@ -137,6 +137,8 @@ image = (
             '.venv/**',
             '.iv-cache/**',         # dolt-backed cache writes mid-build
                                     # → "modified during build" abort.
+            '.claude/**',           # claude-code scheduled-task lock
+                                    # also writes mid-build → same abort.
             'Output/**',
             'StooqData/**',
             'Nasdaq3347/**',
@@ -208,6 +210,10 @@ def train_and_eval(
     min_history_bars: int,
     max_train_tickers: int,
     bundle: str = 'cwt-only',
+    compress: str = 'none',
+    compress_levels: int = 1,
+    compress_wavelet: str = 'haar',
+    compress_pad_mode: str = 'periodization',
 ) -> dict[str, bytes]:
     """Run multi-head CNN training, then zero-shot eval + attention.
 
@@ -247,6 +253,18 @@ def train_and_eval(
     # it, `uv run` defaults to a full-workspace sync which pulls in
     # regime[research] -> bt 1.1.5 -> sdist build (slow + needs clang
     # for bt's vectorbt-style C extensions).
+    compress_flags: list[str] = []
+    if compress != 'none':
+        if bundle != 'cwt-only':
+            raise ValueError(
+                f'compress is CWT-only; bundle={bundle!r} mixes in optional '
+                'channels (zscore/returns/sign). Pass --bundle cwt-only.')
+        compress_flags = [
+            '--compress', compress,
+            '--compress-levels', str(compress_levels),
+            '--compress-wavelet', compress_wavelet,
+            '--compress-pad-mode', compress_pad_mode,
+        ]
     cmd = [
         'uv', 'run', '--package', 'replay',
         'ss-replay', primary,
@@ -257,6 +275,7 @@ def train_and_eval(
         '--window-cols', '96',
         '--extra-high-freq-scales', '1,2',
         *cfg['flags'],
+        *compress_flags,
         '--decoder', 'cnn', '--targets', cfg['targets'],
         '--rsi-n', '7',
         '--rsi-n-grid', '5,7,9,13,17,21,25',
@@ -318,8 +337,12 @@ def train_and_eval(
         json.dumps(uncond_stats, indent=2, default=float))
 
     # Tag returned filenames so different bundles' artifacts coexist in
-    # the caller's local Output/ (per BUNDLE_CONFIGS prefix).
+    # the caller's local Output/ (per BUNDLE_CONFIGS prefix). Compressed
+    # variants also get a `dwtL{N}-` infix so the A/B runs against the
+    # uncompressed baseline don't clobber each other.
     name_prefix = cfg['prefix']
+    if compress != 'none':
+        name_prefix = f'{name_prefix}{compress}L{compress_levels}-'
     artifacts: dict[str, bytes] = {}
     for p in sorted(Path(output).iterdir()):
         if p.is_file():
@@ -342,6 +365,10 @@ def main(
     bundle: str = 'cwt-only',
     min_history_bars: int = 6500,
     max_train_tickers: int = 0,
+    compress: str = 'none',
+    compress_levels: int = 1,
+    compress_wavelet: str = 'haar',
+    compress_pad_mode: str = 'periodization',
 ):
     """Fire the remote training run; write returned artifacts to Output/.
 
@@ -381,7 +408,12 @@ def main(
         print(f'    pool: from stooq_us_long manifest, '
               f'min_history_bars={min_history_bars}, '
               f'max_train_tickers={max_train_tickers or "all"}')
-    print(f'    span: {start} → {end}\n')
+    print(f'    span: {start} → {end}')
+    if compress != 'none':
+        print(f'    compress: {compress} L={compress_levels} '
+              f'wavelet={compress_wavelet} pad={compress_pad_mode}\n')
+    else:
+        print(f'    compress: none\n')
     artifacts = train_and_eval.remote(
         steps=steps,
         cnn_batch_size=cnn_batch_size,
@@ -393,6 +425,10 @@ def main(
         min_history_bars=min_history_bars,
         max_train_tickers=max_train_tickers,
         bundle=bundle,
+        compress=compress,
+        compress_levels=compress_levels,
+        compress_wavelet=compress_wavelet,
+        compress_pad_mode=compress_pad_mode,
     )
     LOCAL_OUTPUT_DIR.mkdir(exist_ok=True)
     print(f'\n=== Writing {len(artifacts)} artifacts to {LOCAL_OUTPUT_DIR} ===')

@@ -30,7 +30,7 @@ import numpy as np
 from replay.features import TARGET_NAMES, load_ticker
 from replay.plot import plot_reconstruction
 from replay.reconstruct import fit_and_evaluate, fit_and_evaluate_ssl
-from ss_features import DEFAULT_STOOQ_DIR
+from ss_features import DEFAULT_STOOQ_DIR, Compression
 from ss_wavelets import ALL_SCALES
 
 
@@ -113,10 +113,16 @@ def _run_ssl(args, train_data, val_data, *,
     """
     n_features = train_data[0].features.shape[1]
     train_names = ', '.join(d.name for d in train_data)
+    if args.compress != 'none':
+        compress_str = (f'compress={args.compress}/L{args.compress_levels}/'
+                        f'{args.compress_wavelet}, ')
+    else:
+        compress_str = ''
     print(f'train pool: {train_names}  |  '
           f'{sum(d.valid.sum() for d in train_data)} valid rows  |  '
           f'{len(scales)} scales, lookback={args.lookback}, '
           f'window_cols={args.window_cols}, '
+          f'{compress_str}'
           f'zscore_stats={args.include_zscore_stats}, '
           f'returns={args.include_returns}, '
           f'return_sign={args.include_return_sign}, '
@@ -159,6 +165,10 @@ def _run_ssl(args, train_data, val_data, *,
         'targets': [],            # SSL has no per-target supervision
         'decoder': 'masked-ae',
         'window_cols': args.window_cols,
+        'compress': args.compress,
+        'compress_levels': args.compress_levels,
+        'compress_wavelet': args.compress_wavelet,
+        'compress_pad_mode': args.compress_pad_mode,
         'include_zscore_stats': args.include_zscore_stats,
         'include_returns': args.include_returns,
         'include_return_sign': args.include_return_sign,
@@ -260,6 +270,31 @@ def main() -> None:
                              'shape bias (heads collapse onto the raw `return` '
                              'channel; see attention plot 2026-05-01) goes '
                              'away when the magnitude shortcut is removed.')
+    parser.add_argument('--compress', choices=['none', 'dwt'], default='none',
+                        help='Per-bar 2D compression of the (K, n_scales) '
+                             'CWT tile before it reaches the CNN. dwt = L '
+                             'levels of 2D wavelet decomposition, keep LL '
+                             'approximation only — output tile is '
+                             '(ceil(K/2^L), ceil(S/2^L)). Causality preserved '
+                             'because each tile contains only past bars. '
+                             'CWT-only — requires --include-zscore-stats / '
+                             '--include-returns / --include-return-sign all '
+                             'off. DCT zigzag-keep-top-k is a planned '
+                             'follow-up but loses the (K, C) tile structure '
+                             'so the CNN reshape would need a flat-input '
+                             'branch.')
+    parser.add_argument('--compress-levels', type=int, default=1,
+                        help='DWT levels for --compress dwt. Output K and '
+                             'scale axes shrink by 2^L each. Default 1.')
+    parser.add_argument('--compress-wavelet', default='haar',
+                        help='Wavelet family for --compress dwt (any name '
+                             'accepted by pywt, e.g. haar / db2 / sym4). '
+                             'Default haar — orthonormal, shortest filter, '
+                             'cleanest LL = block average interpretation.')
+    parser.add_argument('--compress-pad-mode', default='periodization',
+                        help='pywt boundary mode for --compress dwt. '
+                             'Default periodization — output sizes are '
+                             'predictable ceil(N/2^L) per axis.')
     parser.add_argument('--extra-high-freq-scales', default='',
                         help='Comma-separated extra scales to prepend to '
                              '`ALL_SCALES` (e.g. "1,2"). Adds finer-grained '
@@ -477,6 +512,33 @@ def main() -> None:
         parser.error('--include-returns and --include-return-sign are '
                      'mutually exclusive — they share the same channel slot.')
     scales = sorted(set(extra_scales) | set(ALL_SCALES))
+
+    if args.compress != 'none':
+        if (args.include_zscore_stats or args.include_returns
+                or args.include_return_sign):
+            parser.error(
+                '--compress is CWT-only; drop --include-zscore-stats / '
+                '--include-returns / --include-return-sign (optional '
+                'channels have no scale axis to 2D-DWT over)')
+        compression = Compression(
+            kind=args.compress, levels=args.compress_levels,
+            wavelet=args.compress_wavelet, pad_mode=args.compress_pad_mode)
+        try:
+            K_post, S_post = compression.output_shape(
+                args.window_cols, len(scales))
+        except Exception as exc:
+            parser.error(f'--compress configuration invalid: {exc}')
+        if K_post < 1 or S_post < 1:
+            parser.error(
+                f'--compress-levels={args.compress_levels} on '
+                f'--window-cols={args.window_cols}, n_scales={len(scales)} '
+                f'produces empty tile (K_post={K_post}, S_post={S_post}); '
+                f'reduce --compress-levels')
+        effective_window_cols = K_post
+    else:
+        compression = None
+        effective_window_cols = args.window_cols
+
     rsi_n_grid = tuple(int(s) for s in _split_tickers(args.rsi_n_grid))
     if rsi_n_grid and any(n < 2 for n in rsi_n_grid):
         parser.error('--rsi-n-grid values must be >= 2')
@@ -530,10 +592,12 @@ def main() -> None:
         if args.freeze_backbone is not None:
             parser.error('--freeze-backbone is for the supervised CNN '
                          'probe, not --decoder masked-ae')
-        if args.window_cols <= args.cnn_kernel * args.cnn_layers:
-            parser.error(f'--decoder masked-ae needs --window-cols > '
+        if effective_window_cols <= args.cnn_kernel * args.cnn_layers:
+            parser.error(f'--decoder masked-ae needs effective K > '
                          f'cnn_kernel * cnn_layers ({args.cnn_kernel} * '
-                         f'{args.cnn_layers}); got {args.window_cols}')
+                         f'{args.cnn_layers}); got {effective_window_cols} '
+                         f'(window_cols={args.window_cols}, '
+                         f'compress={args.compress})')
         if not (0.0 < args.mask_ratio < 1.0):
             parser.error(f'--mask-ratio must be in (0, 1); got '
                          f'{args.mask_ratio}')
@@ -562,6 +626,7 @@ def main() -> None:
         rsi_n_grid=rsi_n_grid, rsi_w_grid=rsi_w_grid,
         cci_n_grid=cci_n_grid, cci_w_grid=cci_w_grid,
         vol_n_grid=vol_n_grid, macd_fast_grid=macd_fast_grid,
+        compression=compression,
     )
 
     primary = load_ticker(args.ticker, **load_kwargs)
@@ -575,7 +640,7 @@ def main() -> None:
 
     _log_tinygrad_device(args.decoder)
 
-    cnn_channels_per_lag = primary.features.shape[1] // args.window_cols
+    cnn_channels_per_lag = primary.features.shape[1] // effective_window_cols
 
     if args.decoder == 'masked-ae':
         _run_ssl(
@@ -607,10 +672,17 @@ def main() -> None:
 
     n_features = primary.features.shape[1]
     train_names = ', '.join(d.name for d in train_data)
+    if compression is not None:
+        compress_str = (f'compress={args.compress}/L{args.compress_levels}/'
+                        f'{args.compress_wavelet}, '
+                        f'effective_K={effective_window_cols}, ')
+    else:
+        compress_str = ''
     print(f'train pool: {train_names}  |  '
           f'{sum(d.valid.sum() for d in train_data)} valid rows  |  '
           f'{len(scales)} scales, lookback={args.lookback}, '
           f'window_cols={args.window_cols}, '
+          f'{compress_str}'
           f'zscore_stats={args.include_zscore_stats}, '
           f'returns={args.include_returns}, '
           f'return_sign={args.include_return_sign}, '
@@ -686,6 +758,11 @@ def main() -> None:
         'targets': list(targets),
         'decoder': args.decoder,
         'window_cols': args.window_cols,
+        'effective_window_cols': effective_window_cols,
+        'compress': args.compress,
+        'compress_levels': args.compress_levels,
+        'compress_wavelet': args.compress_wavelet,
+        'compress_pad_mode': args.compress_pad_mode,
         'include_zscore_stats': args.include_zscore_stats,
         'include_returns': args.include_returns,
         'include_return_sign': args.include_return_sign,
