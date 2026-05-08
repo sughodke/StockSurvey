@@ -379,3 +379,67 @@ ignores unknown keys, so future schema additions don't break old
 readers (and legacy adam-mode fields like `mode`,
 `scale_log_weights`, `log_temperature` are silently dropped from
 old JSONs on load).
+
+## Open experiments
+
+### Augmented CWT inputs (vol + market) — preliminary, N=2
+
+`ss_portfolio.weights_regime` accepts two optional research flags
+that stack additional CWT bundles along the scale axis before
+divergence scoring. Both default off so production callers see
+byte-identical scoring:
+
+  * `volumes: pd.DataFrame | None` — per-ticker `log1p(volume)` CWT
+    (zero-volume bars masked via NaN so the wavelet's NaN-propagating
+    cumsum z-norm handles them like missing prices).
+  * `use_market_cwt: bool = False` — equal-weighted mean-close
+    market series (computed internally from `prices`), CWT'd and
+    broadcast across tickers as a market-shift reference channel.
+
+`regime.trainer.train()` threads both through to `_build_weights`,
+so the Optuna search sees the augmented features.
+
+**A/B harness on Modal:**
+
+```bash
+# 1. Local prep — pickles (close, highs, lows, volumes) over the
+#    relational scoreboard's date range (2013-01-29 → 2025-12-11),
+#    filtered to min_history=1260 to keep the RPC payload manageable.
+uv run python apps/regime/scripts/modal/prep_regime_data.py
+
+# 2. Run both arms in one Modal CPU job (~3min wall, identical
+#    seed/n_trials/data; single uvx invocation to mirror the
+#    factor/replay pattern):
+uvx modal run apps/regime/scripts/modal/baseline_vs_augmented.py
+```
+
+Outputs land at `Output/regime-baseline-vs-aug-{baseline,augmented,
+summary}.json`.
+
+**Initial run (n_trials=20, 4196-ticker universe, 2 walk-forward
+windows):**
+
+| Window | Universe (train / val) | Baseline val Sharpe | Augmented val Sharpe | Δ |
+|---|---|---:|---:|---:|
+| 2013→2018 train, 2018→2021 val | 2500 / 3358 | +0.007 | +0.193 | +0.186 |
+| 2016→2021 train, 2021→2024 val | 2995 / 4194 | -1.431 | -0.770 | +0.661 |
+| **mean** | | **-0.712** | **-0.288** | **+0.424** |
+
+**Caveats — do not act on this yet:**
+- N=2 windows is too small to call. With `train_years=5 /
+  val_years=3 / step_years=3` only two windows fit in 12.8 years of
+  data; halve those to get 4-5 windows for a real signal.
+- Both arms are negative on val window 2 (2021-2024) — augmented
+  loses less, but a strategy underperforming flat in that regime is
+  not "fixed" by the augmentation, just less wrong.
+- Train Sharpe > 0 with val Sharpe < 0 in window 2 is the classic
+  overfit signature — present in both arms.
+- The augmented arm's Optuna search picks consistently shorter
+  scales (`use_long_scales=False` in both windows) where baseline
+  picks long scales — the volume + market channels are pulling the
+  search toward different timescales rather than reinforcing
+  baseline's choices.
+
+Next step before promoting any of this: more windows (smaller
+windows or wider date range), and an ablation arm (price+vol only
+vs price+market only) to attribute which channel is doing the work.
