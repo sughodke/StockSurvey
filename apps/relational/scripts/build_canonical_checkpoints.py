@@ -134,7 +134,7 @@ def build_phase2_checkpoints() -> list[RelationalCheckpoint]:
         # the uncompressed cross_ticker baseline is the ONLY arm
         # whose val Sharpe (1.146) exceeds its train Sharpe (1.032);
         # every compressed arm shows train > val by 0.02-0.44
-        # Sharpe. See WALKFORWARD.md for the full per-arm table.
+        # Sharpe. See apps/docs/docs/leaderboard.md for the full per-arm table.
         # Operational verdict: keep this checkpoint at full-resolution
         # fingerprints. compress_levels intentionally absent.
         RelationalCheckpoint(

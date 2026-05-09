@@ -67,6 +67,7 @@ nav:
       - apps/index.md
   - Packages:
       - packages/index.md
+  - Leaderboard: leaderboard.md
   - Findings:
       - findings/index.md
       - Regime baselines: findings/regime-baselines.md

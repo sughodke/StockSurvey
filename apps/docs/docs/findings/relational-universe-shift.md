@@ -66,7 +66,7 @@ so subsequent runs on this universe skip the ~10-min precompute.
 Repro: `uvx modal run apps/relational/scripts/modal/relational_exmegacap_modal.py`
 (after `prep_exmegacap_prices.py`).
 
-Master walk-forward log: `WALKFORWARD.md`.
+Master walk-forward log: [Leaderboard](../leaderboard.md).
 
 ## Source
 

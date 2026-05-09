@@ -10,6 +10,8 @@ in `CLAUDE.md` (the LLM-facing operational reference); everything else
 
 - [Apps](apps/index.md) — runnable strategies, trainers, CLI tools.
 - [Packages](packages/index.md) — shared numpy primitives.
+- [Leaderboard](leaderboard.md) — append-only master table of every
+  walk-forward / OOS eval, with verdict per row.
 - [Findings](findings/index.md) — historical eval results and the
   decision rationale they produced.
 - [Workflows](workflows.md) — how to add an indicator, swap brokers,

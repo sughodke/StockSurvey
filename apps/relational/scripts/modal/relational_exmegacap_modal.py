@@ -26,7 +26,8 @@ Modal wall.
 
 Walk-forward: same Phase-2 split (train 2013-01-29 → 2020-12-31,
 val 2021-01-01 → 2025-12-11) so the comparison is one-to-one with
-the existing analog cross_ticker row in WALKFORWARD.md.
+the existing analog cross_ticker row in the leaderboard
+(apps/docs/docs/leaderboard.md).
 
 Usage:
     uv run python apps/relational/scripts/modal/prep_exmegacap_prices.py

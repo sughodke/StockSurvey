@@ -1,4 +1,4 @@
-# Walk-forward results
+# Leaderboard
 
 Master log of every walk-forward / out-of-sample eval run in this repo,
 in chronological order. Append-only — when a finding is upgraded or
@@ -6,9 +6,10 @@ downgraded, add a new row referencing the prior; never rewrite history.
 
 The point of this file is to make the *OOS verdict* of every claim
 visible at a glance, so an in-sample finding can't sit unchallenged in
-`CLAUDE.md` for weeks before someone notices the OOS check disagrees.
-A row here is the source of truth on whether something is shippable;
-`CLAUDE.md` "Key findings" is the prose narrative around it.
+[CLAUDE.md](https://github.com/sughodke/StockSurvey/blob/master/CLAUDE.md)
+(or [Findings](findings/index.md)) for weeks before someone notices the
+OOS check disagrees. A row here is the source of truth on whether
+something is shippable; the prose pages around it are narrative.
 
 ## Operating conditions
 
@@ -100,7 +101,8 @@ Metric is what train / val numbers refer to.
 ## Pending walk-forward checks called out elsewhere
 
 These have hypotheses to test but no results yet; they're tracked in
-`TODO.md` and should land here as new rows when run:
+the [TODO](TODO/index.md) backlog and should land here as new rows when
+run:
 
 - **DWT wider-universe validation** (factor-wide or stooq_us_long) —
   superseded by the 2026-05-09 ex-Phase-2 *uncompressed* run: the
@@ -119,7 +121,7 @@ These have hypotheses to test but no results yet; they're tracked in
 - **Rebal-days sweep** (factor-narrow or phase-2) — sweep
   `rebal_days ∈ {5, 10, 20, 40}` to determine whether DWT-L1 supports
   a faster rebalance cadence than 20d. Gates the daily-cron-with-trigger
-  decision in `TODO.md`.
+  decision in [TODO](TODO/index.md).
 - **Non-Haar wavelet sweep** (phase-2) — db2/sym4/coif1 vs Haar at
   L=1. Cheap (~7 min) but only worth it after wider-universe and
   rebal-days resolve.
@@ -141,8 +143,8 @@ A few interpretation notes:
    data is useful — it tells future-you the lever has been tried and
    doesn't move. Don't re-run.
 2. **`reversed-OOS` is the load-bearing column.** When it appears,
-   the matching `CLAUDE.md` "Key findings" entry should already be
-   qualified — if it isn't, that's a doc bug.
+   the matching prose entry in [Findings](findings/index.md) should
+   already be qualified — if it isn't, that's a doc bug.
 3. **Single-split eval (e.g., `phase-2 split`) is weaker than rolling
    walk-forward.** A single train/val window can flatter or
    denigrate a finding by accident of regime alignment. Rolling

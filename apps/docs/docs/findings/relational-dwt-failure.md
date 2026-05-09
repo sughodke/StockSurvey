@@ -66,7 +66,7 @@ setup, not a portfolio metric.
 - `Output/relational-idea-b-analog-knn-dwt-walkforward-*` (cross_ticker train/val)
 - `Output/relational-dwt-phase2-{equity.png,stats.txt,walkforward.csv,walkforward.txt}` (8-arm Modal A/B)
 
-Master walk-forward log: `WALKFORWARD.md`.
+Master walk-forward log: [Leaderboard](../leaderboard.md).
 
 Repro:
 

@@ -183,7 +183,8 @@ def run_arms(prices_pkl: bytes) -> dict[str, bytes]:
     # Per-arm walk-forward segmentation. Same canonical Phase-2 split as
     # `idea_b_analog_knn_dwt_walkforward.py` (mirrors
     # `build_canonical_checkpoints.PHASE2_TRAIN/VAL_*`). Verdict for
-    # WALKFORWARD.md is per-arm: train Sharpe and val Sharpe land
+    # the leaderboard (apps/docs/docs/leaderboard.md) is per-arm:
+    # train Sharpe and val Sharpe land
     # alongside the full-period number so we can flag any arm where the
     # train edge does not survive OOS — same failure mode the
     # cross_ticker analog already exhibited.
