@@ -115,7 +115,7 @@ that signal — empirical question.
 
 ## `apps/relational` (live trading) — STRATEGY CHANGE, all six checkpoints
 
-### Status — capacity ruled out, wider-universe in flight — 2026-05-09
+### Status — wider-universe gate cleared, raw Morlet wins on N=312 — 2026-05-09
 
 - ✅ `ss_features.causal_polar_morlet_matrix` — matrix-form polar
   bundle helper added (4 channels per scale, see API note above).
@@ -142,47 +142,55 @@ that signal — empirical question.
     - Modal: `uvx modal run apps/relational/scripts/modal/
       relational_morlet_phase2.py` (after the
       `prep_phase2_prices.py` prep step)
-- 🟡 **Phase-2 3-arm: raw bundle overfits, DWT-L1 fixes the
-  overfit but not val.** See
+- 🟡 **Phase-2 3-arm (in-sample for the small-N hypothesis):**
+  Ricker train 1.01 → val **1.146**; raw Morlet train 1.24 → val
+  0.84; Morlet-DWT-L1 train 0.99 → val 0.82. Both Morlet arms
+  cluster at val ≈ 0.83 regardless of capacity — pure
+  regularization didn't recover val. The standalone read at the
+  time was "bundle is weaker on N=21" but Phase-2 was always going
+  to be too narrow to distinguish bundle quality (mega-cap pool,
+  N=21, val Sharpe noise floor across variants of order ±0.3); see
   [findings/relational-morlet-failure](../findings/relational-morlet-failure.md)
-  for the full numbers. Ricker train 1.01 → val **1.146**; raw
-  Morlet train 1.24 → val 0.84; Morlet-DWT-L1 train 0.99 → val
-  0.82. Both Morlet arms cluster at val ≈ 0.83 regardless of
-  capacity — **capacity is not the explanation for the val
-  regression.** The polar Morlet representation is genuinely weaker
-  for kNN distance on this universe + horizon, or Phase-2 is too
-  narrow to distinguish strong from weak strategies (Ricker val
-  1.15 collapses to ~0.48 off mega-caps; the Morlet 0.83 sits
-  between the two).
-- 🟡 **Wider-universe Modal A/B (`stooq_us_long`, N=312) — IN
-  FLIGHT.** `relational_morlet_stooq_long.py` (with the persistent
-  `ss-relational-cwt-cache` Modal volume) runs the same three arms
-  on a 15× larger pool. The result is the deciding gate: if Morlet
-  val ≥ Ricker val on this pool, the bundle is informative and
-  Phase-2 was just too narrow. If not, the bundle is universally
-  weaker for this objective and the migration to other distance
-  scorers stops here.
-- ⏸️ **Pause extension to other strategies until the
-  wider-universe rerun resolves.** Plumbing wavelet through
-  `empirical`, `gmm`, `farthest`, `diversified`, `velocity` is
-  deferred — the Phase-2 result already shows the bundle doesn't
-  help via kNN distance with or without regularization, so the
-  wider-universe outcome is the only remaining argument that could
-  flip the verdict.
-- N/A Canonical checkpoint regen — `Output/relational-{strategy}.json`
-  files all stay on Ricker.
+  for why.
+- ✅ **Wider-universe Modal A/B (`stooq_us_long`, N=312) cleared:**
+  Ricker train 0.611 → val 0.547; raw Morlet train 0.591 → val
+  **0.717** (+0.17 val Sharpe, train Δ −0.02 — no overfit);
+  Morlet-DWT-L1 train 0.696 → val **0.247** (+0.08 train, −0.30
+  val — DWT *introduces* overfit on the wider pool, opposite of
+  Phase-2). The bundle's extra channels (phase pair + Gaussian
+  companion) are informative for kNN-distance cross-sectional
+  return prediction once the candidate pool is large enough to
+  constrain them. **Operational verdict: raw Morlet is the new
+  default for any wider-universe analog deploy; DWT-L1 stays
+  research-only (universe-dependent inversion); Phase-2-restricted
+  checkpoints stay on Ricker because the Phase-2 mega-cap basket is
+  itself the limiting factor (see
+  [universe-shift](../findings/relational-universe-shift.md)).**
+- 🟢 **Extension to other strategies is unblocked.** Each of
+  `empirical`, `gmm`, `farthest`, `diversified`, `velocity` should
+  get the same plumbing (`wavelet=` through their `weights_*`
+  builders, dispatch entry in `inference._build_weights_panel`)
+  followed by an `stooq_us_long` 2-arm A/B (Ricker vs raw Morlet,
+  skip DWT-L1 — it's universe-dependent and stays research-only).
+  No `Output/relational-{strategy}.json` regenerates until each
+  per-strategy A/B clears the same +val-Sharpe-no-train-overfit
+  bar.
+- 🟡 Canonical checkpoint regen for `analog`: introduce a
+  parallel `Output/relational-analog-wide-morlet.json` (raw Morlet,
+  pinned to `stooq_us_long` universe) once a wider-universe
+  deploy target is confirmed. The Phase-2 `relational-analog.json`
+  stays on Ricker indefinitely — Phase-2 is a backtest universe,
+  not a deploy universe.
 
 Migration scope deviated from the prescribed "regime first" decision
 order — the user asked the relational migration first since `analog`
 is Phase-2's canonical winner and the SSL bundle is independently
-useful there. Regime is still pending; given that the analog
-**raw-bundle** gate failed but the DWT-L1 / wider-universe
-experiments haven't run, the regime migration's expected value is
-unchanged so far — its KL/JS divergence math operates on `|c|^2`
-only and so doesn't carry the phase + Gaussian DOF that drove the
-analog overfit. Regime migration is not blocked; queue it for after
-the analog gating experiments since their outcome informs whether
-to deploy raw or DWT-compressed Morlet there too.
+useful there. Regime is still pending; the analog wider-universe
+result strengthens the case for migrating it: regime's KL/JS
+divergence math operates on `|c|^2` only (one channel per scale,
+DOF identical to Ricker), so the train-side overfit risk that
+showed up on Phase-2 analog doesn't apply. Queue regime as the next
+A/B target now that the bundle has cleared one wider-universe gate.
 
 Files (every CWT-touching scoring module):
 
