@@ -82,6 +82,7 @@ nav:
       - Replay DWT compression: findings/replay-dwt-compression.md
       - Relational universe shift: findings/relational-universe-shift.md
       - Relational DWT-L1 OOS failure: findings/relational-dwt-failure.md
+      - Relational polar Morlet OOS failure: findings/relational-morlet-failure.md
   - Workflows: workflows.md
   - TODO:
       - TODO/index.md
