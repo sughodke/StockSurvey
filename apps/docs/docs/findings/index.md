@@ -18,6 +18,7 @@ Default eval window unless otherwise stated: 2013-01-29 → 2025-12-11,
 ## Factor app
 
 - [Deterministic-indicator val-IC baseline (the bar SSL must beat)](factor-indicator-baseline.md)
+- [SSL walk-forward on the polar Morlet bundle does not clear the indicator baseline](factor-ssl-walkforward.md)
 
 ## Replay app
 
