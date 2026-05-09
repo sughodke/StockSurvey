@@ -46,11 +46,12 @@ edge collapses most on a wider universe, see
 ![Farthest equity curve](images/relational-farthest.png)
 
 Pick the names whose fingerprints are *farthest* from the rest of the
-universe — the most idiosyncratic regime states. Catastrophic
-in-sample Sharpe (1.32 train) and catastrophic train-to-val gap
-(−0.49) both at once. The same thing the chart is showing visually:
-big, jagged, mean-reverting equity moves that look like skill on the
-training half and noise on the val half.
+universe — the most idiosyncratic regime states.
+[Catastrophic in-sample Sharpe (1.32 train) and catastrophic
+train-to-val gap (−0.49)](../findings/relational-dwt-failure.md) both
+at once. The same thing the chart is showing visually: big, jagged,
+mean-reverting equity moves that look like skill on the training half
+and noise on the val half.
 
 ### Idea D — Diversified greedy thinning
 
@@ -94,9 +95,14 @@ cluster-aware blending to lift.
 
 ![Latent-fingerprint comparison across compression levels](images/relational-latent-compare.png)
 
-*Fingerprint dimensionality sweep.* Shows the moment we considered DWT
-compression as a generic fingerprint shrink; full eight-arm walk-
-forward later [reversed the verdict](../findings/relational-dwt-failure.md).
+*Fingerprint dimensionality sweep.* Shows the moment we considered
+DWT compression as a generic fingerprint shrink; full eight-arm
+walk-forward later [reversed the verdict](../findings/relational-dwt-failure.md).
+A separate
+[polar Morlet experiment](../findings/relational-morlet-failure.md)
+also failed the Phase-2 OOS gate from the orthogonal direction —
+swapping the wavelet family rather than compressing the
+fingerprint — leaving the canonical Ricker fingerprint unchanged.
 
 ![Transition-triggered equity curve](images/relational-transition-triggered.png)
 

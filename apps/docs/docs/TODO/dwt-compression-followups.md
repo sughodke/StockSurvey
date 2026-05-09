@@ -4,9 +4,13 @@ The 2D DWT keep-LL compression of CWT tiles + relational fingerprints
 landed for replay (`ss_features.Compression` + `ss-replay --compress
 dwt`) and relational (`extract_fingerprints(..., compression=...)` +
 `compress_levels` in `strategy_kwargs`). Phase-2 analog-kNN val
-Sharpe moved from 1.07 → 1.11 with a 168→44 fp_dim shrink; canonical
-`Output/relational-analog.json` now pins `compress_levels=1`. Open
-threads:
+Sharpe moved from 1.07 → 1.11 with a 168→44 fp_dim shrink — but the
+[full eight-arm walk-forward later
+reversed that verdict](../findings/relational-dwt-failure.md), and the
+canonical `Output/relational-analog.json` was rolled back to
+full-resolution fingerprints. The replay-side
+[DWT compression result is independent](../findings/replay-dwt-compression.md)
+(SSL R², not a portfolio metric). Open threads:
 
 ## DCT zigzag-keep-top-k variant
 
@@ -74,11 +78,11 @@ aware that the MACD prefix of the `_meta` is currently unreliable.
 
 ## Wider-universe DWT validation
 
-CLAUDE.md records that Phase-2 wins for ideas A/B/C/D drop from
-Sharpe ~1.1 to ~0.4 when the same code runs on the wider 312-ticker
-`stooq_us_long` universe. The DWT-L1 finding (Sharpe 1.07 → 1.11) was
-measured *on top of* the Phase-2-specific strategy. We don't know
-whether DWT helps, hurts, or is neutral on the wider universe.
+[Phase-2 wins for ideas A/B/C/D drop from Sharpe ~1.1 to ~0.4 when the
+same code runs on the wider universe](../findings/relational-universe-shift.md).
+The DWT-L1 finding (Sharpe 1.07 → 1.11) was measured *on top of* the
+Phase-2-specific strategy. We don't know whether DWT helps, hurts, or
+is neutral on the wider universe.
 
 Plan: run the same 8-arm Modal entrypoint
 (`relational_dwt_phase2.py`) but loaded against

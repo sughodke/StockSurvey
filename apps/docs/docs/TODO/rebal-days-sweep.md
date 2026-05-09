@@ -1,8 +1,8 @@
 # Rebal-days sweep (gates the event-driven trade trigger)
 
 Open question: is the analog-kNN signal genuinely monthly (per the
-"regime signal works on monthly-to-biannual horizons" finding in
-CLAUDE.md), or does the DWT-L1 daily-Sharpe edge mean the compressed
+"[regime signal works on monthly-to-biannual horizons](../findings/regime-baselines.md#the-regime-signal-works-on-monthly-to-biannual-horizons-not-short-term-noise)"
+finding), or does the DWT-L1 daily-Sharpe edge mean the compressed
 fingerprint can act on a faster cadence?
 
 Sweep `rebal_days ∈ {5, 10, 20, 40}` on the same Phase-2 universe,

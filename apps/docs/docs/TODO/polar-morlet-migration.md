@@ -21,12 +21,13 @@ Two important caveats up front:
    as a trend channel.
 2. **Each migration is a strategy change, not a refactor.** The
    prior canonical Sharpe numbers (regime walk-forward 0.6, the six
-   relational scoreboard winners 1.07–1.13 on Phase-2) were tuned
-   against Ricker-based scalograms. Switching to Morlet `|c|^2`
-   shifts the per-scale frequency response (Morlet at `omega0=6` is
-   narrowband at `1/scale`; Ricker is broadband around `1/scale`).
-   **Every migrated checkpoint must re-pass walk-forward before
-   live deploy.**
+   [relational scoreboard winners 1.07–1.13 on Phase-2](../findings/relational-universe-shift.md))
+   were tuned against Ricker-based scalograms. Switching to Morlet
+   `|c|^2` shifts the per-scale frequency response (Morlet at
+   `omega0=6` is narrowband at `1/scale`; Ricker is broadband around
+   `1/scale`). **Every migrated checkpoint must re-pass walk-forward
+   before live deploy** — the
+   [Phase-2 analog kNN Morlet attempt already failed this gate](../findings/relational-morlet-failure.md).
 
 Public API the migrations should consume:
 
@@ -105,10 +106,11 @@ Validation gate:
   Morlet checkpoint and confirm `regime live --dry-run` produces
   weights consistent with the chosen target portfolio.
 
-Risk: the regime trainer's strongest signal is on long scales (126d
-win 48% scale weight per the JAX-Adam finding in CLAUDE.md). Morlet
-narrowband behaviour at long scales may either sharpen or noise that
-signal — empirical question.
+Risk: the regime trainer's strongest signal is on long scales —
+[126d won 48% of scale weight in the JAX-Adam
+run](../findings/regime-baselines.md#jax-differentiable-optimizer-now-removed-finding-preserved).
+Morlet narrowband behaviour at long scales may either sharpen or noise
+that signal — empirical question.
 
 ## `apps/relational` (live trading) — STRATEGY CHANGE, all six checkpoints
 

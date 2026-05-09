@@ -18,11 +18,12 @@ loop is the only honest answer to overfitting in this regime.
 ![74-channel IndicatorGridConfig walk-forward — linear vs MLP heads](images/factor-indicator-grid.png)
 
 What 74 hand-designed channels can buy you on a 297-ticker universe at
-20-day horizon: mean val IC of **+0.0120** with a linear head, 5/6
-windows positive. The MLP head triples train IC and then gives most of
-it back on val — the classic overfit signature. The +0.012 number is
-the line every later experiment has been trying to clear, and the
-[Leaderboard](../leaderboard.md) records every arm that didn't.
+20-day horizon: [mean val IC of **+0.0120**](../findings/factor-indicator-baseline.md)
+with a linear head, 5/6 windows positive. The MLP head triples train
+IC and then gives most of it back on val — the classic overfit
+signature. The +0.012 number is the line every later experiment has
+been trying to clear, and the [Leaderboard](../leaderboard.md) records
+every arm that didn't.
 
 ## SSL backbone — does the encoder beat the indicators?
 
@@ -32,9 +33,10 @@ The promise of SSL pretrain was simple: an encoder that's seen the
 full structure of the CWT bundle should expose return-predictive
 geometry the linear-on-indicators path can't reach. The promise is
 testable. The figure above is the test — six rolling windows, val IC
-overlaid against the indicator baseline. The takeaway is gentle and
-honest: the SSL-pretrained latent does not lift val IC off the +0.012
-ceiling. The data is the bottleneck, not the encoder. Why this
+overlaid against the [indicator
+baseline](../findings/factor-indicator-baseline.md). The takeaway is
+gentle and honest: the SSL-pretrained latent does not lift val IC off
+the +0.012 ceiling. The data is the bottleneck, not the encoder. Why this
 matters for the broader research program is unpacked in the
 [Notes](../notes.md#self-supervised-pretrain-why-and-how) and the
 [supervision-is-binding finding](../notes.md#what-we-already-know-about-supervision-being-the-binding-constraint).

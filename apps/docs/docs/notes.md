@@ -177,9 +177,10 @@ plateau at the noise floor regardless of head capacity. Don't conclude
 "the encoder is harmful" or "skip the SSL plan" from those numbers —
 they say neither encoder nor raw helps, which is consistent with the
 supervision being the bottleneck. The Leaderboard's later universe-
-pivot row (2073-ticker / rebal=20d, val IC tied at +0.012) confirmed
-the IC ceiling is data-side at this prediction problem, not
-supervision-side at small `N`.
+pivot row (2073-ticker / rebal=20d, val IC tied at
+[+0.012](findings/factor-indicator-baseline.md)) confirmed the IC
+ceiling is data-side at this prediction problem, not supervision-side
+at small `N`.
 
 ## Search vs optimize — picking the right tool
 
@@ -348,7 +349,12 @@ Earlier drafts of this notes file carried full prose for each
 forecast/horizon/universe/regime-gate experiment. Those have since
 been condensed into one row each on the
 [Leaderboard](leaderboard.md), with the operational verdict (verdict
-column), per-window stats, and artifact paths. The relevant rows are:
+column), per-window stats, and artifact paths. Adjacent prose findings
+covering the same arc:
+[factor indicator-IC baseline (the +0.012 ceiling)](findings/factor-indicator-baseline.md),
+[log-returns vs raw close](findings/log-returns-vs-raw-close.md),
+[regime baselines](findings/regime-baselines.md). The relevant rows
+are:
 
 - `sign_demeaned target reduction probe` — `reversed-OOS`.
 - `vol_innovation forecast target` — `confirmed-OOS for vol IC`.

@@ -22,9 +22,11 @@ a Morlet kernel. The horizontal bands are price-trend regimes living
 at different timescales; the vertical streaks at known volatility
 events (2018 Q4, 2020 March, 2022 Q3) reach across the scale axis
 because volatility regimes touch every horizon at once. Once you've
-seen this image, the operational rule "the regime signal works on
-monthly-to-biannual horizons, not short-term noise" becomes physical
-rather than empirical — it's right there in the heatmap.
+seen this image, the operational rule
+"[the regime signal works on monthly-to-biannual
+horizons](../findings/regime-baselines.md#the-regime-signal-works-on-monthly-to-biannual-horizons-not-short-term-noise),
+not short-term noise" becomes physical rather than empirical — it's
+right there in the heatmap.
 
 ## Wavelet family side-by-side
 

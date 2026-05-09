@@ -4,7 +4,10 @@ Multi-head CNN trainer (`ss-replay`) that reconstructs technical
 indicators (RSI / MACD / vol / CCI / price) from causal CWT slices,
 with FiLM conditioning over `(n, w)` parameter grids. Tinygrad runtime.
 The artifact this trainer ships is a backbone npz that downstream
-[factor](factor.md) scoring consumes via `ss_features.load_backbone`.
+[factor](factor.md) scoring consumes via `ss_features.load_backbone`,
+and the encoder's capacity story is unpacked in the
+[DWT compression finding](../findings/replay-dwt-compression.md) and
+the [Notes SSL section](../notes.md#self-supervised-pretrain-why-and-how).
 
 ## What "reconstructing an indicator" looks like
 

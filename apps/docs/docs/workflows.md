@@ -17,6 +17,13 @@
 - Add a `weights_<name>` builder in
   `apps/regime/src/regime/research/backtest_bt.py` and register in
   `WEIGHT_BUILDERS`. Use `ss_indicators` and `ss_wavelets` primitives.
+- Before pinning anything as canonical, run the
+  [walk-forward verdict protocol](leaderboard.md) on the new arm —
+  the [+0.012 IC ceiling](findings/factor-indicator-baseline.md) is
+  the bar to clear on factor-style strategies, and the
+  [Phase-2 wins are mega-cap-specific](findings/relational-universe-shift.md)
+  caveat applies to any relational arm before you transfer a Sharpe
+  number off the 21-ticker pool.
 
 ## Live broker swap
 
