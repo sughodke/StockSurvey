@@ -40,55 +40,84 @@ Gaussian (lowpass) trend companion, computed on cumulative
 log-returns so growth stays additive across train→val. fp_dim grows
 4× — kNN matmul cost grows linearly.
 
-## Walk-forward result (2026-05-09)
+## Walk-forward result (2026-05-09, 3-arm)
 
-![Phase-2 equity, analog ricker vs polar Morlet](images/relational-morlet-phase2-equity.png)
+![Phase-2 equity, analog ricker / Morlet / Morlet-DWT-L1](images/relational-morlet-phase2-equity.png)
 
 Canonical Phase-2 train (2013-01-29 → 2020-12-31) / val (2021-01-01 →
-2025-12-11) split:
+2025-12-11) split. Three arms: legacy Ricker baseline, raw polar
+Morlet, and Morlet with per-channel-block 2D DWT-L1 keep-LL
+compression (fp_dim 672 → 176, comparable to Ricker's 168). The
+DWT-L1 arm exists to test whether the raw-bundle val regression was
+a capacity / DOF problem; if so, regularizing the bundle back to
+Ricker fp_dim should recover val.
 
-| Arm             | Window | Sharpe | Sortino | CAGR    | MaxDD   |
-|-----------------|--------|--------|---------|---------|---------|
-| `analog-ricker` | full   | 1.0614 | 1.2753  | +20.75% | -37.06% |
-| `analog-ricker` | train  | 1.0191 | 1.1497  | +20.07% | -37.06% |
-| `analog-ricker` | val    | **1.1456** | 1.5480  | +22.13% | -31.44% |
-| `analog-morlet` | full   | 1.0804 | 1.3178  | +22.43% | -44.14% |
-| `analog-morlet` | train  | 1.2401 | 1.4085  | +26.39% | -32.88% |
-| `analog-morlet` | val    | **0.8358** | 1.1469  | +16.54% | -44.14% |
+| Arm                   | Window | Sharpe | Sortino | CAGR    | MaxDD   |
+|-----------------------|--------|--------|---------|---------|---------|
+| `analog-ricker`       | full   | 1.0560 | 1.2693  | +20.62% | -37.06% |
+| `analog-ricker`       | train  | 1.0104 | 1.1410  | +19.87% | -37.06% |
+| `analog-ricker`       | val    | **1.1456** | 1.5480  | +22.13% | -31.44% |
+| `analog-morlet`       | full   | 1.0804 | 1.3178  | +22.43% | -44.14% |
+| `analog-morlet`       | train  | **1.2401** | 1.4085  | +26.39% | -32.88% |
+| `analog-morlet`       | val    | **0.8358** | 1.1469  | +16.54% | -44.14% |
+| `analog-morlet-dwtL1` | full   | 0.9257 | 1.1144  | +18.61% | -41.03% |
+| `analog-morlet-dwtL1` | train  | 0.9926 | 1.1303  | +20.35% | -36.56% |
+| `analog-morlet-dwtL1` | val    | **0.8242** | 1.0931  | +16.05% | -41.03% |
 
-Delta morlet − ricker:
+Delta blocks:
 
-|        | Δsharpe | Δsortino | Δcagr   | Δmaxdd   |
-|--------|---------|----------|---------|----------|
-| full   | +0.019  | +0.043   | +0.017  | -0.071   |
-| train  | **+0.221** | +0.259  | +0.063  | +0.042   |
-| val    | **-0.310** | -0.401  | -0.056  | -0.127   |
+|        | morlet − ricker | morlet-dwtL1 − ricker | morlet-dwtL1 − morlet |
+|--------|-----------------|------------------------|------------------------|
+| full   | +0.024          | -0.130                 | -0.155                 |
+| train  | **+0.230**      | -0.018                 | **-0.247**             |
+| val    | **-0.310**      | **-0.321**             | -0.012                 |
+
+(Ricker numbers shifted by ~0.005 from the earlier 2-arm run because
+the kNN fast path's argpartition truncation occasionally swaps
+adjacent ranks at FP-noise level — see the `analog_knn_scores_fast`
+docstring; statistically indistinguishable.)
 
 ## Read
 
-Classic train>val sign-flip overfit signature:
+Two findings stack:
 
-- Ricker: train 1.02 → val **1.15** (val beats train by +0.13 — the
-  anomaly that made Phase-2 cross_ticker the canonical winner in the
-  earlier 8-arm DWT A/B; see [DWT failure](relational-dwt-failure.md)
-  for the reference baseline).
-- Morlet: train **1.24** → val 0.84 (val below train by -0.40 — the
-  *typical* reversal pattern every other Phase-2 arm exhibited).
+**Raw Morlet overfits.** Train +0.23 / val −0.31 vs Ricker — the
+classic train>val sign-flip every other Phase-2 arm exhibited in the
+earlier 8-arm DWT A/B (cross_ticker Ricker was the lone reversal
+anomaly there; see [DWT failure](relational-dwt-failure.md)).
 
-The polar Morlet bundle's extra channels (phase pair + Gaussian
-companion) give the kNN distance metric more degrees of freedom to
-discriminate between historical fingerprints, which improves the fit
-on 2013-2020 (+0.22 train Sharpe) but hurts OOS in 2021-2025
-(-0.31 val Sharpe). The full-period number (+0.019) hides the
-divergence — judging on full-period alone would have shipped a
-strictly worse strategy.
+**DWT-L1 fixes the overfit but doesn't recover val.** Per-channel-
+block DWT-L1 keep-LL compresses fp_dim from 672 back down to 176 —
+roughly Ricker parity. Train Sharpe drops from 1.24 to 0.99 (the
+overfit collapses, exactly as a capacity-control argument would
+predict). But **val stays at 0.82** — almost identical to the raw
+Morlet's 0.84. Both Morlet arms cluster at val ≈ 0.83 regardless of
+their wildly different train scores.
+
+That is the load-bearing observation. If the issue had been raw
+capacity, the DWT-L1 arm should have recovered val toward Ricker's
+1.15. It didn't. Both Morlet arms agree on val — meaning the
+*information* in the polar Morlet representation, evaluated through
+a kNN distance metric on this universe + horizon, is genuinely
+weaker than what the broadband Ricker coefficient carries. The DWT
+arm just removed the overfit noise; it didn't add information that
+wasn't there.
+
+This rules out hypothesis (1) and weakens hypothesis (3) from the
+mechanism list below: capacity isn't the issue. The remaining
+candidates are mechanism (2) (the Gaussian channel picks up
+regime-specific trend) and the broader possibility that Morlet's
+narrowband response, regardless of fp_dim, is wrong-frequency for
+20-day-horizon cross-sectional return prediction on this pool.
 
 The mega-cap-specific finding from
 [relational-universe-shift](relational-universe-shift.md) is also
-relevant: Phase-2 cross_ticker val Sharpe of 1.146 was already
-suspect (it collapses to ~0.48 off mega-caps). Morlet appears to
-amplify whatever was specifically working on the Phase-2 mega-cap
-basket and lose the rest.
+relevant: Phase-2 cross_ticker Ricker val Sharpe of 1.146 was already
+suspect (it collapses to ~0.48 off mega-caps). The Morlet arms
+landing at val 0.83 — between the mega-cap Ricker number (1.15) and
+the wider-universe Ricker number (~0.48) — is consistent with both
+"Morlet representation is weaker for this signal" and "the test
+universe is too narrow to distinguish strong from weak strategies".
 
 ## Possible mechanisms
 
@@ -149,17 +178,19 @@ mechanism dominates.
 
 ## What this result is — and isn't
 
-A hard "the bundle is bad" conclusion would require one of:
-**(a)** the same overfit signature on a wider universe (rules out
-small-N as the cause), or **(b)** the same signature with a
-regularized variant of the bundle (rules out raw-capacity as the
-cause). Neither has been run yet. Until then, this finding is
-narrowly: *the raw polar Morlet bundle, used as a one-shot kNN
-distance metric on the Phase-2 21-ticker universe, overfits its
-2013-2020 train slice and gives back the train edge plus more in
-2021-2025.*
+After the DWT-L1 arm: capacity-control is ruled out as the
+explanation for the val regression on Phase-2 — both Morlet arms
+land at val ≈ 0.83. The remaining ambiguity is whether the
+information gap is universal (the Morlet representation is just
+weaker for kNN-distance-based cross-sectional return prediction
+regardless of pool) or pool-specific (Phase-2 is so narrow that
+*any* representation lands close to the mega-cap floor of 0.48–1.15
+once the model can't pattern-match aggressively).
 
-What it does *not* yet show:
+The wider-universe rerun (gating experiment 2 below) is the deciding
+test. It's been wired and is in flight as of 2026-05-09.
+
+What this result still does *not* show, even after the 3-arm:
 
 - That the bundle is uninformative for cross-sectional return
   prediction at all.
@@ -167,10 +198,10 @@ What it does *not* yet show:
   `apps/factor` linear/MLP path) would also fail — that path has
   weight decay + dense per-bar IC targets, which are exactly the
   regularizers raw kNN distance lacks.
-- That the bundle would fail on a wider candidate pool. The
-  small-N hypothesis (Mechanism 1 above) predicts the OOS gap
-  shrinks or reverses on `stooq_us_long` (N=312); that's not
-  tested here.
+- That the bundle would fail on a wider candidate pool. Phase-2 was
+  always going to be a low-information test; `stooq_us_long`
+  (N=312) is the same Modal harness on a 15× larger pool and
+  produces a directly-comparable train/val split.
 
 ## Gating experiments before judging the bundle
 
@@ -179,30 +210,50 @@ the other five relational strategies is paused on these — not
 abandoned. Either of (1) or (2) clearing would be enough to
 reverse the operational verdict.
 
-### (1) Regularize the bundle: 3-arm Phase-2 with DWT-L1
+### (1) Regularize the bundle: 3-arm Phase-2 with DWT-L1 — RAN, did not flip the verdict
 
-Add `analog-morlet-dwtL1` as a third arm of the existing Modal
-script: same polar Morlet panel, but pass
-`Compression(kind='dwt', levels=1, wavelet='haar',
-pad_mode='periodization')` through `extract_fingerprints` per
-channel block (DWT must NOT mix channels, since `|c|` /
-`cos` / `sin` / `g` are heterogeneous). fp_dim drops `672 → ~176`
-— back to the same ballpark as Ricker's 168, while keeping the
-phase + trend information the polar bundle adds. If the DWT-L1
-val Sharpe matches or beats Ricker, the verdict flips: the bundle
-*is* informative, the raw L2 distance just needed the same
-low-pass denoise that Ricker effectively gets for free from its
-single broadband channel.
+`analog-morlet-dwtL1` ran in the same Modal entrypoint as a third
+arm. Per-channel-block 2D Haar keep-LL collapses fp_dim 672 → 176.
+**Train Sharpe dropped from 1.24 to 0.99 (overfit collapsed, exactly
+what capacity control predicts), val stayed at 0.82** — virtually
+identical to the raw Morlet's 0.84. Both Morlet arms cluster at val
+≈ 0.83, so capacity is not the explanation for the regression.
 
-### (2) Wider universe: rerun analog A/B on `stooq_us_long`
+Two consequences for the migration:
 
-Mirror `relational_morlet_phase2.py` against the
-`stooq_us_long`-prepped panel (N=312, ~15× larger candidate pool).
-This is the direct test of Mechanism 1 (sparse-pool overfit).
-Expectation if the hypothesis is right: train Sharpe gap
-shrinks, val Sharpe gap shrinks or reverses. If the same
-sign-flip happens at N=312, the universe-size argument is wrong
-and the bundle has a deeper problem.
+- **Capacity is not the issue on Phase-2.** A pure regularization
+  fix doesn't work; the val signal is what's weak. Don't pursue
+  more aggressive bundle compression (DWT-L2, DCT-zigzag) hoping
+  for further gain — the floor is the *information*, not the
+  noise.
+- **Phase-2 isn't a sharp test for the bundle.** Mega-cap val
+  Sharpe ranges 0.48–1.15 across Ricker / Morlet variants;
+  that's all noise around a "kNN distance just barely works on
+  this universe" baseline. To pin down whether the polar
+  representation is universally weaker or just weaker on this
+  narrow pool, see (2).
+
+### (2) Wider universe: rerun analog A/B on `stooq_us_long` — IN FLIGHT
+
+`relational_morlet_stooq_long.py` (Modal, with the persistent
+`ss-relational-cwt-cache` volume) runs the same three arms on the
+312-ticker `apps/notebook/data/stooq_us_long` universe. Walk-forward
+split is the same canonical Phase-2 dates so train/val numbers are
+directly comparable. Outputs land at `Output/relational-morlet-
+stooq-long-{equity.png, stats.txt, walkforward.csv,
+walkforward.txt}`.
+
+Predicted outcomes:
+
+  - If Morlet val ≥ Ricker val on this pool → bundle is
+    informative, Phase-2 was just too narrow to distinguish — the
+    operational verdict flips and the bundle's a candidate for the
+    other five strategies.
+  - If Morlet val ≪ Ricker val on this pool too → the bundle is
+    universally weaker for kNN-distance cross-sectional return
+    prediction; halt the migration to the other strategies as a
+    distance-metric primitive (the SSL CNN path remains unaffected
+    — different objective, different regularization).
 
 ### (3) Channel ablation: 3-arm A/B isolating which channel hurts
 
@@ -212,9 +263,11 @@ companion, keep `(|c|, cos, sin)`),
 existing `analog-morlet` baseline. Distinguishes Mechanism 2
 (Gaussian picks up regime-specific trend) from Mechanism 1 / 3
 (phase or narrowband response). Lowest priority — useful for the
-*why*, but doesn't change the operational verdict on its own.
+*why*, but doesn't change the operational verdict on its own. Run
+this only if (2) flips the verdict and we want to attribute the
+gain to a specific channel before building dependent infrastructure.
 
 The migration to the other five relational strategies (`empirical`,
-`gmm`, `farthest`, `diversified`, `velocity`) waits on (1) or (2)
-clearing. If neither does, *then* the original "halt" verdict
-applies and the bundle stays research-only for distance scorers.
+`gmm`, `farthest`, `diversified`, `velocity`) waits on (2). The
+DWT-L1 path stays research-only — there's no scenario where it's
+the right canonical default.
