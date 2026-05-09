@@ -2,12 +2,15 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-**Source of truth.** The `apps/docs` Material for MkDocs site (`uv run ss-docs-serve`)
-is the canonical home for findings, walk-forward results, workflows, and the
-active backlog. This file stays lean: it is the operational reference Claude
-needs to navigate the workspace and avoid known gotchas. When you discover a new
-finding worth recording, write it to `apps/docs/docs/findings/`. When you change
-a workspace convention or add a new platform-level constraint, update this file.
+**Source of truth.** The `apps/docs` Material for MkDocs site
+(`uv run ss-docs-serve`) is the canonical home for findings,
+walk-forward results, workflows, and the active backlog. This file
+stays lean: it is the operational reference Claude needs to navigate
+the workspace and avoid known gotchas. When you discover a new finding
+worth recording, write it to `apps/docs/docs/findings/` — see
+"Recording findings in apps/docs" below for the run/experiment/arc
+protocol. When you change a workspace convention or add a new
+platform-level constraint, update this file.
 
 ## Project Overview
 
@@ -159,12 +162,96 @@ See `apps/docs/docs/workflows.md` (rendered at `/workflows/` on the docs site).
 Covers: adding a new indicator, adding a new ranking strategy, swapping the
 broker, authoring relational checkpoints, scalogram visualizers.
 
-## TODO and findings
+## Recording findings in apps/docs — after every run, experiment, and arc
 
+`apps/docs` is append-only and source of truth. Every empirical run lands
+somewhere on the docs site before the conversation ends. Three escalating
+levels:
+
+### After every run (one experiment, one row of result)
+
+1. Append a row to `apps/docs/docs/leaderboard.md` master table:
+   `date | app | experiment | universe | windowing | metric | train | val | delta (val − train) | verdict | artifact`.
+   Reuse existing universe / windowing tags where possible (Phase-2,
+   factor-narrow, stooq_us_long, regime-3w-optuna, phase-2 split, etc.) —
+   they're defined in the same page's "Operating conditions" section.
+2. Pick the right verdict label from the predefined vocabulary:
+   `confirmed-OOS`, `reversed-OOS`, `partial-OOS`, `confirmed-null`,
+   `diagnostic`, `pending`. Don't invent new labels.
+3. Append-only — do not rewrite prior rows. If a new run supersedes an
+   earlier one, add a new row and reference the prior in the notes
+   column. The leaderboard captures history, not the latest opinion.
+
+### After every experiment (a hypothesis tested with one or more arms)
+
+Everything above for each arm, plus:
+
+1. If the result has prose worth keeping (mechanism, surprise, follow-up
+   implications) beyond what fits in the row's notes column, write or
+   extend `apps/docs/docs/findings/<topic>.md`. The page should:
+   - Lead with the operational rule extracted (the "what to do
+     differently" takeaway).
+   - Give the eval setup so the row is reproducible.
+   - Present per-window numbers in tabular form.
+   - Briefly explain mechanism (*why* the result happened, not just
+     *what* it was).
+   - Close with a "Master walk-forward log" pointer linking the
+     corresponding leaderboard row(s) and verdict label
+     (`[verdict-label-here](../leaderboard.md#verdict-labels)`).
+2. Move artifact figures from `Output/` into
+   `apps/docs/docs/findings/images/` and embed them with captions that
+   point at the *insight*, not the description.
+3. Cross-link the operational rule wherever it's referenced in other
+   docs (other findings, notes, TODO, app overview pages) so a reader
+   hovering the claim is one click from the eval that grounds it.
+4. Add the new page to the `Findings` nav in `apps/docs/mkdocs.yml`
+   *and* to the listing in `apps/docs/docs/findings/index.md`.
+
+### After every arc (multi-experiment investigation that terminates)
+
+Everything above for each experiment, plus:
+
+1. If the arc produced a singular operational rule, write a closing
+   prose page in `apps/docs/docs/findings/` and cross-link it to the
+   per-experiment findings pages.
+2. If the arc produced a durable *concept* (a framing, not a result —
+   e.g. "strategy as a dot product", "search vs optimize"), add or
+   extend a section in `apps/docs/docs/notes.md`.
+3. Update the "Operational rules extracted from findings" subsection
+   above with the actionable rule(s) the arc established. The
+   leaderboard row holds the evidence; this list holds the imperative.
+4. If the arc closes a TODO entry, mark it as superseded with a pointer
+   to the closing finding, or remove it if it was a single-line item.
+
+### Mechanics
+
+- `uv run ss-docs-serve` live-previews at http://127.0.0.1:8000. The
+  Material livereload watcher does not always pick up newly-created
+  pages or image directories — if a new page 404s, restart the server
+  rather than touching `mkdocs.yml` to force a rebuild.
+- `uv run ss-docs-build` for a clean static rebuild before committing.
+- Verdict labels in prose should link to
+  `leaderboard.md#verdict-labels`. Concept mentions should link to
+  the relevant `findings/*.md`.
+- Image filenames live alongside their parent section
+  (`apps/docs/docs/{findings,apps}/images/`). Use descriptive names
+  (`replay-zeroshot-tsla-from-19.png`, not the bare `Output/` filename
+  with ticker pools embedded).
+- Don't put result-bearing prose in `CLAUDE.md`. This file is for
+  operational rules, conventions, and gotchas; eval numbers live in
+  leaderboard rows and findings pages.
+
+### Where to find things
+
+- **Leaderboard** — `apps/docs/docs/leaderboard.md` (one row per run,
+  append-only).
+- **Findings** — `apps/docs/docs/findings/` (one page per experiment
+  or arc with prose worth keeping; `findings/index.md` lists them).
+- **Notes** — `apps/docs/docs/notes.md` (durable concepts, not
+  results).
 - **TODO** — `apps/docs/docs/TODO/` (one page per workstream).
-- **Findings** — `apps/docs/docs/findings/` (regime baselines, log-returns vs
-  raw close, factor indicator-IC baseline, replay DWT compression, relational
-  universe-shift, relational DWT-L1 OOS failure).
+- **Per-app overviews** — `apps/docs/docs/apps/{regime,relational,factor,replay,notebook}.md`
+  (figure-heavy gallery + cross-links into findings).
 
 ## Known limitations
 
