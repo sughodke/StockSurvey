@@ -1,7 +1,8 @@
 # Migrate non-research apps to the polar Morlet input bundle
 
 The polar Morlet + Gaussian + log-L2 amplitude bundle is the canonical
-SSL/CNN input for **`apps/replay`** (already on it as of 954a88a) and
+SSL/CNN input for **`apps/replay`** (already on it as of
+[`954a88a`](https://github.com/sughodke/StockSurvey/commit/954a88a)) and
 **`apps/factor`** (consumes the resulting backbone npz via
 `ss_features.load_backbone` — no code change needed, the new npz
 schema is backward-compatible at the loader layer). The remaining
@@ -114,7 +115,7 @@ that signal — empirical question.
 
 ## `apps/relational` (live trading) — STRATEGY CHANGE, all six checkpoints
 
-### Status — analog migrated, gate FAILED, halt extension — 2026-05-09
+### Status — analog migrated, raw bundle overfits, regularized A/B pending — 2026-05-09
 
 - ✅ `ss_features.causal_polar_morlet_matrix` — matrix-form polar
   bundle helper added (4 channels per scale, see API note above).
@@ -141,16 +142,20 @@ that signal — empirical question.
     - Modal: `uvx modal run apps/relational/scripts/modal/
       relational_morlet_phase2.py` (after the
       `prep_phase2_prices.py` prep step)
-- ❌ **Validation gate FAILED for `analog`** — see
+- 🟡 **Raw-bundle gate failed for `analog`, regularized variant
+  pending** — see
   [findings/relational-morlet-failure](../findings/relational-morlet-failure.md)
   for the full numbers and mechanism hypotheses. Train +0.221 /
   val −0.310 vs Ricker baseline (Ricker: train 1.019 → val 1.146;
   Morlet: train 1.240 → val 0.836). Classic train>val sign-flip
   overfit — the polar bundle's extra channels improve fit on
   2013-2020 but hurt OOS in 2021-2025. Operational verdict:
-  `Output/relational-analog.json` stays on Ricker; do not regenerate.
-- ⏸️ **Halt extension to other strategies.** The original plan to
-  plumb wavelet through `empirical`, `gmm`, `farthest`,
+  `Output/relational-analog.json` stays on Ricker until either the
+  DWT-L1 regularized arm or the wider-universe rerun (see
+  *Gating experiments* in the failure note) clears the gate.
+- ⏸️ **Pause extension to other strategies until the gating
+  experiments resolve.** The original plan to plumb wavelet through
+  `empirical`, `gmm`, `farthest`,
   `diversified`, `velocity` is deferred. Expectation given the analog
   result: most or all will exhibit the same overfit pattern (the
   bundle adds DOF that the small Phase-2 universe doesn't have data
@@ -164,14 +169,14 @@ that signal — empirical question.
 Migration scope deviated from the prescribed "regime first" decision
 order — the user asked the relational migration first since `analog`
 is Phase-2's canonical winner and the SSL bundle is independently
-useful there. Regime is still pending; given that the analog gate
-failed, the regime migration's expected value drops too — Morlet
-provides phase information the SSL CNN can use, but for the regime
-trainer's KL/JS divergence math the only thing that matters is the
-power spectrum, and Morlet `|c|^2` will drift on the same kind of
-narrowband / DOF arguments that broke analog. Regime migration is
-not blocked, but should be approached with a similar
-"single-strategy A/B before committing canonical" stance.
+useful there. Regime is still pending; given that the analog
+**raw-bundle** gate failed but the DWT-L1 / wider-universe
+experiments haven't run, the regime migration's expected value is
+unchanged so far — its KL/JS divergence math operates on `|c|^2`
+only and so doesn't carry the phase + Gaussian DOF that drove the
+analog overfit. Regime migration is not blocked; queue it for after
+the analog gating experiments since their outcome informs whether
+to deploy raw or DWT-compressed Morlet there too.
 
 Files (every CWT-touching scoring module):
 
@@ -198,7 +203,8 @@ Migration:
 
 - ✅ Add `wavelet: str = "ricker"` to `RelationalCheckpoint` (in
   `apps/relational/src/relational/persist.py`) so live mirrors
-  train-time choice. Done in commit `c479ca3`.
+  train-time choice. Done in commit
+  [`c479ca3`](https://github.com/sughodke/StockSurvey/commit/c479ca3).
 - 🟡 Plumb `wavelet` from `RelationalCheckpoint` through
   `scalogram_cache.compute_or_load` → all six `weights_*` builders.
   Cache + `analog` are done; the other five `weights_*` builders are
@@ -283,7 +289,9 @@ default.
 ## Decision order
 
 1. ~~**Regime first**~~ — *deviated from*. The relational `analog`
-   migration ran first (commit `c479ca3`); regime is still pending.
+   migration ran first (commit
+   [`c479ca3`](https://github.com/sughodke/StockSurvey/commit/c479ca3));
+   regime is still pending.
    The original rationale (regime is simpler, one checkpoint, one
    strategy) still holds for any *future* migration that hasn't been
    started yet.

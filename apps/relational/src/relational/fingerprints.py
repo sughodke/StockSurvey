@@ -34,17 +34,21 @@ def extract_fingerprints(
     w: int,
     znorm: bool = True,
     compression: Compression | None = None,
+    channels_per_scale: int = 1,
 ) -> np.ndarray:
     """Compute per-(date, ticker) scalogram fingerprints.
 
     Parameters
     ----------
-    coeffs : np.ndarray, shape `(n_scales, n_dates, n_tickers)`
-        Output of `ss_wavelets.causal_cwt` (or the cached equivalent
-        from `relational.scalogram_cache.load_or_compute_cwt`).
+    coeffs : np.ndarray, shape `(L, n_dates, n_tickers)`
+        Output of `ss_wavelets.causal_cwt` (Ricker, `L = n_scales`)
+        or `ss_features.causal_polar_morlet_matrix` (polar Morlet
+        bundle, `L = channels_per_scale * n_scales`). Caller is
+        responsible for matching `channels_per_scale` below to the
+        actual layout of the input.
     w : int
         Window length in bars. Each fingerprint stacks the most recent
-        `w` CWT vectors → `S*w`-dim vector. Default in the research
+        `w` CWT vectors → `L*w`-dim vector. Default in the research
         scripts is 21 (one trading month).
     znorm : bool
         If True, each fingerprint is L2-normalized to unit length.
@@ -52,45 +56,69 @@ def extract_fingerprints(
         (otherwise a high-vol ticker's fingerprint just has bigger
         coefficients and looks "far" from everything). Recommended on.
     compression : Compression | None
-        Optional 2D DWT keep-LL compression of each `(S, w)` per-bar
-        tile before flattening. With L levels of Haar DWT keep-LL the
-        fingerprint dim shrinks `S*w → ceil(S/2^L) * ceil(w/2^L)`.
-        Causality is preserved because each tile contains only past
-        bars. None = the original full-resolution fingerprint.
+        Optional 2D DWT keep-LL compression of each `(scale-axis, w)`
+        per-bar tile before flattening. With L levels of Haar DWT
+        keep-LL the per-channel fingerprint dim shrinks
+        `S*w → ceil(S/2^L) * ceil(w/2^L)`. Causality is preserved
+        because each tile contains only past bars. None = the original
+        full-resolution fingerprint.
+    channels_per_scale : int
+        How the leading axis of `coeffs` decomposes into channel × scale.
+        Default 1 (Ricker — the leading axis is just `n_scales`). For
+        the polar Morlet bundle pass `RELATIONAL_CHANNELS_PER_SCALE = 4`
+        — the leading axis is then read as `channels_per_scale` blocks
+        of `n_scales` rows each, in the order the matrix-form Morlet
+        helper produces (`|c|, cos, sin, g`). Compression, when on, is
+        applied **independently per channel block** so 2D-DWT-keep-LL
+        does not mix bandpass amplitude with phase or with the
+        Gaussian companion.
 
     Returns
     -------
     fps : np.ndarray, shape `(n_dates, n_tickers, fp_dim)`, float32
-        `fp_dim = S*w` when `compression is None`, else
-        `ceil(S/2^L) * ceil(w/2^L)` after the LL keep. For dates
-        `t < w-1`, the fingerprint is computed against a zero-padded
-        window — caller should drop those rows or apply the same
-        `lookback` floor used elsewhere. L2-normalization (when on)
-        runs *after* compression, so the unit-norm property is
-        preserved in the compressed space.
+        `fp_dim = L*w` when `compression is None`, else
+        `channels_per_scale * ceil(S/2^L) * ceil(w/2^L)` after the LL
+        keep. For dates `t < w-1`, the fingerprint is computed against
+        a zero-padded window — caller should drop those rows or apply
+        the same `lookback` floor used elsewhere. L2-normalization
+        (when on) runs *after* compression, so the unit-norm property
+        is preserved in the compressed space.
     """
-    n_scales, n_dates, n_tickers = coeffs.shape
+    L_total, n_dates, n_tickers = coeffs.shape
+    if channels_per_scale < 1:
+        raise ValueError(
+            f'channels_per_scale must be >= 1, got {channels_per_scale}')
+    if L_total % channels_per_scale != 0:
+        raise ValueError(
+            f'leading axis ({L_total}) is not divisible by '
+            f'channels_per_scale ({channels_per_scale})')
+    n_scales = L_total // channels_per_scale
 
-    pad = np.zeros((n_scales, w - 1, n_tickers), dtype=coeffs.dtype)
+    pad = np.zeros((L_total, w - 1, n_tickers), dtype=coeffs.dtype)
     padded = np.concatenate([pad, coeffs], axis=1)
     sw = np.lib.stride_tricks.sliding_window_view(
         padded, window_shape=w, axis=1)
-    # `sw` shape: `(n_scales, n_dates, n_tickers, w)`. Move tile axes
+    # `sw` shape: `(L_total, n_dates, n_tickers, w)`. Move tile axes
     # to the end for either flatten-only or DWT-then-flatten.
     tiles = np.transpose(sw, (1, 2, 0, 3)).astype(np.float32, copy=False)
-    # `tiles` shape: `(n_dates, n_tickers, n_scales, w)`.
+    # `tiles` shape: `(n_dates, n_tickers, L_total, w)`.
 
     if compression is not None:
-        # Apply the chosen 2D transform independently per (date, ticker)
-        # tile. Reshape to a flat batch so the underlying scipy/pywt
-        # call vectorises over all tiles in one pass. DWT returns
-        # `(n_batch, S', W')`, DCT returns `(n_batch, k)` — both
-        # collapse to a flat fp via `reshape(..., -1)`.
-        flat = tiles.reshape(n_dates * n_tickers, n_scales, w)
-        compressed = compress_tiles(flat, compression)
+        # Per-channel-block compression. Reshape `(n_dates, n_tickers,
+        # C, S, w)` and run the 2D transform separately per channel
+        # so DWT-keep-LL only averages within a channel — never mixes
+        # `|c|` with `cos` / `sin` / `g`.
+        per_ch = tiles.reshape(
+            n_dates * n_tickers, channels_per_scale, n_scales, w)
+        ch_blocks = []
+        for c in range(channels_per_scale):
+            block = per_ch[:, c]            # (n_batch, n_scales, w)
+            ll = compress_tiles(block, compression)
+            ch_blocks.append(ll.reshape(n_dates * n_tickers, -1))
+        compressed = np.concatenate(ch_blocks, axis=-1)
         fps = compressed.reshape(n_dates, n_tickers, -1)
     else:
-        fps = tiles.reshape(n_dates, n_tickers, n_scales * w)
+        fps = tiles.reshape(n_dates, n_tickers, L_total * w)
 
     if znorm:
         norms = np.linalg.norm(fps, axis=-1, keepdims=True)

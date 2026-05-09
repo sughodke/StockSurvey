@@ -31,11 +31,23 @@ from __future__ import annotations
 import numpy as np
 import pandas as pd
 
-from ss_features import Compression
+from ss_features import Compression, RELATIONAL_CHANNELS_PER_SCALE
 from ss_portfolio import apply_nan_mask, select_top_n_matrix
 
 from relational.fingerprints import extract_fingerprints
 from relational.scalogram_cache import load_or_compute_cwt
+
+
+def _channels_per_scale_for(wavelet: str) -> int:
+    """Map wavelet name to the leading-axis channel multiplier the
+    matrix-form CWT helper produces. Ricker is single-channel (just
+    the signed coefficient); polar Morlet is a 4-channel stack
+    `(|c|, cos, sin, g)`. Per-channel-block DWT compression in
+    `extract_fingerprints` needs this to avoid mixing bandpass
+    amplitude with phase or trend during keep-LL averaging."""
+    if wavelet == 'morlet':
+        return RELATIONAL_CHANNELS_PER_SCALE
+    return 1
 
 
 def _forward_returns(prices: np.ndarray, horizon: int) -> np.ndarray:
@@ -125,7 +137,8 @@ def analog_knn_scores(
     coeffs = load_or_compute_cwt(
         prices, scales, lookback, wavelet=wavelet, cache_dir=cache_dir)
     fps = extract_fingerprints(
-        coeffs, w=fp_window, znorm=True, compression=compression)
+        coeffs, w=fp_window, znorm=True, compression=compression,
+        channels_per_scale=_channels_per_scale_for(wavelet))
     n_dates, n_tickers, fp_dim = fps.shape
 
     fwd = _forward_returns(prices.values.astype(np.float32), forward_horizon)
@@ -347,7 +360,8 @@ def analog_knn_scores_fast(
     coeffs = load_or_compute_cwt(
         prices, scales, lookback, wavelet=wavelet, cache_dir=cache_dir)
     fps = extract_fingerprints(
-        coeffs, w=fp_window, znorm=True, compression=compression)
+        coeffs, w=fp_window, znorm=True, compression=compression,
+        channels_per_scale=_channels_per_scale_for(wavelet))
     n_dates, n_tickers, fp_dim = fps.shape
 
     fwd = _forward_returns(prices.values.astype(np.float32), forward_horizon)

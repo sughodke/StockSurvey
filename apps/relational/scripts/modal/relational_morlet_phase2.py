@@ -1,17 +1,26 @@
-"""Modal entrypoint: Ricker vs polar Morlet A/B for the analog k-NN
-scorer on the Phase-2 21-ticker pool.
+"""Modal entrypoint: Ricker vs polar Morlet (raw + DWT-L1) A/B for
+the analog k-NN scorer on the Phase-2 21-ticker pool.
 
-The two arms share every other knob — same scales, same lookback,
+The three arms share every other knob — same scales, same lookback,
 same fp_window, same k_neighbors / forward_horizon / min_sep_days /
 pool_mode / rebal_days / commission. The only thing that changes is
 how the per-(date, ticker) fingerprint is built:
 
   * `analog-ricker` — legacy real Ricker coefficients, flattened over
-    the trailing `fp_window` bars. fp_dim = S * w.
+    the trailing `fp_window` bars. fp_dim = S * w (= 168 at default).
   * `analog-morlet` — polar Morlet + Gaussian bundle from
     `ss_features.causal_polar_morlet_matrix`: 4 channels per scale
     `(|c|, cos(arg), sin(arg), g)` flattened over the same trailing
-    `fp_window` bars. fp_dim = 4 * S * w.
+    `fp_window` bars. fp_dim = 4 * S * w (= 672 at default).
+  * `analog-morlet-dwtL1` — same polar bundle, but `extract_fingerprints`
+    runs `Compression(kind='dwt', levels=1, wavelet='haar',
+    pad_mode='periodization')` independently on each of the 4
+    channel blocks (per-block: `(S, w) → (ceil(S/2), ceil(w/2)) =
+    (4, 11) = 44 dims`). fp_dim collapses 672 → 4*44 = 176, ~Ricker
+    parity. The regularized arm exists to test whether the raw-bundle
+    Phase-2 overfit (commit 158fe08) was a capacity problem rather
+    than a representation problem — see
+    `apps/docs/docs/findings/relational-morlet-failure.md`.
 
 Mirrors the layout of `relational_dwt_phase2.py` (price prep is local,
 shipped over RPC as a pickle blob; arms run sequentially in one
@@ -98,6 +107,7 @@ def run_arms(prices_pkl: bytes) -> dict[str, bytes]:
     import matplotlib.pyplot as plt
     import pandas as _pd_local
 
+    from ss_features import Compression
     from ss_portfolio import apply_nan_mask, select_top_n_matrix
     from ss_portfolio.bt_helpers import build_strategy
     from relational.analog_knn import analog_knn_scores_fast
@@ -120,21 +130,26 @@ def run_arms(prices_pkl: bytes) -> dict[str, bytes]:
     scales = [5, 7, 10, 12, 21, 26, 50, 90]
     n_workers = max(1, (os.cpu_count() or 8) - 1)
 
-    arms: list[tuple[str, str]] = [
-        ('analog-ricker', 'ricker'),
-        ('analog-morlet', 'morlet'),
+    comp_l1 = Compression(kind='dwt', levels=1, wavelet='haar',
+                          pad_mode='periodization')
+
+    arms: list[tuple[str, str, Compression | None]] = [
+        ('analog-ricker',      'ricker', None),
+        ('analog-morlet',      'morlet', None),
+        ('analog-morlet-dwtL1','morlet', comp_l1),
     ]
 
     weights_by_arm: dict[str, _pd_local.DataFrame] = {}
-    for name, wavelet in arms:
+    for name, wavelet, comp in arms:
         print(f'\n[{name}] computing weights (wavelet={wavelet}, '
-              f'n_workers={n_workers}) ...', flush=True)
+              f'compression={comp!r}, n_workers={n_workers}) ...',
+              flush=True)
         scores = analog_knn_scores_fast(
             prices, lookback=lookback, scales=scales,
             fp_window=fp_window,
             k_neighbors=50, forward_horizon=20, min_sep_days=21,
             pool_mode='cross_ticker',
-            wavelet=wavelet, n_workers=n_workers)
+            wavelet=wavelet, compression=comp, n_workers=n_workers)
         scores = apply_nan_mask(scores, prices.values, lookback)
         weights = select_top_n_matrix(scores, top_n, ascending=False)
         weights_by_arm[name] = _pd_local.DataFrame(
@@ -173,17 +188,24 @@ def run_arms(prices_pkl: bytes) -> dict[str, bytes]:
     _pd_local.set_option('display.float_format', lambda v: f'{v:.4f}')
     print(summary.to_string(index=False), flush=True)
 
-    print('\n--- delta (morlet − ricker) ---', flush=True)
-    for window_label in ('full', 'train', 'val'):
-        base = summary[(summary.arm == 'analog-ricker')
+    def _arm_row(arm_name: str, window_label: str):
+        return summary[(summary.arm == arm_name)
                        & (summary.window == window_label)].iloc[0]
-        comp = summary[(summary.arm == 'analog-morlet')
-                       & (summary.window == window_label)].iloc[0]
-        print(f'  {window_label:6s}  '
-              f'Δsharpe={comp.sharpe - base.sharpe:+.4f}  '
-              f'Δsortino={comp.sortino - base.sortino:+.4f}  '
-              f'Δcagr={comp.cagr - base.cagr:+.4f}  '
-              f'Δmaxdd={comp.max_dd - base.max_dd:+.4f}', flush=True)
+
+    for label, base_arm, comp_arm in (
+        ('morlet − ricker',          'analog-ricker', 'analog-morlet'),
+        ('morlet-dwtL1 − ricker',    'analog-ricker', 'analog-morlet-dwtL1'),
+        ('morlet-dwtL1 − morlet',    'analog-morlet', 'analog-morlet-dwtL1'),
+    ):
+        print(f'\n--- delta ({label}) ---', flush=True)
+        for window_label in ('full', 'train', 'val'):
+            base = _arm_row(base_arm, window_label)
+            comp = _arm_row(comp_arm, window_label)
+            print(f'  {window_label:6s}  '
+                  f'Δsharpe={comp.sharpe - base.sharpe:+.4f}  '
+                  f'Δsortino={comp.sortino - base.sortino:+.4f}  '
+                  f'Δcagr={comp.cagr - base.cagr:+.4f}  '
+                  f'Δmaxdd={comp.max_dd - base.max_dd:+.4f}', flush=True)
 
     output = Path(REMOTE_REPO) / 'Output'
     output.mkdir(parents=True, exist_ok=True)
@@ -210,17 +232,20 @@ def run_arms(prices_pkl: bytes) -> dict[str, bytes]:
     seg_txt_path = output / 'relational-morlet-phase2-walkforward.txt'
     with seg_txt_path.open('w') as f:
         f.write(summary.to_string(index=False))
-        f.write('\n\n--- delta (morlet − ricker) ---\n')
-        for window_label in ('full', 'train', 'val'):
-            base = summary[(summary.arm == 'analog-ricker')
-                           & (summary.window == window_label)].iloc[0]
-            comp = summary[(summary.arm == 'analog-morlet')
-                           & (summary.window == window_label)].iloc[0]
-            f.write(f'  {window_label:6s}  '
-                    f'Δsharpe={comp.sharpe - base.sharpe:+.4f}  '
-                    f'Δsortino={comp.sortino - base.sortino:+.4f}  '
-                    f'Δcagr={comp.cagr - base.cagr:+.4f}  '
-                    f'Δmaxdd={comp.max_dd - base.max_dd:+.4f}\n')
+        for label, base_arm, comp_arm in (
+            ('morlet − ricker',       'analog-ricker', 'analog-morlet'),
+            ('morlet-dwtL1 − ricker', 'analog-ricker', 'analog-morlet-dwtL1'),
+            ('morlet-dwtL1 − morlet', 'analog-morlet', 'analog-morlet-dwtL1'),
+        ):
+            f.write(f'\n\n--- delta ({label}) ---\n')
+            for window_label in ('full', 'train', 'val'):
+                base = _arm_row(base_arm, window_label)
+                comp = _arm_row(comp_arm, window_label)
+                f.write(f'  {window_label:6s}  '
+                        f'Δsharpe={comp.sharpe - base.sharpe:+.4f}  '
+                        f'Δsortino={comp.sortino - base.sortino:+.4f}  '
+                        f'Δcagr={comp.cagr - base.cagr:+.4f}  '
+                        f'Δmaxdd={comp.max_dd - base.max_dd:+.4f}\n')
 
     artifacts: dict[str, bytes] = {}
     for p in [fig_path, stats_path, seg_csv_path, seg_txt_path]:

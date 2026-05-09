@@ -1,12 +1,23 @@
-# Relational analog k-NN — polar Morlet bundle FAILS the Phase-2 OOS gate
+# Relational analog k-NN — raw polar Morlet bundle overfits the Phase-2 OOS gate
 
 **Operational rule: do NOT swap `Output/relational-analog.json` to
-`wavelet='morlet'`.** The canonical Phase-2 analog cross_ticker
-scoring stays on the real Ricker kernel. The polar Morlet
-infrastructure (`ss_features.causal_polar_morlet_matrix`,
+`wavelet='morlet'` *yet*.** The canonical Phase-2 analog cross_ticker
+scoring stays on the real Ricker kernel until at least one of the
+regularization-flavor follow-up experiments listed below clears the
+gate.
+
+The polar Morlet infrastructure
+(`ss_features.causal_polar_morlet_matrix`,
 `scalogram_cache(wavelet='morlet')`,
 `weights_regime_analog(wavelet='morlet')`) is preserved as research
-infrastructure, but no canonical checkpoint pins it.
+infrastructure. **The result reported here is "raw bundle on N=21
+overfits", not "the bundle is information-theoretically bad."**
+That distinction matters — the same bundle is the SSL trainer's
+canonical input ([replay-dwt-compression](replay-dwt-compression.md))
+where dense per-bar reconstruction targets and weight-decay
+regularization keep the extra channels honest. A signal that hurts
+raw L2 distance on N=21 can still be useful through a learned head
+on N=300, or through a regularized fingerprint on the same N=21.
 
 ## Setup
 
@@ -136,15 +147,74 @@ mechanism dominates.
   ([replay-dwt-compression](replay-dwt-compression.md)) was
   independent of this kNN finding.
 
-## Outstanding question
+## What this result is — and isn't
 
-Whether to even attempt the same Morlet A/B on the other five
-relational strategies (`empirical`, `gmm`, `farthest`,
-`diversified`, `velocity`). Each would need its own per-strategy
-plumbing of the wavelet field through the `weights_*` builder, then
-its own Modal run. Given the analog result, expectation is most or
-all will exhibit the same overfit pattern — the bundle adds DOF
-that the small Phase-2 universe doesn't have data to constrain. A
-cheaper next experiment: rerun the analog A/B on `stooq_us_long`
-(N=312) where the candidate pool is 15× larger and the overfit
-hypothesis would predict the gap shrinks or reverses.
+A hard "the bundle is bad" conclusion would require one of:
+**(a)** the same overfit signature on a wider universe (rules out
+small-N as the cause), or **(b)** the same signature with a
+regularized variant of the bundle (rules out raw-capacity as the
+cause). Neither has been run yet. Until then, this finding is
+narrowly: *the raw polar Morlet bundle, used as a one-shot kNN
+distance metric on the Phase-2 21-ticker universe, overfits its
+2013-2020 train slice and gives back the train edge plus more in
+2021-2025.*
+
+What it does *not* yet show:
+
+- That the bundle is uninformative for cross-sectional return
+  prediction at all.
+- That the same bundle through a *learned* head (the
+  `apps/factor` linear/MLP path) would also fail — that path has
+  weight decay + dense per-bar IC targets, which are exactly the
+  regularizers raw kNN distance lacks.
+- That the bundle would fail on a wider candidate pool. The
+  small-N hypothesis (Mechanism 1 above) predicts the OOS gap
+  shrinks or reverses on `stooq_us_long` (N=312); that's not
+  tested here.
+
+## Gating experiments before judging the bundle
+
+Three follow-ups, ordered by cost (cheapest first). The migration to
+the other five relational strategies is paused on these — not
+abandoned. Either of (1) or (2) clearing would be enough to
+reverse the operational verdict.
+
+### (1) Regularize the bundle: 3-arm Phase-2 with DWT-L1
+
+Add `analog-morlet-dwtL1` as a third arm of the existing Modal
+script: same polar Morlet panel, but pass
+`Compression(kind='dwt', levels=1, wavelet='haar',
+pad_mode='periodization')` through `extract_fingerprints` per
+channel block (DWT must NOT mix channels, since `|c|` /
+`cos` / `sin` / `g` are heterogeneous). fp_dim drops `672 → ~176`
+— back to the same ballpark as Ricker's 168, while keeping the
+phase + trend information the polar bundle adds. If the DWT-L1
+val Sharpe matches or beats Ricker, the verdict flips: the bundle
+*is* informative, the raw L2 distance just needed the same
+low-pass denoise that Ricker effectively gets for free from its
+single broadband channel.
+
+### (2) Wider universe: rerun analog A/B on `stooq_us_long`
+
+Mirror `relational_morlet_phase2.py` against the
+`stooq_us_long`-prepped panel (N=312, ~15× larger candidate pool).
+This is the direct test of Mechanism 1 (sparse-pool overfit).
+Expectation if the hypothesis is right: train Sharpe gap
+shrinks, val Sharpe gap shrinks or reverses. If the same
+sign-flip happens at N=312, the universe-size argument is wrong
+and the bundle has a deeper problem.
+
+### (3) Channel ablation: 3-arm A/B isolating which channel hurts
+
+Three sub-arms — `analog-morlet-no-g` (drop the Gaussian
+companion, keep `(|c|, cos, sin)`),
+`analog-morlet-no-phase` (drop phase, keep `(|c|, g)`), and the
+existing `analog-morlet` baseline. Distinguishes Mechanism 2
+(Gaussian picks up regime-specific trend) from Mechanism 1 / 3
+(phase or narrowband response). Lowest priority — useful for the
+*why*, but doesn't change the operational verdict on its own.
+
+The migration to the other five relational strategies (`empirical`,
+`gmm`, `farthest`, `diversified`, `velocity`) waits on (1) or (2)
+clearing. If neither does, *then* the original "halt" verdict
+applies and the bundle stays research-only for distance scorers.
