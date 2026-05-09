@@ -1,0 +1,2657 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Trading-strategy research and live execution monorepo.">
+      
+      
+      
+        <link rel="canonical" href="https://sughodke.github.io/StockSurvey/notes/">
+      
+      
+        <link rel="prev" href="../leaderboard/">
+      
+      
+        <link rel="next" href="../findings/">
+      
+      
+        
+      
+      
+      <link rel="icon" href="../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.6">
+    
+    
+      
+        <title>Notes - StockSurvey</title>
+      
+    
+    
+      <link rel="stylesheet" href="../assets/stylesheets/main.484c7ddc.min.css">
+      
+        
+        <link rel="stylesheet" href="../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Geist:300,300i,400,400i,700,700i%7CGeist+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Geist";--md-code-font:"Geist Mono"}</style>
+      
+    
+    
+    <script>__md_scope=new URL("..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#notes" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow md-header--lifted" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href=".." title="StockSurvey" class="md-header__button md-logo" aria-label="StockSurvey" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            StockSurvey
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Notes
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme)" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3.9 12c0-1.71 1.39-3.1 3.1-3.1h4V7H7a5 5 0 0 0-5 5 5 5 0 0 0 5 5h4v-1.9H7c-1.71 0-3.1-1.39-3.1-3.1M8 13h8v-2H8zm9-6h-4v1.9h4c1.71 0 3.1 1.39 3.1 3.1s-1.39 3.1-3.1 3.1h-4V17h4a5 5 0 0 0 5-5 5 5 0 0 0-5-5"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: light)" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_2" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M17 7H7a5 5 0 0 0-5 5 5 5 0 0 0 5 5h10a5 5 0 0 0 5-5 5 5 0 0 0-5-5m0 8a3 3 0 0 1-3-3 3 3 0 0 1 3-3 3 3 0 0 1 3 3 3 3 0 0 1-3 3"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: dark)" data-md-color-scheme="slate" data-md-color-primary="black" data-md-color-accent="indigo"  aria-label="Switch to system preference"  type="radio" name="__palette" id="__palette_2">
+    
+      <label class="md-header__button md-icon" title="Switch to system preference" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M17 7H7a5 5 0 0 0-5 5 5 5 0 0 0 5 5h10a5 5 0 0 0 5-5 5 5 0 0 0-5-5M7 15a3 3 0 0 1-3-3 3 3 0 0 1 3-3 3 3 0 0 1 3 3 3 3 0 0 1-3 3"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+          <a href="javascript:void(0)" class="md-search__icon md-icon" title="Share" aria-label="Share" data-clipboard data-clipboard-text="" data-md-component="search-share" tabindex="-1">
+            
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M18 16.08c-.76 0-1.44.3-1.96.77L8.91 12.7c.05-.23.09-.46.09-.7s-.04-.47-.09-.7l7.05-4.11c.54.5 1.25.81 2.04.81a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3c0 .24.04.47.09.7L8.04 9.81C7.5 9.31 6.79 9 6 9a3 3 0 0 0-3 3 3 3 0 0 0 3 3c.79 0 1.5-.31 2.04-.81l7.12 4.15c-.05.21-.08.43-.08.66 0 1.61 1.31 2.91 2.92 2.91s2.92-1.3 2.92-2.91A2.92 2.92 0 0 0 18 16.08"/></svg>
+          </a>
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+        <div class="md-search__suggest" data-md-component="search-suggest"></div>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/sughodke/StockSurvey" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+  </div>
+  <div class="md-source__repository">
+    sughodke/StockSurvey
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+    
+      
+<nav class="md-tabs" aria-label="Tabs" data-md-component="tabs">
+  <div class="md-grid">
+    <ul class="md-tabs__list">
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href=".." class="md-tabs__link">
+        
+  
+  
+    
+  
+  Home
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../apps/" class="md-tabs__link">
+          
+  
+  
+    
+  
+  Apps
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../packages/" class="md-tabs__link">
+          
+  
+  
+    
+  
+  Packages
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../leaderboard/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Leaderboard
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+    
+  
+  
+    <li class="md-tabs__item md-tabs__item--active">
+      <a href="./" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Notes
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../findings/" class="md-tabs__link">
+          
+  
+  
+    
+  
+  Findings
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../workflows/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Workflows
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../TODO/" class="md-tabs__link">
+          
+  
+  
+    
+  
+  TODO
+
+        </a>
+      </li>
+    
+  
+
+      
+    </ul>
+  </div>
+</nav>
+    
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+  
+
+
+<nav class="md-nav md-nav--primary md-nav--lifted" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href=".." title="StockSurvey" class="md-nav__button md-logo" aria-label="StockSurvey" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    StockSurvey
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/sughodke/StockSurvey" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+  </div>
+  <div class="md-source__repository">
+    sughodke/StockSurvey
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href=".." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../apps/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Apps
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_2" id="__nav_2_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Apps
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../apps/regime/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Regime
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../apps/relational/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Relational
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../apps/factor/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Factor
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../apps/replay/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Replay
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../apps/notebook/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Notebook
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../packages/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Packages
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Packages
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../leaderboard/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Leaderboard
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Notes
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Notes
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#strategy-as-a-dot-product" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Strategy as a dot product
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#self-supervised-pretrain-why-and-how" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Self-supervised pretrain — why and how
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Self-supervised pretrain — why and how">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#why-ssl-generalises-where-supervised-reconstruction-doesnt" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Why SSL generalises where supervised reconstruction doesn't
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#concrete-method-for-our-setup" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Concrete method for our setup
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#validation-via-the-multi-head-replay-probe" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Validation via the multi-head replay probe
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#honest-risks" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Honest risks
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#what-we-already-know-about-supervision-being-the-binding-constraint" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        What we already know about supervision being the binding constraint
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#search-vs-optimize-picking-the-right-tool" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Search vs optimize — picking the right tool
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Search vs optimize — picking the right tool">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#where-they-fundamentally-differ" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Where they fundamentally differ
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#summary" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Summary
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#why-optimize-is-a-strict-superclass-of-search-is-misleading" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Why "optimize is a strict superclass of search" is misleading
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#multi-stock-cwt-framings" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Multi-stock CWT framings
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Multi-stock CWT framings">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#cwt-of-the-market-eg-spy" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        CWT of the market (e.g. SPY)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#cwt-of-a-sector-eg-xlk-for-tech" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        CWT of a sector (e.g. XLK for tech)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#where-the-real-alpha-may-live-relational-cwts" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Where the real alpha may live — relational CWTs
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#other-primitives-worth-folding-in" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Other primitives worth folding in
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#where-the-result-bearing-sections-went" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Where the result-bearing sections went
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_6" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../findings/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Findings
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_6" id="__nav_6_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_6_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_6">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Findings
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../findings/regime-baselines/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Regime baselines
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../findings/log-returns-vs-raw-close/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Log-returns vs raw close
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../findings/factor-indicator-baseline/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Factor indicator-IC baseline
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../findings/replay-dwt-compression/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Replay DWT compression
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../findings/relational-universe-shift/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Relational universe shift
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../findings/relational-dwt-failure/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Relational DWT-L1 OOS failure
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../findings/relational-morlet-failure/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Relational polar Morlet OOS failure
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../workflows/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Workflows
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_8" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../TODO/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    TODO
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_8" id="__nav_8_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_8_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_8">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    TODO
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../TODO/polar-morlet-migration/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Polar Morlet migration
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../TODO/review-followups/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Review follow-ups
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../TODO/different-prediction-problem/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Different prediction problem
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../TODO/ssl-forecast-cwt/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    SSL forecast CWT
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../TODO/rsi-long-period-ablation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    RSI long-period ablation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../TODO/film-w1-diagnostic/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    FiLM w=1 diagnostic
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../TODO/backbone-architecture/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Backbone architecture
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../TODO/streaming-feature-pipeline/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Streaming feature pipeline
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../TODO/port-sharpe-tinygrad/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Port Sharpe to tinygrad
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../TODO/dwt-compression-followups/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DWT-compression follow-ups
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../TODO/rebal-days-sweep/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Rebal-days sweep
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../TODO/modal-cron-live-deployment/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Modal-cron live deployment
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../TODO/recently-shipped/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Recently shipped
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#strategy-as-a-dot-product" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Strategy as a dot product
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#self-supervised-pretrain-why-and-how" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Self-supervised pretrain — why and how
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Self-supervised pretrain — why and how">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#why-ssl-generalises-where-supervised-reconstruction-doesnt" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Why SSL generalises where supervised reconstruction doesn't
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#concrete-method-for-our-setup" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Concrete method for our setup
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#validation-via-the-multi-head-replay-probe" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Validation via the multi-head replay probe
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#honest-risks" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Honest risks
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#what-we-already-know-about-supervision-being-the-binding-constraint" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        What we already know about supervision being the binding constraint
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#search-vs-optimize-picking-the-right-tool" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Search vs optimize — picking the right tool
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Search vs optimize — picking the right tool">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#where-they-fundamentally-differ" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Where they fundamentally differ
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#summary" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Summary
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#why-optimize-is-a-strict-superclass-of-search-is-misleading" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Why "optimize is a strict superclass of search" is misleading
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#multi-stock-cwt-framings" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Multi-stock CWT framings
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Multi-stock CWT framings">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#cwt-of-the-market-eg-spy" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        CWT of the market (e.g. SPY)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#cwt-of-a-sector-eg-xlk-for-tech" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        CWT of a sector (e.g. XLK for tech)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#where-the-real-alpha-may-live-relational-cwts" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Where the real alpha may live — relational CWTs
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#other-primitives-worth-folding-in" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Other primitives worth folding in
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#where-the-result-bearing-sections-went" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Where the result-bearing sections went
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+                
+
+
+
+  
+
+
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+  
+  
+
+
+<h1 id="notes">Notes<a class="headerlink" href="#notes" title="Permanent link">&para;</a></h1>
+<p>Durable conceptual notes that don't fit the per-experiment shape of
+the <a href="../leaderboard/">Leaderboard</a> or <a href="../findings/">Findings</a>.
+Most of these are framing — design intuitions, hypothesis sketches,
+and theoretical context — that should still travel with the project
+even after the specific experiments they motivated have run.</p>
+<h2 id="strategy-as-a-dot-product">Strategy as a dot product<a class="headerlink" href="#strategy-as-a-dot-product" title="Permanent link">&para;</a></h2>
+<p>Per-rebalance-bar shapes (cleanest form):</p>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>X  ∈ ℝ^{N × K × F}     # features:  N tickers, K scales, F per-(ticker,scale) channels
+</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>W  ∈ ℝ^{K × F}         # strategy:  shared across the universe
+</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>s  = einsum(&#39;nkf,kf-&gt;n&#39;, X, W)   ∈ ℝ^N      # cross-sectional scores
+</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>r  = π(s)              ∈ ℝ^N     # rebal vector: π = softmax_τ → top-N → water-fill cap
+</span></code></pre></div>
+<p><code>N = n_universe</code>, <code>K = len(ALL_SCALES)</code> for the CWT view (or 1 for
+the flat indicator stack), <code>F</code> = per-(ticker,scale) channels (recent
+power, hist power, divergence, etc.).</p>
+<p>How the existing strategies map onto <code>(K, F, W)</code>:</p>
+<table>
+<thead>
+<tr>
+<th>Strategy</th>
+<th>K</th>
+<th>F</th>
+<th>W</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>weights_regime</code> (KL/JS/cos/L2)</td>
+<td><code>|ALL_SCALES|</code></td>
+<td>1 (precomputed divergence per scale)</td>
+<td>uniform mean over K</td>
+</tr>
+<tr>
+<td><code>optimize_adam</code> (deleted)</td>
+<td><code>|ALL_SCALES|</code></td>
+<td>1</td>
+<td>learned softmax-over-K (collapsed to 126d≈48%)</td>
+</tr>
+<tr>
+<td><code>factor</code> linear head, indicator grid</td>
+<td>1</td>
+<td>74 (RSI+CCI+MACD+vol+coh)</td>
+<td>learned, rank-IC objective</td>
+</tr>
+<tr>
+<td><code>factor</code> linear head, CNN backbone</td>
+<td>—</td>
+<td>F_backbone</td>
+<td>learned over backbone embedding</td>
+</tr>
+</tbody>
+</table>
+<p>The unified pipeline is just: pick a featurizer that emits <code>X[N,K,F]</code>,
+learn <code>W[K,F]</code> against rank-IC, project through <code>π</code>. Everything else is
+a special case (fixed W, F=1, or K=1).</p>
+<p><strong>Where the framing breaks:</strong> <code>π</code> is <em>not</em> linear — softmax temperature,
+top-N, and water-fill position cap are all non-linear. The dot product
+gives cross-sectional scores per ticker; the universe → weights map is
+a separate non-linear projection. The
+<a href="https://github.com/sughodke/StockSurvey/commit/68ee595">deleted JAX-Adam regime trainer</a>'s
+"temperature collapsed to 0.005, weight piled into 126d" finding lived
+entirely in <code>π</code>, not in <code>W</code>.</p>
+<p>Two possible loss functions follow naturally:</p>
+<ol>
+<li><strong>Sharpe on the rebal positions</strong> — what <code>block_sharpe_with_costs</code>
+   approximates. Differentiable through the costs and selection if you
+   relax everything (see <a href="#search-vs-optimize-picking-the-right-tool">search vs optimize</a>
+   below).</li>
+<li><strong>Rank IC on the cross-sectional scores <code>s</code></strong> — what
+   <code>apps/factor</code> actually trains on. Differentiable, more learnable on
+   noisy returns because it sidesteps the non-linear <code>π</code>.</li>
+</ol>
+<h2 id="self-supervised-pretrain-why-and-how">Self-supervised pretrain — why and how<a class="headerlink" href="#self-supervised-pretrain-why-and-how" title="Permanent link">&para;</a></h2>
+<h3 id="why-ssl-generalises-where-supervised-reconstruction-doesnt">Why SSL generalises where supervised reconstruction doesn't<a class="headerlink" href="#why-ssl-generalises-where-supervised-reconstruction-doesnt" title="Permanent link">&para;</a></h3>
+<p>Supervised reconstruction (the original replay-CNN setup):
+<code>loss = MSE(decoded_RSI, true_RSI) + MSE(decoded_MACD, true_MACD) + ...</code>.
+The latent's capacity is rationed <em>to whatever's needed to reproduce
+those four targets</em>. Information in the CWT input that doesn't help
+reconstruct those four indicators consumes capacity without reducing
+loss → gets actively suppressed by gradient descent. The latent
+commits to a specific projection of the CWT before any downstream task
+gets to vote.</p>
+<p>Self-supervised: <code>loss = MSE(decoded_input, original_input)</code> where the
+encoder sees only a partial view and the decoder must reconstruct the
+full thing. No external labels. The latent has to encode <em>enough of
+the input's full structure</em> that any masked region can be filled in
+from visible context. That structure has to include multi-scale
+temporal correlations, cross-scale phase relationships, and per-scale
+regime dynamics — the exact patterns RSI/MACD are crude scalar
+summaries of, plus everything else those scalars throw away.</p>
+<p>The latent isn't <em>trying</em> to be useful for downstream tasks. But
+because it's encoding the input's full conditional structure, it's
+<em>available</em> for downstream tasks to project onto — without the
+per-task supervision having to discover the projection from scratch on
+noisy IC signal.</p>
+<h3 id="concrete-method-for-our-setup">Concrete method for our setup<a class="headerlink" href="#concrete-method-for-our-setup" title="Permanent link">&para;</a></h3>
+<p>The strongest fit is <strong>masked CWT autoencoding</strong> (the time-series
+analog of MAE):</p>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>Input bundle: (K=96 lags, F=33 channels) per bar
+</span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>              [coeffs per scale | power per scale | mu | std | log-return]
+</span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>
+</span><span id="__span-1-4"><a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a>Pretrain forward:
+</span><span id="__span-1-5"><a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a>  1. Mask ~40% of (lag, channel) cells — replace with 0 or learned mask token
+</span><span id="__span-1-6"><a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a>  2. Encoder (the existing CNN backbone) processes masked input → latent
+</span><span id="__span-1-7"><a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a>  3. Decoder (small MLP or transposed-conv stack) predicts the FULL bundle
+</span><span id="__span-1-8"><a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a>  4. Loss = MSE on the masked positions only (visible positions don&#39;t contribute)
+</span></code></pre></div>
+<p>The encoder must learn to recover masked CWT power at scale 7 from
+visible context at scales 3, 12, 21 + the surrounding lags + the
+rolling z-norm stats. That's <em>literally</em> learning multi-scale
+composition. RSI, MACD, vol fall out of the learned latent as
+projections you can train probes for after the fact.</p>
+<p>Why mask both lag and channel axes (not just one): masking only along
+the lag (time) axis would let the encoder cheat by interpolating from
+temporal neighbors of the same scale. Masking across channels too
+forces it to use cross-scale information.</p>
+<p>Why ~40%: empirical sweet spot from MAE literature. Lower mask = too
+easy, encoder doesn't have to compress; higher mask = too hard,
+decoder can't recover and gradient is noisy. 40-75% is the typical
+range for image MAE; for time series 30-50% is more common.</p>
+<h3 id="validation-via-the-multi-head-replay-probe">Validation via the multi-head replay probe<a class="headerlink" href="#validation-via-the-multi-head-replay-probe" title="Permanent link">&para;</a></h3>
+<p>Today's <code>fit_cnn_multihead</code> does two jobs at once: (a) trains the
+backbone, (b) shows what the backbone encodes via per-target heads.
+Splitting them gives:</p>
+<p><strong>Probe protocol</strong> (no architecture change to multi-head trainer):</p>
+<ol>
+<li>Pretrain backbone with masked CWT-AE → save backbone-only npz
+   (no per-target heads).</li>
+<li>Load that backbone in <code>fit_cnn_multihead</code> with <code>--freeze-backbone</code>,
+   train ONLY the per-target heads (FiLM or linear) on top of frozen
+   latent.</li>
+<li>Read off per-target R² for RSI / MACD / vol / price. These now mean
+   <em>"how much of indicator X is linearly recoverable from the SSL
+   latent?"</em> rather than <em>"how well did we reconstruct X during
+   training?"</em></li>
+</ol>
+<p>The diagnostic readout from probe R²:</p>
+<ul>
+<li><strong>High R² across the board</strong> (≥0.85 for RSI/MACD, ≥0.95 for price):
+  the SSL latent captures everything the supervised latent did, <em>and</em>
+  probably extra structure those indicators don't summarize.</li>
+<li><strong>Indicator R² drops modestly</strong> (0.7–0.85 for RSI): the latent
+  reallocated some capacity. Whether that's good depends on whether
+  those other patterns help downstream IC.</li>
+<li><strong>Indicator R² collapses</strong> (&lt;0.5): SSL latent doesn't preserve enough
+  structure for known-good signals. Diagnostic, not catastrophic —
+  points at a hyperparameter (mask ratio, encoder size, run length).</li>
+</ul>
+<p>The IC scorer experiment then runs on top of the same SSL-pretrained
+latent (same <code>load_backbone</code> + <code>train_scorer</code> plumbing). If val IC
+goes from "+0.012 inside noise" to "+0.03–0.05 outside noise" while
+indicator probe R² stays high, we've shown the SSL latent contains the
+indicator information <em>plus</em> return-predictive structure the
+supervised latent killed. That's the whole thesis validated.</p>
+<h3 id="honest-risks">Honest risks<a class="headerlink" href="#honest-risks" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong>Mask ratio is a real hyperparameter</strong> — 40% is a starting guess,
+  not known-good for CWT bundles specifically.</li>
+<li><strong>Decoder choice matters</strong> — too weak and the encoder doesn't get
+  useful gradient; too strong and the encoder doesn't have to learn
+  much. Symmetric to encoder is the standard default.</li>
+<li><strong>SSL can fail silently</strong> — produce a latent that's perfectly
+  self-consistent but useless for downstream. The probe protocol
+  catches that.</li>
+<li><strong>Compute budget</strong> — SSL typically needs 5–10× more pretraining
+  steps than supervised. Plan accordingly.</li>
+</ul>
+<h3 id="what-we-already-know-about-supervision-being-the-binding-constraint">What we already know about supervision being the binding constraint<a class="headerlink" href="#what-we-already-know-about-supervision-being-the-binding-constraint" title="Permanent link">&para;</a></h3>
+<p>Before SSL was implemented, a controlled apples-to-apples test pitted
+the Colab supervised-pretrained backbone against an <code>identity_backbone</code>
+(z-norm + flatten, no encoder) at matched topology / date window /
+universe. <strong>Both arms ended at val IC ≈ 0 and val Sharpe in the
++0.55..+0.63 band</strong> — encoder and raw tied at the noise floor. The
+encoder overfit train harder (+0.72 vs +0.32) but that didn't
+transfer.</p>
+<p>Read: cross-sectional IC supervision at the original 30-ticker scale
+is the binding constraint, not the encoder choice. Both methods
+plateau at the noise floor regardless of head capacity. Don't conclude
+"the encoder is harmful" or "skip the SSL plan" from those numbers —
+they say neither encoder nor raw helps, which is consistent with the
+supervision being the bottleneck. The Leaderboard's later universe-
+pivot row (2073-ticker / rebal=20d, val IC tied at
+<a href="../findings/factor-indicator-baseline/">+0.012</a>) confirmed the IC
+ceiling is data-side at this prediction problem, not supervision-side
+at small <code>N</code>.</p>
+<h2 id="search-vs-optimize-picking-the-right-tool">Search vs optimize — picking the right tool<a class="headerlink" href="#search-vs-optimize-picking-the-right-tool" title="Permanent link">&para;</a></h2>
+<h3 id="where-they-fundamentally-differ">Where they fundamentally differ<a class="headerlink" href="#where-they-fundamentally-differ" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Aspect</th>
+<th>Optuna (<code>research/optimize_regime.py</code>)</th>
+<th>JAX-Adam (deleted)</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Optimizer</td>
+<td>TPE Bayesian search</td>
+<td>Gradient descent (optax Adam)</td>
+</tr>
+<tr>
+<td>What's optimized</td>
+<td>7 discrete hyperparams (search)</td>
+<td>14 continuous floats (gradient)</td>
+</tr>
+<tr>
+<td>Lookback</td>
+<td>searched, int[40, 252]</td>
+<td>fixed by user</td>
+</tr>
+<tr>
+<td>n_tail</td>
+<td>searched, int[3, lookback//2]</td>
+<td>fixed by user</td>
+</tr>
+<tr>
+<td>Top-N count</td>
+<td>searched, int[5, 30] (hard pick)</td>
+<td>implicit; controlled by learned temperature</td>
+</tr>
+<tr>
+<td>Divergence</td>
+<td cosine_="cosine," js_="js," kl_="kl," l2="l2">searched,</td>
+<td>fixed by user</td>
+</tr>
+<tr>
+<td>Scale set</td>
+<td>searched: 3 booleans (short/mid/long groups) → 8 combos</td>
+<td>always all 13 in <code>ALL_SCALES</code></td>
+</tr>
+<tr>
+<td>Per-scale weighting</td>
+<td>none — chosen scales contribute equally</td>
+<td>learned 13-vector via softmax (<code>scale_log_weights</code>)</td>
+</tr>
+<tr>
+<td>Allocation</td>
+<td>hard top-N equal-weight (1/top_n each)</td>
+<td>soft via <code>softmax(score/temp + log(mask))</code></td>
+</tr>
+<tr>
+<td>Temperature</td>
+<td>n/a</td>
+<td>learned single scalar (<code>log_temperature</code>)</td>
+</tr>
+<tr>
+<td>Sharpe computation</td>
+<td>daily-return Sharpe via bt-library backtest</td>
+<td>block-Sharpe <code>mean/std × √(252/rebal_days)</code> (assumes iid blocks)</td>
+</tr>
+<tr>
+<td>Costs</td>
+<td><code>bt</code> commission_fn per side, applied to actual share moves</td>
+<td><code>commission_frac × (init_cost + 0.5·L1(Δw))</code> per block</td>
+</tr>
+<tr>
+<td>Spread mask</td>
+<td>NaN-out illiquid scores → excluded from top-N</td>
+<td><code>log(mask)</code> added to score → driven to ~0 weight in softmax</td>
+</tr>
+<tr>
+<td>Train/val structure</td>
+<td>rolling walk-forward (default 5y train / 3y val / 2y step)</td>
+<td>single split via <code>train_frac</code></td>
+</tr>
+<tr>
+<td>Trains per run</td>
+<td>n_trials × n_windows (e.g. 50 × 3 = 150)</td>
+<td>one</td>
+</tr>
+<tr>
+<td>Wall time</td>
+<td>~30 min for 50 trials × 3 windows</td>
+<td>~25 s for 500 Adam steps after CWT precompute</td>
+</tr>
+<tr>
+<td>Output</td>
+<td>per-window best hyperparams + Sharpe</td>
+<td>learned 14-param model + checkpoint JSON</td>
+</tr>
+</tbody>
+</table>
+<h3 id="summary">Summary<a class="headerlink" href="#summary" title="Permanent link">&para;</a></h3>
+<p>Search wins for most stock strategies — including this one. The reason
+is structural, not preference: trading rules are inherently discrete
+(top-N, rebalance frequency, divergence choice), the objective
+(Sharpe / Calmar) is non-differentiable through realistic costs and
+selection, and noisy returns mean overfitting risk dwarfs gradient
+efficiency. Walk-forward search is also the closest match to how the
+strategy will actually fail in production — params that win a 3y
+window are at least independently validated, while a single
+gradient-optimized model is one continuous interpolation that can hide
+instability.</p>
+<p>Gradient optimization earns its keep in two specific cases: (1) the
+parameter is genuinely continuous and high-dimensional — neural-net
+weights, attention scales, embedding tables — where search can't
+enumerate; (2) you need end-to-end backprop into a downstream model
+(<code>apps/replay</code>'s CNN-on-CWT is the right use case). For the regime
+strategy, the JAX trainer was mostly scaffolding; it has been
+<a href="https://github.com/sughodke/StockSurvey/commit/68ee595">deleted</a>
+(and the workspace's
+<a href="https://github.com/sughodke/StockSurvey/commit/191d787">JAX dependency dropped</a>)
+— Optuna is the canonical pipeline.</p>
+<h3 id="why-optimize-is-a-strict-superclass-of-search-is-misleading">Why "optimize is a strict superclass of search" is misleading<a class="headerlink" href="#why-optimize-is-a-strict-superclass-of-search-is-misleading" title="Permanent link">&para;</a></h3>
+<p>The framing "any combinatorial search problem can be expressed as
+continuous optimization" is the bedrock of differentiable programming
+and neural architecture search. For optimize to be a strict superclass
+of search, four things have to hold simultaneously:</p>
+<ol>
+<li><strong>Continuous relaxation of every discrete choice.</strong> Each enum-like
+   decision needs a differentiable surrogate that recovers the hard
+   choice in some limit:<ul>
+<li>divergence ∈ {kl, js, cosine, l2} → 4 logits → Gumbel-softmax
+  hardening as temperature → 0.</li>
+<li>top_n = 5 (hard pick) → differentiable top-K (SinkhornSort,
+  OT-based selection, or perturbed optimizers à la Berthet 2020).</li>
+<li>lookback ∈ ℤ[40,252] → real-valued + linear interpolation
+  between adjacent integer CWTs, OR Gumbel-softmax over a
+  discretization.</li>
+<li>use_short/mid/long_scales (booleans) → continuous gates in [0,1]
+  with sparsity prior (L0 regularization).</li>
+</ul>
+</li>
+<li><strong>The objective remains differentiable through the relaxation.</strong>
+   Sharpe through realistic costs has kinks at zero-turnover, fees,
+   masking. Either accept a smooth surrogate or use straight-through
+   estimators.</li>
+<li><strong>The relaxation is tight</strong> — at convergence, the soft solution
+   approaches a real discrete one. This requires a temperature anneal
+   schedule. Get it wrong and you converge to a "soft mixture of
+   divergences" with no integer interpretation.</li>
+<li><strong>Walk-forward validation has to be baked in.</strong> Search naturally
+   gets it from outer loop windowing. To bake it into a single
+   gradient-descent objective you'd need meta-learning (MAML-style) or
+   an outer-loop search over window splits — at which point you've
+   reinvented Optuna.</li>
+</ol>
+<p>The duality: search is "broad sampling, no gradient signal, robust to
+non-smooth surfaces"; optimize is "focused stepping, full gradient
+signal, requires smooth surfaces". With enough relaxation, either
+simulates the other — but at a cost.</p>
+<p>The stronger framing isn't "is optimize a superclass" — it's "what's
+the right tool for this problem geometry". Discrete + non-smooth +
+noisy + low-dim → search. Continuous + smooth + clean + high-dim
+(e.g. neural net weights) → optimize. The replay-CNN is the latter;
+regime hyperparameter selection is the former.</p>
+<h2 id="multi-stock-cwt-framings">Multi-stock CWT framings<a class="headerlink" href="#multi-stock-cwt-framings" title="Permanent link">&para;</a></h2>
+<p>CWT applied to a single stock gives per-scale power for that name.
+Many natural extensions follow once you stop thinking "one ticker at a
+time."</p>
+<h3 id="cwt-of-the-market-eg-spy">CWT of the market (e.g. SPY)<a class="headerlink" href="#cwt-of-the-market-eg-spy" title="Permanent link">&para;</a></h3>
+<p>Tells you what the macro volatility regime looks like at every
+timescale:</p>
+<ul>
+<li><strong>Power across scales</strong> = "how much of recent market variance lives
+  at 1-week vs 1-month vs 1-quarter horizons." High short-scale +
+  low long-scale = choppy trendless tape. The reverse = clean
+  trending market.</li>
+<li><strong>Recent vs historical divergence</strong> (same math we use per-stock) =
+  "the market just changed character." Essentially what VIX measures,
+  but VIX is one number; CWT gives you the per-scale breakdown.</li>
+<li>Use cases: regime gate for sizing (trade smaller in changing-
+  character periods), abstain rules (skip rebalances when market CWT
+  is in flash-crash territory), market-vol-regime conditioning of
+  strategy selection.</li>
+</ul>
+<h3 id="cwt-of-a-sector-eg-xlk-for-tech">CWT of a sector (e.g. XLK for tech)<a class="headerlink" href="#cwt-of-a-sector-eg-xlk-for-tech" title="Permanent link">&para;</a></h3>
+<ul>
+<li>Sector whose CWT power has just shifted = sector undergoing rotation.</li>
+<li>High short-scale + low long-scale within a sector = intra-sector chop
+  (smart money repositioning); often precedes a sector drawdown.</li>
+<li>Use cases: sector rotation detection, "where is the action" allocation
+  across sectors, cross-sector coherence (pairwise sector CWT
+  correlation → diversification map).</li>
+</ul>
+<h3 id="where-the-real-alpha-may-live-relational-cwts">Where the real alpha may live — relational CWTs<a class="headerlink" href="#where-the-real-alpha-may-live-relational-cwts" title="Permanent link">&para;</a></h3>
+<p>These are the framings the regime/scalogram strategies don't use today;
+several are partially implemented in <code>apps/relational/</code>.</p>
+<ol>
+<li>
+<p><strong>Stock minus sector (excess CWT).</strong> A stock's CWT divergence net
+   of its sector's. Isolates the idiosyncratic shift — AAPL doing
+   something its sector isn't. Cleaner than raw stock divergence
+   because you've controlled for the sector-wide move.</p>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>score[stock, t] = divergence(stock_recent, stock_hist)
+</span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>                − divergence(sector_recent, sector_hist)
+</span></code></pre></div>
+<p>Removes the "we just bought 5 tech names because tech moved most"
+failure mode.
+2. <strong>CWT of cross-sectional dispersion.</strong> CWT on
+   <code>cross_section_std(daily_returns)</code> rather than on a price series.
+   Tells you when the market is in a stock-pickers' regime vs a
+   macro-driven regime:
+- High dispersion power → lots of name-specific variance →
+  stock-picking strategies should work.
+- Low dispersion power → everything moves with SPY → no edge for
+  stock-pickers, sit out.
+3. <strong>CWT of cross-sectional correlation.</strong> <code>mean(rolling_corr(every_stock,
+   market))</code> over time, then CWT it. Captures the correlation regime —
+   are we in a "correlations-go-to-1 sell-everything" regime (low CWT
+   power, stable high corr) or a "stock-pickers' paradise" (low
+   correlations, high CWT power in the corr series itself)?
+4. <strong>Cross-sector coherence.</strong> For each pair of sectors, the
+   CWT-coherence applied to sector indices instead of single stocks.
+   Useful for avoiding correlated bets and detecting sector rotation
+   (a previously-coherent sector decoupling).</p>
+</li>
+</ol>
+<h3 id="other-primitives-worth-folding-in">Other primitives worth folding in<a class="headerlink" href="#other-primitives-worth-folding-in" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong>CWT of volume.</strong> Each day has a 2D vector <code>(n_samples, n_days)</code> —
+  volume regime as a scalogram alongside price.</li>
+</ul>
+<h2 id="where-the-result-bearing-sections-went">Where the result-bearing sections went<a class="headerlink" href="#where-the-result-bearing-sections-went" title="Permanent link">&para;</a></h2>
+<p>Earlier drafts of this notes file carried full prose for each
+forecast/horizon/universe/regime-gate experiment. Those have since
+been condensed into one row each on the
+<a href="../leaderboard/">Leaderboard</a>, with the operational verdict
+(<a href="../leaderboard/#verdict-labels">verdict-label vocabulary</a>),
+per-window stats, and artifact paths. Adjacent prose findings
+covering the same arc:
+<a href="../findings/factor-indicator-baseline/">factor indicator-IC baseline (the +0.012 ceiling)</a>,
+<a href="../findings/log-returns-vs-raw-close/">log-returns vs raw close</a>,
+<a href="../findings/regime-baselines/">regime baselines</a>. The relevant rows
+are:</p>
+<ul>
+<li><code>sign_demeaned target reduction probe</code> — <code>reversed-OOS</code>.</li>
+<li><code>vol_innovation forecast target</code> — <code>confirmed-OOS for vol IC</code>.</li>
+<li><code>Vol-target overlay</code> — <code>confirmed-null</code> (forecast adds nothing over
+  trailing vol for sizing).</li>
+<li><code>Pure CWT bundle vs IndicatorGridConfig</code> — <code>confirmed-null</code> on
+  returns, <code>partial-OOS</code> on vol.</li>
+<li><code>Feature augmentation: vol forecast as 75th feature</code> —
+  <code>confirmed-null</code>.</li>
+<li><code>Horizon pivot rebal=63d (quarterly)</code> — <code>reversed-OOS</code>.</li>
+<li><code>Universe pivot 297 → 2073</code> — <code>confirmed-null</code>.</li>
+<li><code>Regime gate via aggregate forecast vol</code> — <code>confirmed-null</code>.</li>
+</ul>
+<p>The aggregate read across all eight: the +0.012 cross-sectional
+return-IC ceiling is <strong>data-side</strong>, not supervision-, encoder-,
+horizon-, or universe-side. Honest pivots from here are
+prediction-problem changes (pair-spread, drawdown, IV-vs-realized) —
+tracked in the <a href="../TODO/different-prediction-problem/">TODO</a>.</p>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+    
+      
+      <nav class="md-footer__inner md-grid" aria-label="Footer" >
+        
+          
+          <a href="../leaderboard/" class="md-footer__link md-footer__link--prev" aria-label="Previous: Leaderboard">
+            <div class="md-footer__button md-icon">
+              
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+            </div>
+            <div class="md-footer__title">
+              <span class="md-footer__direction">
+                Previous
+              </span>
+              <div class="md-ellipsis">
+                Leaderboard
+              </div>
+            </div>
+          </a>
+        
+        
+          
+          <a href="../findings/" class="md-footer__link md-footer__link--next" aria-label="Next: Findings">
+            <div class="md-footer__title">
+              <span class="md-footer__direction">
+                Next
+              </span>
+              <div class="md-ellipsis">
+                Findings
+              </div>
+            </div>
+            <div class="md-footer__button md-icon">
+              
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M4 11v2h12l-5.5 5.5 1.42 1.42L19.84 12l-7.92-7.92L10.5 5.5 16 11z"/></svg>
+            </div>
+          </a>
+        
+      </nav>
+    
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "..", "features": ["content.code.annotate", "content.code.copy", "content.tooltips", "navigation.footer", "navigation.indexes", "navigation.path", "navigation.sections", "navigation.tabs", "navigation.tabs.sticky", "navigation.top", "navigation.tracking", "search.highlight", "search.share", "search.suggest", "toc.follow"], "search": "../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../assets/javascripts/bundle.79ae519e.min.js"></script>
+      
+    
+  </body>
+</html>
