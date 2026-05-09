@@ -77,43 +77,21 @@ REMOTE_REPO = '/root/StockSurvey'
 STOOQ_SUBSET_REL = 'apps/notebook/data/stooq_us_long'
 STOOQ_SUBSET = f'{REMOTE_REPO}/{STOOQ_SUBSET_REL}'
 
-# Input-bundle configurations. Maps a single named experimental cell to the
-# ss-replay flags + target subset + artifact prefix. The 3 cells span the
-# experimentally meaningful subset of the (zscore on/off) × (returns mode
-# in {none, raw, sign}) cross-product:
+# Input-bundle configurations. After the 2026-05-09 polar-Morlet +
+# Gaussian + log-L2-amp rewrite the channel stack is fixed (no
+# include-* flags), so this is now a single cell — kept as a dict so
+# the harness's per-bundle artifact-prefix machinery still works.
 #
-#   cwt-only   — CWT only (default; canonical SSL recipe — encoder must
-#                learn from wavelet features, no closed-form shortcut).
-#   cwt-sign   — sign returns + CWT (direction anchor, no price level).
-#   leak-close — zscore + raw returns + CWT (diagnostic only — *leaks*
-#                close-derived inputs into the encoder, lets the price
-#                head shortcut via cumulative-product of returns and the
-#                vol head shortcut via std(returns over window). Reaches
-#                much higher reconstruction R² but the encoder ends up as
-#                a passthrough for returns rather than a CWT-feature
-#                extractor; downstream factor IC drops below the
-#                deterministic-indicator baseline. Kept for diagnostic
-#                attention plots showing the leak in action — see
-#                `apps/factor/README.md` "Why cwt-only").
-#
-# `price` head is dropped for the no-zscore cells: without rolling mu/sd,
-# level info is gone from the input, so the price head would train to a
-# useless ~0-R² constant.
+#   cwt-only   — Canonical SSL recipe. 7 channels per scale: polar
+#                Morlet `(|c|, |c|^2, cos(arg), sin(arg))` over rolling-
+#                z-normed prices, Gaussian `(g, g^2)` over cumulative
+#                log-returns (lowpass / trend), and per-scale log-L2
+#                amplitude over the trailing K-bar `|c|` slice.
 BUNDLE_CONFIGS: dict[str, dict] = {
     'cwt-only': {
         'flags': [],
         'targets': 'rsi,macd,vol,cci',
         'prefix': 'cwtonly-',
-    },
-    'cwt-sign': {
-        'flags': ['--include-return-sign'],
-        'targets': 'rsi,macd,vol,cci',
-        'prefix': 'cwtsign-',
-    },
-    'leak-close': {
-        'flags': ['--include-zscore-stats', '--include-returns'],
-        'targets': 'rsi,macd,price,vol,cci',
-        'prefix': 'leakclose-',
     },
 }
 
@@ -255,10 +233,6 @@ def train_and_eval(
     # for bt's vectorbt-style C extensions).
     compress_flags: list[str] = []
     if compress != 'none':
-        if bundle != 'cwt-only':
-            raise ValueError(
-                f'compress is CWT-only; bundle={bundle!r} mixes in optional '
-                'channels (zscore/returns/sign). Pass --bundle cwt-only.')
         compress_flags = [
             '--compress', compress,
             '--compress-levels', str(compress_levels),
@@ -374,17 +348,12 @@ def main(
 
     `--bundle` selects the input channel mix and target set:
 
-      cwt-only    (default) CWT only — canonical SSL recipe.
-      cwt-sign              CWT + sign-returns (no price-level info).
-      leak-close            zscore + raw-returns + CWT — *diagnostic
-                            only*, leaks close-derived inputs and lets
-                            the price/vol heads shortcut. Use for
-                            attention plots showing the leak; do not
-                            use as a downstream factor backbone.
+      cwt-only    (default) Polar Morlet + Gaussian + log-L2 amplitude —
+                  the canonical SSL recipe after the 2026-05-09 rewrite.
+                  No optional channels; bundle list is single-cell now.
 
-    Artifacts go under a per-bundle prefix (`cwtonly-`, `cwtsign-`,
-    `leakclose-`) so multiple bundles' results coexist in Output/
-    without overwriting.
+    Artifacts go under prefix `cwtonly-` so this bundle's results are
+    distinguishable from any future per-bundle additions in Output/.
 
     `--train-extra` is empty by default → the train pool is built from
     `apps/notebook/data/stooq_us_long/manifest.json`, dropping tickers

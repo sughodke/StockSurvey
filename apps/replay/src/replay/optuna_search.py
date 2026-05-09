@@ -1,8 +1,8 @@
 """Optuna study over `replay.reconstruct_indicators` for the MLP decoder.
 
-Searches the MLP-decoder hyperparameter space (window size, z-score
-stats flag, hidden width, depth, training steps) to maximize the mean
-R² across the three reconstruction targets (price, RSI, MACD).
+Searches the MLP-decoder hyperparameter space (window size, hidden
+width, depth, training steps) to maximize the mean R² across the
+three reconstruction targets (price, RSI, MACD).
 
 Usage:
     uv run ss-replay-optuna AAPL --start 2013-01-29 --end 2025-12-11 \\
@@ -31,7 +31,6 @@ def _objective(trial: optuna.Trial, prices: np.ndarray, *,
                macd_fast: int, macd_slow: int, macd_signal: int) -> float:
     K = trial.suggest_categorical(
         'window_cols', [1, 4, 8, 16, 32, 64, 96, 128])
-    zstats = trial.suggest_categorical('include_zscore_stats', [False, True])
     hidden = trial.suggest_categorical('mlp_hidden', [32, 64, 128, 256, 512])
     layers = trial.suggest_int('mlp_layers', 1, 4)
     steps = trial.suggest_categorical('mlp_steps', [500, 1000, 2000, 4000])
@@ -47,7 +46,6 @@ def _objective(trial: optuna.Trial, prices: np.ndarray, *,
         macd_slow=macd_slow,
         macd_signal=macd_signal,
         window_cols=K,
-        include_zscore_stats=zstats,
         decoder='mlp',
         mlp_hidden=hidden,
         mlp_layers=layers,
@@ -110,7 +108,6 @@ def main() -> None:
         print(f'  trial {trial.number:>3} '
               f'value={trial.value:6.3f}  '
               f'K={trial.params["window_cols"]:>3} '
-              f'zstats={"y" if trial.params["include_zscore_stats"] else "n"} '
               f'h={trial.params["mlp_hidden"]:>3} '
               f'L={trial.params["mlp_layers"]} '
               f'steps={trial.params["mlp_steps"]:>4}  '
@@ -140,9 +137,9 @@ def main() -> None:
     print(f'  n_features: {bt.user_attrs["n_features"]}  '
           f'wall: {bt.user_attrs["wall_s"]:.1f}s\n')
 
-    print('| trial | mean R² | K | zstats | hidden | layers | steps | '
+    print('| trial | mean R² | K | hidden | layers | steps | '
           'price R² | rsi R² | macd R² | wall (s) |')
-    print('|---|---|---|---|---|---|---|---|---|---|---|')
+    print('|---|---|---|---|---|---|---|---|---|---|')
     rows = sorted(
         (t for t in study.trials if t.value is not None),
         key=lambda t: -(t.value or float('-inf')),
@@ -151,7 +148,6 @@ def main() -> None:
         p = t.params
         ua = t.user_attrs
         print(f'| {t.number} | {t.value:.3f} | {p["window_cols"]} | '
-              f'{"yes" if p["include_zscore_stats"] else "no"} | '
               f'{p["mlp_hidden"]} | {p["mlp_layers"]} | {p["mlp_steps"]} | '
               f'{ua["price_r2"]:.3f} | {ua["rsi_r2"]:.3f} | '
               f'{ua["macd_r2"]:.3f} | {ua["wall_s"]:.1f} |')

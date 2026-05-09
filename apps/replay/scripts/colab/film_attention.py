@@ -67,9 +67,8 @@ meta = json.loads(data['_meta'].item())
 
 K = int(meta['window_cols'])
 scales = [int(s) for s in meta['scales']]
-F_meta = (2 * len(scales)
-          + (2 if meta.get('include_zscore_stats') else 0)
-          + (1 if meta.get('include_returns') else 0))
+# Polar Morlet (4) + Gaussian (2) + log-L2-amp (1) per scale.
+F_meta = 7 * len(scales)
 print(f'Backbone: K={K}, F={F_meta}, scales={scales}')
 
 rsi_n_grid = tuple(meta.get('rsi_n_grid') or ())
@@ -146,9 +145,6 @@ load_kwargs = dict(
     scales=scales,
     lookback=int(meta['lookback']),
     window_cols=K,
-    include_zscore_stats=bool(meta.get('include_zscore_stats')),
-    include_returns=bool(meta.get('include_returns')),
-    decoder=meta['decoder'],
     rsi_n=int(meta['rsi_n']),
     macd_fast=int(meta['macd_fast']),
     macd_slow=int(meta['macd_slow']),
@@ -219,10 +215,13 @@ report_topk(sal_b, f'cond_b = RSI(n={COND_B[0]}, w={COND_B[1]})')
 
 # --- 5. Plot. ---------------------------------------------------------------
 chan_labels = (
-    [f'coeff s={s}' for s in scales] +
-    [f'power s={s}' for s in scales] +
-    (['z-mu', 'z-std'] if meta.get('include_zscore_stats') else []) +
-    (['return'] if meta.get('include_returns') else [])
+    [f'|c| s={s}' for s in scales] +
+    [f'|c|^2 s={s}' for s in scales] +
+    [f'cos(arg) s={s}' for s in scales] +
+    [f'sin(arg) s={s}' for s in scales] +
+    [f'g s={s}' for s in scales] +
+    [f'g^2 s={s}' for s in scales] +
+    [f'logL2 s={s}' for s in scales]
 )
 assert len(chan_labels) == F, f'channel label count {len(chan_labels)} != F={F}'
 

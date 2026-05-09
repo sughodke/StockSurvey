@@ -60,8 +60,7 @@ meta = json.loads(data['_meta'].item())
 print(f'loaded: {WEIGHTS}')
 print(f'  trained on {len(meta["train_tickers"])} tickers, decoder={meta["decoder"]}, '
       f'K={meta["window_cols"]}, scales={meta["scales"]}')
-print(f'  zscore_stats={meta["include_zscore_stats"]}, returns={meta["include_returns"]}, '
-      f'targets={meta["targets"]}, rsi_n={meta["rsi_n"]}, '
+print(f'  targets={meta["targets"]}, rsi_n={meta["rsi_n"]}, '
       f'rsi_n_grid={meta.get("rsi_n_grid")}, rsi_w_grid={meta.get("rsi_w_grid")}, '
       f'vol_window={meta.get("vol_window")}, '
       f'film_hidden={meta.get("cnn_film_hidden")}')
@@ -80,9 +79,6 @@ td = load_ticker(
     scales=[int(s) for s in meta['scales']],
     lookback=int(meta['lookback']),
     window_cols=int(meta['window_cols']),
-    include_zscore_stats=bool(meta['include_zscore_stats']),
-    include_returns=bool(meta['include_returns']),
-    decoder=meta['decoder'],
     rsi_n=int(meta['rsi_n']),
     macd_fast=int(meta['macd_fast']),
     macd_slow=int(meta['macd_slow']),

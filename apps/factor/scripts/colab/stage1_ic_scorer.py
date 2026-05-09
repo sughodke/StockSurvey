@@ -28,7 +28,7 @@ Pipeline:
      backbone (feat_mu/sd + conv layers).
   2. Build a cross-sectional universe of TickerData using the EXACT
      bundle params the backbone saw at pretrain (scales / window_cols /
-     lookback / include_zscore_stats / include_returns / vol_window).
+     lookback / vol_window).
   3. train_scorer with finetune_steps=0 — Stage 1 only (backbone frozen,
      Adam updates only the linear head + log-temperature).
 
@@ -81,9 +81,6 @@ load_kwargs = dict(
     scales=[int(s) for s in meta['scales']],
     lookback=int(meta['lookback']),
     window_cols=int(meta['window_cols']),
-    include_zscore_stats=bool(meta['include_zscore_stats']),
-    include_returns=bool(meta['include_returns']),
-    decoder=meta['decoder'],
     rsi_n=int(meta['rsi_n']),
     macd_fast=int(meta['macd_fast']),
     macd_slow=int(meta['macd_slow']),

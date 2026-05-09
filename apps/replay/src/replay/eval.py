@@ -96,10 +96,6 @@ def _load_eval_ticker(
         start=meta['start'], end=meta['end'],
         scales=scales, lookback=int(meta['lookback']),
         window_cols=int(meta['window_cols']),
-        include_zscore_stats=bool(meta.get('include_zscore_stats')),
-        include_returns=bool(meta.get('include_returns')),
-        include_return_sign=bool(meta.get('include_return_sign', False)),
-        decoder=meta['decoder'],
         rsi_n=int(meta['rsi_n']),
         macd_fast=int(meta['macd_fast']),
         macd_slow=int(meta['macd_slow']),
@@ -115,33 +111,34 @@ def _load_eval_ticker(
 def _channel_labels(meta: dict, scales: list[int]) -> list[str]:
     """Per-channel label list matching the trainer's input stack.
 
-    Under DWT compression the scale axis is also compressed
-    (n_scales → S'), so per-scale labels no longer correspond 1:1 to
-    channels — fall back to generic `coeff-LL i` / `power-LL i` labels
-    indexed by the compressed scale-axis position.
+    Channel order matches `ss_features.cwt_features.build_features_and_targets`:
+    polar Morlet `(|c|, |c|^2, cos, sin)` per scale, then Gaussian
+    `(g, g^2)` per scale, then per-scale `log_L2_amp`. Under DWT
+    compression the scale axis collapses to `S'`, so the per-scale
+    suffix is replaced with a `LL i` index.
     """
-    return_label = ('return-sign' if meta.get('include_return_sign')
-                    else 'return' if meta.get('include_returns')
-                    else None)
     if meta.get('compress', 'none') != 'none':
-        # Scale labels are no longer per-original-scale under DWT keep-LL;
-        # the LL band averages neighboring scales together.
         n_features = int(meta.get('n_features', 0))
         K = int(meta.get('effective_window_cols', meta['window_cols']))
         F = (n_features // K) if K else 0
-        # Two CWT-derived stacks (signed coeffs + power) are concatenated
-        # along the channel axis, so half the channels are coeffs and
-        # half are power. Optional channels are forbidden under compression
-        # so this split is exact.
-        s_compressed = max(1, F // 2)
-        return ([f'coeff-LL {i}' for i in range(s_compressed)]
-                + [f'power-LL {i}' for i in range(s_compressed)])
-    return (
-        [f'coeff s={s}' for s in scales]
-        + [f'power s={s}' for s in scales]
-        + (['z-mu', 'z-std'] if meta.get('include_zscore_stats') else [])
-        + ([return_label] if return_label else [])
-    )
+        # 7 per-scale stacks concat along the channel axis after compression.
+        s_compressed = max(1, F // 7)
+        groups = ['abs-LL', 'pow-LL', 'cos-LL', 'sin-LL',
+                  'g-LL', 'gpow-LL', 'logL2-LL']
+        return [f'{g} {i}' for g in groups for i in range(s_compressed)]
+    groups = [
+        ('|c|', scales),
+        ('|c|^2', scales),
+        ('cos(arg)', scales),
+        ('sin(arg)', scales),
+        ('g', scales),
+        ('g^2', scales),
+        ('logL2', scales),
+    ]
+    out: list[str] = []
+    for label, sc in groups:
+        out.extend(f'{label} s={s}' for s in sc)
+    return out
 
 
 def _tinygrad_backbone(data, ref: str = 'rsi'):

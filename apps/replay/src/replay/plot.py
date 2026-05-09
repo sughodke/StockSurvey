@@ -18,9 +18,6 @@ def plot_reconstruction(
     n_features: int,
     decoder: str,
     window_cols: int,
-    include_zscore_stats: bool,
-    include_returns: bool = False,
-    include_return_sign: bool = False,
     vol_window: int = 20,
     cci_n: int = 20,
     momentum_n: int = 21,
@@ -47,14 +44,9 @@ def plot_reconstruction(
         len(panels), 1, figsize=(13, 3 * len(panels)),
         sharex=True, squeeze=False)
     axes = axes.flatten()
-    extras = ''.join([
-        ' +zscore-stats' if include_zscore_stats else '',
-        ' +returns' if include_returns else '',
-        ' +return-sign' if include_return_sign else '',
-    ])
     fig.suptitle(
         f'{title_subject} — CWT-slice reconstruction vs full-series '
-        f'ground truth ({decoder}, K={window_cols}{extras}, '
+        f'ground truth ({decoder}, K={window_cols}, '
         f'{n_features} features)',
         fontsize=13, fontweight='bold')
 

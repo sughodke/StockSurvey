@@ -196,9 +196,7 @@ def train_ssl_walkforward(
           f'flat_dim={backbone.hidden_flat}', flush=True)
     print(f'  backbone npz: {backbone_npz_name}  '
           f'(trained on {len(meta.get("train_tickers", []))} tickers, '
-          f'targets={meta.get("targets")}, '
-          f'zscore={meta.get("include_zscore_stats")}, '
-          f'returns={meta.get("include_returns")})', flush=True)
+          f'targets={meta.get("targets")})', flush=True)
 
     # Mirror the load_ticker meta from the backbone's training config so
     # the encoder sees the same input layout it was pretrained on.
@@ -206,10 +204,6 @@ def train_ssl_walkforward(
         'scales':               meta['scales'],
         'lookback':             meta['lookback'],
         'window_cols':          meta['window_cols'],
-        'include_zscore_stats': meta['include_zscore_stats'],
-        'include_returns':      meta['include_returns'],
-        'include_return_sign':  meta.get('include_return_sign', False),
-        'decoder':              meta['decoder'],
         'rsi_n':                meta.get('rsi_n', 7),
         'macd_fast':            meta.get('macd_fast', 12),
         'macd_slow':            meta.get('macd_slow', 26),

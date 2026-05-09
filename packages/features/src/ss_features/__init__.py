@@ -6,12 +6,16 @@
 - `Backbone`, `load_backbone` — npz I/O for the SSL-pretrained CNN
   backbone produced by `ss-replay --decoder cnn`. Numpy data only;
   the runtime forward pass lives in `factor.backbone`.
-- `compute_scalogram`, `rolling_zscore_stats`, `log_return_signs`,
+- `compute_scalogram` (real Ricker, kept for research scripts),
+  `compute_scalogram_polar` (Morlet + Gaussian, the canonical input
+  for the replay trainer and factor SSL path),
+  `rolling_zscore_stats`, `log_return_signs` (standalone utilities;
+  no longer in the canonical channel stack),
   `channels_per_lag`, `build_lagged_features`,
-  `build_features_and_targets`, `load_ticker`, `TARGET_NAMES` — CWT
-  feature builders. Both apps use these to construct the input
-  bundle the SSL-pretrained backbone expects (channels lag-windowed
-  over `K = window_cols` bars).
+  `build_features_and_targets`, `load_ticker`, `TARGET_NAMES`,
+  `CHANNELS_PER_SCALE` — CWT feature builders. Both apps use these
+  to construct the input bundle the SSL-pretrained backbone expects
+  (channels lag-windowed over `K = window_cols` bars).
 - `fit_stats` — R²/RMSE/max-|Δ| for prediction-vs-truth comparison.
   Lifted from `replay.metrics` so factor + relational don't need to
   depend on replay just to compute eval stats.
@@ -24,8 +28,9 @@ from ss_features.compression import (
     compress_tiles_2d_dwt,
 )
 from ss_features.cwt_features import (
-    TARGET_NAMES, build_features_and_targets, build_lagged_features,
-    channels_per_lag, compute_scalogram, load_ticker, log_return_signs,
+    CHANNELS_PER_SCALE, TARGET_NAMES, build_features_and_targets,
+    build_lagged_features, channels_per_lag, compute_scalogram,
+    compute_scalogram_polar, load_ticker, log_return_signs,
     rolling_zscore_stats,
 )
 from ss_features.metrics import fit_stats
@@ -37,6 +42,7 @@ from ss_features.walkforward import (
 
 __all__ = [
     'Backbone',
+    'CHANNELS_PER_SCALE',
     'CalendarWindow',
     'Compression',
     'DEFAULT_STOOQ_DIR',
@@ -51,6 +57,7 @@ __all__ = [
     'compress_tiles_2d_dct_zigzag',
     'compress_tiles_2d_dwt',
     'compute_scalogram',
+    'compute_scalogram_polar',
     'fit_stats',
     'load_backbone',
     'load_prices',

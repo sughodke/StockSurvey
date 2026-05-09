@@ -7,7 +7,7 @@ Public API
 - `reconstruct_indicators` : single-train-ticker convenience wrapper.
 - `TickerData`, `load_ticker` : data bundle + loader for one ticker.
 - `build_features_and_targets`, `compute_scalogram`,
-  `build_lagged_features`, `rolling_zscore_stats` : feature builders.
+  `compute_scalogram_polar`, `build_lagged_features` : feature builders.
 - `fit_ols`, `fit_mlp`, `fit_cnn`, `fit_cnn_multihead` : decoder fits.
   `fit_cnn_multihead` is what `fit_and_evaluate` actually calls when
   `decoder='cnn'` — shared backbone, per-target heads.
@@ -24,8 +24,8 @@ from replay.features import (
     build_features_and_targets,
     build_lagged_features,
     compute_scalogram,
+    compute_scalogram_polar,
     load_ticker,
-    rolling_zscore_stats,
 )
 from ss_features.metrics import fit_stats  # re-exported for back-compat
 from replay.plot import plot_reconstruction
@@ -41,6 +41,7 @@ __all__ = [
     'build_features_and_targets',
     'build_lagged_features',
     'compute_scalogram',
+    'compute_scalogram_polar',
     'fit_and_evaluate',
     'fit_and_evaluate_ssl',
     'fit_cnn',
@@ -53,5 +54,4 @@ __all__ = [
     'main',
     'plot_reconstruction',
     'reconstruct_indicators',
-    'rolling_zscore_stats',
 ]

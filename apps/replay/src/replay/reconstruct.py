@@ -96,8 +96,7 @@ def fit_and_evaluate(
             raise ValueError(
                 f'ticker {d.name!r} has {d.features.shape[1]} features but '
                 f'train ticker {train_data[0].name!r} has {n_features}; '
-                'feature shapes must match (same scales, window_cols, '
-                'include_zscore_stats).')
+                'feature shapes must match (same scales, window_cols).')
 
     # Pool train rows.
     X_pools = [d.features[d.valid] for d in train_data]
@@ -400,8 +399,6 @@ def reconstruct_indicators(
     lookback: int,
     rsi_n: int, macd_fast: int, macd_slow: int, macd_signal: int,
     window_cols: int = 1,
-    include_zscore_stats: bool = False,
-    include_returns: bool = False,
     decoder: str = 'linear',
     mlp_hidden: int = 128, mlp_layers: int = 2, mlp_steps: int = 2000,
     cnn_hidden: int = 64, cnn_kernel: int = 5,
@@ -419,8 +416,6 @@ def reconstruct_indicators(
     """
     feat_kwargs = dict(
         scales=scales, lookback=lookback, window_cols=window_cols,
-        include_zscore_stats=include_zscore_stats,
-        include_returns=include_returns, decoder=decoder,
         rsi_n=rsi_n, macd_fast=macd_fast, macd_slow=macd_slow,
         macd_signal=macd_signal)
     train_features, train_gt, train_valid, train_grids = (

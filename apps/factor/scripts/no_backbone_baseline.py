@@ -27,7 +27,6 @@ LOAD_KW = dict(
     stooq_dir=None, kaggle_dir=None, use_yahoo=True,
     start=START, end=END,
     scales=list(ALL_SCALES), lookback=LOOKBACK, window_cols=WINDOW_COLS,
-    include_zscore_stats=True, include_returns=True, decoder='cnn',
     rsi_n=7, macd_fast=12, macd_slow=26, macd_signal=9,
     vol_window=20,
 )

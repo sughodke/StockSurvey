@@ -4,7 +4,13 @@ from __future__ import annotations
 
 import numpy as np
 
-from ss_wavelets import ALL_SCALES, causal_cwt, precompute_windows
+from ss_wavelets import (
+    ALL_SCALES,
+    causal_cwt,
+    causal_cwt_gaussian,
+    causal_cwt_morlet,
+    precompute_windows,
+)
 
 
 def test_all_scales_monotone_and_complete():
@@ -60,6 +66,66 @@ def test_causal_cwt_impulse_response_is_one_sided():
     # We allow a small slack because the rolling normalization smears the
     # impulse across the lookback window.
     assert nz.max() <= impulse_at + points + 20
+
+
+def test_causal_cwt_morlet_shape_and_dtype():
+    rng = np.random.default_rng(10)
+    prices = np.cumsum(rng.standard_normal((300, 4)), axis=0) + 100
+    coeffs = causal_cwt_morlet(prices, [5, 21, 90], lookback=120)
+    assert coeffs.shape == (3, 300, 4)
+    assert coeffs.dtype == np.complex64
+    assert np.all(np.isfinite(coeffs.view(np.float32)))
+
+
+def test_causal_cwt_morlet_strict_causality():
+    rng = np.random.default_rng(11)
+    prices = np.cumsum(rng.standard_normal((250, 1)), axis=0) + 100
+    coeffs_full = causal_cwt_morlet(prices, [5, 21, 90], lookback=60)
+
+    for cut in (50, 100, 150, 200):
+        perturbed = prices.copy()
+        perturbed[cut:] += 10.0
+        coeffs_pert = causal_cwt_morlet(perturbed, [5, 21, 90], lookback=60)
+        np.testing.assert_allclose(
+            coeffs_full[:, :cut, :].view(np.float32),
+            coeffs_pert[:, :cut, :].view(np.float32),
+            rtol=1e-4, atol=1e-4,
+            err_msg=f'morlet leakage at cut={cut}')
+
+
+def test_causal_cwt_gaussian_shape_and_real():
+    rng = np.random.default_rng(12)
+    series = np.cumsum(rng.standard_normal((300, 2)) * 0.01, axis=0)
+    coeffs = causal_cwt_gaussian(series, [5, 21, 90])
+    assert coeffs.shape == (3, 300, 2)
+    assert coeffs.dtype == np.float32
+    assert np.all(np.isfinite(coeffs))
+
+
+def test_causal_cwt_gaussian_strict_causality():
+    rng = np.random.default_rng(13)
+    series = np.cumsum(rng.standard_normal((250, 1)) * 0.01, axis=0)
+    coeffs_full = causal_cwt_gaussian(series, [5, 21, 90])
+    for cut in (50, 100, 150, 200):
+        perturbed = series.copy()
+        perturbed[cut:] += 1.0
+        coeffs_pert = causal_cwt_gaussian(perturbed, [5, 21, 90])
+        np.testing.assert_allclose(
+            coeffs_full[:, :cut, :], coeffs_pert[:, :cut, :],
+            rtol=1e-4, atol=1e-4,
+            err_msg=f'gaussian leakage at cut={cut}')
+
+
+def test_causal_cwt_gaussian_recovers_local_mean():
+    """Gaussian-CWT of a constant signal must recover that constant
+    (up to the L2 normalization). Validates the lowpass behaviour."""
+    series = np.ones((200, 1)) * 5.0
+    scale = 21
+    coeffs = causal_cwt_gaussian(series, [scale])[0, :, 0]
+    # After warmup the convolution sums kernel coefficients * 5; it
+    # should be a stable nonzero value, monotonic in the warmup.
+    assert coeffs[-1] > 0
+    assert abs(coeffs[-1] - coeffs[-50]) / abs(coeffs[-1]) < 1e-3
 
 
 def test_precompute_windows_shape_and_arithmetic():

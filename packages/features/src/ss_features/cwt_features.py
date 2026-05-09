@@ -1,12 +1,29 @@
 """CWT-slice feature builders shared between apps/notebook (replay
 trainer) and apps/factor (cross-sectional scorer).
 
-Per-bar features are a stack of channels lag-windowed over the trailing
-`K = window_cols` bars. Channels always include the CWT (signed coeffs,
-power) per scale; optionally also include the rolling z-norm stats
-(mu, std) and a raw daily-return channel. Each addition is one CLI flag
-and one extra entry in the channel stack, so the CNN reshape from
-`(n, K * C)` → `(n, K, C)` works uniformly.
+Per-bar features are a stack of 7 channels per scale, lag-windowed
+over the trailing `K = window_cols` bars:
+
+  1. `|c|`            Morlet amplitude (envelope; vol / extrema)
+  2. `|c|^2`          Morlet power (squared-magnitude convenience)
+  3. `cos(arg(c))`    Morlet phase x (unit-circle representation)
+  4. `sin(arg(c))`    Morlet phase y
+  5. `g`              Gaussian (scaling-function) coeff — lowpass /
+                      trend companion that recovers the DC content
+                      the bandpass Morlet structurally cannot carry.
+                      Computed on cumulative log-returns so growth
+                      stays additive across train→val.
+  6. `g^2`            Gaussian power
+  7. `log_L2_amp`     Per-scale log-L2 of `|c|` over the trailing
+                      K-bar slice. Recovers the realized-vol-by-scale
+                      spectrum that the rolling z-norm inside the
+                      CWT strips.
+
+`channels_per_lag(n_scales) = 7 * n_scales`. The CNN reshape
+`(n, K * C) → (n, K, C)` works uniformly. No optional flags — the
+prior `--include-zscore-stats / --include-returns / --include-return-sign`
+channels are subsumed by the Gaussian channel + log_L2_amp + the
+phase pair (which carries return direction).
 
 Lifted out of `replay.features` so factor's scripts can
 build the same input bundle without depending on apps/notebook.
@@ -22,7 +39,15 @@ from ss_indicators import (
     cci, cci_strided, drawdown_from_high, macd, rolling_kurt, rolling_skew,
     rsi, rsi_strided, vol_norm_momentum,
 )
-from ss_wavelets import causal_cwt
+from ss_wavelets import (
+    DEFAULT_MORLET_OMEGA0, causal_cwt, causal_cwt_gaussian, causal_cwt_morlet,
+)
+
+
+# Per-scale channel count for the polar Morlet + Gaussian + log-L2
+# stack. Single source of truth used by `channels_per_lag` and the
+# CNN reshape.
+CHANNELS_PER_SCALE: int = 7
 
 
 # 9 reconstruction heads: the original 5 (price + the four canonical
@@ -42,12 +67,78 @@ def compute_scalogram(
     lookback: int,
 ) -> tuple[np.ndarray, np.ndarray]:
     """Return `(coeffs, power)` of shape `(n_scales, n_dates)` from the
-    causal CWT of raw close. `causal_cwt` expects a 2-D `(T, N)` matrix,
-    so we add and squeeze a singleton ticker axis."""
+    real Ricker causal CWT of raw close. Kept for research scripts that
+    still consume the Ricker output directly. `causal_cwt` expects a
+    2-D `(T, N)` matrix, so we add and squeeze a singleton ticker axis.
+    """
     px = prices.astype(np.float32).reshape(-1, 1)
     coeffs_3d = causal_cwt(px, list(map(int, scales)), lookback=lookback)
     coeffs = coeffs_3d[:, :, 0]
     return coeffs, (coeffs ** 2).astype(np.float32)
+
+
+def compute_scalogram_polar(
+    prices: np.ndarray,
+    scales: list[int],
+    *,
+    lookback: int,
+    omega0: float = DEFAULT_MORLET_OMEGA0,
+) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+    """Return `(morlet_abs, morlet_cos, morlet_sin, gaussian)` per scale.
+
+    Each output is `(n_scales, n_dates)` float32. The Morlet path uses
+    today's rolling-z-norm of raw close (level-invariant); the Gaussian
+    path uses cumulative log-returns directly (no z-norm — the lowpass
+    needs DC content, and cumulative log-returns are approximately
+    stationary so growth stays bounded across train→val).
+
+    Phase is returned as the unit-circle pair `(cos, sin)` rather than
+    raw `arg(c) ∈ [-π, π]` to avoid the 2π wrap discontinuity that a
+    CNN cannot smooth over.
+    """
+    px = prices.astype(np.float32).reshape(-1, 1)
+    morlet_3d = causal_cwt_morlet(
+        px, list(map(int, scales)), lookback=lookback, omega0=omega0)
+    c = morlet_3d[:, :, 0]
+    abs_c = np.abs(c).astype(np.float32)
+    # arg(0) = 0 in numpy, which gives (cos, sin) = (1, 0) at zero
+    # coefficients — fine; warmup mask filters those rows out anyway.
+    eps = np.float32(1e-12)
+    safe_abs = np.maximum(abs_c, eps)
+    cos_arg = (c.real.astype(np.float32) / safe_abs)
+    sin_arg = (c.imag.astype(np.float32) / safe_abs)
+
+    log_r = log_returns(prices).astype(np.float64)
+    cum_log_r = np.cumsum(np.nan_to_num(log_r, nan=0.0)).reshape(-1, 1)
+    gaussian_3d = causal_cwt_gaussian(cum_log_r, list(map(int, scales)))
+    gaussian = gaussian_3d[:, :, 0].astype(np.float32)
+
+    return abs_c, cos_arg, sin_arg, gaussian
+
+
+def _rolling_log_l2_amp(
+    abs_c: np.ndarray, window_cols: int,
+) -> np.ndarray:
+    """Per-bar per-scale log-L2 of `|c|` over the trailing K-bar slice.
+
+    Input `abs_c` is `(n_scales, n_dates)`. Returns float32 of the same
+    shape: `out[s, t] = log(sqrt(sum_{k=0..K-1} abs_c[s, t-k]^2) + eps)`.
+    First `K - 1` bars are filled with NaN (warmup not satisfied); the
+    valid mask downstream catches them.
+    """
+    n_scales, n_dates = abs_c.shape
+    sq = (abs_c.astype(np.float64)) ** 2
+    cs = np.cumsum(np.concatenate(
+        [np.zeros((n_scales, 1)), sq], axis=1), axis=1)
+    # window_sum[s, t] = sum_{k=t-K+1..t} sq[s, k] for t >= K-1.
+    out = np.full((n_scales, n_dates), np.nan, dtype=np.float32)
+    if window_cols <= n_dates:
+        window_sum = cs[:, window_cols:] - cs[:, :n_dates - window_cols + 1]
+        # window_sum has shape (n_scales, n_dates - K + 1) and aligns
+        # to t = K-1, K, ..., n_dates-1.
+        out[:, window_cols - 1:] = np.log(
+            np.sqrt(window_sum) + 1e-12).astype(np.float32)
+    return out
 
 
 def rolling_zscore_stats(
@@ -55,9 +146,9 @@ def rolling_zscore_stats(
 ) -> tuple[np.ndarray, np.ndarray]:
     """Causal rolling mean + std over the trailing `lookback` bars.
 
-    Mirrors the rolling z-norm inside `ss_wavelets.causal_cwt` so the
-    decoder can be handed back the level information that the
-    z-normalization strips out before the Ricker convolution.
+    Retained as a standalone utility for research scripts; no longer
+    consumed by `build_features_and_targets` (the Gaussian channel
+    subsumes the level signal).
     """
     n = len(prices)
     cs = np.cumsum(np.concatenate([[0.0], prices.astype(np.float64)]))
@@ -86,23 +177,13 @@ def log_return_signs(prices: np.ndarray) -> np.ndarray:
     return np.sign(log_returns(prices))
 
 
-def channels_per_lag(
-    n_scales: int, *, include_zscore_stats: bool, include_returns: bool,
-    include_return_sign: bool = False,
-) -> int:
+def channels_per_lag(n_scales: int) -> int:
     """Per-lag channel count used by the CNN reshape `(n, K, C)`.
 
-    `include_returns` and `include_return_sign` are mutually exclusive
-    — they occupy the same channel slot but with different content
-    (raw log return vs sign-of-return). At most one may be True.
+    Constant `CHANNELS_PER_SCALE * n_scales` — the polar Morlet (4) +
+    Gaussian (2) + log-L2-amp (1) stack has no optional channels.
     """
-    if include_returns and include_return_sign:
-        raise ValueError('include_returns and include_return_sign are '
-                         'mutually exclusive — they share a channel slot.')
-    return (2 * n_scales
-            + (2 if include_zscore_stats else 0)
-            + (1 if include_returns else 0)
-            + (1 if include_return_sign else 0))
+    return CHANNELS_PER_SCALE * n_scales
 
 
 def build_lagged_features(
@@ -146,7 +227,6 @@ def _build_per_bar_tiles(
 def build_features_and_targets(
     prices: np.ndarray, *,
     scales: list[int], lookback: int, window_cols: int,
-    include_zscore_stats: bool, include_returns: bool, decoder: str,
     rsi_n: int, macd_fast: int, macd_slow: int, macd_signal: int,
     vol_window: int = 20,
     cci_n: int = 20,
@@ -164,12 +244,18 @@ def build_features_and_targets(
     drawdown_n_grid: tuple[int, ...] = (),
     skew_n_grid: tuple[int, ...] = (),
     kurt_n_grid: tuple[int, ...] = (),
-    include_return_sign: bool = False,
+    omega0: float = DEFAULT_MORLET_OMEGA0,
     compression: Compression | None = None,
 ) -> tuple[np.ndarray, dict[str, np.ndarray], np.ndarray,
            dict[str, np.ndarray]]:
     """Returns `(features, gt-by-target, valid-mask, target-grids)` for
     one price series.
+
+    Per-scale channel stack (7 channels, all lag-windowed): polar Morlet
+    `|c|, |c|^2, cos(arg), sin(arg)` over rolling-z-normed prices, then
+    Gaussian-CWT `g, g^2` over cumulative log-returns, then a per-bar
+    log-L2 of `|c|` over the trailing K-bar slice (one channel per
+    scale). See module docstring.
 
     `valid` is the AND of: warm-up complete (max of CWT lookback and
     window-cols), feature row finite, and every target finite at that
@@ -190,17 +276,25 @@ def build_features_and_targets(
     anchor target in `gt['<x>']` is what plotting/stats compare against,
     so each conditioned head must be evaluated at its anchor during
     prediction.
-
-    `decoder` is accepted for backwards compatibility but no longer
-    gates which channels can be combined — every channel is now lag-
-    windowed, so the CNN reshape works regardless of which optional
-    channels are active.
     """
-    del decoder  # all channel combinations are CNN-compatible
-    if include_returns and include_return_sign:
-        raise ValueError('include_returns and include_return_sign are '
-                         'mutually exclusive — they share a channel slot.')
-    coeffs, power = compute_scalogram(prices, scales, lookback=lookback)
+    morlet_abs, morlet_cos, morlet_sin, gauss = compute_scalogram_polar(
+        prices, scales, lookback=lookback, omega0=omega0)
+    morlet_pow = (morlet_abs ** 2).astype(np.float32)
+    gauss_pow = (gauss ** 2).astype(np.float32)
+    log_l2_amp = _rolling_log_l2_amp(morlet_abs, window_cols)
+
+    # All seven per-scale channel stacks have the same `(n_scales,
+    # n_dates)` shape, so the CNN reshape `(n, K, C=7*n_scales)` works
+    # uniformly. Channel order matches the module docstring.
+    channels: list[np.ndarray] = [
+        morlet_abs,
+        morlet_pow,
+        morlet_cos,
+        morlet_sin,
+        gauss,
+        gauss_pow,
+        log_l2_amp,
+    ]
     if compression is not None:
         if compression.kind != 'dwt':
             raise NotImplementedError(
@@ -208,48 +302,20 @@ def build_features_and_targets(
                 'into the feature builder; only dwt is supported (DCT '
                 'zigzag-keep-top-k loses the (K, C) tile structure the '
                 'CNN reshape relies on and needs a separate decoder path)')
-        if include_zscore_stats or include_returns or include_return_sign:
-            raise ValueError(
-                'compression is CWT-only; pass --no-include-zscore-stats / '
-                '--no-include-returns / --no-include-return-sign when '
-                '--compress is set (optional channels have no scale axis '
-                'and would need a separate handling path)')
-        # Per-bar tile compression for each CWT-derived channel stack
-        # independently. Tiles are (n_dates, K, S); after L levels of
-        # 2D DWT keep-LL each becomes (n_dates, K', S'); concat along
-        # the channel axis gives (n_dates, K', 2*S') which flattens to
-        # the feature row the downstream CNN reshape expects.
-        coeff_tiles = _build_per_bar_tiles(
-            coeffs.astype(np.float32), window_cols)
-        power_tiles = _build_per_bar_tiles(
-            power.astype(np.float32), window_cols)
-        coeff_ll = compress_tiles_2d_dwt(coeff_tiles, compression)
-        power_ll = compress_tiles_2d_dwt(power_tiles, compression)
-        # NaN through the LL: the DWT smears warmup NaNs across the LL
-        # band, so any tile that started NaN ends up NaN somewhere — the
-        # finite-row mask below catches it correctly.
+        # Each per-scale channel becomes a `(n_dates, K, S)` tile stack;
+        # 2D DWT keep-LL compresses to `(n_dates, K', S')` per channel;
+        # concat along S gives `(n_dates, K', CHANNELS_PER_SCALE * S')`.
+        compressed_blocks = []
+        for ch in channels:
+            tiles = _build_per_bar_tiles(ch.astype(np.float32), window_cols)
+            ll = compress_tiles_2d_dwt(tiles, compression)
+            compressed_blocks.append(ll)
         compressed = np.concatenate(
-            [coeff_ll, power_ll], axis=-1).astype(np.float32)
+            compressed_blocks, axis=-1).astype(np.float32)
         n_dates = compressed.shape[0]
         features = compressed.reshape(n_dates, -1)
     else:
-        # All channels kept in float32 — float64 was a 2x memory tax
-        # with no accuracy benefit (downstream JAX trainer casts to
-        # float32 anyway).
-        channels: list[np.ndarray] = [
-            coeffs.astype(np.float32),
-            power.astype(np.float32),
-        ]
-        if include_zscore_stats:
-            mu, std = rolling_zscore_stats(prices, lookback=lookback)
-            channels.append(mu[None, :].astype(np.float32))
-            channels.append(std[None, :].astype(np.float32))
-        if include_returns:
-            channels.append(log_returns(prices)[None, :].astype(np.float32))
-        elif include_return_sign:
-            channels.append(
-                log_return_signs(prices)[None, :].astype(np.float32))
-        channels_cn = np.vstack(channels)
+        channels_cn = np.vstack([ch.astype(np.float32) for ch in channels])
         features = build_lagged_features(channels_cn, window_cols)
 
     rsi_gt = rsi(prices, n=rsi_n).astype(np.float64)
@@ -362,7 +428,6 @@ def load_ticker(
     use_yahoo: bool = False,
     start: str | None, end: str | None,
     scales: list[int], lookback: int, window_cols: int,
-    include_zscore_stats: bool, include_returns: bool, decoder: str,
     rsi_n: int, macd_fast: int, macd_slow: int, macd_signal: int,
     vol_window: int = 20,
     cci_n: int = 20,
@@ -380,7 +445,7 @@ def load_ticker(
     drawdown_n_grid: tuple[int, ...] = (),
     skew_n_grid: tuple[int, ...] = (),
     kurt_n_grid: tuple[int, ...] = (),
-    include_return_sign: bool = False,
+    omega0: float = DEFAULT_MORLET_OMEGA0,
     compression: Compression | None = None,
 ) -> TickerData:
     """Load one ticker and pre-compute features + targets + valid mask."""
@@ -392,15 +457,12 @@ def load_ticker(
     dates = np.asarray(series.index)
     features, targets, valid, target_grids = build_features_and_targets(
         prices, scales=scales, lookback=lookback, window_cols=window_cols,
-        include_zscore_stats=include_zscore_stats,
-        include_returns=include_returns, decoder=decoder,
         rsi_n=rsi_n, macd_fast=macd_fast, macd_slow=macd_slow,
         macd_signal=macd_signal,
         vol_window=vol_window,
         cci_n=cci_n,
         momentum_n=momentum_n, drawdown_n=drawdown_n,
         skew_n=skew_n, kurt_n=kurt_n,
-        include_return_sign=include_return_sign,
         rsi_n_grid=rsi_n_grid, rsi_w_grid=rsi_w_grid,
         cci_n_grid=cci_n_grid, cci_w_grid=cci_w_grid,
         vol_n_grid=vol_n_grid, macd_fast_grid=macd_fast_grid,
@@ -408,6 +470,7 @@ def load_ticker(
         drawdown_n_grid=drawdown_n_grid,
         skew_n_grid=skew_n_grid,
         kurt_n_grid=kurt_n_grid,
+        omega0=omega0,
         compression=compression)
     return TickerData(name, prices, dates, features, targets, valid,
                       target_grids=target_grids)

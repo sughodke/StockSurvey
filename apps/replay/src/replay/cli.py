@@ -123,9 +123,6 @@ def _run_ssl(args, train_data, val_data, *,
           f'{len(scales)} scales, lookback={args.lookback}, '
           f'window_cols={args.window_cols}, '
           f'{compress_str}'
-          f'zscore_stats={args.include_zscore_stats}, '
-          f'returns={args.include_returns}, '
-          f'return_sign={args.include_return_sign}, '
           f'decoder=masked-ae, mask_ratio={args.mask_ratio}, '
           f'n_features={n_features} '
           f'(channels_per_lag={cnn_channels_per_lag})')
@@ -169,9 +166,6 @@ def _run_ssl(args, train_data, val_data, *,
         'compress_levels': args.compress_levels,
         'compress_wavelet': args.compress_wavelet,
         'compress_pad_mode': args.compress_pad_mode,
-        'include_zscore_stats': args.include_zscore_stats,
-        'include_returns': args.include_returns,
-        'include_return_sign': args.include_return_sign,
         'lookback': args.lookback,
         'scales': scales,
         'extra_high_freq_scales': sorted(extra_scales),
@@ -245,44 +239,15 @@ def main() -> None:
                              'closer to the full CWT matrix and approaches the '
                              'invertibility ceiling. Cost is O(K) extra '
                              'features per bar.')
-    parser.add_argument('--include-zscore-stats', action='store_true',
-                        help='Append the causal rolling mean and std (the same '
-                             'rolling z-norm stats `causal_cwt` strips out '
-                             'before convolution) as 2 extra channels per lag. '
-                             'Restores level information that the CWT '
-                             'discards — turns price R² from ~0 into '
-                             'near-perfect, and recovers level-dependent '
-                             'indicators (Bollinger middle band, SMAs, Fib '
-                             'levels). Lag-windowed so works with --decoder cnn.')
-    parser.add_argument('--include-returns', action='store_true',
-                        help='Append per-bar log returns as one extra channel '
-                             'per lag. Bypasses the CWT band-limit at the '
-                             'high-frequency end — daily-resolution sign info '
-                             'the wavelet basis can\'t represent. Closes the '
-                             'short-RSI / Corwin-Schultz encoding gap.')
-    parser.add_argument('--include-return-sign', action='store_true',
-                        help='Append per-bar SIGN of log return ({-1, 0, +1}) '
-                             'as one channel per lag, in the SAME slot as '
-                             '--include-returns (mutually exclusive). Strips '
-                             'magnitude so the model still has a directional '
-                             'anchor but is forced to extract magnitude from '
-                             'the wavelets. Use to test whether the indicator-'
-                             'shape bias (heads collapse onto the raw `return` '
-                             'channel; see attention plot 2026-05-01) goes '
-                             'away when the magnitude shortcut is removed.')
     parser.add_argument('--compress', choices=['none', 'dwt'], default='none',
-                        help='Per-bar 2D compression of the (K, n_scales) '
-                             'CWT tile before it reaches the CNN. dwt = L '
-                             'levels of 2D wavelet decomposition, keep LL '
-                             'approximation only — output tile is '
-                             '(ceil(K/2^L), ceil(S/2^L)). Causality preserved '
-                             'because each tile contains only past bars. '
-                             'CWT-only — requires --include-zscore-stats / '
-                             '--include-returns / --include-return-sign all '
-                             'off. DCT zigzag-keep-top-k is a planned '
-                             'follow-up but loses the (K, C) tile structure '
-                             'so the CNN reshape would need a flat-input '
-                             'branch.')
+                        help='Per-bar 2D compression of each `(K, n_scales)` '
+                             'channel tile before it reaches the CNN. dwt = '
+                             'L levels of 2D wavelet decomposition, keep LL '
+                             'approximation only — output tile per channel '
+                             'is `(ceil(K/2^L), ceil(S/2^L))`. Causality '
+                             'preserved because each tile contains only past '
+                             'bars. Applied uniformly across all 7 per-scale '
+                             'channels (Morlet polar + Gaussian + log-L2-amp).')
     parser.add_argument('--compress-levels', type=int, default=1,
                         help='DWT levels for --compress dwt. Output K and '
                              'scale axes shrink by 2^L each. Default 1.')
@@ -542,18 +507,9 @@ def main() -> None:
     extra_scales = [int(s) for s in _split_tickers(args.extra_high_freq_scales)]
     if any(s < 1 for s in extra_scales):
         parser.error('--extra-high-freq-scales must be positive integers')
-    if args.include_returns and args.include_return_sign:
-        parser.error('--include-returns and --include-return-sign are '
-                     'mutually exclusive — they share the same channel slot.')
     scales = sorted(set(extra_scales) | set(ALL_SCALES))
 
     if args.compress != 'none':
-        if (args.include_zscore_stats or args.include_returns
-                or args.include_return_sign):
-            parser.error(
-                '--compress is CWT-only; drop --include-zscore-stats / '
-                '--include-returns / --include-return-sign (optional '
-                'channels have no scale axis to 2D-DWT over)')
         compression = Compression(
             kind=args.compress, levels=args.compress_levels,
             wavelet=args.compress_wavelet, pad_mode=args.compress_pad_mode)
@@ -675,10 +631,6 @@ def main() -> None:
         start=args.start, end=args.end,
         scales=scales, lookback=args.lookback,
         window_cols=args.window_cols,
-        include_zscore_stats=args.include_zscore_stats,
-        include_returns=args.include_returns,
-        include_return_sign=args.include_return_sign,
-        decoder=args.decoder,
         rsi_n=args.rsi_n, macd_fast=args.macd_fast,
         macd_slow=args.macd_slow, macd_signal=args.macd_signal,
         vol_window=args.vol_window,
@@ -753,9 +705,6 @@ def main() -> None:
           f'{len(scales)} scales, lookback={args.lookback}, '
           f'window_cols={args.window_cols}, '
           f'{compress_str}'
-          f'zscore_stats={args.include_zscore_stats}, '
-          f'returns={args.include_returns}, '
-          f'return_sign={args.include_return_sign}, '
           f'decoder={args.decoder}, targets={",".join(targets)}, '
           f'n_features={n_features} '
           f'(channels_per_lag={cnn_channels_per_lag})')
@@ -784,9 +733,6 @@ def main() -> None:
         macd_slow=args.macd_slow, macd_signal=args.macd_signal,
         n_features=n_features, decoder=args.decoder,
         window_cols=args.window_cols,
-        include_zscore_stats=args.include_zscore_stats,
-        include_returns=args.include_returns,
-        include_return_sign=args.include_return_sign,
         vol_window=args.vol_window,
         cci_n=args.cci_n,
         momentum_n=args.momentum_n, drawdown_n=args.drawdown_n,
@@ -807,9 +753,6 @@ def main() -> None:
             macd_slow=args.macd_slow, macd_signal=args.macd_signal,
             n_features=n_features, decoder=args.decoder,
             window_cols=args.window_cols,
-            include_zscore_stats=args.include_zscore_stats,
-            include_returns=args.include_returns,
-            include_return_sign=args.include_return_sign,
             vol_window=args.vol_window,
             cci_n=args.cci_n,
             momentum_n=args.momentum_n, drawdown_n=args.drawdown_n,
@@ -838,9 +781,6 @@ def main() -> None:
         'compress_levels': args.compress_levels,
         'compress_wavelet': args.compress_wavelet,
         'compress_pad_mode': args.compress_pad_mode,
-        'include_zscore_stats': args.include_zscore_stats,
-        'include_returns': args.include_returns,
-        'include_return_sign': args.include_return_sign,
         'lookback': args.lookback,
         'scales': scales,
         'extra_high_freq_scales': sorted(extra_scales),
