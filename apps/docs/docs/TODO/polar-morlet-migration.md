@@ -112,7 +112,7 @@ signal — empirical question.
 
 ## `apps/relational` (live trading) — STRATEGY CHANGE, all six checkpoints
 
-### Status — partial (analog only) — 2026-05-09
+### Status — analog migrated, gate FAILED, halt extension — 2026-05-09
 
 - ✅ `ss_features.causal_polar_morlet_matrix` — matrix-form polar
   bundle helper added (4 channels per scale, see API note above).
@@ -139,22 +139,37 @@ signal — empirical question.
     - Modal: `uvx modal run apps/relational/scripts/modal/
       relational_morlet_phase2.py` (after the
       `prep_phase2_prices.py` prep step)
-- ⏳ **Validation gate (in flight):** Modal A/B running on Phase-2
-  21-ticker pool, top-10, rebal-20d, 10bps commission. Outputs land
-  at `Output/relational-morlet-phase2-{equity.png, stats.txt,
-  walkforward.csv, walkforward.txt}`. Bar to clear: val Sharpe ≥
-  the Ricker analog cross_ticker baseline of 1.146.
-- ❌ Other five strategies (`empirical`, `gmm`, `farthest`,
-  `diversified`, `velocity`) — not yet plumbed; their `weights_*`
-  builders still take `coeffs` directly from the cache without a
-  `wavelet` arg. Migrate one at a time after analog clears its gate.
-- ❌ Canonical checkpoint regen — `Output/relational-{strategy}.json`
-  files all stay on Ricker until per-strategy walk-forwards sign off.
+- ❌ **Validation gate FAILED for `analog`** — see
+  [findings/relational-morlet-failure](../findings/relational-morlet-failure.md)
+  for the full numbers and mechanism hypotheses. Train +0.221 /
+  val −0.310 vs Ricker baseline (Ricker: train 1.019 → val 1.146;
+  Morlet: train 1.240 → val 0.836). Classic train>val sign-flip
+  overfit — the polar bundle's extra channels improve fit on
+  2013-2020 but hurt OOS in 2021-2025. Operational verdict:
+  `Output/relational-analog.json` stays on Ricker; do not regenerate.
+- ⏸️ **Halt extension to other strategies.** The original plan to
+  plumb wavelet through `empirical`, `gmm`, `farthest`,
+  `diversified`, `velocity` is deferred. Expectation given the analog
+  result: most or all will exhibit the same overfit pattern (the
+  bundle adds DOF that the small Phase-2 universe doesn't have data
+  to constrain). A cheaper next experiment — rerun the analog A/B on
+  `stooq_us_long` (N=312, 15× larger candidate pool) — is the
+  recommended way to validate the overfit hypothesis before
+  committing more plumbing work.
+- N/A Canonical checkpoint regen — `Output/relational-{strategy}.json`
+  files all stay on Ricker.
 
 Migration scope deviated from the prescribed "regime first" decision
 order — the user asked the relational migration first since `analog`
 is Phase-2's canonical winner and the SSL bundle is independently
-useful there. Regime is still pending.
+useful there. Regime is still pending; given that the analog gate
+failed, the regime migration's expected value drops too — Morlet
+provides phase information the SSL CNN can use, but for the regime
+trainer's KL/JS divergence math the only thing that matters is the
+power spectrum, and Morlet `|c|^2` will drift on the same kind of
+narrowband / DOF arguments that broke analog. Regime migration is
+not blocked, but should be approached with a similar
+"single-strategy A/B before committing canonical" stance.
 
 Files (every CWT-touching scoring module):
 

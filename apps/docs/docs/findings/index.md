@@ -25,3 +25,4 @@ Default eval window unless otherwise stated: 2013-01-29 → 2025-12-11,
 
 - [Analog cross_ticker val edge collapses off mega-caps](relational-universe-shift.md)
 - [DWT-L1 fingerprint compression fails OOS across all four distance scorers](relational-dwt-failure.md)
+- [Polar Morlet input bundle fails the Phase-2 OOS gate for analog k-NN](relational-morlet-failure.md)
