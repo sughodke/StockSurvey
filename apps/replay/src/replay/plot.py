@@ -23,6 +23,10 @@ def plot_reconstruction(
     include_return_sign: bool = False,
     vol_window: int = 20,
     cci_n: int = 20,
+    momentum_n: int = 21,
+    drawdown_n: int = 63,
+    skew_n: int = 63,
+    kurt_n: int = 63,
 ) -> plt.Figure:
     panel_specs = {
         'price': ('Close', None),
@@ -30,6 +34,12 @@ def plot_reconstruction(
         'macd': (f'MACD({macd_fast},{macd_slow},{macd_signal}) line', (0,)),
         'vol': (f'RealizedVol({vol_window})', None),
         'cci': (f'CCI({cci_n})', (-100, 0, 100)),
+        # Lie-shape heads: hline guides match each statistic's neutral
+        # value (0 for momentum/drawdown/skew, 0 for excess kurt).
+        'momentum': (f'VolNormMom({momentum_n})', (0,)),
+        'drawdown': (f'Drawdown({drawdown_n})', (0,)),
+        'skew': (f'Skew({skew_n})', (0,)),
+        'kurt': (f'ExcessKurt({kurt_n})', (0,)),
     }
     panels = [(key, *panel_specs[key]) for key in panel_specs if key in gt]
 

@@ -477,6 +477,40 @@ def main() -> None:
                              'are derived to keep the canonical MACD ratios '
                              'while the model sweeps a single timescale axis. '
                              'cond_dim=1. Anchor comes from --macd-fast.')
+    # ----- Lie-shape heads (added 2026-05-09) -----
+    # Each is FiLM-conditioned over a single horizon `n`. Defaults match
+    # `apps/lie.ticker_features.TickerFeatureConfig`. CNN-only.
+    parser.add_argument('--momentum-n', type=int, default=21,
+                        help='Anchor horizon for the vol-norm-momentum head. '
+                             'Default 21 (one trading month). The 1-D ground-'
+                             'truth target uses this; the FiLM head conditions '
+                             'on it at predict time when --momentum-n-grid is '
+                             'empty.')
+    parser.add_argument('--momentum-n-grid', default='',
+                        help='Comma-separated horizons (e.g. "5,10,21,42,63") '
+                             'enabling FiLM conditioning on the momentum head. '
+                             'cond_dim=1. CNN-only.')
+    parser.add_argument('--drawdown-n', type=int, default=63,
+                        help='Anchor horizon for the drawdown head. Default '
+                             '63 (one trading quarter).')
+    parser.add_argument('--drawdown-n-grid', default='',
+                        help='Comma-separated horizons (e.g. "21,42,63,126") '
+                             'enabling FiLM conditioning on the drawdown head. '
+                             'cond_dim=1. CNN-only.')
+    parser.add_argument('--skew-n', type=int, default=63,
+                        help='Anchor horizon for the trailing-return-skew head. '
+                             'Default 63.')
+    parser.add_argument('--skew-n-grid', default='',
+                        help='Comma-separated horizons enabling FiLM '
+                             'conditioning on the skew head. cond_dim=1. '
+                             'CNN-only.')
+    parser.add_argument('--kurt-n', type=int, default=63,
+                        help='Anchor horizon for the trailing-return-kurt '
+                             'head. Default 63.')
+    parser.add_argument('--kurt-n-grid', default='',
+                        help='Comma-separated horizons enabling FiLM '
+                             'conditioning on the kurt head. cond_dim=1. '
+                             'CNN-only.')
     parser.add_argument('--output-dir', default='Output',
                         help='Where reconstruction figures are saved. '
                              'matplotlib never opens an interactive window.')
@@ -582,11 +616,37 @@ def main() -> None:
         parser.error(f'--cci-anchor-w={args.cci_anchor_w} not in '
                      f'--cci-w-grid={list(cci_w_grid)}')
 
+    # Lie-shape head grids: each is 1-axis (`n` only). Same min-length and
+    # cnn-only rules the other 1-D heads (vol, macd) follow.
+    momentum_n_grid = tuple(int(s) for s in _split_tickers(args.momentum_n_grid))
+    if momentum_n_grid and any(n < 2 for n in momentum_n_grid):
+        parser.error('--momentum-n-grid values must be >= 2')
+    if momentum_n_grid and args.decoder != 'cnn':
+        parser.error('--momentum-n-grid requires --decoder cnn')
+    drawdown_n_grid = tuple(int(s) for s in _split_tickers(args.drawdown_n_grid))
+    if drawdown_n_grid and any(n < 1 for n in drawdown_n_grid):
+        parser.error('--drawdown-n-grid values must be >= 1')
+    if drawdown_n_grid and args.decoder != 'cnn':
+        parser.error('--drawdown-n-grid requires --decoder cnn')
+    skew_n_grid = tuple(int(s) for s in _split_tickers(args.skew_n_grid))
+    if skew_n_grid and any(n < 3 for n in skew_n_grid):
+        parser.error('--skew-n-grid values must be >= 3')
+    if skew_n_grid and args.decoder != 'cnn':
+        parser.error('--skew-n-grid requires --decoder cnn')
+    kurt_n_grid = tuple(int(s) for s in _split_tickers(args.kurt_n_grid))
+    if kurt_n_grid and any(n < 3 for n in kurt_n_grid):
+        parser.error('--kurt-n-grid values must be >= 3')
+    if kurt_n_grid and args.decoder != 'cnn':
+        parser.error('--kurt-n-grid requires --decoder cnn')
+
     # SSL / freeze-backbone validation.
     if args.decoder == 'masked-ae':
         if (rsi_n_grid or rsi_w_grid or cci_n_grid or cci_w_grid
-                or vol_n_grid or macd_fast_grid):
-            parser.error('--rsi-/--cci-/--vol-/--macd- conditioning grids '
+                or vol_n_grid or macd_fast_grid
+                or momentum_n_grid or drawdown_n_grid
+                or skew_n_grid or kurt_n_grid):
+            parser.error('--rsi-/--cci-/--vol-/--macd-/--momentum-/'
+                         '--drawdown-/--skew-/--kurt- conditioning grids '
                          'are not supported with --decoder masked-ae (SSL '
                          'has no per-target heads)')
         if args.freeze_backbone is not None:
@@ -623,9 +683,15 @@ def main() -> None:
         macd_slow=args.macd_slow, macd_signal=args.macd_signal,
         vol_window=args.vol_window,
         cci_n=args.cci_n,
+        momentum_n=args.momentum_n, drawdown_n=args.drawdown_n,
+        skew_n=args.skew_n, kurt_n=args.kurt_n,
         rsi_n_grid=rsi_n_grid, rsi_w_grid=rsi_w_grid,
         cci_n_grid=cci_n_grid, cci_w_grid=cci_w_grid,
         vol_n_grid=vol_n_grid, macd_fast_grid=macd_fast_grid,
+        momentum_n_grid=momentum_n_grid,
+        drawdown_n_grid=drawdown_n_grid,
+        skew_n_grid=skew_n_grid,
+        kurt_n_grid=kurt_n_grid,
         compression=compression,
     )
 
@@ -666,6 +732,10 @@ def main() -> None:
         cci_anchor_n=args.cci_n, cci_anchor_w=args.cci_anchor_w,
         vol_n_grid=vol_n_grid, vol_anchor_n=args.vol_window,
         macd_fast_grid=macd_fast_grid, macd_anchor_fast=args.macd_fast,
+        momentum_n_grid=momentum_n_grid, momentum_anchor_n=args.momentum_n,
+        drawdown_n_grid=drawdown_n_grid, drawdown_anchor_n=args.drawdown_n,
+        skew_n_grid=skew_n_grid, skew_anchor_n=args.skew_n,
+        kurt_n_grid=kurt_n_grid, kurt_anchor_n=args.kurt_n,
         frozen_backbone_path=args.freeze_backbone,
         use_bf16=not args.cnn_no_bf16,
     )
@@ -718,7 +788,9 @@ def main() -> None:
         include_returns=args.include_returns,
         include_return_sign=args.include_return_sign,
         vol_window=args.vol_window,
-        cci_n=args.cci_n)
+        cci_n=args.cci_n,
+        momentum_n=args.momentum_n, drawdown_n=args.drawdown_n,
+        skew_n=args.skew_n, kurt_n=args.kurt_n)
     fname = Path(args.output_dir) / f'{primary.name}-replay.png'
     fig.savefig(fname, dpi=150)
     plt.close(fig)
@@ -738,7 +810,10 @@ def main() -> None:
             include_zscore_stats=args.include_zscore_stats,
             include_returns=args.include_returns,
             include_return_sign=args.include_return_sign,
-            vol_window=args.vol_window)
+            vol_window=args.vol_window,
+            cci_n=args.cci_n,
+            momentum_n=args.momentum_n, drawdown_n=args.drawdown_n,
+            skew_n=args.skew_n, kurt_n=args.kurt_n)
         val_fname = (Path(args.output_dir) /
                      f'{d.name}-replay-zeroshot-from-{train_tag}.png')
         val_fig.savefig(val_fname, dpi=150)
@@ -780,6 +855,14 @@ def main() -> None:
         'cci_anchor_w': args.cci_anchor_w,
         'vol_n_grid': list(vol_n_grid),
         'macd_fast_grid': list(macd_fast_grid),
+        'momentum_n': args.momentum_n,
+        'momentum_n_grid': list(momentum_n_grid),
+        'drawdown_n': args.drawdown_n,
+        'drawdown_n_grid': list(drawdown_n_grid),
+        'skew_n': args.skew_n,
+        'skew_n_grid': list(skew_n_grid),
+        'kurt_n': args.kurt_n,
+        'kurt_n_grid': list(kurt_n_grid),
         'macd_fast': args.macd_fast,
         'macd_slow': args.macd_slow,
         'macd_signal': args.macd_signal,

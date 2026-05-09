@@ -18,11 +18,21 @@ import numpy as np
 from ss_features.compression import Compression, compress_tiles_2d_dwt
 from ss_features.ticker import TickerData, load_prices
 from ss_features.vol import log_returns, realized_vol
-from ss_indicators import cci, cci_strided, macd, rsi, rsi_strided
+from ss_indicators import (
+    cci, cci_strided, drawdown_from_high, macd, rolling_kurt, rolling_skew,
+    rsi, rsi_strided, vol_norm_momentum,
+)
 from ss_wavelets import causal_cwt
 
 
-TARGET_NAMES = ('price', 'rsi', 'macd', 'vol', 'cci')
+# 9 reconstruction heads: the original 5 (price + the four canonical
+# technical indicators), plus 4 lie-shape heads (momentum, drawdown, skew,
+# kurt) added 2026-05-09 to test whether the rolling-z-normed CWT carries
+# the cross-sectional reversal signal the lie v4 head-to-head exposed.
+TARGET_NAMES = (
+    'price', 'rsi', 'macd', 'vol', 'cci',
+    'momentum', 'drawdown', 'skew', 'kurt',
+)
 
 
 def compute_scalogram(
@@ -140,12 +150,20 @@ def build_features_and_targets(
     rsi_n: int, macd_fast: int, macd_slow: int, macd_signal: int,
     vol_window: int = 20,
     cci_n: int = 20,
+    momentum_n: int = 21,
+    drawdown_n: int = 63,
+    skew_n: int = 63,
+    kurt_n: int = 63,
     rsi_n_grid: tuple[int, ...] = (),
     rsi_w_grid: tuple[int, ...] = (),
     cci_n_grid: tuple[int, ...] = (),
     cci_w_grid: tuple[int, ...] = (),
     vol_n_grid: tuple[int, ...] = (),
     macd_fast_grid: tuple[int, ...] = (),
+    momentum_n_grid: tuple[int, ...] = (),
+    drawdown_n_grid: tuple[int, ...] = (),
+    skew_n_grid: tuple[int, ...] = (),
+    kurt_n_grid: tuple[int, ...] = (),
     include_return_sign: bool = False,
     compression: Compression | None = None,
 ) -> tuple[np.ndarray, dict[str, np.ndarray], np.ndarray,
@@ -241,8 +259,16 @@ def build_features_and_targets(
     price_gt = prices.astype(np.float64)
     vol_gt = realized_vol(prices, window=vol_window)
     cci_gt = cci(prices, n=cci_n).astype(np.float64)
-    gt = {'price': price_gt, 'rsi': rsi_gt, 'macd': macd_gt, 'vol': vol_gt,
-          'cci': cci_gt}
+    momentum_gt = vol_norm_momentum(prices, n=momentum_n)
+    drawdown_gt = drawdown_from_high(prices, n=drawdown_n)
+    skew_gt = rolling_skew(prices, n=skew_n)
+    kurt_gt = rolling_kurt(prices, n=kurt_n)
+    gt = {
+        'price': price_gt, 'rsi': rsi_gt, 'macd': macd_gt, 'vol': vol_gt,
+        'cci': cci_gt,
+        'momentum': momentum_gt, 'drawdown': drawdown_gt,
+        'skew': skew_gt, 'kurt': kurt_gt,
+    }
 
     target_grids: dict[str, np.ndarray] = {}
     if rsi_n_grid:
@@ -297,6 +323,26 @@ def build_features_and_targets(
                               signal=max(2, (f_i * 3) // 4))
             rows.append(line.astype(np.float64))
         target_grids['macd'] = np.stack(rows, axis=0)
+    if momentum_n_grid:
+        # 1-D conditioning over the vol-norm-momentum horizon. cond_dim=1.
+        target_grids['momentum'] = np.stack(
+            [vol_norm_momentum(prices, n=int(n)) for n in momentum_n_grid],
+            axis=0)
+    if drawdown_n_grid:
+        # 1-D conditioning over drawdown lookback. cond_dim=1.
+        target_grids['drawdown'] = np.stack(
+            [drawdown_from_high(prices, n=int(n)) for n in drawdown_n_grid],
+            axis=0)
+    if skew_n_grid:
+        # 1-D conditioning over the trailing-return-skew horizon. cond_dim=1.
+        target_grids['skew'] = np.stack(
+            [rolling_skew(prices, n=int(n)) for n in skew_n_grid],
+            axis=0)
+    if kurt_n_grid:
+        # 1-D conditioning over the trailing-return-kurt horizon. cond_dim=1.
+        target_grids['kurt'] = np.stack(
+            [rolling_kurt(prices, n=int(n)) for n in kurt_n_grid],
+            axis=0)
 
     valid = np.zeros(len(prices), dtype=bool)
     valid[max(lookback, window_cols - 1):] = True
@@ -320,12 +366,20 @@ def load_ticker(
     rsi_n: int, macd_fast: int, macd_slow: int, macd_signal: int,
     vol_window: int = 20,
     cci_n: int = 20,
+    momentum_n: int = 21,
+    drawdown_n: int = 63,
+    skew_n: int = 63,
+    kurt_n: int = 63,
     rsi_n_grid: tuple[int, ...] = (),
     rsi_w_grid: tuple[int, ...] = (),
     cci_n_grid: tuple[int, ...] = (),
     cci_w_grid: tuple[int, ...] = (),
     vol_n_grid: tuple[int, ...] = (),
     macd_fast_grid: tuple[int, ...] = (),
+    momentum_n_grid: tuple[int, ...] = (),
+    drawdown_n_grid: tuple[int, ...] = (),
+    skew_n_grid: tuple[int, ...] = (),
+    kurt_n_grid: tuple[int, ...] = (),
     include_return_sign: bool = False,
     compression: Compression | None = None,
 ) -> TickerData:
@@ -344,10 +398,16 @@ def load_ticker(
         macd_signal=macd_signal,
         vol_window=vol_window,
         cci_n=cci_n,
+        momentum_n=momentum_n, drawdown_n=drawdown_n,
+        skew_n=skew_n, kurt_n=kurt_n,
         include_return_sign=include_return_sign,
         rsi_n_grid=rsi_n_grid, rsi_w_grid=rsi_w_grid,
         cci_n_grid=cci_n_grid, cci_w_grid=cci_w_grid,
         vol_n_grid=vol_n_grid, macd_fast_grid=macd_fast_grid,
+        momentum_n_grid=momentum_n_grid,
+        drawdown_n_grid=drawdown_n_grid,
+        skew_n_grid=skew_n_grid,
+        kurt_n_grid=kurt_n_grid,
         compression=compression)
     return TickerData(name, prices, dates, features, targets, valid,
                       target_grids=target_grids)

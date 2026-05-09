@@ -52,6 +52,14 @@ def fit_and_evaluate(
     vol_anchor_n: int | None = None,
     macd_fast_grid: tuple[int, ...] = (),
     macd_anchor_fast: int | None = None,
+    momentum_n_grid: tuple[int, ...] = (),
+    momentum_anchor_n: int | None = None,
+    drawdown_n_grid: tuple[int, ...] = (),
+    drawdown_anchor_n: int | None = None,
+    skew_n_grid: tuple[int, ...] = (),
+    skew_anchor_n: int | None = None,
+    kurt_n_grid: tuple[int, ...] = (),
+    kurt_anchor_n: int | None = None,
     frozen_backbone_path: str | None = None,
     use_bf16: bool = True,
 ) -> tuple[dict[str, dict[str, dict]], dict[str, dict[str, np.ndarray]]]:
@@ -128,6 +136,13 @@ def fit_and_evaluate(
         ('cci', cci_n_grid, cci_w_grid, cci_anchor_n, cci_anchor_w),
         ('vol', vol_n_grid, (), vol_anchor_n, 1),
         ('macd', macd_fast_grid, (), macd_anchor_fast, 1),
+        # Lie-shape heads (added 2026-05-09): each has only an `n` axis,
+        # so `w_grid` is empty and `anchor_w=1` is a placeholder. Their
+        # FiLM cond_dim is 1 = n / max(n).
+        ('momentum', momentum_n_grid, (), momentum_anchor_n, 1),
+        ('drawdown', drawdown_n_grid, (), drawdown_anchor_n, 1),
+        ('skew', skew_n_grid, (), skew_anchor_n, 1),
+        ('kurt', kurt_n_grid, (), kurt_anchor_n, 1),
     ]:
         if w_grid and not n_grid:
             raise ValueError(

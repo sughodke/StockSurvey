@@ -25,6 +25,9 @@ Indicators
                                    between two 1-D series (deterministic-
                                    indicator analogue of CWT coherence)
   * `fibonacci_retracement`      — support/resistance levels (legacy plot)
+  * `vol_norm_momentum`          — vol-normalized cumulative log-return
+  * `drawdown_from_high`         — log-drawdown from rolling-window high
+  * `rolling_skew`, `rolling_kurt` — return-distribution moments
 """
 
 from ss_indicators.bbands import bbands
@@ -38,8 +41,11 @@ from ss_indicators.divergence import (
     l2_divergence,
     symmetric_kl_divergence,
 )
+from ss_indicators.drawdown import drawdown_from_high
 from ss_indicators.fibonacci import FIB_LEVELS, fibonacci_retracement
 from ss_indicators.macd import macd
+from ss_indicators.moments import rolling_kurt, rolling_skew
+from ss_indicators.momentum import vol_norm_momentum
 from ss_indicators.moving_average import ema, rolling_std, sma
 from ss_indicators.rsi import rsi, rsi_strided, rsi_strided_grid
 from ss_indicators.spread import corwin_schultz_spread
@@ -53,17 +59,21 @@ __all__ = [
     'cci_strided_grid',
     'corwin_schultz_spread',
     'cosine_divergence',
+    'drawdown_from_high',
     'ema',
     'fibonacci_retracement',
     'get_divergence',
     'js_divergence',
     'l2_divergence',
     'macd',
+    'rolling_kurt',
     'rolling_pearson_corr',
+    'rolling_skew',
     'rolling_std',
     'rsi',
     'rsi_strided',
     'rsi_strided_grid',
     'sma',
     'symmetric_kl_divergence',
+    'vol_norm_momentum',
 ]

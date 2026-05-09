@@ -12,16 +12,20 @@ from ss_indicators import (
     cci_strided,
     cci_strided_grid,
     corwin_schultz_spread,
+    drawdown_from_high,
     ema,
     fibonacci_retracement,
     macd,
+    rolling_kurt,
     rolling_pearson_corr,
+    rolling_skew,
     rolling_std,
     rsi,
     rsi_strided,
     rsi_strided_grid,
     sma,
     symmetric_kl_divergence,
+    vol_norm_momentum,
 )
 
 
@@ -393,3 +397,122 @@ def test_fibonacci_retracement_non_default_n_offset():
     assert 0 <= t2 < len(prices)
     assert prices[t1] == pytest.approx(100.0)
     assert prices[t2] == pytest.approx(200.0)
+
+
+# ---------------------------------------------------------------------------
+# Lie-shape heads: vol_norm_momentum / drawdown_from_high / rolling_skew /
+# rolling_kurt — added as `apps/replay` reconstruction targets so the CNN can
+# be probed for whether the CWT carries shape-feature content.
+# ---------------------------------------------------------------------------
+
+
+def test_vol_norm_momentum_warmup_and_shape(prices_1d):
+    n = 21
+    out = vol_norm_momentum(prices_1d, n)
+    assert out.shape == prices_1d.shape
+    assert np.all(np.isnan(out[:n]))
+    assert np.all(np.isfinite(out[n:]))
+
+
+def test_vol_norm_momentum_matches_pandas(prices_1d):
+    # Direct-formula validation: cumulative log-return divided by sample-stdev
+    # of those log returns times sqrt(n).
+    n = 21
+    log_p = np.log(prices_1d.astype(np.float64))
+    rets = pd.Series(np.diff(log_p))
+    cum = rets.rolling(n).sum()
+    sigma = rets.rolling(n).std(ddof=0)
+    expected = (cum / (sigma * np.sqrt(n))).values
+    # Align: pandas rolling on length-(T-1) returns, fast-forward to align
+    # at price index t we want the sum of rets[t-n:t] -> pandas window
+    # ending at return-index t-1.
+    out = vol_norm_momentum(prices_1d, n)
+    np.testing.assert_allclose(out[n:], expected[n - 1:], rtol=1e-6, atol=1e-9)
+
+
+def test_vol_norm_momentum_constant_prices_zero():
+    # Flat prices -> zero returns -> zero numerator AND zero denominator;
+    # function should NaN those (degenerate window) rather than divide.
+    p = np.full(60, 100.0)
+    out = vol_norm_momentum(p, 21)
+    assert np.all(np.isnan(out))
+
+
+def test_drawdown_from_high_at_high_is_zero():
+    # Strictly increasing prices: today is always at the trailing high.
+    p = np.arange(1.0, 101.0)
+    out = drawdown_from_high(p, n=10)
+    assert np.all(np.isnan(out[:10]))
+    np.testing.assert_allclose(out[10:], 0.0, atol=1e-12)
+
+
+def test_drawdown_from_high_known_value():
+    # Build a series where the trailing-21 high is known.
+    p = np.concatenate([
+        np.full(30, 100.0),    # bars 0..29
+        [200.0],               # bar 30 — the peak inside the trailing window
+        np.full(30, 100.0),    # bars 31..60 — pulled back to 100
+    ])
+    out = drawdown_from_high(p, n=21)
+    # At bar 40 the trailing-21 window covers bars 19..40, max == 200.
+    expected = np.log(100.0 / 200.0)
+    assert out[40] == pytest.approx(expected, rel=1e-9)
+    # At bar 60 the peak (bar 30) has rolled out of the window; today is
+    # at the high again -> zero.
+    assert out[60] == pytest.approx(0.0, abs=1e-12)
+
+
+def test_rolling_skew_sign_tracks_distribution_asymmetry():
+    # A return distribution with rare LARGE positive jumps must show
+    # positive skew on average; rare large NEGATIVE jumps -> negative skew.
+    # Sample-skew has nontrivial finite-sample bias at n=63 so we test
+    # the SIGN of the panel mean, not its proximity to zero.
+    rng = np.random.default_rng(3)
+    base = rng.standard_normal(2000) * 0.01
+    pos_jumps = base.copy()
+    spike_idx = rng.choice(len(pos_jumps), size=40, replace=False)
+    pos_jumps[spike_idx] += 0.10
+    neg_jumps = base.copy()
+    spike_idx = rng.choice(len(neg_jumps), size=40, replace=False)
+    neg_jumps[spike_idx] -= 0.10
+
+    p_pos = np.exp(np.cumsum(pos_jumps))
+    p_neg = np.exp(np.cumsum(neg_jumps))
+    out_pos = rolling_skew(p_pos, n=63)
+    out_neg = rolling_skew(p_neg, n=63)
+    assert np.all(np.isnan(out_pos[:63]))
+    pos_mean = float(np.nanmean(out_pos))
+    neg_mean = float(np.nanmean(out_neg))
+    assert pos_mean > 0.5
+    assert neg_mean < -0.5
+    assert pos_mean > neg_mean
+
+
+def test_rolling_kurt_normal_excess_near_zero():
+    # Normal returns have excess kurtosis near 0 in expectation; sample
+    # estimator on n=63 has a tight distribution around -0.1..+0.5 from
+    # finite-sample bias but the mean over the panel should sit close to 0.
+    rng = np.random.default_rng(1)
+    rets = rng.standard_normal(2000) * 0.01
+    p = np.exp(np.cumsum(rets))
+    out = rolling_kurt(p, n=63)
+    finite = out[~np.isnan(out)]
+    # Allow ample slack -- finite-sample kurt is noisy at n=63.
+    assert abs(float(np.mean(finite))) < 0.5
+
+
+def test_rolling_kurt_lifts_with_jumps():
+    # A return distribution with rare large jumps must show positive
+    # excess kurt vs the calm baseline.
+    rng = np.random.default_rng(2)
+    base = rng.standard_normal(2000) * 0.01
+    jumps = base.copy()
+    spike_idx = rng.choice(len(jumps), size=40, replace=False)
+    jumps[spike_idx] += rng.choice([-1, 1], size=40) * 0.10  # 10x stdev
+    p_calm = np.exp(np.cumsum(base))
+    p_jumpy = np.exp(np.cumsum(jumps))
+    k_calm = rolling_kurt(p_calm, n=63)
+    k_jumpy = rolling_kurt(p_jumpy, n=63)
+    calm_mean = float(np.nanmean(k_calm))
+    jumpy_mean = float(np.nanmean(k_jumpy))
+    assert jumpy_mean > calm_mean + 0.5
