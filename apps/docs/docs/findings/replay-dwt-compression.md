@@ -123,3 +123,9 @@ Implementation: `ss_features.Compression` + `ss-replay --compress dwt
 ## Source
 
 [`4c4d48b2`](https://github.com/sughodke/StockSurvey/commit/4c4d48b2) — recorded in `CLAUDE.md` under "Key findings" (2026-05-07).
+
+Master walk-forward log: [Leaderboard](../leaderboard.md) (the
+*2D Haar DWT-L1 keep-LL CWT-tile compression vs uncompressed* row —
+[`partial-OOS`](../leaderboard.md#verdict-labels); SSL R² is
+not a portfolio metric, so the verdict tracks reconstruction quality,
+not Sharpe).

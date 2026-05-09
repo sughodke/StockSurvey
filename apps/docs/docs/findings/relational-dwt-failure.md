@@ -66,7 +66,11 @@ setup, not a portfolio metric.
 - `Output/relational-idea-b-analog-knn-dwt-walkforward-*` (cross_ticker train/val)
 - `Output/relational-dwt-phase2-{equity.png,stats.txt,walkforward.csv,walkforward.txt}` (8-arm Modal A/B)
 
-Master walk-forward log: [Leaderboard](../leaderboard.md).
+Master walk-forward log: [Leaderboard](../leaderboard.md) — the eight
+2026-05-08 *8-arm* rows: only the *analog cross_ticker baseline* is
+[`confirmed-OOS`](../leaderboard.md#verdict-labels); the seven
+sibling arms are
+[`reversed-OOS`](../leaderboard.md#verdict-labels) by 0.02–0.49 Sharpe.
 
 Repro:
 

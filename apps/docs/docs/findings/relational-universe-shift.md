@@ -66,7 +66,11 @@ so subsequent runs on this universe skip the ~10-min precompute.
 Repro: `uvx modal run apps/relational/scripts/modal/relational_exmegacap_modal.py`
 (after `prep_exmegacap_prices.py`).
 
-Master walk-forward log: [Leaderboard](../leaderboard.md).
+Master walk-forward log: [Leaderboard](../leaderboard.md) — the
+*analog cross_ticker — universe-shift validation* row,
+[`reversed-OOS`](../leaderboard.md#verdict-labels) by −0.131 Sharpe
+on its own train→val gap and a further −0.66 Sharpe vs the Phase-2
+baseline on the same algorithm.
 
 ## Source
 

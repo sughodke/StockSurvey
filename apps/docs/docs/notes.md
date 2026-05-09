@@ -348,8 +348,9 @@ several are partially implemented in `apps/relational/`.
 Earlier drafts of this notes file carried full prose for each
 forecast/horizon/universe/regime-gate experiment. Those have since
 been condensed into one row each on the
-[Leaderboard](leaderboard.md), with the operational verdict (verdict
-column), per-window stats, and artifact paths. Adjacent prose findings
+[Leaderboard](leaderboard.md), with the operational verdict
+([verdict-label vocabulary](leaderboard.md#verdict-labels)),
+per-window stats, and artifact paths. Adjacent prose findings
 covering the same arc:
 [factor indicator-IC baseline (the +0.012 ceiling)](findings/factor-indicator-baseline.md),
 [log-returns vs raw close](findings/log-returns-vs-raw-close.md),

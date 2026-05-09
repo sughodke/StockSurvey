@@ -125,6 +125,10 @@ mechanism dominates.
   `prep_phase2_prices.py` prep step.
 - Artifacts: `Output/relational-morlet-phase2-{equity.png,
   stats.txt, walkforward.csv, walkforward.txt}`.
+- Master walk-forward log:
+  [Leaderboard](../leaderboard.md) — once the row lands it carries
+  the [`reversed-OOS`](../leaderboard.md#verdict-labels) verdict
+  alongside the existing analog cross_ticker rows.
 - The polar Morlet bundle remains the canonical SSL CNN input for
   `apps/replay`. The CNN learns the bundle differently from a kNN
   distance metric — a signal that hurts metric-space matching can

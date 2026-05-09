@@ -68,3 +68,8 @@ Recorded in `CLAUDE.md` under "Key findings" by:
 - [`9d8c118d`](https://github.com/sughodke/StockSurvey/commit/9d8c118d) — baselines and Optuna instability (2026-04-24)
 - [`b24f8adc`](https://github.com/sughodke/StockSurvey/commit/b24f8adc) — monthly-to-biannual horizons note (2026-04-24)
 - [`6812b60a`](https://github.com/sughodke/StockSurvey/commit/6812b60a) — JAX-Adam scale-weight collapse (2026-05-07)
+
+Master walk-forward log: [Leaderboard](../leaderboard.md) (the
+*Optuna walk-forward* row — [`diagnostic`](../leaderboard.md#verdict-labels)
+— and the *JAX-Adam differentiable trainer* row —
+[`confirmed-OOS`](../leaderboard.md#verdict-labels)).

@@ -36,3 +36,8 @@ known cross-sectional return predictor.
 ## Source
 
 [`031df265`](https://github.com/sughodke/StockSurvey/commit/031df265) — recorded in `CLAUDE.md` under "Key findings" (2026-04-25).
+
+Master walk-forward log: [Leaderboard](../leaderboard.md) (the
+*Log-returns CWT input vs raw close* row —
+[`confirmed-OOS`](../leaderboard.md#verdict-labels), 3/3 windows raw
+close > log-returns).

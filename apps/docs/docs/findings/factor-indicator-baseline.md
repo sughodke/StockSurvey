@@ -45,3 +45,8 @@ windows — overfitting signature.
 ## Source
 
 [`1db67a8c`](https://github.com/sughodke/StockSurvey/commit/1db67a8c) — recorded in `CLAUDE.md` under "Key findings" (2026-05-03).
+
+Master walk-forward log: [Leaderboard](../leaderboard.md) (rows
+*Deterministic-indicator baseline (linear head)* —
+[`confirmed-OOS`](../leaderboard.md#verdict-labels) — and
+*MLP head* — [`partial-OOS`](../leaderboard.md#verdict-labels)).

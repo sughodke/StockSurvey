@@ -3,7 +3,9 @@
 Historical results and the decision rationale they produced. The
 operational *rules* extracted from these findings live in `CLAUDE.md`
 under "Important implementation notes" — this section preserves the
-underlying numbers so future-us can re-evaluate.
+underlying numbers so future-us can re-evaluate. The
+[Leaderboard](../leaderboard.md) carries the same results in
+verdict-per-row form ([verdict-label vocabulary](../leaderboard.md#verdict-labels)).
 
 Default eval window unless otherwise stated: 2013-01-29 → 2025-12-11,
 10bps commission, 20-day rebal.
