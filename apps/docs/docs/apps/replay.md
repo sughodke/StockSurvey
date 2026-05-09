@@ -3,6 +3,11 @@
 Multi-head CNN trainer (`ss-replay`) that reconstructs technical
 indicators (RSI / MACD / vol / CCI / price) from causal CWT slices,
 with FiLM conditioning over `(n, w)` parameter grids. Tinygrad runtime.
+Recent additions: a
+[polar Morlet + Gaussian + log-L2 amplitude bundle](https://github.com/sughodke/StockSurvey/commit/954a88a)
+replaces the older optional-channel toggles, and the trainer ships
+[four lie-shape reconstruction heads](https://github.com/sughodke/StockSurvey/commit/9fd6e64)
+(momentum / drawdown / skew / kurt) alongside the canonical four.
 The artifact this trainer ships is a backbone npz that downstream
 [factor](factor.md) scoring consumes via `ss_features.load_backbone`,
 and the encoder's capacity story is unpacked in the

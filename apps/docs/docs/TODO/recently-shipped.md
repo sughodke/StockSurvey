@@ -7,12 +7,18 @@
 - Three critical live-trading code-review fixes: `apply_position_cap` no
   longer re-introduces zero-weight names; live bar fetch covers full CWT
   kernel support; `submit_orders` surfaces per-symbol rejections to
-  `LiveRunResult.rejected_orders`. (commits a1beead / 8c21c9b / 4ee4d0d)
+  `LiveRunResult.rejected_orders`. (commits
+  [`a1beead`](https://github.com/sughodke/StockSurvey/commit/a1beead) /
+  [`8c21c9b`](https://github.com/sughodke/StockSurvey/commit/8c21c9b) /
+  [`4ee4d0d`](https://github.com/sughodke/StockSurvey/commit/4ee4d0d))
 - `ss_cli` (shared CLI flag groups) + `ss_portfolio.bt_helpers` (shared
   bt.Strategy template) + `packages/tg_ops/` (shared `_conv1d` permute) +
-  block-windows generator → `ss_features.walkforward`. (commit ddfadce)
-- Polar Morlet + Gaussian + log-L2 amplitude input bundle (commit 954a88a
-  + streaming-predict refactor) replaces the
+  block-windows generator → `ss_features.walkforward`. (commit
+  [`ddfadce`](https://github.com/sughodke/StockSurvey/commit/ddfadce))
+- Polar Morlet + Gaussian + log-L2 amplitude input bundle (commit
+  [`954a88a`](https://github.com/sughodke/StockSurvey/commit/954a88a)
+  + [streaming-predict refactor](https://github.com/sughodke/StockSurvey/commit/12ea630))
+  replaces the
   `--include-zscore-stats / --include-returns / --include-return-sign`
   optional channels. Canonical channel layout per scale: `(|c|, |c|^2,
   cos(arg), sin(arg), g, g^2, log_L2_amp)` = `7 * n_scales` per lag,

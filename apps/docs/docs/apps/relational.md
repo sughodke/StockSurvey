@@ -10,7 +10,7 @@ neighbours in the universe at this moment. Source under
 
 These are the canonical configurations preserved at
 `Output/relational-{strategy}.json` and rebuilt by
-`apps/relational/scripts/build_canonical_checkpoints.py`. Five pin to
+[`apps/relational/scripts/build_canonical_checkpoints.py`](https://github.com/sughodke/StockSurvey/commit/4f62280). Five pin to
 the **Phase-2** 21-ticker mega-cap universe (where the val Sharpe
 lifts to the 1.07–1.13 band); the sixth — `velocity` — pins to the
 wider `stooq_us_long` ~312-name set.
@@ -134,5 +134,6 @@ uv run ss-relational live --params Output/relational-empirical.json --live
 ```
 
 Same four risk rails as `regime live`, sharing
-`ss_portfolio.broker.AlpacaBroker`. Architecture in
+[`ss_portfolio.broker.AlpacaBroker`](https://github.com/sughodke/StockSurvey/commit/b66c5d7).
+Architecture in
 [CLAUDE.md](https://github.com/sughodke/StockSurvey/blob/master/CLAUDE.md).

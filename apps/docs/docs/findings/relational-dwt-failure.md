@@ -23,8 +23,10 @@ distances.
 
 ![Walk-forward equity (cross_ticker train/val), analog ±DWT-L1](images/relational-idea-b-analog-knn-dwt-walkforward-equity.png)
 
-The 8-arm Modal A/B extended the eval across all four distance-based
-scorers + per_ticker analog pool, all ±DWT-L1.
+The [8-arm Modal A/B](https://github.com/sughodke/StockSurvey/commit/6ec6b7c)
+([per-arm walk-forward segmentation](https://github.com/sughodke/StockSurvey/commit/dfa35e5))
+extended the eval across all four distance-based scorers + per_ticker
+analog pool, all ±DWT-L1.
 
 ![8-arm Phase-2 walk-forward equity comparison](images/relational-dwt-phase2-equity.png)
 

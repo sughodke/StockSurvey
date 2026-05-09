@@ -37,7 +37,8 @@ a special case (fixed W, F=1, or K=1).
 **Where the framing breaks:** `π` is *not* linear — softmax temperature,
 top-N, and water-fill position cap are all non-linear. The dot product
 gives cross-sectional scores per ticker; the universe → weights map is
-a separate non-linear projection. The deleted JAX-Adam regime trainer's
+a separate non-linear projection. The
+[deleted JAX-Adam regime trainer](https://github.com/sughodke/StockSurvey/commit/68ee595)'s
 "temperature collapsed to 0.005, weight piled into 126d" finding lived
 entirely in `π`, not in `W`.
 
@@ -224,8 +225,11 @@ parameter is genuinely continuous and high-dimensional — neural-net
 weights, attention scales, embedding tables — where search can't
 enumerate; (2) you need end-to-end backprop into a downstream model
 (`apps/replay`'s CNN-on-CWT is the right use case). For the regime
-strategy, the JAX trainer was mostly scaffolding; it has been deleted
-and Optuna is the canonical pipeline.
+strategy, the JAX trainer was mostly scaffolding; it has been
+[deleted](https://github.com/sughodke/StockSurvey/commit/68ee595)
+(and the workspace's
+[JAX dependency dropped](https://github.com/sughodke/StockSurvey/commit/191d787))
+— Optuna is the canonical pipeline.
 
 ### Why "optimize is a strict superclass of search" is misleading
 

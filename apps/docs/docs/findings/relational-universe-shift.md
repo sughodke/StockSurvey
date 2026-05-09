@@ -53,10 +53,10 @@ ex-Phase-2 ≥ 0.6 Sharpe, the model is *negative alpha* outside mega-caps.
 
 ## Performance
 
-`analog_knn_scores_fast(n_workers=24)` mp.Pool over t-axis with
-`OPENBLAS_NUM_THREADS=1` per worker (avoiding 8×8 BLAS oversubscription)
-brought wall-time from 2-4h serial estimate to **12 min** for kNN compute
-on N=296. CWT cache lives in `modal.Volume('ss-relational-cwt-cache')`
+[`analog_knn_scores_fast(n_workers=24)`](https://github.com/sughodke/StockSurvey/commit/fa026e7)
+mp.Pool over t-axis with `OPENBLAS_NUM_THREADS=1` per worker (avoiding
+8×8 BLAS oversubscription) brought wall-time from 2-4h serial estimate
+to **12 min** for kNN compute on N=296. CWT cache lives in `modal.Volume('ss-relational-cwt-cache')`
 so subsequent runs on this universe skip the ~10-min precompute.
 
 ## Artifacts

@@ -117,8 +117,10 @@ DWT-compression follow-ups TODO.
 - `Output/cwtonly-{,dwtL1-}{AAPL-replay,NVDA-replay-zeroshot-from-*,CSCO-replay-zeroshot-{rsi,cci,vol,macd}-wn-sweep,AAPL-film-attention}.png`
 - `Output/cwtonly-{,dwtL1-}CSCO-zeroshot-stats.json`
 
-Implementation: `ss_features.Compression` + `ss-replay --compress dwt
---compress-levels N --compress-wavelet haar`.
+Implementation:
+[`ss_features.Compression`](https://github.com/sughodke/StockSurvey/commit/2111751)
++ [`ss-replay --compress dwt`](https://github.com/sughodke/StockSurvey/commit/908981f)
+`--compress-levels N --compress-wavelet haar`.
 
 ## Source
 
