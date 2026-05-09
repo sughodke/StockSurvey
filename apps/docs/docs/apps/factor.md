@@ -20,6 +20,16 @@ train/val splits. Sharpe is logged via `block_sharpe` for evaluation
 only — rank-IC gives a per-rebalance dense gradient signal that
 converges much faster than direct Sharpe optimization.
 
+| Path                        | Backbone                                                                                  | Head                                       |
+|-----------------------------|-------------------------------------------------------------------------------------------|--------------------------------------------|
+| SSL (`train_scorer`)        | replay-pretrained conv (frozen by default; optionally fine-tuned in Stage 2 at 0.1× lr)   | fresh linear or MLP, learns rank-IC        |
+| IndicatorGridConfig (`train_scorer_indicators`) | identity (no learned weights — `K=1, F=74` strided-RSI/CCI/MACD/vol stack passes straight through) | same rank-IC head                          |
+
+The IndicatorGridConfig path is there so we can compare *does the SSL
+backbone beat hand-crafted indicators on the same head + objective*
+head-to-head — the +0.012 mean val IC of the deterministic baseline
+is the bar.
+
 ## How factor uses the replay backbone
 
 `factor.train.train_scorer` is two-stage:
