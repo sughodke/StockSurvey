@@ -223,6 +223,42 @@ Everything above for each experiment, plus:
 4. If the arc closes a TODO entry, mark it as superseded with a pointer
    to the closing finding, or remove it if it was a single-line item.
 
+### Propose what's next — every finding gates the next experiment
+
+Recording the finding is half the loop; proposing the next experiment
+is the other half. After the leaderboard row + (optional) findings
+page lands, decide what the verdict implies and write it down before
+moving on. If you don't, the work decays into a stack of one-off rows
+with no forward momentum.
+
+Default question shape per verdict label:
+
+| Verdict | Default-next question |
+|---|---|
+| `confirmed-OOS` | Where does it stop working? Run the adjacent test that would either confirm scope (different universe / horizon / wavelet / rebal cadence) or break it. A rule that holds in only one regime is *Phase-2-specific* until proven otherwise — see `apps/docs/docs/findings/relational-universe-shift.md`. |
+| `reversed-OOS` | What killed val? Distinguish three failure modes — overfit (DOF too high → regularize, shrink the bundle, or wider universe), regime-specific (split the train/val on a different axis and re-run), pipeline bug (compare arms row-by-row) — each implies a different next experiment. |
+| `partial-OOS` | Stratify the windows. The "partial" usually means one or two windows carry the signal. What feature distinguishes the surviving windows from the failing ones (vol regime, dispersion, sector concentration)? If a feature splits them, you have a regime gate; if not, the verdict is closer to `reversed-OOS` than the partial label implies. |
+| `confirmed-null` | Stop testing variations of the same lever — find an orthogonal one. Different prediction problem (return → vol → drawdown → IV-vs-realized), different feature class (indicators → CWT → pair-spread), different operational use (predictor → sizing → gate). The vol-forecast arc on `apps/factor` is the canonical example: four nulls in a row before the pivot. |
+| `diagnostic` | Turn it into a falsifiable hypothesis. A diagnostic without a follow-up test is a curiosity. What experiment would tell us *why* the diagnostic looks the way it does? |
+| `pending` | Land the verdict first; rows that sit on `pending` longer than a week become invisible. |
+
+Where the next-experiment hypothesis lands:
+
+1. If a `TODO/<workstream>.md` page already covers the line of work,
+   **update it** to reflect what was just learned — add the new
+   sub-question, mark superseded sub-bullets, refresh the priority
+   order.
+2. If the work is new and orthogonal to existing TODOs, **create**
+   `TODO/<topic>.md` with the verdict → next-experiment chain stated
+   up front. Add it to the `TODO` nav in `apps/docs/mkdocs.yml` and
+   the listing in `apps/docs/docs/TODO/index.md`.
+3. The hypothesis must be **falsifiable** and have a **test design**
+   (universe, windowing, expected delta vs baseline, what counts as a
+   positive result). "Try it on the wider universe" is not a
+   hypothesis; "if the val Sharpe still loses by ≥0.10 on
+   `stooq_us_long`, the effect is mega-cap-specific; otherwise the
+   train/val split was the binding constraint" is.
+
 ### Mechanics
 
 - `uv run ss-docs-serve` live-previews at http://127.0.0.1:8000. The
