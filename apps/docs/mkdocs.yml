@@ -1,0 +1,93 @@
+site_name: StockSurvey
+site_description: Trading-strategy research and live execution monorepo.
+repo_url: https://github.com/sughodke/StockSurvey
+repo_name: sughodke/StockSurvey
+edit_uri: edit/master/apps/docs/docs/
+docs_dir: docs
+site_dir: site
+
+theme:
+  name: material
+  features:
+    - navigation.tabs
+    - navigation.sections
+    - navigation.indexes
+    - navigation.top
+    - search.suggest
+    - search.highlight
+    - content.code.copy
+    - content.code.annotate
+    - toc.follow
+  palette:
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: indigo
+      accent: indigo
+      toggle:
+        icon: material/weather-night
+        name: Switch to dark mode
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: indigo
+      accent: indigo
+      toggle:
+        icon: material/weather-sunny
+        name: Switch to light mode
+  icon:
+    repo: fontawesome/brands/github
+
+markdown_extensions:
+  - admonition
+  - attr_list
+  - def_list
+  - footnotes
+  - md_in_html
+  - tables
+  - toc:
+      permalink: true
+  - pymdownx.details
+  - pymdownx.highlight:
+      anchor_linenums: true
+      line_spans: __span
+      pygments_lang_class: true
+  - pymdownx.inlinehilite
+  - pymdownx.snippets
+  - pymdownx.superfences
+  - pymdownx.tabbed:
+      alternate_style: true
+  - pymdownx.tasklist:
+      custom_checkbox: true
+
+plugins:
+  - search
+
+nav:
+  - Home: index.md
+  - Apps:
+      - apps/index.md
+  - Packages:
+      - packages/index.md
+  - Findings:
+      - findings/index.md
+      - Regime baselines: findings/regime-baselines.md
+      - Log-returns vs raw close: findings/log-returns-vs-raw-close.md
+      - Factor indicator-IC baseline: findings/factor-indicator-baseline.md
+      - Replay DWT compression: findings/replay-dwt-compression.md
+      - Relational universe shift: findings/relational-universe-shift.md
+      - Relational DWT-L1 OOS failure: findings/relational-dwt-failure.md
+  - Workflows: workflows.md
+  - TODO:
+      - TODO/index.md
+      - Polar Morlet migration: TODO/polar-morlet-migration.md
+      - Review follow-ups: TODO/review-followups.md
+      - Different prediction problem: TODO/different-prediction-problem.md
+      - SSL forecast CWT: TODO/ssl-forecast-cwt.md
+      - RSI long-period ablation: TODO/rsi-long-period-ablation.md
+      - FiLM w=1 diagnostic: TODO/film-w1-diagnostic.md
+      - Backbone architecture: TODO/backbone-architecture.md
+      - Streaming feature pipeline: TODO/streaming-feature-pipeline.md
+      - Port Sharpe to tinygrad: TODO/port-sharpe-tinygrad.md
+      - DWT-compression follow-ups: TODO/dwt-compression-followups.md
+      - Rebal-days sweep: TODO/rebal-days-sweep.md
+      - Modal-cron live deployment: TODO/modal-cron-live-deployment.md
+      - Recently shipped: TODO/recently-shipped.md
