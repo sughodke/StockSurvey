@@ -15,8 +15,11 @@ from factor import (
     IndicatorGridConfig, build_indicator_features,
     train_scorer_indicators_walkforward,
 )
-from factor.train_walkforward import _generate_window_slices
-from ss_features import TickerData
+# Window-slice generator was lifted from `factor.train_walkforward`
+# into the shared `ss_features.walkforward` (commit ddfadce) so
+# regime, factor, and any future walk-forward consumer share one
+# implementation.
+from ss_features import TickerData, block_windows
 
 
 def _make_synthetic_universe(n_tickers: int, n_bars: int, cfg: IndicatorGridConfig,
@@ -37,7 +40,7 @@ def _make_synthetic_universe(n_tickers: int, n_bars: int, cfg: IndicatorGridConf
 def test_window_slicer_no_overlap_when_step_eq_val():
     # 100 blocks, train=20, val=10, step=10 -> windows at [0..30), [10..40),
     # [20..50), ... last window starts at 70 ([70..100)). Total = 8 windows.
-    slices = _generate_window_slices(100, train_w=20, val_w=10, step_w=10)
+    slices = block_windows(100, train_w=20, val_w=10, step_w=10)
     assert len(slices) == 8
     # Step = val means consecutive val ranges abut without overlap.
     for i in range(len(slices) - 1):
@@ -48,18 +51,18 @@ def test_window_slicer_drops_partial_tail_window():
     # 50 blocks, train=20, val=15 -> need 35 per window. step=15.
     # Window 0: [0..35), window 1 would need [15..50) which fits exactly.
     # Window 2 would need [30..65) — drops.
-    slices = _generate_window_slices(50, train_w=20, val_w=15, step_w=15)
+    slices = block_windows(50, train_w=20, val_w=15, step_w=15)
     assert len(slices) == 2
 
 
 def test_window_slicer_validates_args():
     import pytest
     with pytest.raises(ValueError, match='must each be >= 2'):
-        _generate_window_slices(50, train_w=1, val_w=10, step_w=10)
+        block_windows(50, train_w=1, val_w=10, step_w=10)
     with pytest.raises(ValueError, match='must each be >= 2'):
-        _generate_window_slices(50, train_w=10, val_w=1, step_w=10)
-    with pytest.raises(ValueError, match='step_window_blocks=0'):
-        _generate_window_slices(50, train_w=10, val_w=10, step_w=0)
+        block_windows(50, train_w=10, val_w=1, step_w=10)
+    with pytest.raises(ValueError, match=r'step_w=0.*must be >= 1'):
+        block_windows(50, train_w=10, val_w=10, step_w=0)
 
 
 def test_walkforward_runs_and_aggregates():
