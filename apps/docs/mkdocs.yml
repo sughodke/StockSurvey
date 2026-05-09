@@ -21,20 +21,9 @@ theme:
     text: Geist
     code: Geist Mono
   palette:
-    - media: "(prefers-color-scheme: dark)"
-      scheme: slate
-      primary: black
-      accent: white
-      toggle:
-        icon: material/weather-sunny
-        name: Switch to light mode
-    - media: "(prefers-color-scheme: light)"
-      scheme: default
-      primary: black
-      accent: black
-      toggle:
-        icon: material/weather-night
-        name: Switch to dark mode
+    scheme: slate
+    primary: black
+    accent: white
   icon:
     repo: fontawesome/brands/github
 
