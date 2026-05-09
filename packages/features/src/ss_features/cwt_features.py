@@ -36,8 +36,8 @@ from ss_features.compression import Compression, compress_tiles_2d_dwt
 from ss_features.ticker import TickerData, load_prices
 from ss_features.vol import log_returns, realized_vol
 from ss_indicators import (
-    cci, cci_strided, drawdown_from_high, macd, rolling_kurt, rolling_skew,
-    rsi, rsi_strided, vol_norm_momentum,
+    cci, cci_strided, drawdown_from_high, macd, macd_from_fast,
+    rolling_kurt, rolling_skew, rsi, rsi_strided, vol_norm_momentum,
 )
 from ss_wavelets import (
     DEFAULT_MORLET_OMEGA0, causal_cwt, causal_cwt_gaussian, causal_cwt_morlet,
@@ -378,15 +378,17 @@ def build_features_and_targets(
             [realized_vol(prices, window=int(n)) for n in vol_n_grid],
             axis=0)
     if macd_fast_grid:
-        # 1-D conditioning over MACD fast period. slow = 2 * fast and
-        # signal = int(fast * 3 / 4) hold the canonical MACD ratios so
-        # one parameter sweeps the full timescale of the indicator.
+        # 1-D conditioning over MACD fast period via the canonical
+        # `(fast, slow, signal)` ratio defined in `ss_indicators.macd`.
+        # Holds slow ≈ 2.167*fast and signal ≈ 0.75*fast so the f=12
+        # cell collapses exactly onto the textbook `(12, 26, 9)` anchor
+        # — earlier the local `slow = 2 * fast` rule produced slow=24
+        # at f=12, which collided with the canonical (slow=26) anchor
+        # at the same FiLM cond and contaminated multi-head training.
         # cond_dim=1.
         rows = []
         for f in macd_fast_grid:
-            f_i = int(f)
-            line, _, _ = macd(prices, fast=f_i, slow=2 * f_i,
-                              signal=max(2, (f_i * 3) // 4))
+            line, _, _ = macd_from_fast(prices, fast=int(f))
             rows.append(line.astype(np.float64))
         target_grids['macd'] = np.stack(rows, axis=0)
     if momentum_n_grid:

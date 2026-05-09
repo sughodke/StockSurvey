@@ -43,7 +43,16 @@ from ss_indicators.divergence import (
 )
 from ss_indicators.drawdown import drawdown_from_high
 from ss_indicators.fibonacci import FIB_LEVELS, fibonacci_retracement
-from ss_indicators.macd import macd
+from ss_indicators.macd import (
+    CANONICAL_MACD_FAST,
+    CANONICAL_MACD_SIGNAL,
+    CANONICAL_MACD_SLOW,
+    CANONICAL_SIGNAL_RATIO,
+    CANONICAL_SLOW_RATIO,
+    macd,
+    macd_from_fast,
+    macd_periods_from_fast,
+)
 from ss_indicators.moments import rolling_kurt, rolling_skew
 from ss_indicators.momentum import vol_norm_momentum
 from ss_indicators.moving_average import ema, rolling_std, sma
@@ -51,6 +60,11 @@ from ss_indicators.rsi import rsi, rsi_strided, rsi_strided_grid
 from ss_indicators.spread import corwin_schultz_spread
 
 __all__ = [
+    'CANONICAL_MACD_FAST',
+    'CANONICAL_MACD_SIGNAL',
+    'CANONICAL_MACD_SLOW',
+    'CANONICAL_SIGNAL_RATIO',
+    'CANONICAL_SLOW_RATIO',
     'DIVERGENCES',
     'FIB_LEVELS',
     'bbands',
@@ -66,6 +80,8 @@ __all__ = [
     'js_divergence',
     'l2_divergence',
     'macd',
+    'macd_from_fast',
+    'macd_periods_from_fast',
     'rolling_kurt',
     'rolling_pearson_corr',
     'rolling_skew',

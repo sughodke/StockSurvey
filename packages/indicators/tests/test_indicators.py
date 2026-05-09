@@ -7,6 +7,9 @@ import pandas as pd
 import pytest
 
 from ss_indicators import (
+    CANONICAL_MACD_FAST,
+    CANONICAL_MACD_SIGNAL,
+    CANONICAL_MACD_SLOW,
     bbands,
     cci,
     cci_strided,
@@ -16,6 +19,8 @@ from ss_indicators import (
     ema,
     fibonacci_retracement,
     macd,
+    macd_from_fast,
+    macd_periods_from_fast,
     rolling_kurt,
     rolling_pearson_corr,
     rolling_skew,
@@ -174,6 +179,42 @@ def test_macd_identity(prices_1d):
     fast_ema = np.asarray(ema(prices_1d, 12))
     slow_ema = np.asarray(ema(prices_1d, 26))
     np.testing.assert_allclose(np.asarray(line), fast_ema - slow_ema, rtol=1e-5)
+
+
+def test_macd_periods_from_fast_anchor():
+    """At fast=CANONICAL the helper must reproduce the textbook triple
+    exactly — this is the invariant that lets a FiLM-conditioned MACD
+    grid containing fast=12 collapse onto the canonical (12, 26, 9)
+    anchor without contaminating the head's supervision."""
+    f, s, sig = macd_periods_from_fast(CANONICAL_MACD_FAST)
+    assert (f, s, sig) == (
+        CANONICAL_MACD_FAST, CANONICAL_MACD_SLOW, CANONICAL_MACD_SIGNAL)
+
+
+def test_macd_periods_from_fast_scaling():
+    """Scaling fast preserves the (slow ≈ 2.167*fast, signal ≈ 0.75*fast)
+    canonical ratio (rounded to ints, signal floored at 2)."""
+    # 8 -> (8, round(8*26/12)=17, round(8*9/12)=6)
+    assert macd_periods_from_fast(8) == (8, 17, 6)
+    # 16 -> (16, round(16*26/12)=35, round(16*9/12)=12)
+    assert macd_periods_from_fast(16) == (16, 35, 12)
+    # 24 -> (24, round(24*26/12)=52, round(24*9/12)=18)
+    assert macd_periods_from_fast(24) == (24, 52, 18)
+    # signal floor: fast=2 -> signal=max(2, round(2*9/12)=2) = 2
+    f, s, sig = macd_periods_from_fast(2)
+    assert sig == 2
+
+
+def test_macd_from_fast_matches_macd_with_canonical_periods(prices_1d):
+    """`macd_from_fast(p, f)` is exactly `macd(p, *macd_periods_from_fast(f))`
+    — the convenience wrapper must not drift from the underlying triple."""
+    for fast in (5, 8, 12, 16, 24):
+        triple = macd_periods_from_fast(fast)
+        line_a, sig_a, hist_a = macd_from_fast(prices_1d, fast=fast)
+        line_b, sig_b, hist_b = macd(prices_1d, *triple)
+        np.testing.assert_array_equal(np.asarray(line_a), np.asarray(line_b))
+        np.testing.assert_array_equal(np.asarray(sig_a), np.asarray(sig_b))
+        np.testing.assert_array_equal(np.asarray(hist_a), np.asarray(hist_b))
 
 
 def test_bbands_ordering(prices_1d):

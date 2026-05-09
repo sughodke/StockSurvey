@@ -47,7 +47,9 @@ from dataclasses import dataclass
 import numpy as np
 
 from ss_features import TickerData, load_prices, realized_vol
-from ss_indicators import cci_strided, macd, rolling_pearson_corr, rsi_strided
+from ss_indicators import (
+    cci_strided, macd_from_fast, rolling_pearson_corr, rsi_strided,
+)
 from factor.backbone import (
     Backbone, compute_input_stats, identity_backbone,
 )
@@ -65,10 +67,11 @@ class IndicatorGridConfig:
     (indicator, parameter-tuple). Final feature width is reported by
     `feature_width()`; channel-by-channel labels by `channel_names()`.
 
-    MACD slow / signal are pinned to the canonical ratios off `fast`
-    (slow = 2*fast, signal = max(2, 3*fast/4)) so one knob sweeps the
-    whole indicator's timescale — matches the convention in
-    `replay.features.build_features_and_targets`.
+    MACD slow / signal are pinned to the canonical textbook ratios
+    off `fast` via `ss_indicators.macd_from_fast`
+    (slow ≈ 2.167*fast, signal ≈ 0.75*fast) so the f=12 cell collapses
+    onto the canonical (12, 26, 9) anchor — matches the convention in
+    `ss_features.build_features_and_targets`.
     """
     rsi_n_grid:    tuple[int, ...] = (5, 7, 10, 14, 21, 30)
     rsi_w_grid:    tuple[int, ...] = (1, 5, 10, 21, 63)
@@ -169,10 +172,12 @@ def build_indicator_features(
     macd_lines: list[np.ndarray] = []
     macd_signals: list[np.ndarray] = []
     macd_hists: list[np.ndarray] = []
+    # Each `fast` cell uses the canonical `(fast, slow, signal)` ratio
+    # via `macd_from_fast` — see `ss_indicators.macd` for why this is
+    # the single source of truth (avoids the slow=24 vs slow=26
+    # collision the prior `slow = 2 * fast` rule produced at f=12).
     for f in cfg.macd_fast_grid:
-        f_i = int(f)
-        line, sig, hist = macd(prices, fast=f_i, slow=2 * f_i,
-                               signal=max(2, (f_i * 3) // 4))
+        line, sig, hist = macd_from_fast(prices, fast=int(f))
         macd_lines.append(line)
         macd_signals.append(sig)
         macd_hists.append(hist)
