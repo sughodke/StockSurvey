@@ -95,6 +95,7 @@ Metric is what train / val numbers refer to.
 | 2026-05-08 | relational | 8-arm — farthest DWT-L1 | phase-2 | phase-2 split | Daily Sharpe | 1.102 | 0.833 | −0.269 | reversed-OOS but smaller | DWT compresses train Sharpe back toward val level; val Sharpe nearly identical to uncompressed (0.833 vs 0.828) — DWT doesn't add OOS skill, just reduces in-sample inflation |
 | 2026-05-08 | relational | 8-arm — diversified baseline | phase-2 | phase-2 split | Daily Sharpe | 1.222 | 1.002 | −0.220 | partial-OOS | only non-cross_ticker-analog arm with val Sharpe > 1.0; better than DWT version |
 | 2026-05-08 | relational | 8-arm — diversified DWT-L1 | phase-2 | phase-2 split | Daily Sharpe | 1.245 | 0.832 | **−0.413** | reversed-OOS | strictly worse than uncompressed diversified on val (0.832 vs 1.002); clearest "compression hurts OOS" signal in the table |
+| 2026-05-09 | relational | analog cross_ticker — universe-shift validation (ex-Phase-2; same algo, wider universe) | factor-narrow-ish (296 stooq_us_long names ex-PHASE2_TICKERS) | phase-2 split | Daily Sharpe | 0.615 | 0.484 | **−0.131** | reversed-OOS — **also collapses vs Phase-2 baseline** | val Sharpe 0.484 vs Phase-2 cross_ticker val 1.146 (Δ −0.66) directly confirms the macro-tailwind concern: ~0.5-0.7 of Phase-2's val edge was mega-cap-specific behavior, not generalizable cross-sectional skill. MaxDD also worse (-39% vs -31%). Algorithm: `analog_knn_scores_fast(n_workers=24)` mp.Pool over t-axis, OPENBLAS_NUM_THREADS=1 per worker (12 min wall on Modal cpu=8 vs 2-4h serial estimate). Universe is mid/large-cap-survivor names, not true small caps. Artifacts: `Output/relational-exmegacap-{equity.png,stats.txt,walkforward.csv}`. Repro: `uvx modal run apps/relational/scripts/modal/relational_exmegacap_modal.py` (after `prep_exmegacap_prices.py`). |
 
 ## Pending walk-forward checks called out elsewhere
 
@@ -102,10 +103,19 @@ These have hypotheses to test but no results yet; they're tracked in
 `TODO.md` and should land here as new rows when run:
 
 - **DWT wider-universe validation** (factor-wide or stooq_us_long) —
-  given the 8-arm Phase-2 result confirms DWT-L1 OOS-reverses across
-  every distance scorer, the wider-universe test is now mostly a
-  falsification check ("does the failure mode hold on broader
-  names?") rather than a hopeful exploration.
+  superseded by the 2026-05-09 ex-Phase-2 *uncompressed* run: the
+  cross_ticker baseline already collapses to val Sharpe 0.48 on the
+  wider universe, so layering DWT on top of an already-broken arm
+  isn't informative. Skip unless we have a separate reason to test
+  compression specifically.
+- **Equal-weight benchmark on Phase-2 + ex-Phase-2** (~5 min local).
+  Outstanding: we don't yet know how the analog cross_ticker val
+  Sharpe (1.146 Phase-2, 0.48 ex-Phase-2) compares to passive
+  equal-weight on the same universes. If passive Phase-2 hits 1.0+
+  Sharpe, the model adds ~0.15 of marginal alpha. If passive
+  ex-Phase-2 hits 0.6+, the model is **negative alpha** outside
+  mega-caps. Cheap and answers the most important remaining
+  question.
 - **Rebal-days sweep** (factor-narrow or phase-2) — sweep
   `rebal_days ∈ {5, 10, 20, 40}` to determine whether DWT-L1 supports
   a faster rebalance cadence than 20d. Gates the daily-cron-with-trigger
