@@ -4,14 +4,53 @@ Cross-sectional rank-IC scorer (tinygrad). Two input paths feed the
 same head + objective:
 
 1. The SSL-pretrained CNN backbone produced by `ss-replay --decoder
-   cnn`, loaded via `ss_features.load_backbone`.
+   cnn`, loaded via `ss_features.load_backbone`. The replay trainer's
+   per-target reconstruction heads are discarded; only the shared
+   conv stack survives into the npz.
 2. `IndicatorGridConfig` — a 74-channel deterministic stack of strided
    RSI/CCI grids, MACD over a fast-period grid, realized vol over a
    window grid, and rolling Pearson coherence between short/long
    realized vol — fed through `identity_backbone(K=1, F=74)`.
 
-Walk-forward eval is the OOS protocol; the rolling-train-and-fresh-head
-loop is the only honest answer to overfitting in this regime.
+Both paths share the rest of the stack: a fresh **linear or MLP head**
+initialized per run, an **AdamW loop minimizing `-pearson_rank_ic`**
+against forward log-returns at rebalance granularity, and a per-window
+walk-forward wrapper that rolls a fresh head across rolling
+train/val splits. Sharpe is logged via `block_sharpe` for evaluation
+only — rank-IC gives a per-rebalance dense gradient signal that
+converges much faster than direct Sharpe optimization.
+
+## How factor uses the replay backbone
+
+`factor.train.train_scorer` is two-stage:
+
+- **Stage 1 (always runs).** The frozen backbone is forward-passed
+  over every (date, ticker) feature row once up front
+  (`precompute_inputs`); latents materialize on host as numpy. A
+  fresh linear or MLP head streams Tensor minibatches of that cached
+  representation and runs `n_steps` AdamW updates against rank-IC.
+  Cheap — the backbone forward is amortized.
+- **Stage 2 (optional, off by default).** When `finetune_steps > 0`,
+  the cached representation is dropped (it goes stale once weights
+  move) and the encoder is re-applied per-step on raw features.
+  Backbone params get `learning_rate * finetune_lr_scale` (default
+  0.1×) so the pretrained features get nudged, not overwritten; head
+  stays at full lr.
+
+`feat_mu` / `feat_sd` (input z-norm) are not optimized in either
+stage — the backbone keeps seeing the same input distribution it was
+pretrained on. The **input bundle factor builds at runtime** is the
+[polar Morlet bundle](../TODO/polar-morlet-migration.md) from
+`ss_features.load_ticker` (`build_features_and_targets`) — 7 channels
+per scale (`|c|, |c|², cos(arg), sin(arg), g, g², log_L2_amp`) over
+a `window_cols`-bar lag stack. Fresh runs against the new-bundle
+backbones in `Output/` are end-to-end consistent; older 2-channel
+backbones in `Output/` are stale and will fail with a shape mismatch
+on the first conv (worth deleting before they confuse anyone).
+
+Walk-forward eval (`train_scorer_walkforward`) is the OOS protocol;
+the rolling-train-and-fresh-head loop is the only honest answer to
+overfitting in this regime.
 
 ## The deterministic indicator baseline
 
