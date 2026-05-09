@@ -1,25 +1,49 @@
 # StockSurvey
 
-A `uv`-workspace monorepo for trading-strategy research and live execution.
+![AAPL price seen through a continuous wavelet transform — multi-scale power, 2000-2026](apps/images/notebook-aapl-scalogram-morlet.png)
 
-This site is the **source of truth** for the project. Architecture sits
-in `CLAUDE.md` (the LLM-facing operational reference); everything else
-— findings, workflows, the active backlog — lives here.
+What does AAPL look like at every timescale at once? Above is one
+ticker's price decomposed into a continuous wavelet transform — the
+daily price on the top strip, multi-scale power as a heatmap below.
+The horizontal bands are price-trend regimes living at different
+timescales; the vertical streaks at known volatility events (2018 Q4,
+2020 March, 2022 Q3) reach across the scale axis because volatility
+touches every horizon at once.
 
-## Sections
+This site is the source of truth for **StockSurvey** — a research
+monorepo that asks what cross-sectional alpha lives in those bands,
+and what doesn't.
 
-- [Apps](apps/index.md) — runnable strategies, trainers, CLI tools.
-- [Packages](packages/index.md) — shared numpy primitives.
+## What we've found
+
+- A **+0.012 cross-sectional return-IC ceiling** on the canonical
+  297-ticker universe at 20-day horizon — *data-side, not
+  architecture-side*. Holds across deterministic indicator stacks, raw
+  CWT, SSL-pretrained CNN encoders, 7× wider universes, and quarterly
+  horizons. Eight orthogonal arms have all hit the same number. See
+  the [factor indicator-IC baseline](findings/factor-indicator-baseline.md).
+- A relational-CWT analog-kNN strategy posting **val Sharpe 1.146** on
+  a 21-name mega-cap pool — the only walk-forward arm in the codebase
+  whose val *exceeds* train. Off mega-caps it collapses to 0.48,
+  [confirming the macro-tailwind hypothesis](findings/relational-universe-shift.md).
+  The [Leaderboard](leaderboard.md) holds every other arm we've tried.
+- A multi-head CNN that learns the indicator family from masked CWT
+  reconstruction and generalises zero-shot from one training ticker
+  to the rest of the universe. SSL reconstruction R² is high, IC
+  isn't — the [Notes](notes.md#self-supervised-pretrain-why-and-how)
+  unpack why that's a finding, not a failure.
+
+## Where to go next
+
+- [Apps](apps/index.md) — five active research apps (regime,
+  relational, factor, replay, notebook) plus this docs site.
 - [Leaderboard](leaderboard.md) — append-only master table of every
-  walk-forward / OOS eval, with verdict per row.
-- [Notes](notes.md) — durable conceptual material (strategy as a dot
-  product, SSL pretrain thesis, search vs optimize, multi-stock CWT
-  framings).
+  walk-forward / OOS eval, one row per arm, verdict per row.
+- [Notes](notes.md) — durable framings: strategy as a dot product,
+  SSL pretrain thesis, search vs optimize, multi-stock CWT.
 - [Findings](findings/index.md) — historical eval results and the
   decision rationale they produced.
-- [Workflows](workflows.md) — how to add an indicator, swap brokers,
-  author a relational checkpoint, etc.
-- [TODO](TODO/index.md) — active backlog, one page per workstream.
+- [TODO](TODO/index.md) — the active backlog, one page per workstream.
 
 ## Conventions
 
