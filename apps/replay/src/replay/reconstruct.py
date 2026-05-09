@@ -101,6 +101,11 @@ def fit_and_evaluate(
     # Pool train rows.
     X_pools = [d.features[d.valid] for d in train_data]
     X_train = np.vstack(X_pools)
+    # Free the per-ticker valid-row slice copies — X_train holds the
+    # same content. At K=96 with the 7-channel-per-scale stack and a
+    # ~200-ticker pool this is a ~50 GB peak-memory drop, the
+    # difference between OOM and fit on a 128 GB Modal T4.
+    del X_pools
     y_train = {
         n: np.concatenate([d.targets[n][d.valid] for d in train_data])
         for n in targets
@@ -123,7 +128,6 @@ def fit_and_evaluate(
     # inner = n, so `rsi_grid_pooled[w_idx * n_n + n_idx]` is the
     # series for that (w, n) pair.
     head_cond_train: dict[str, np.ndarray] = {}
-    head_cond_predict: dict[str, np.ndarray] = {}
     train_pool_idx: np.ndarray | None = None
 
     # Generic FiLM-conditioned head specs. Each spec carries (n_grid,
@@ -259,21 +263,26 @@ def fit_and_evaluate(
             head_cond_train[name] = np.repeat(cond_per_replica, n_pool,
                                               axis=0)
 
-    # Concatenate every ticker's full feature block for one prediction pass.
+    # Predict per-ticker (rather than vstack-then-predict) so the peak
+    # memory cost of inference is one ticker's `.features` block, not
+    # ~all-tickers worth concatenated. At K=96 with the 7-channel-per-
+    # scale stack this is the difference between OOM-on-200-tickers and
+    # fits-on-300+-tickers on a 128 GB Modal T4.
     all_data = list(train_data) + list(val_data)
-    n_per = [d.features.shape[0] for d in all_data]
-    X_predict = np.vstack([d.features for d in all_data])
 
-    # Predict at the anchor (n, w) for each conditioned head — the 1-D
+    # Build per-ticker conditioning at the anchor (n, w) — the 1-D
     # gt[name] the figure compares against was computed at (n_anchor,
     # w=1) in features.py, so the default anchor reproduces that.
-    for spec in conditioned_specs:
-        head_cond_predict[spec['name']] = np.tile(
-            spec['anchor_cond'][None, :], (X_predict.shape[0], 1))
+    cond_predict_per_ticker: list[dict[str, np.ndarray]] = []
+    for d in all_data:
+        cond_d: dict[str, np.ndarray] = {}
+        for spec in conditioned_specs:
+            cond_d[spec['name']] = np.tile(
+                spec['anchor_cond'][None, :], (d.features.shape[0], 1))
+        cond_predict_per_ticker.append(cond_d)
 
     results: dict[str, dict[str, dict]] = {d.name: {} for d in all_data}
     params_per_target: dict[str, dict[str, np.ndarray]] = {}
-    yhats_all: dict[str, np.ndarray] = {}
 
     if decoder == 'cnn':
         # One shared backbone, per-target heads, joint Adam fit.
@@ -284,8 +293,12 @@ def fit_and_evaluate(
         if frozen_backbone_path is not None:
             from ss_features import load_backbone
             frozen_backbone, _bb_meta = load_backbone(frozen_backbone_path)
-        yhats_all, params_per_target = fit_cnn_multihead(
-            X_train, {t: y_train[t] for t in targets}, X_predict,
+        # `X_full=None` puts fit_cnn_multihead in streaming-predict mode:
+        # it returns a `predict_fn` closure instead of a single-shot
+        # yhats dict, so we never have to materialize the all-ticker
+        # feature concatenation in memory.
+        predict_fn, params_per_target = fit_cnn_multihead(
+            X_train, {t: y_train[t] for t in targets}, None,
             n_channels_per_lag=cnn_channels_per_lag,
             hidden=cnn_hidden, kernel=cnn_kernel,
             n_layers=cnn_layers, n_steps=cnn_steps,
@@ -293,11 +306,34 @@ def fit_and_evaluate(
             microbatch_size=cnn_microbatch_size,
             film_hidden=cnn_film_hidden,
             head_conditioning_train=head_cond_train,
-            head_conditioning_predict=head_cond_predict,
+            head_conditioning_predict=None,
             train_pool_idx=train_pool_idx,
             frozen_backbone=frozen_backbone,
             use_bf16=use_bf16)
+        # `fit_cnn_multihead` normalized `X_train` in place; the buffer
+        # is now owned by the function's `X_tr_pool` view. Releasing
+        # our reference here lets numpy free `~50-70 GB` at full-pool
+        # scale before the per-ticker predict loop starts.
+        del X_train
+        for d, cond_d in zip(all_data, cond_predict_per_ticker):
+            yhat_d = predict_fn(d.features, cond_d)
+            for target_name in targets:
+                yhat_t = yhat_d[target_name]
+                recon_full = np.full(
+                    d.features.shape[0], np.nan, dtype=np.float64)
+                recon_full[d.valid] = yhat_t[d.valid]
+                stats = fit_stats(
+                    yhat_t[d.valid], d.targets[target_name][d.valid])
+                results[d.name][target_name] = {
+                    'recon': recon_full, 'stats': stats}
     else:
+        # Linear / MLP path still uses a single X_predict vstack — these
+        # decoders aren't being trained at scale (the SSL backbone is
+        # the workhorse), and the closure protocol would require
+        # touching fit_mlp + fit_ols too. Kept as-is.
+        n_per = [d.features.shape[0] for d in all_data]
+        X_predict = np.vstack([d.features for d in all_data])
+        yhats_all: dict[str, np.ndarray] = {}
         for target_name in targets:
             y = y_train[target_name]
             if decoder == 'linear':
@@ -315,18 +351,18 @@ def fit_and_evaluate(
                     use_bf16=use_bf16)
             else:
                 raise ValueError(f'unknown decoder: {decoder!r}')
-
-    for target_name in targets:
-        yhat_all = yhats_all[target_name]
-        offset = 0
-        for d, n in zip(all_data, n_per):
-            yhat_t = yhat_all[offset:offset + n]
-            recon_full = np.full(n, np.nan, dtype=np.float64)
-            recon_full[d.valid] = yhat_t[d.valid]
-            stats = fit_stats(yhat_t[d.valid], d.targets[target_name][d.valid])
-            results[d.name][target_name] = {
-                'recon': recon_full, 'stats': stats}
-            offset += n
+        for target_name in targets:
+            yhat_all = yhats_all[target_name]
+            offset = 0
+            for d, n in zip(all_data, n_per):
+                yhat_t = yhat_all[offset:offset + n]
+                recon_full = np.full(n, np.nan, dtype=np.float64)
+                recon_full[d.valid] = yhat_t[d.valid]
+                stats = fit_stats(
+                    yhat_t[d.valid], d.targets[target_name][d.valid])
+                results[d.name][target_name] = {
+                    'recon': recon_full, 'stats': stats}
+                offset += n
 
     return results, params_per_target
 

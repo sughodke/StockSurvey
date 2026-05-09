@@ -493,7 +493,7 @@ def fit_cnn_masked_ae(
 def fit_cnn_multihead(
     X_train: np.ndarray,
     Y_train: dict[str, np.ndarray],
-    X_full: np.ndarray,
+    X_full: 'np.ndarray | None' = None,
     *,
     n_channels_per_lag: int,
     hidden: int = 64,
@@ -511,7 +511,7 @@ def fit_cnn_multihead(
     frozen_backbone: 'object | None' = None,
     use_bf16: bool = True,
     microbatch_size: int | None = None,
-) -> tuple[dict[str, np.ndarray], dict[str, dict[str, np.ndarray]]]:
+) -> 'tuple[dict[str, np.ndarray] | object, dict[str, dict[str, np.ndarray]]]':
     """Multi-head 1-D CNN — one shared conv backbone, per-target linear
     heads. Targets are standardized internally (per-target mean/std on
     train) so heads with different output ranges (RSI 0–100, MACD ±10,
@@ -552,7 +552,22 @@ def fit_cnn_multihead(
     `microbatch_size` further splits each batch for gradient
     accumulation.
 
-    Returns `(yhats, params_per_target)` matching the original layout.
+    Returns `(yhats, params_per_target)` matching the original layout
+    when `X_full` is given. When `X_full=None`, training runs without
+    a single-batch predict pass and the first return is a `predict_fn`
+    closure: `predict_fn(X_chunk, cond_chunk_dict) -> dict[target,
+    np.ndarray]` — caller is then expected to drive prediction
+    ticker-by-ticker (or whatever chunking they want) so the
+    full-feature concatenation never has to live in memory at once.
+
+    **Ownership: this function consumes `X_train`.** Feature
+    standardization is applied in place against the caller's buffer
+    (a view through `reshape(-1, K, F)`); after this function returns
+    the caller's `X_train` is normalized and should not be reused.
+    The caller should `del X_train` immediately after the call. If
+    the input is not float32 + C-contiguous we fall back to a copy
+    rather than mutate.
+
     See npz schema in `replay/README.md` "Outputs".
     """
     if X_train.shape[1] % n_channels_per_lag != 0:
@@ -588,6 +603,8 @@ def fit_cnn_multihead(
     cond_train = head_conditioning_train or {}
     cond_predict = head_conditioning_predict or {}
     cond_dim: dict[str, int] = {}
+    streaming_predict = X_full is None
+    n_full = 0 if streaming_predict else X_full.shape[0]
     for t, arr in cond_train.items():
         if t not in Y_train:
             raise ValueError(
@@ -596,22 +613,47 @@ def fit_cnn_multihead(
             raise ValueError(
                 f'head_conditioning_train[{t!r}] must be (n_train, p_dim); '
                 f'got {arr.shape}, n_train={n_train}')
-        if t not in cond_predict:
-            raise ValueError(
-                f'head_conditioning_train[{t!r}] given but no matching '
-                f'head_conditioning_predict entry — predictor needs a '
-                'parameter to evaluate at.')
-        cp = cond_predict[t]
-        if cp.ndim != 2 or cp.shape[0] != X_full.shape[0] or \
-           cp.shape[1] != arr.shape[1]:
-            raise ValueError(
-                f'head_conditioning_predict[{t!r}] shape {cp.shape} does '
-                f'not match (n_full={X_full.shape[0]}, p_dim={arr.shape[1]}).')
+        if streaming_predict:
+            # Caller drives predict; cond_predict shape is per-chunk and
+            # validated inside the predict_fn closure rather than here.
+            if t in cond_predict:
+                cp = cond_predict[t]
+                if cp.ndim != 2 or cp.shape[1] != arr.shape[1]:
+                    raise ValueError(
+                        f'head_conditioning_predict[{t!r}] shape {cp.shape} '
+                        f'must be (n_chunk, p_dim={arr.shape[1]}) when '
+                        'X_full=None (streaming predict)')
+        else:
+            if t not in cond_predict:
+                raise ValueError(
+                    f'head_conditioning_train[{t!r}] given but no matching '
+                    f'head_conditioning_predict entry — predictor needs a '
+                    'parameter to evaluate at.')
+            cp = cond_predict[t]
+            if cp.ndim != 2 or cp.shape[0] != n_full or \
+               cp.shape[1] != arr.shape[1]:
+                raise ValueError(
+                    f'head_conditioning_predict[{t!r}] shape {cp.shape} does '
+                    f'not match (n_full={n_full}, p_dim={arr.shape[1]}).')
         cond_dim[t] = arr.shape[1]
 
     F = n_channels_per_lag
-    X_tr_pool = X_train.reshape(-1, K, F).astype(np.float32)
-    X_fl = X_full.reshape(-1, K, F).astype(np.float32)
+    # Take ownership of `X_train`: at full-pool scale (~300 tickers,
+    # K=96, 7 channels per scale) duplicating the training matrix
+    # alongside the per-ticker `.features` arrays the caller still
+    # holds blows past Modal T4 memory ceilings. We normalize in place
+    # via a `(n, K, F)` view of the caller's buffer — the caller is
+    # expected to `del X_train` immediately after this function returns
+    # (see `reconstruct.fit_and_evaluate`). If the caller hands us a
+    # non-float32 or non-contiguous buffer we fall back to a defensive
+    # copy.
+    X_tr_pool = X_train.reshape(-1, K, F)
+    if X_tr_pool.dtype != np.float32 or not X_tr_pool.flags.c_contiguous:
+        X_tr_pool = X_tr_pool.astype(np.float32)
+    if streaming_predict:
+        X_fl = None
+    else:
+        X_fl = X_full.reshape(-1, K, F).astype(np.float32)
 
     # Backbone reuse (frozen) — load weights, hold them constant.
     freeze_backbone_flag = frozen_backbone is not None
@@ -635,8 +677,14 @@ def fit_cnn_multihead(
     else:
         feat_mu_np = X_tr_pool.mean(axis=0, keepdims=True)
         feat_sd_np = X_tr_pool.std(axis=0, keepdims=True) + 1e-8
-    X_tr_pool = (X_tr_pool - feat_mu_np) / feat_sd_np
-    X_fl = (X_fl - feat_mu_np) / feat_sd_np
+    # In-place normalization: `(a - mu) / sd` would allocate two ~60 GB
+    # temporaries at full-pool scale; `-=` and `/=` broadcast write
+    # against the existing buffer, so peak stays at one X_tr_pool size.
+    X_tr_pool -= feat_mu_np
+    X_tr_pool /= feat_sd_np
+    # X_fl is normalized inside `_predict_chunk` (defined below) — do
+    # NOT pre-normalize here, or the predict path double-applies the
+    # transform.
 
     target_names = list(Y_train.keys())
     target_mu = {t: float(np.mean(Y_train[t])) for t in target_names}
@@ -644,7 +692,10 @@ def fit_cnn_multihead(
     Y_std = {t: ((Y_train[t] - target_mu[t]) / target_sd[t]).astype(np.float32)
              for t in target_names}
     cond_tr = {t: arr.astype(np.float32) for t, arr in cond_train.items()}
-    cond_fl = {t: arr.astype(np.float32) for t, arr in cond_predict.items()}
+    if streaming_predict:
+        cond_fl = None
+    else:
+        cond_fl = {t: arr.astype(np.float32) for t, arr in cond_predict.items()}
 
     rng = np.random.default_rng(seed)
     if freeze_backbone_flag:
@@ -789,20 +840,69 @@ def fit_cnn_multihead(
             opt.step()
 
     Tensor.training = False
-    yhat_chunks: dict[str, list[np.ndarray]] = {t: [] for t in target_names}
-    for start in range(0, X_fl.shape[0], predict_chunk):
-        chunk = Tensor(X_fl[start:start + predict_chunk])
-        chunk_cond = {
-            t: Tensor(cond_fl[t][start:start + predict_chunk])
-            for t in cond_fl
+
+    def _predict_chunk(
+        X_in: np.ndarray, cond_in: dict[str, np.ndarray] | None = None,
+    ) -> dict[str, np.ndarray]:
+        """Run the trained model on one chunk of inputs.
+
+        `X_in` is `(n, K * F)` or `(n, K, F)` raw-feature float32; will
+        be normalized internally via `feat_mu_np / feat_sd_np`.
+        `cond_in` follows the same shape convention as the saved
+        `cond_predict` (per-target `(n, p_dim)`); pass `None` for
+        unconditioned-only runs.
+        Output dict carries unstandardized predictions per target.
+        """
+        cond_in = cond_in or {}
+        # Every conditioned target must get a cond block in this chunk —
+        # otherwise the FiLM forward pass below will KeyError deep
+        # inside tinygrad. Catch the omission up front with a clear msg.
+        missing = [t for t in cond_dim if t not in cond_in]
+        if missing:
+            raise ValueError(
+                f'predict cond missing target(s) {missing!r}; the trained '
+                f'model has FiLM heads on {sorted(cond_dim)} and each '
+                'requires a per-chunk conditioning array')
+        X_arr = np.asarray(X_in)
+        if X_arr.ndim == 2:
+            X_arr = X_arr.reshape(-1, K, F)
+        X_arr = X_arr.astype(np.float32, copy=False)
+        X_arr = (X_arr - feat_mu_np) / feat_sd_np
+        cond_arrs = {
+            t: np.asarray(cond_in[t], dtype=np.float32)
+            for t in cond_in if t in cond_dim
         }
-        preds = forward(chunk, chunk_cond)
+        for t, arr in cond_arrs.items():
+            if arr.ndim != 2 or arr.shape[1] != cond_dim[t]:
+                raise ValueError(
+                    f'predict cond[{t!r}] must be (n, p_dim={cond_dim[t]}); '
+                    f'got {arr.shape}')
+            if arr.shape[0] != X_arr.shape[0]:
+                raise ValueError(
+                    f'predict cond[{t!r}] rows {arr.shape[0]} != X rows '
+                    f'{X_arr.shape[0]}')
+        out_chunks: dict[str, list[np.ndarray]] = {t: [] for t in target_names}
+        for start in range(0, X_arr.shape[0], predict_chunk):
+            stop = start + predict_chunk
+            chunk = Tensor(X_arr[start:stop])
+            chunk_cond = {
+                t: Tensor(arr[start:stop]) for t, arr in cond_arrs.items()
+            }
+            preds = forward(chunk, chunk_cond)
+            for t in target_names:
+                out_chunks[t].append(preds[t].numpy())
+        out: dict[str, np.ndarray] = {}
         for t in target_names:
-            yhat_chunks[t].append(preds[t].numpy())
-    yhats: dict[str, np.ndarray] = {}
-    for t in target_names:
-        yhat_std = np.concatenate(yhat_chunks[t]).astype(np.float64)
-        yhats[t] = yhat_std * target_sd[t] + target_mu[t]
+            yhat_std = np.concatenate(out_chunks[t]).astype(np.float64)
+            out[t] = yhat_std * target_sd[t] + target_mu[t]
+        return out
+
+    yhats: 'dict[str, np.ndarray] | object'
+    if streaming_predict:
+        # Caller drives prediction ticker-by-ticker.
+        yhats = _predict_chunk
+    else:
+        yhats = _predict_chunk(X_fl, cond_fl)
 
     shared = {
         'feat_mu': feat_mu_np.astype(np.float32),

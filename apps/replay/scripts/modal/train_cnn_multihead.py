@@ -175,7 +175,7 @@ def _resolve_train_pool(
     return ','.join(names)
 
 
-@app.function(gpu='T4', cpu=4, memory=32768, timeout=60 * 90)
+@app.function(gpu='T4', cpu=4, memory=196608, timeout=60 * 90)
 def train_and_eval(
     steps: int,
     cnn_batch_size: int,
@@ -338,6 +338,11 @@ def main(
     end: str = '2026-04-01',
     bundle: str = 'cwt-only',
     min_history_bars: int = 6500,
+    # Full pool by default. After the streaming-predict + ownership-
+    # transfer refactor (2026-05-09) peak memory at K=96, 7-channel-
+    # per-scale stack, ~300-ticker pool is ~155 GB — fits comfortably
+    # in the 192 GB Modal allocation. Set explicit cap only for smoke
+    # runs.
     max_train_tickers: int = 0,
     compress: str = 'none',
     compress_levels: int = 1,
