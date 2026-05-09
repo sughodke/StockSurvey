@@ -137,13 +137,18 @@ def _load_one_ticker(args):
 
 
 # Memory: at min_history_bars=6500 + 297 tickers + K=96 / F=105
-# polar-Morlet bundle, the feature panel held in host memory during
-# Step 2 is ~6500 * 96 * 105 * 4 bytes per ticker ≈ 260 MB, ×297 ≈
-# 77 GB. The Stage 1 head loop uses an additional precomputed
-# representation tensor ~(D, N, 5632) ≈ 2 GB. 64 GB OOM'd at exit
-# 137 mid-Step 3; 128 GB gives ~50% headroom to absorb tinygrad
-# tensor allocations during the AdamW loop without thrashing.
-@app.function(gpu='T4', cpu=4, memory=131072, timeout=60 * 90)
+# polar-Morlet bundle:
+#   - per-ticker .features ≈ 6500 * 96 * 105 * 4 bytes = 262 MB
+#     × 297 tickers ≈ 78 GB held in host memory through Step 2.
+#   - `align_tickers` then allocates a new (D, N, K, F) ≈ 78 GB panel
+#     and copies each ticker into it. The original list[TickerData]
+#     features stay alive (caller holds the list reference), so peak
+#     during alignment is ~156 GB before any tinygrad tensors land.
+#   - precomputed (D, N, hidden_flat) representation tensor + Stage 1
+#     head AdamW state add ~3-4 GB.
+# 64 GB and 128 GB both OOM'd at exit 137 mid-Step 3; 192 GB lands the
+# alignment peak with ~30 GB margin for the GPU-side compute.
+@app.function(gpu='T4', cpu=4, memory=196608, timeout=60 * 90)
 def train_ssl_walkforward(
     backbone_npz_name: str,
     scorers: str,
