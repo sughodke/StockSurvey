@@ -34,7 +34,8 @@ pool-augmentation in `reconstruct.py::fit_and_evaluate`, CLI flags in
 `cli.py`. ~150 lines.
 
 **Test:** does the IC scorer's val IC move off the noise floor (val
-IC ≈ 0, val Sharpe +0.55..+0.63 from `NOTES.md` 2026-04-30) when
+IC ≈ 0, val Sharpe +0.55..+0.63 from
+[Notes — supervision is binding](../notes.md#what-we-already-know-about-supervision-being-the-binding-constraint)) when
 trained on this richer backbone? If yes, broader window coverage was
 enough. If no, the bottleneck is structural — go to option C or SSL.
 

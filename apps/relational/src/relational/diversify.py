@@ -1,7 +1,8 @@
 """Idea D — diversified selection by greedy farthest-first thinning.
 
 The baseline `weights_regime` ranks by per-stock CWT divergence and
-takes the top-N. The failure mode (NOTES.md "relational CWTs"): "we
+takes the top-N. The failure mode (apps/docs/docs/notes.md "Multi-stock
+CWT framings"): "we
 just bought 5 tech names because tech moved most." This module
 addresses that at the *selection* layer (not the score layer):
 

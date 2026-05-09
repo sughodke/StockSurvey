@@ -21,7 +21,8 @@ Read: encoder and raw both tie at the noise floor. Cross-sectional IC
 supervision at this scale is the binding constraint, not the encoder.
 Floor at this setup: val IC ≈ 0, val Sharpe ≈ 0.55..0.63 with linear
 scoring. New architecture has to clearly beat this floor to count.
-See NOTES.md "No-backbone IC baseline" (2026-04-30).
+See apps/docs/docs/notes.md "What we already know about supervision being
+the binding constraint".
 
 Pipeline:
   1. Load the latest *-cnn-*.npz, strip per-target heads, keep the conv

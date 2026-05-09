@@ -164,7 +164,8 @@ indicator level against forward returns is ~0 (the alpha lives in
 nonlinear functions of indicators — thresholds, divergences, regime
 gating — none of which a linear head over a 4-indicator-shaped latent
 can express). This is the structural reason the encoder-vs-raw IC
-comparison ties at the noise floor (NOTES.md, 2026-04-30) even though
+comparison ties at the noise floor (apps/docs/docs/notes.md "What we
+already know about supervision being the binding constraint") even though
 the backbone provably encodes rich indicator structure (replay R² ≥
 0.95).
 

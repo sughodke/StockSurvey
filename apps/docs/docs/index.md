@@ -12,6 +12,9 @@ in `CLAUDE.md` (the LLM-facing operational reference); everything else
 - [Packages](packages/index.md) — shared numpy primitives.
 - [Leaderboard](leaderboard.md) — append-only master table of every
   walk-forward / OOS eval, with verdict per row.
+- [Notes](notes.md) — durable conceptual material (strategy as a dot
+  product, SSL pretrain thesis, search vs optimize, multi-stock CWT
+  framings).
 - [Findings](findings/index.md) — historical eval results and the
   decision rationale they produced.
 - [Workflows](workflows.md) — how to add an indicator, swap brokers,

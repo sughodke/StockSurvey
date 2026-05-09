@@ -1,4 +1,5 @@
-"""Excess-divergence scoring (NOTES.md idea #1).
+"""Excess-divergence scoring (apps/docs/docs/notes.md "Multi-stock CWT
+framings" idea #1).
 
 For each (date, ticker) cell:
     score = divergence(stock_recent, stock_hist)

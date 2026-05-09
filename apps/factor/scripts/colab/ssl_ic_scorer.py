@@ -15,12 +15,13 @@ What we're testing:
   Does the SSL backbone — broad, indicator-shape-unbiased encoding of
   the CWT bundle — yield better val IC than the supervised CNN
   backbone, which we already showed ties at the noise floor with raw
-  features (NOTES.md "No-backbone IC baseline" 2026-04-30)?
+  features (apps/docs/docs/notes.md "What we already know about
+  supervision being the binding constraint")?
   Hypothesis: yes, because supervised pretrain selects projections
   that are anti-correlated with return prediction (indicators don't
   predict returns), while SSL has no such bias.
 
-Reference floor to beat (from NOTES.md):
+Reference floor to beat (from apps/docs/docs/notes.md):
   Encoder (supervised, K=96, 30-tk): val IC +0.0039, val Sharpe +0.554
   Raw / no-encoder, same setup    : val IC -0.0050, val Sharpe +0.628
   -> SSL needs to push val IC clearly off zero (e.g. +0.02..+0.04+)
@@ -120,7 +121,7 @@ print(f'\n=== SSL-backbone IC scorer result ===')
 print(f'train IC : {result.train_ic:+.4f}    val IC : {result.val_ic:+.4f}')
 print(f'train Shp: {result.train_sharpe:+.3f}    val Shp: {result.val_sharpe:+.3f}')
 print(f'rebal blocks: {result.n_train_bars} train / {result.n_val_bars} val')
-print(f'\nReference floor (NOTES.md 2026-04-30):')
+print(f'\nReference floor (apps/docs/docs/notes.md):')
 print(f'  Encoder (supervised): val IC +0.0039, val Sharpe +0.554')
 print(f'  Raw / no-encoder    : val IC -0.0050, val Sharpe +0.628')
 

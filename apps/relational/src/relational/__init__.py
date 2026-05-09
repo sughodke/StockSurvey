@@ -1,7 +1,7 @@
 """relational: research scaffolding for relational-CWT alpha ideas.
 
-The four ideas tracked in NOTES.md ("Where the real alpha lives —
-relational CWTs"), in priority order:
+The four ideas tracked in apps/docs/docs/notes.md ("Multi-stock CWT
+framings — Where the real alpha may live"), in priority order:
 
   1. Stock minus sector (excess CWT divergence)         — week-1 focus
   2. CWT of cross-sectional dispersion                  — TODO

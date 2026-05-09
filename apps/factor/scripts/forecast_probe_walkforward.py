@@ -3,7 +3,7 @@
 Tests whether replacing the rank-IC training target (raw forward log
 return) with an alternative forecast target lifts val IC on the
 297-ticker walk-forward universe used in the documented indicator
-baseline (NOTES.md 2026-04-30, factor README).
+baseline (apps/docs/docs/findings/factor-indicator-baseline.md, factor README).
 
 The Pearson IC loss already subtracts per-bar cross-sectional means
 inside the correlation, so the "+0.012 baseline" already is the
@@ -259,7 +259,7 @@ def main() -> None:
                   f'{a["positive_val_ic_fraction"]:>10.2f} '
                   f'{d_ic:>+10.4f}')
         print()
-        print(f'documented baseline (NOTES.md / factor README): val IC ≈ +0.0120')
+        print(f'documented baseline (apps/docs/docs/findings/factor-indicator-baseline.md): val IC ≈ +0.0120')
         print(f'control reproduces this within walk-forward seed noise')
 
     summary_path = output / 'forecast-probe-summary.json'

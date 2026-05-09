@@ -2,8 +2,9 @@
 forecast probe.
 
 Question: when we said "the indicators forecast and the CWT doesn't,"
-the CWT comparison was actually at 30 tickers / rebal=5d (NOTES.md
-2026-04-30, "No-backbone IC baseline"), not at the 297 / 20d setup
+the CWT comparison was actually at 30 tickers / rebal=5d
+(apps/docs/docs/notes.md "What we already know about supervision being
+the binding constraint"), not at the 297 / 20d setup
 where indicators show val IC +0.0120 (returns) and +0.4743 (vol). Those
 aren't matched. This driver re-runs the CWT side at the matched setup.
 

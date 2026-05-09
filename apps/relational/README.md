@@ -1,9 +1,9 @@
 # `apps/relational/`
 
 Research scaffolding for **relational-CWT alpha** — scoring families
-that operate on CWT differences across tickers (NOTES.md "Where the
-real alpha lives — relational CWTs"), instead of CWT divergences in
-isolation.
+that operate on CWT differences across tickers (apps/docs/docs/notes.md
+"Multi-stock CWT framings — Where the real alpha may live"), instead of
+CWT divergences in isolation.
 
 Four ideas tracked, in priority order:
 
@@ -222,9 +222,10 @@ don't go unnoticed.
 
 ## Open questions / TODO
 
-- Ideas #2-4 from NOTES.md (cross-sectional dispersion, correlation,
-  sector-pair coherence) — same scaffolding pattern: add a scoring
-  function, register a `weights_<name>` builder, optional CLI subcommand.
+- Ideas #2-4 from `apps/docs/docs/notes.md` (cross-sectional dispersion,
+  correlation, sector-pair coherence) — same scaffolding pattern: add
+  a scoring function, register a `weights_<name>` builder, optional
+  CLI subcommand.
 - Walk-forward Optuna sweep — once the head-to-head shows a meaningful
   edge, add `research/optimize_excess_regime.py` mirroring
   `regime.research.optimize_regime`.
