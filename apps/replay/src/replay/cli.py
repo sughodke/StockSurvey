@@ -438,13 +438,15 @@ def main() -> None:
     parser.add_argument('--macd-fast-grid', default='',
                         help='Comma-separated MACD fast-EMA periods (e.g. '
                              '"8,12,16,24") enabling FiLM conditioning on '
-                             'the macd head. slow / signal are derived from '
-                             'fast via `ss_indicators.macd_from_fast` '
-                             '(slow ≈ 2.167*fast, signal ≈ 0.75*fast — the '
-                             'canonical textbook (12, 26, 9) ratio scaled), '
-                             'so the f=12 cell collapses exactly onto the '
-                             'canonical anchor. cond_dim=1. Anchor comes '
-                             'from --macd-fast.')
+                             'the macd head. The target is log-price MACD '
+                             '(`ss_indicators.macd_log_from_fast`) — '
+                             'scale-invariant across price-disparate '
+                             'tickers, so pool standardization isn\'t '
+                             'dominated by extreme-priced names. slow / '
+                             'signal are derived from fast via the canonical '
+                             'textbook (12, 26, 9) ratio, so the f=12 cell '
+                             'collapses exactly onto the canonical anchor. '
+                             'cond_dim=1. Anchor comes from --macd-fast.')
     # ----- Lie-shape heads (added 2026-05-09) -----
     # Each is FiLM-conditioned over a single horizon `n`. Defaults match
     # `apps/lie.ticker_features.TickerFeatureConfig`. CNN-only.

@@ -51,6 +51,8 @@ from ss_indicators.macd import (
     CANONICAL_SLOW_RATIO,
     macd,
     macd_from_fast,
+    macd_log,
+    macd_log_from_fast,
     macd_periods_from_fast,
 )
 from ss_indicators.moments import rolling_kurt, rolling_skew
@@ -81,6 +83,8 @@ __all__ = [
     'l2_divergence',
     'macd',
     'macd_from_fast',
+    'macd_log',
+    'macd_log_from_fast',
     'macd_periods_from_fast',
     'rolling_kurt',
     'rolling_pearson_corr',

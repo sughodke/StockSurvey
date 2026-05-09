@@ -36,7 +36,7 @@ from ss_features.compression import Compression, compress_tiles_2d_dwt
 from ss_features.ticker import TickerData, load_prices
 from ss_features.vol import log_returns, realized_vol
 from ss_indicators import (
-    cci, cci_strided, drawdown_from_high, macd, macd_from_fast,
+    cci, cci_strided, drawdown_from_high, macd_log, macd_log_from_fast,
     rolling_kurt, rolling_skew, rsi, rsi_strided, vol_norm_momentum,
 )
 from ss_wavelets import (
@@ -319,8 +319,16 @@ def build_features_and_targets(
         features = build_lagged_features(channels_cn, window_cols)
 
     rsi_gt = rsi(prices, n=rsi_n).astype(np.float64)
-    macd_line, _, _ = macd(prices, fast=macd_fast, slow=macd_slow,
-                          signal=macd_signal)
+    # Log-price MACD: scale-invariant across tickers, so the SSL pool
+    # standardization (mu, sd over Y_train['macd']) doesn't get
+    # dominated by extreme-priced names like BRK-A. Diagnosis from
+    # the 2026-05-09 cwtonly run: with raw `macd()` the pooled sd was
+    # ~$256 (BRK-A's MACD sd alone is ~$3357), and CSCO zero-shot R²
+    # was -1500 to -6000 because predictions came out ~250x too large
+    # on the low-priced ticker. `macd_log` typical magnitude is
+    # 0.001-0.1 across all tickers regardless of price level.
+    macd_line, _, _ = macd_log(prices, fast=macd_fast, slow=macd_slow,
+                               signal=macd_signal)
     macd_gt = macd_line.astype(np.float64)
     price_gt = prices.astype(np.float64)
     vol_gt = realized_vol(prices, window=vol_window)
@@ -378,17 +386,15 @@ def build_features_and_targets(
             [realized_vol(prices, window=int(n)) for n in vol_n_grid],
             axis=0)
     if macd_fast_grid:
-        # 1-D conditioning over MACD fast period via the canonical
-        # `(fast, slow, signal)` ratio defined in `ss_indicators.macd`.
-        # Holds slow ≈ 2.167*fast and signal ≈ 0.75*fast so the f=12
-        # cell collapses exactly onto the textbook `(12, 26, 9)` anchor
-        # — earlier the local `slow = 2 * fast` rule produced slow=24
-        # at f=12, which collided with the canonical (slow=26) anchor
-        # at the same FiLM cond and contaminated multi-head training.
-        # cond_dim=1.
+        # 1-D conditioning over MACD fast period. Uses `macd_log_from_fast`
+        # (log-price MACD) for scale invariance + canonical
+        # (slow, signal) ratios. The grid f=12 cell collapses onto the
+        # canonical anchor; the log transform keeps target magnitudes
+        # comparable across price-disparate pool tickers (otherwise a
+        # single BRK-A-class name dominates the pool std). cond_dim=1.
         rows = []
         for f in macd_fast_grid:
-            line, _, _ = macd_from_fast(prices, fast=int(f))
+            line, _, _ = macd_log_from_fast(prices, fast=int(f))
             rows.append(line.astype(np.float64))
         target_grids['macd'] = np.stack(rows, axis=0)
     if momentum_n_grid:

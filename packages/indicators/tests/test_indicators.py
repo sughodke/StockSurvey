@@ -20,6 +20,8 @@ from ss_indicators import (
     fibonacci_retracement,
     macd,
     macd_from_fast,
+    macd_log,
+    macd_log_from_fast,
     macd_periods_from_fast,
     rolling_kurt,
     rolling_pearson_corr,
@@ -215,6 +217,65 @@ def test_macd_from_fast_matches_macd_with_canonical_periods(prices_1d):
         np.testing.assert_array_equal(np.asarray(line_a), np.asarray(line_b))
         np.testing.assert_array_equal(np.asarray(sig_a), np.asarray(sig_b))
         np.testing.assert_array_equal(np.asarray(hist_a), np.asarray(hist_b))
+
+
+def test_macd_log_scale_invariance(prices_1d):
+    """`macd_log(c * p) == macd_log(p)` for any positive scalar `c`.
+
+    This is the property that makes log-MACD usable as a
+    cross-sectional target across price-disparate tickers — a $1
+    stock and a $1000 stock with identical percentage trajectories
+    produce identical log-MACDs. Raw `macd()` lacks this property
+    (it scales linearly with price level), which is why it's
+    catastrophic to pool-standardize across tickers like CSCO ($30)
+    and BRK-A ($500K).
+
+    Tested in float64 so the invariance is verified against the
+    actual mathematical property, not fp32 EMA-chain rounding.
+    """
+    p = prices_1d.astype(np.float64)
+    line, sig, hist = macd_log(p)
+    for c in (0.001, 1.0, 1.0e3, 1.0e6):
+        line_c, sig_c, hist_c = macd_log(p * c)
+        np.testing.assert_allclose(np.asarray(line_c), np.asarray(line),
+                                   rtol=1e-10, atol=1e-12)
+        np.testing.assert_allclose(np.asarray(sig_c), np.asarray(sig),
+                                   rtol=1e-10, atol=1e-12)
+        np.testing.assert_allclose(np.asarray(hist_c), np.asarray(hist),
+                                   rtol=1e-10, atol=1e-12)
+
+
+def test_macd_log_matches_macd_on_log_prices(prices_1d):
+    """`macd_log(p)` is by definition `macd(log(p))`."""
+    line_a, sig_a, hist_a = macd_log(prices_1d)
+    line_b, sig_b, hist_b = macd(np.log(prices_1d))
+    np.testing.assert_array_equal(np.asarray(line_a), np.asarray(line_b))
+    np.testing.assert_array_equal(np.asarray(sig_a), np.asarray(sig_b))
+    np.testing.assert_array_equal(np.asarray(hist_a), np.asarray(hist_b))
+
+
+def test_macd_log_from_fast_matches_macd_log_with_canonical_periods(prices_1d):
+    """`macd_log_from_fast` mirrors `macd_from_fast` semantics on
+    log-prices."""
+    for fast in (5, 8, 12, 16, 24):
+        triple = macd_periods_from_fast(fast)
+        line_a, _, _ = macd_log_from_fast(prices_1d, fast=fast)
+        line_b, _, _ = macd_log(prices_1d, *triple)
+        np.testing.assert_array_equal(np.asarray(line_a), np.asarray(line_b))
+
+
+def test_macd_log_typical_magnitude_is_small(prices_1d):
+    """Log-MACD typical magnitude is O(daily-return-summed-over-fast),
+    i.e. fractional units < 1 — a hard sanity check against the
+    fp32 EMA chain accidentally returning dollar-scale values."""
+    line, _, _ = macd_log(prices_1d)
+    finite = np.asarray(line)
+    finite = finite[np.isfinite(finite)]
+    # `prices_1d` is a random walk centered at 100; log-MACD should
+    # be tiny — a few percent at most.
+    assert np.abs(finite).max() < 1.0, (
+        f'log-MACD max |value| = {np.abs(finite).max():.4f} — too large; '
+        'check that log() was applied to prices, not to an already-logged series')
 
 
 def test_bbands_ordering(prices_1d):

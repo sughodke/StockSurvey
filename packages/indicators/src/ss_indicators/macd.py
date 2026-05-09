@@ -77,3 +77,47 @@ def macd_from_fast(
     """
     f, s, sig = macd_periods_from_fast(fast)
     return macd(prices, fast=f, slow=s, signal=sig)
+
+
+def macd_log(
+    prices: np.ndarray,
+    fast: int = CANONICAL_MACD_FAST,
+    slow: int = CANONICAL_MACD_SLOW,
+    signal: int = CANONICAL_MACD_SIGNAL,
+) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    """Log-price MACD: `EMA(log(p), fast) - EMA(log(p), slow)`.
+
+    Canonical MACD is in dollar units, which is fine on a single
+    ticker but pathological as a cross-sectional target across
+    price-disparate names: a $1 stock and a $1000 stock have MACD
+    magnitudes that differ by a factor of ~1000. Pooling such tickers
+    and standardizing globally then makes predictions on the
+    low-priced ticker hundreds of times too large.
+
+    The log-price variant is **scale-invariant** — `MACD(log(c*p)) =
+    MACD(log(p))` for any positive constant `c`, so a $1 stock and a
+    $1000 stock with the same percentage trend produce the same
+    log-MACD. Typical magnitude is ~0.001-0.1 across all tickers,
+    matching the rest of the SSL bundle (which already operates on
+    log-returns and cumulative-log-return Gaussian smoothing).
+
+    This is the recommended target series for SSL-style multi-ticker
+    pooled training; reserve `macd()` (raw) for single-ticker
+    indicators-as-features use cases where the dollar-unit
+    interpretation is desired.
+    """
+    return macd(np.log(np.asarray(prices)), fast=fast, slow=slow,
+                signal=signal)
+
+
+def macd_log_from_fast(
+    prices: np.ndarray, fast: int,
+) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    """Log-price MACD with canonical `(fast, slow, signal)` ratios.
+
+    The scale-invariant analog of `macd_from_fast`. See `macd_log`
+    for why the log-price formulation is the canonical
+    cross-sectional target.
+    """
+    f, s, sig = macd_periods_from_fast(fast)
+    return macd_log(prices, fast=f, slow=s, signal=sig)

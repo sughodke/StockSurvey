@@ -48,7 +48,7 @@ import numpy as np
 
 from ss_features import TickerData, load_prices, realized_vol
 from ss_indicators import (
-    cci_strided, macd_from_fast, rolling_pearson_corr, rsi_strided,
+    cci_strided, macd_log_from_fast, rolling_pearson_corr, rsi_strided,
 )
 from factor.backbone import (
     Backbone, compute_input_stats, identity_backbone,
@@ -67,11 +67,15 @@ class IndicatorGridConfig:
     (indicator, parameter-tuple). Final feature width is reported by
     `feature_width()`; channel-by-channel labels by `channel_names()`.
 
-    MACD slow / signal are pinned to the canonical textbook ratios
-    off `fast` via `ss_indicators.macd_from_fast`
-    (slow ≈ 2.167*fast, signal ≈ 0.75*fast) so the f=12 cell collapses
-    onto the canonical (12, 26, 9) anchor — matches the convention in
-    `ss_features.build_features_and_targets`.
+    MACD line/signal/histogram are computed via
+    `ss_indicators.macd_log_from_fast`: log-price MACD with the
+    canonical (slow, signal) = (round(fast*26/12), round(fast*9/12))
+    ratio. The log transform makes the feature scale-invariant across
+    price-disparate tickers (a $1 stock and a $1000 stock with
+    identical % trajectories produce the same log-MACD) — required
+    for the cross-sectional IC objective to see coherent feature
+    values rather than per-ticker dollar-scale noise. Matches the
+    convention in `ss_features.build_features_and_targets`.
     """
     rsi_n_grid:    tuple[int, ...] = (5, 7, 10, 14, 21, 30)
     rsi_w_grid:    tuple[int, ...] = (1, 5, 10, 21, 63)
@@ -172,12 +176,13 @@ def build_indicator_features(
     macd_lines: list[np.ndarray] = []
     macd_signals: list[np.ndarray] = []
     macd_hists: list[np.ndarray] = []
-    # Each `fast` cell uses the canonical `(fast, slow, signal)` ratio
-    # via `macd_from_fast` — see `ss_indicators.macd` for why this is
-    # the single source of truth (avoids the slow=24 vs slow=26
-    # collision the prior `slow = 2 * fast` rule produced at f=12).
+    # Log-price MACD with canonical `(fast, slow, signal)` ratio —
+    # scale-invariant across price-disparate pool tickers (a $1 stock
+    # and a $1000 stock with identical % trends produce the same
+    # log-MACD), so the cross-sectional IC objective sees a coherent
+    # feature instead of one dominated by extreme-priced names.
     for f in cfg.macd_fast_grid:
-        line, sig, hist = macd_from_fast(prices, fast=int(f))
+        line, sig, hist = macd_log_from_fast(prices, fast=int(f))
         macd_lines.append(line)
         macd_signals.append(sig)
         macd_hists.append(hist)

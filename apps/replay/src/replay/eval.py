@@ -475,7 +475,7 @@ def zeroshot_eval(
     """
     import matplotlib.pyplot as plt
     from scipy.stats import spearmanr
-    from ss_indicators import cci_strided, macd_from_fast, rsi_strided
+    from ss_indicators import cci_strided, macd_log_from_fast, rsi_strided
     from replay.features import realized_vol
 
     (data, meta, K, scales, rsi_n_grid, rsi_w_grid,
@@ -607,10 +607,12 @@ def zeroshot_eval(
         return realized_vol(prices, window=int(n))
 
     def _macd_at_fast(prices, n, w=1):
-        # Canonical (fast, slow, signal) ratio via ss_indicators —
-        # single source of truth, avoids the slow=24 vs slow=26
-        # collision at fast=12 the prior local rule produced.
-        line, _, _ = macd_from_fast(prices, fast=int(n))
+        # Log-price MACD with canonical (fast, slow, signal) ratio —
+        # matches the SSL training target series in
+        # `ss_features.build_features_and_targets`. Eval-time recon
+        # comparisons are in log-MACD units (typical magnitude
+        # 0.001-0.1), not dollar-MACD.
+        line, _, _ = macd_log_from_fast(prices, fast=int(n))
         return line.astype(np.float64)
 
     def _resolve(grid_key: str, anchor_key: str, anchor_default):
