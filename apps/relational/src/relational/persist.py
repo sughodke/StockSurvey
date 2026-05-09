@@ -39,6 +39,9 @@ SUPPORTED_STRATEGIES: tuple[str, ...] = (
 )
 
 
+SUPPORTED_WAVELETS: tuple[str, ...] = ('ricker', 'morlet')
+
+
 @dataclass
 class RelationalCheckpoint:
     """In-memory representation of a saved relational config.
@@ -47,6 +50,14 @@ class RelationalCheckpoint:
     `n_tail`, `divergence`, `k_clusters`, `fp_window`, `k_neighbors`,
     `forward_horizon`, `w_delta`) — they vary per strategy and are
     threaded through to the underlying `weights_*` builder verbatim.
+
+    `wavelet` selects the CWT kernel: `'ricker'` (real Mexican-hat,
+    backward-compatible default — every existing canonical checkpoint
+    omits the field and so resolves to Ricker via `field(default=...)`)
+    or `'morlet'` (polar Morlet + Gaussian bundle from
+    `ss_features.causal_polar_morlet_matrix`). Currently only the
+    `analog` strategy is wired for `'morlet'`; other strategies will
+    raise at the dispatch boundary until plumbed through.
     """
 
     version: int
@@ -66,12 +77,17 @@ class RelationalCheckpoint:
     train_sharpe: float
     val_sharpe: float
     strategy_kwargs: dict[str, Any] = field(default_factory=dict)
+    wavelet: str = 'ricker'
 
     def __post_init__(self) -> None:
         if self.strategy not in SUPPORTED_STRATEGIES:
             raise ValueError(
                 f'unknown strategy {self.strategy!r}; supported: '
                 f'{SUPPORTED_STRATEGIES}')
+        if self.wavelet not in SUPPORTED_WAVELETS:
+            raise ValueError(
+                f'unknown wavelet {self.wavelet!r}; supported: '
+                f'{SUPPORTED_WAVELETS}')
 
 
 def save_checkpoint(path: str | Path, cp: RelationalCheckpoint) -> Path:
@@ -100,6 +116,7 @@ def load_checkpoint(path: str | Path) -> RelationalCheckpoint:
 __all__ = [
     'CHECKPOINT_VERSION',
     'SUPPORTED_STRATEGIES',
+    'SUPPORTED_WAVELETS',
     'RelationalCheckpoint',
     'save_checkpoint',
     'load_checkpoint',

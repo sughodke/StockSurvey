@@ -98,8 +98,21 @@ def _build_weights_panel(
     forwards `cp.lookback`, `cp.top_n`, `cp.scales` plus whatever extra
     knobs that strategy uses out of `cp.strategy_kwargs`. Builders take
     *only* their declared kwargs, so silently passing extras through
-    would TypeError — we filter."""
+    would TypeError — we filter.
+
+    `cp.wavelet` is currently honored by the `analog` strategy only —
+    other strategies haven't been migrated yet and this dispatch
+    raises early rather than silently routing through the Ricker
+    cache when the checkpoint pinned `'morlet'`.
+    """
     kw = dict(cp.strategy_kwargs)
+    wavelet = getattr(cp, 'wavelet', 'ricker')
+    if wavelet != 'ricker' and cp.strategy != 'analog':
+        raise NotImplementedError(
+            f"strategy={cp.strategy!r} hasn't been migrated to "
+            f'wavelet={wavelet!r} yet — only analog is wired for the '
+            f'polar Morlet bundle. Pin wavelet=ricker on this '
+            f'checkpoint or migrate the strategy first.')
 
     if cp.strategy == 'empirical':
         from relational.empirical_sectors import weights_excess_regime_empirical
@@ -133,6 +146,7 @@ def _build_weights_panel(
             min_sep_days=int(kw.get('min_sep_days', 21)),
             pool_mode=str(kw.get('pool_mode', 'cross_ticker')),
             compression=_maybe_compression(kw),
+            wavelet=wavelet,
         )
 
     if cp.strategy == 'farthest':

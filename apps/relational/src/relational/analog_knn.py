@@ -98,6 +98,7 @@ def analog_knn_scores(
     pool_mode: str = 'cross_ticker',
     cache_dir=None,
     compression: Compression | None = None,
+    wavelet: str = 'ricker',
 ) -> np.ndarray:
     """Per-(date, ticker) forecasted forward-horizon return from
     k-NN analog matching on historical fingerprints.
@@ -122,7 +123,7 @@ def analog_knn_scores(
         raise ValueError(f'unknown pool_mode {pool_mode!r}')
 
     coeffs = load_or_compute_cwt(
-        prices, scales, lookback, cache_dir=cache_dir)
+        prices, scales, lookback, wavelet=wavelet, cache_dir=cache_dir)
     fps = extract_fingerprints(
         coeffs, w=fp_window, znorm=True, compression=compression)
     n_dates, n_tickers, fp_dim = fps.shape
@@ -302,6 +303,7 @@ def analog_knn_scores_fast(
     compression: Compression | None = None,
     topk_cap: int | None = None,
     n_workers: int = 1,
+    wavelet: str = 'ricker',
 ) -> np.ndarray:
     """Vectorised reimplementation of `analog_knn_scores`.
 
@@ -343,7 +345,7 @@ def analog_knn_scores_fast(
         raise ValueError(f'unknown pool_mode {pool_mode!r}')
 
     coeffs = load_or_compute_cwt(
-        prices, scales, lookback, cache_dir=cache_dir)
+        prices, scales, lookback, wavelet=wavelet, cache_dir=cache_dir)
     fps = extract_fingerprints(
         coeffs, w=fp_window, znorm=True, compression=compression)
     n_dates, n_tickers, fp_dim = fps.shape
@@ -465,19 +467,27 @@ def weights_regime_analog(
     pool_mode: str = 'cross_ticker',
     cache_dir=None,
     compression: Compression | None = None,
+    wavelet: str = 'ricker',
 ) -> pd.DataFrame:
     """Top-N basket ranked by k-NN analog forecast score.
 
     Drop-in shape match for `weights_regime`: returns a `(n_dates -
     lookback, n_tickers)` one-hot DataFrame, equal-weighted over the
     chosen `top_n` (descending score = predicted higher forward return).
+
+    `wavelet` selects the CWT kernel routed through
+    `relational.scalogram_cache.load_or_compute_cwt`. `'ricker'`
+    (default) preserves the canonical Phase-2 winner; `'morlet'` uses
+    the polar Morlet + Gaussian bundle from
+    `ss_features.causal_polar_morlet_matrix` (4 channels per scale,
+    fp_dim = 4 * len(scales) * fp_window).
     """
     scores = analog_knn_scores(
         prices, lookback=lookback, scales=scales,
         fp_window=fp_window, k_neighbors=k_neighbors,
         forward_horizon=forward_horizon, min_sep_days=min_sep_days,
         pool_mode=pool_mode, cache_dir=cache_dir,
-        compression=compression)
+        compression=compression, wavelet=wavelet)
     scores = apply_nan_mask(scores, prices.values, lookback)
     weights = select_top_n_matrix(scores, top_n, ascending=False)
     return pd.DataFrame(

@@ -28,8 +28,9 @@ from ss_features.compression import (
     compress_tiles_2d_dwt,
 )
 from ss_features.cwt_features import (
-    CHANNELS_PER_SCALE, TARGET_NAMES, build_features_and_targets,
-    build_lagged_features, channels_per_lag, compute_scalogram,
+    CHANNELS_PER_SCALE, RELATIONAL_CHANNELS_PER_SCALE, TARGET_NAMES,
+    build_features_and_targets, build_lagged_features,
+    causal_polar_morlet_matrix, channels_per_lag, compute_scalogram,
     compute_scalogram_polar, load_ticker, log_return_signs,
     rolling_zscore_stats,
 )
@@ -46,12 +47,14 @@ __all__ = [
     'CalendarWindow',
     'Compression',
     'DEFAULT_STOOQ_DIR',
+    'RELATIONAL_CHANNELS_PER_SCALE',
     'TARGET_NAMES',
     'TickerData',
     'block_windows',
     'build_features_and_targets',
     'build_lagged_features',
     'calendar_windows',
+    'causal_polar_morlet_matrix',
     'channels_per_lag',
     'compress_tiles',
     'compress_tiles_2d_dct_zigzag',

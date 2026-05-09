@@ -116,6 +116,100 @@ def compute_scalogram_polar(
     return abs_c, cos_arg, sin_arg, gaussian
 
 
+# Per-scale channel count for the relational matrix-form polar bundle.
+# Distinct from `CHANNELS_PER_SCALE = 7` (the SSL-trainer bundle that
+# also carries `|c|^2`, `g^2`, and `log_L2_amp`): those are convenience
+# nonlinearities for a CNN's monotone heads and a per-bar K-window
+# aggregator. Relational kNN distances flatten over a w-bar fingerprint
+# window directly, so `|c|^2` is a redundant copy of `|c|` and the
+# K-window log-L2 collapses to the same w-bar slice the fingerprint
+# already carries — including them only multiplies fp_dim without
+# adding linearly-independent information.
+RELATIONAL_CHANNELS_PER_SCALE: int = 4
+
+
+def causal_polar_morlet_matrix(
+    prices: np.ndarray,
+    scales: list[int],
+    *,
+    lookback: int,
+    omega0: float = DEFAULT_MORLET_OMEGA0,
+) -> np.ndarray:
+    """Matrix-form polar Morlet + Gaussian channel panel.
+
+    Parameters
+    ----------
+    prices : np.ndarray
+        `(n_dates, n_tickers)` float matrix of closes.
+    scales : list[int]
+        Wavelet scales (in trading bars) — same convention as
+        `ss_wavelets.causal_cwt`.
+    lookback : int
+        Rolling z-norm window for the Morlet path. The Gaussian companion
+        uses cumulative log-returns directly (no z-norm).
+    omega0 : float
+        Morlet center frequency. Defaults to `DEFAULT_MORLET_OMEGA0 = 6`.
+
+    Returns
+    -------
+    np.ndarray, shape `(RELATIONAL_CHANNELS_PER_SCALE * n_scales,
+    n_dates, n_tickers)`, float32.
+
+    The matrix-form analog of `compute_scalogram_polar`. Channels are
+    interleaved per-scale in the order `(|c|, cos(arg), sin(arg), g)`,
+    so row index `c * n_scales + s` is channel `c` at scale `s`. This
+    layout is the one `relational.fingerprints.extract_fingerprints`
+    expects: it slides a w-bar window along axis=1 and flattens the
+    leading axis, so a 4-channel × S-scale × w-bar fingerprint comes
+    out as a `(4 * S * w,)` vector with channels grouped by scale.
+
+    Causality: `out[:, t, :]` depends only on `prices[:t+1, :]`. The
+    rolling z-norm is causal (cumsum-based), and `causal_cwt_morlet` /
+    `causal_cwt_gaussian` are causal one-sided convolutions.
+    """
+    prices_arr = np.asarray(prices, dtype=np.float64)
+    if prices_arr.ndim != 2:
+        raise ValueError(
+            f'prices must be (n_dates, n_tickers), got shape {prices_arr.shape}')
+    n_dates, n_tickers = prices_arr.shape
+    scales_l = list(map(int, scales))
+    n_scales = len(scales_l)
+
+    morlet_3d = causal_cwt_morlet(
+        prices_arr.astype(np.float32), scales_l,
+        lookback=lookback, omega0=omega0)             # (S, T, N) complex64
+    abs_c = np.abs(morlet_3d).astype(np.float32)
+    eps = np.float32(1e-12)
+    safe_abs = np.maximum(abs_c, eps)
+    cos_arg = (morlet_3d.real.astype(np.float32) / safe_abs)
+    sin_arg = (morlet_3d.imag.astype(np.float32) / safe_abs)
+
+    # Per-ticker cumulative log-returns: matches the 1-D
+    # `compute_scalogram_polar` semantics. NaN log-returns at the leading
+    # bar zero out so the cumsum stays finite.
+    with np.errstate(invalid='ignore', divide='ignore'):
+        log_r = np.log(prices_arr[1:] / prices_arr[:-1])
+    log_r = np.nan_to_num(log_r, nan=0.0, posinf=0.0, neginf=0.0)
+    cum_log_r = np.empty_like(prices_arr, dtype=np.float64)
+    cum_log_r[0] = 0.0
+    np.cumsum(log_r, axis=0, out=cum_log_r[1:])
+    gaussian_3d = causal_cwt_gaussian(
+        cum_log_r, scales_l).astype(np.float32)        # (S, T, N) float32
+
+    # Stack channels in the (|c|, cos, sin, g) order. Row `c*S + s` is
+    # channel `c` at scale `s`. Concatenation along axis 0 gives the
+    # `(C*S, T, N)` panel directly.
+    panel = np.concatenate(
+        [abs_c, cos_arg, sin_arg, gaussian_3d], axis=0).astype(
+        np.float32, copy=False)
+    expected_rows = RELATIONAL_CHANNELS_PER_SCALE * n_scales
+    if panel.shape != (expected_rows, n_dates, n_tickers):
+        raise AssertionError(
+            f'polar Morlet panel shape mismatch: got {panel.shape}, '
+            f'expected ({expected_rows}, {n_dates}, {n_tickers})')
+    return panel
+
+
 def _rolling_log_l2_amp(
     abs_c: np.ndarray, window_cols: int,
 ) -> np.ndarray:
