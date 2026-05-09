@@ -39,6 +39,31 @@ DWT-L1 compressed:
 
 ![CSCO zero-shot CCI sweep, DWT-L1 compressed](images/cwtonly-dwtL1-CSCO-replay-zeroshot-cci-wn-sweep.png)
 
+## CSCO zero-shot — vol head, (n, w) sweep
+
+Baseline:
+
+![CSCO zero-shot vol sweep, baseline](images/cwtonly-CSCO-replay-zeroshot-vol-wn-sweep.png)
+
+DWT-L1 compressed:
+
+![CSCO zero-shot vol sweep, DWT-L1 compressed](images/cwtonly-dwtL1-CSCO-replay-zeroshot-vol-wn-sweep.png)
+
+## CSCO zero-shot — MACD head, (n, w) sweep
+
+The MACD head is the visibly broken one. Both arms produce sweeps
+with R² in the −400 to −1200 range — the head is a pre-existing
+pathology unrelated to compression and is tracked under
+[the DWT compression follow-ups TODO](../TODO/dwt-compression-followups.md#macd-head-pathology-replay).
+
+Baseline:
+
+![CSCO zero-shot MACD sweep, baseline (broken head)](images/cwtonly-CSCO-replay-zeroshot-macd-wn-sweep.png)
+
+DWT-L1 compressed:
+
+![CSCO zero-shot MACD sweep, DWT-L1 compressed (still broken)](images/cwtonly-dwtL1-CSCO-replay-zeroshot-macd-wn-sweep.png)
+
 ## CSCO zero-shot peaks
 
 | Target | Compressed @ (n,w)   | Baseline |

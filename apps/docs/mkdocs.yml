@@ -65,6 +65,11 @@ nav:
   - Home: index.md
   - Apps:
       - apps/index.md
+      - Regime: apps/regime.md
+      - Relational: apps/relational.md
+      - Factor: apps/factor.md
+      - Replay: apps/replay.md
+      - Notebook: apps/notebook.md
   - Packages:
       - packages/index.md
   - Leaderboard: leaderboard.md
