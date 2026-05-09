@@ -32,25 +32,38 @@ Public API the migrations should consume:
 
 ```python
 from ss_features import (
-    TickerData,                    # per-ticker container
-    build_features_and_targets,    # CNN-input bundle (replay only)
-    compute_scalogram_polar,       # 4-tuple (|c|, cos, sin, g)
-    load_ticker,                   # one-shot loader
-    CHANNELS_PER_SCALE,            # = 7
-    channels_per_lag,              # n_scales -> 7 * n_scales
+    TickerData,                       # per-ticker container
+    build_features_and_targets,       # CNN-input bundle (replay only)
+    compute_scalogram_polar,          # 4-tuple (|c|, cos, sin, g) per ticker
+    causal_polar_morlet_matrix,       # matrix-form (C*S, T, N) panel
+                                      # for relational / regime use
+    load_ticker,                      # one-shot loader
+    CHANNELS_PER_SCALE,               # = 7 (CNN bundle)
+    RELATIONAL_CHANNELS_PER_SCALE,    # = 4 (kNN-distance bundle)
+    channels_per_lag,                 # n_scales -> 7 * n_scales
 )
 from ss_wavelets import (
-    causal_cwt,                    # real Ricker (kept; do not delete)
-    causal_cwt_morlet,             # complex Morlet, bandpass + phase
-    causal_cwt_gaussian,           # real Gaussian, lowpass / trend
-    DEFAULT_MORLET_OMEGA0,         # = 6
-    KERNEL_HALF_EXTENT,            # = 3
+    causal_cwt,                       # real Ricker (kept; do not delete)
+    causal_cwt_morlet,                # complex Morlet, bandpass + phase
+    causal_cwt_gaussian,              # real Gaussian, lowpass / trend
+    DEFAULT_MORLET_OMEGA0,            # = 6
+    KERNEL_HALF_EXTENT,               # = 3
 )
 ```
 
 Real Ricker `causal_cwt` stays in `ss_wavelets` as the legacy primitive
 — don't delete it. Research scripts and the parked v1 app still
 reference it.
+
+Note that the matrix-form helper exposes **4 channels per scale**
+(`|c|, cos(arg), sin(arg), g`), not 3. The Gaussian companion `g` is
+included because for kNN-distance scoring it carries the
+trend / level signal the Morlet bandpass kernels structurally cannot.
+The redundant `|c|^2` and `g^2` channels (present in the CNN bundle
+as monotone convenience nonlinearities) are intentionally dropped —
+they add nothing to L2 / cosine distance once `|c|` and `g` are in
+the vector. fp_dim therefore goes `S * w → 4 * S * w`, not the 3×
+the original plan estimated.
 
 ## `apps/regime` (live trading) — STRATEGY CHANGE
 
@@ -99,6 +112,50 @@ signal — empirical question.
 
 ## `apps/relational` (live trading) — STRATEGY CHANGE, all six checkpoints
 
+### Status — partial (analog only) — 2026-05-09
+
+- ✅ `ss_features.causal_polar_morlet_matrix` — matrix-form polar
+  bundle helper added (4 channels per scale, see API note above).
+- ✅ `RelationalCheckpoint.wavelet` field — defaults `'ricker'` for
+  back-compat; validates against `SUPPORTED_WAVELETS = ('ricker',
+  'morlet')`.
+- ✅ `relational.scalogram_cache.load_or_compute_cwt(..., wavelet=)`
+  — accepts both kernels; cache key hashes the wavelet name so the
+  existing Ricker `.npz` cache is preserved unchanged. Morlet panels
+  land at `cwt-morlet-<hash>.npz` next to `cwt-ricker-<hash>.npz`.
+- ✅ `analog_knn.{analog_knn_scores, analog_knn_scores_fast,
+  weights_regime_analog}` — `wavelet=` arg plumbed through; default
+  `'ricker'` keeps the Phase-2 canonical winner unchanged.
+- ✅ `relational.inference._build_weights_panel` — forwards
+  `cp.wavelet` to the analog dispatch and **raises
+  `NotImplementedError` for the other five strategies** if a
+  checkpoint pins `wavelet='morlet'`. Paper-trade-safe: a stray
+  Morlet checkpoint loaded against an unmigrated strategy fails
+  loudly, not silently.
+- ✅ Walk-forward Ricker-vs-Morlet A/B harness:
+    - Local: `python -m
+      relational.research.idea_b_analog_knn_morlet_walkforward
+      --data-dir ./StooqData`
+    - Modal: `uvx modal run apps/relational/scripts/modal/
+      relational_morlet_phase2.py` (after the
+      `prep_phase2_prices.py` prep step)
+- ⏳ **Validation gate (in flight):** Modal A/B running on Phase-2
+  21-ticker pool, top-10, rebal-20d, 10bps commission. Outputs land
+  at `Output/relational-morlet-phase2-{equity.png, stats.txt,
+  walkforward.csv, walkforward.txt}`. Bar to clear: val Sharpe ≥
+  the Ricker analog cross_ticker baseline of 1.146.
+- ❌ Other five strategies (`empirical`, `gmm`, `farthest`,
+  `diversified`, `velocity`) — not yet plumbed; their `weights_*`
+  builders still take `coeffs` directly from the cache without a
+  `wavelet` arg. Migrate one at a time after analog clears its gate.
+- ❌ Canonical checkpoint regen — `Output/relational-{strategy}.json`
+  files all stay on Ricker until per-strategy walk-forwards sign off.
+
+Migration scope deviated from the prescribed "regime first" decision
+order — the user asked the relational migration first since `analog`
+is Phase-2's canonical winner and the SSL bundle is independently
+useful there. Regime is still pending.
+
 Files (every CWT-touching scoring module):
 
 - `apps/relational/src/relational/scalogram_cache.py:30,66` — the
@@ -122,31 +179,51 @@ Files (every CWT-touching scoring module):
 
 Migration:
 
-- Add `wavelet: str = "ricker"` to `RelationalCheckpoint` (in
+- ✅ Add `wavelet: str = "ricker"` to `RelationalCheckpoint` (in
   `apps/relational/src/relational/persist.py`) so live mirrors
-  train-time choice.
-- Plumb `wavelet` from `RelationalCheckpoint` through
+  train-time choice. Done in commit `c479ca3`.
+- 🟡 Plumb `wavelet` from `RelationalCheckpoint` through
   `scalogram_cache.compute_or_load` → all six `weights_*` builders.
-- For Morlet: power = `np.abs(coeffs) ** 2` (signed `coeffs` is
-  meaningless for Morlet — phase lives in `arg`, magnitude in `|c|`).
-  Fingerprints currently use signed Ricker coefficients; the Morlet
-  equivalent is `np.stack([|c|, cos(arg), sin(arg)], axis=...)` per
-  scale, which roughly triples fingerprint dim. Decide if the
-  fingerprint should compress this back via `Compression(kind='dwt')`
-  or stay full-resolution.
+  Cache + `analog` are done; the other five `weights_*` builders are
+  still on the legacy `(S, T, N)` Ricker shape and need their own
+  fingerprint paths to handle the `(C*S, T, N)` Morlet panel.
+- ✅ For Morlet, the fingerprint shape decision landed as
+  **`np.concatenate([|c|, cos(arg), sin(arg), g], axis=0)`** per
+  scale (the matrix-form helper does this). Fingerprint dim grows
+  `S * w → 4 * S * w` (~4×), which is the channel cost of trading
+  Ricker's signed bandpass coefficient for the polar Morlet bandpass
+  pair plus the Gaussian lowpass companion. **No DWT compression
+  pinned** — left full-resolution by default; the existing
+  `compression=Compression(kind='dwt', levels=L)` knob is still
+  available per-call if a future eval shows the ~4× kNN cost
+  dominates.
 
 Validation gate:
 
-- Re-run the 8-arm walk-forward Modal entrypoint
-  (`apps/relational/scripts/modal/relational_dwt_phase2.py`) on each
-  of the six canonical strategies, both Ricker and Morlet arms, on
-  the Phase-2 21-ticker pool. The val Sharpe must match or beat the
-  current canonical (1.07–1.13).
-- After validation, regenerate
-  `apps/relational/scripts/build_canonical_checkpoints.py` outputs
-  with the Morlet variants. Existing
-  `Output/relational-{empirical,gmm,analog,farthest,diversified,velocity}.json`
-  stay on Ricker until the per-strategy walk-forward signs off.
+- 🟡 **Per-strategy walk-forward A/B** (replaces the original "8-arm
+  rerun on the existing DWT Modal entrypoint" plan — that script
+  pre-dates the wavelet field and would have to be re-templated
+  per-strategy anyway). The new pattern is one Modal entrypoint per
+  strategy:
+    - `apps/relational/scripts/modal/relational_morlet_phase2.py`
+      runs `analog-ricker` vs `analog-morlet` on the Phase-2 21-
+      ticker pool with the canonical knobs (top-10, rebal-20d, 10bps,
+      lookback 120, fp_window 21, scales [5,7,10,12,21,26,50,90],
+      k=50, h=20, min_sep=21, pool_mode=cross_ticker). Outputs land
+      at `Output/relational-morlet-phase2-{equity.png, stats.txt,
+      walkforward.csv, walkforward.txt}`. **Status: in flight as of
+      2026-05-09.** Bar to clear: val Sharpe ≥ Ricker baseline of
+      1.146.
+    - When the next strategy is plumbed, copy the script and swap
+      `analog_knn_scores_fast` for that strategy's score function;
+      the segmentation + plot code is shared.
+- After per-strategy validation,
+  `apps/relational/scripts/build_canonical_checkpoints.py` gains a
+  new entry pinning that strategy on Morlet (separate file from the
+  existing Ricker JSON, named e.g.
+  `Output/relational-{strategy}-morlet.json`, so live deploys can
+  point at either explicitly). The Ricker JSON stays as the prior
+  canonical until the operator chooses to swap.
 
 Risk: this is six independent strategy revalidations. Almost certainly
 some will regress — the Phase-2 wins are mega-cap-specific and
@@ -188,15 +265,23 @@ default.
 
 ## Decision order
 
-1. **Regime first** (simpler, one strategy, one checkpoint). If the
-   Morlet arm clears the existing eval bar, we have evidence the
-   migration won't kill production.
-2. **Relational second**, but expect heterogeneous results across the
-   six strategies. Migrate them one at a time; let each pass its own
-   walk-forward before swapping the canonical JSON.
-3. **Notebook scalograms last** — viz, not blocking anything else.
+1. ~~**Regime first**~~ — *deviated from*. The relational `analog`
+   migration ran first (commit `c479ca3`); regime is still pending.
+   The original rationale (regime is simpler, one checkpoint, one
+   strategy) still holds for any *future* migration that hasn't been
+   started yet.
+2. **Relational, one strategy at a time.** Analog is the test case;
+   the other five (`empirical`, `gmm`, `farthest`, `diversified`,
+   `velocity`) follow once the analog A/B clears its gate. Expect
+   heterogeneous results — Phase-2 wins are mega-cap-specific and
+   narrow; Morlet's narrowband response may erase whatever specific
+   spectral feature each scoring family was picking up.
+3. **Regime** — pending the same per-strategy A/B template adapted
+   to its Optuna walk-forward.
+4. **Notebook scalograms last** — viz, not blocking anything else.
 
-If regime fails the gate, halt the migration and treat polar Morlet
-as a research-only primitive available via direct
-`ss_wavelets.causal_cwt_morlet` import. The new bundle stays
-canonical only for the SSL trainer in that scenario.
+If a strategy fails its gate, that strategy stays on Ricker
+permanently — the wavelet field on the checkpoint makes this trivial
+to encode (one `'ricker'` and one `'morlet'` checkpoint coexist for
+the same strategy). Treat polar Morlet as the *default for new
+strategies*, not as a forced replacement for working ones.
