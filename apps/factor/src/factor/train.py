@@ -126,18 +126,29 @@ def precompute_inputs(
     aligned = align_tickers(tickers, K=backbone.K, F=backbone.F)
     D, N, K, F = aligned.features.shape
 
-    flat = aligned.features.reshape(D * N, K, F).astype(np.float32)
-    # Run encoder forward in numpy-out-numpy-in chunks so the latent
-    # never stays in VRAM between minibatches. Realize each chunk so the
-    # next chunk's allocation can reuse the buffer.
+    # `aligned.features` is already float32 (allocated as float32 in
+    # `align_tickers`). `.astype(np.float32, copy=False)` is a no-op
+    # rather than a 2x duplicate — at full-pool scale (D=6500, N=297,
+    # K=96, F=105) the panel is ~78 GB, so saving the duplicate matters.
+    # `reshape` returns a view of the same buffer.
+    flat = aligned.features.reshape(D * N, K, F).astype(
+        np.float32, copy=False)
+    # Run encoder forward in numpy-out-numpy-in chunks. Pre-allocate
+    # `repr_full` once and write each chunk's output directly into its
+    # slice — avoids the chunk-list accumulator + np.concatenate pattern
+    # that held two ~41 GB copies of the latent simultaneously and
+    # OOM'd at 192 GB on the full pool. Single allocation keeps the
+    # peak at ~41 GB (plus aligned.features at 78 GB).
+    repr_full = np.empty(
+        (D * N, backbone.hidden_flat), dtype=np.float32)
     CHUNK = 8192
-    repr_chunks: list[np.ndarray] = []
     Tensor.training = False
     for s in range(0, flat.shape[0], CHUNK):
         x = Tensor(flat[s:s + CHUNK])
-        repr_chunks.append(apply_backbone(backbone, x).numpy())
-    repr_flat = np.concatenate(repr_chunks, axis=0)
-    repr_full = repr_flat.reshape(D, N, backbone.hidden_flat).astype(np.float32)
+        chunk_out = apply_backbone(backbone, x).numpy()
+        repr_full[s:s + chunk_out.shape[0]] = chunk_out
+    # `reshape` is a view — no copy.
+    repr_full = repr_full.reshape(D, N, backbone.hidden_flat)
 
     fwd_ret = forward_log_returns(aligned.prices, rebal_days=rebal_days)
     daily_log_ret = np.zeros_like(aligned.prices, dtype=np.float64)
