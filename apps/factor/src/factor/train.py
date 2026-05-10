@@ -163,11 +163,13 @@ def precompute_inputs(
     repr_rb_full = repr_rb_flat.reshape(Dp, N, backbone.hidden_flat)
 
     # Daily-axis forward-return computations (cheap — `(D, N)` panels).
+    # Keep f64 here for the same reason as forward_log_returns: rank-IC's
+    # covariance numerator cancels catastrophically when val IC is small,
+    # so target-side precision matters. Demoted to f32 at the boundary
+    # below (`fwd_rb`, `blr_rb`) where the Tensor handoff happens.
     fwd_ret = forward_log_returns(aligned.prices, rebal_days=rebal_days)
-    # f32 throughout — block sums below run over <=rebal_days bars (no
-    # long-horizon accumulation), so f32 precision is plenty.
-    daily_log_ret = np.zeros_like(aligned.prices, dtype=np.float32)
-    log_p = np.log(np.maximum(aligned.prices, 1e-12)).astype(np.float32)
+    daily_log_ret = np.zeros_like(aligned.prices, dtype=np.float64)
+    log_p = np.log(np.maximum(aligned.prices, 1e-12))
     daily_log_ret[1:] = log_p[1:] - log_p[:-1]
 
     # Build the base mask at rebal positions only. The encoder-output

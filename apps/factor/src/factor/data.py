@@ -203,13 +203,17 @@ def forward_log_returns(
     to close-of-(i+rebal_days). The trailing `rebal_days` rows are NaN
     (the future window doesn't fit).
     """
-    # f32 throughout — log() of f64 prices then subtracted in-window
-    # has no accumulation, so f32 precision (~7 digits) is plenty for
-    # forward log returns on the [-1, 1] range typical of horizons we
-    # use. Keeps a `(D, N)` panel at half the bytes.
-    log_p = np.log(np.maximum(prices, 1e-12)).astype(np.float32)
+    # f64 throughout — pearson_rank_ic's covariance numerator is the
+    # difference of two near-equal sums of (score - mean) * (fwd - mean),
+    # which cancels catastrophically when val IC is small (~0.003 here).
+    # f32 forward returns introduce ulp-scale precision loss at exactly
+    # the magnitude where the signal lives, drifting val IC by O(1e-3).
+    # The (D, N) panel is small (~78 MB at full pool); the f64-vs-f32
+    # bytes saved aren't worth the SNR loss. Caller demotes to f32 at
+    # the Tensor boundary in precompute_inputs.
+    log_p = np.log(np.maximum(prices, 1e-12))
     D, N = prices.shape
-    fwd = np.full((D, N), np.nan, dtype=np.float32)
+    fwd = np.full((D, N), np.nan, dtype=np.float64)
     if D > rebal_days:
         fwd[:D - rebal_days] = log_p[rebal_days:] - log_p[:D - rebal_days]
     return fwd
