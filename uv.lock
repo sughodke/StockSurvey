@@ -30,6 +30,7 @@ members = [
     "ss-docs",
     "ss-features",
     "ss-indicators",
+    "ss-iv",
     "ss-loaders",
     "ss-plotting",
     "ss-portfolio",
@@ -4162,6 +4163,7 @@ dependencies = [
     { name = "scipy", version = "1.17.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.11'" },
     { name = "ss-features" },
     { name = "ss-indicators" },
+    { name = "ss-iv" },
     { name = "ss-loaders" },
     { name = "ss-plotting" },
     { name = "ss-portfolio", extra = ["alpaca"] },
@@ -4186,6 +4188,7 @@ requires-dist = [
     { name = "scipy" },
     { name = "ss-features", editable = "packages/features" },
     { name = "ss-indicators", editable = "packages/indicators" },
+    { name = "ss-iv", editable = "packages/iv" },
     { name = "ss-loaders", editable = "packages/loaders" },
     { name = "ss-plotting", editable = "packages/plotting" },
     { name = "ss-portfolio", extras = ["alpaca"], editable = "packages/portfolio" },
@@ -4841,6 +4844,23 @@ dependencies = [
 requires-dist = [
     { name = "numpy" },
     { name = "pandas" },
+]
+
+[[package]]
+name = "ss-iv"
+version = "0.1.0"
+source = { editable = "packages/iv" }
+dependencies = [
+    { name = "numpy" },
+    { name = "pandas" },
+    { name = "ss-features" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "numpy" },
+    { name = "pandas" },
+    { name = "ss-features", editable = "packages/features" },
 ]
 
 [[package]]

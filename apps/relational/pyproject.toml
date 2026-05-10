@@ -10,6 +10,7 @@ dependencies = [
     "ss-portfolio[alpaca]",
     "ss-plotting",
     "ss-features",        # Compression (2D DWT keep-LL) for fingerprint dim-reduction.
+    "ss-iv",              # IV loaders + short-vol PnL (used by research/ diagnostics).
     "numpy",
     "pandas",
     "matplotlib",

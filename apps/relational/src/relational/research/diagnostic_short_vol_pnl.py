@@ -31,14 +31,15 @@ import pandas as pd
 from ss_features import realized_vol_matrix
 from ss_loaders import load_stooq_matrix
 
-from relational.iv_data import load_atm_iv, load_dolthub_iv_parquet
+from ss_iv import (
+    evaluate_short_vol, evaluate_universe_short_vol,
+    load_atm_iv, load_dolthub_iv_parquet,
+)
+
 from relational.research.diagnostic_dislocation_vs_vol import (
     ALL_SCORERS, BRAINSTORM_SCORERS, _compute_scores,
 )
 from relational.sectors import PHASE2_TICKERS
-from relational.short_vol import (
-    evaluate_short_vol, evaluate_universe_short_vol,
-)
 
 warnings.filterwarnings('ignore')
 

@@ -30,7 +30,10 @@ premium baked into IV.
 ## Phase 2 — real IV anchor (gauss314, 47 rebals, 2019-2023)
 
 Swapped to actual ATM IV from the HF gauss314 dataset
-(`load_atm_iv` in `iv_data.py`). Idea C surfaced **t = -2.21** (top-N
+(`load_atm_iv` in `ss_iv` — promoted to `packages/iv/` 2026-05-10
+when `apps/vol` became a second consumer; the original lived at
+`apps/relational/src/relational/iv_data.py`). Idea C surfaced
+**t = -2.21** (top-N
 has forward < IV more than rest → short-vol edge). Empirical (A) and
 GICS (#1) leaned positive at t = +1.5. Looked promising.
 
@@ -57,7 +60,9 @@ significant. All 9 scorers settled in [-1.08, +1.49] on DoltHub IV.
 ## Phase 5 — short-vol P&L (reframed)
 
 Stopped looking at t-stats and computed actual vol-points P&L per
-cycle (`short_vol.py` + `diagnostic_short_vol_pnl.py`). Headline:
+cycle (`ss_iv.short_vol` + `diagnostic_short_vol_pnl.py`; `short_vol`
+was promoted to `packages/iv/` alongside `iv_data` 2026-05-10).
+Headline:
 
 | strategy | Sharpe | mean P&L / cycle | win rate | cum P&L | max DD |
 |---|---|---|---|---|---|

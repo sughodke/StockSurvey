@@ -45,6 +45,7 @@ ss-portfolio = { workspace = true }
 ss-plotting = { workspace = true }
 ss-stream = { workspace = true }
 ss-features = { workspace = true }
+ss-iv = { workspace = true }
 ss-tg-ops = { workspace = true }
 ss-cli = { workspace = true }
 regime = { workspace = true }
@@ -54,6 +55,8 @@ factor = { workspace = true }
 replay = { workspace = true }
 relational = { workspace = true }
 lie = { workspace = true }
+gate = { workspace = true }
+pairs = { workspace = true }
 ss-docs = { workspace = true }
 
 [dependency-groups]

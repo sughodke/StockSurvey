@@ -32,6 +32,7 @@ StockSurvey is a uv-workspace monorepo containing trading-strategy research and 
 - `packages/stream/`     (`ss_stream`)     — point-in-time universe iterator over the Stooq archive.
 - `packages/portfolio/`  (`ss_portfolio`)  — numpy block-Sharpe with costs, CAGR/drawdown/Sortino/Calmar, water-fill weight cap, masked softmax. Houses `ss_portfolio.broker` (canonical Alpaca adapter, `[alpaca]` extra) — both `regime live` and `ss-relational live` share it.
 - `packages/plotting/`   (`ss_plotting`)   — training-curve, equity-comparison, scalogram-heatmap helpers.
+- `packages/iv/`         (`ss_iv`)         — implied-vol loaders (gauss314 HF + DoltHub) + short-vol PnL accounting (`short_vol_pnl_panel`, `evaluate_short_vol`, `evaluate_universe_short_vol`). Promoted from `apps/relational/src/relational/{iv_data, short_vol}.py` 2026-05-10 when `apps/vol` became a second consumer.
 
 `ss_indicators`, `ss_portfolio`, and `ss_wavelets` are all pure numpy. `apps/replay` and `apps/factor` use **tinygrad** (the only autograd runtime in the repo). The legacy v1 indicators in `v1/util/indicators.py` are preserved untouched but are not the canonical implementation.
 
