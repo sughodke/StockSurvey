@@ -1,5 +1,22 @@
 # Long-short constructor — close the rank-IC / long-only-top-N mismatch
 
+**Resolved 2026-05-10: FAIL — pivot to
+[different prediction problem](different-prediction-problem.md).**
+Mean val Sharpe long-short = **−0.067** (< +0.10 fail floor),
+**2/6** positive windows (≤ 2 fail floor), alpha vs long-only
+**−0.345**. Per-window data and mechanism in the closing
+[finding page](../findings/factor-rankic-long-only-mismatch.md).
+Leaderboard row: 2026-05-10 long-short constructor,
+[`confirmed-null`](../leaderboard.md#verdict-labels). Implementation
+landed in `factor.objectives.{long_short_weights,
+block_sharpe_long_short}` + `WalkForwardWindow.{train,val}_sharpe_long_short`;
+driver `apps/factor/scripts/long_short_eval.py`.
+
+The original test design and pre-registration are kept below for
+audit.
+
+---
+
 Diagnostic motivating this TODO:
 [Rank-IC trains a signed signal that long-only top-N can only
 half-execute](../findings/factor-rankic-long-only-mismatch.md).

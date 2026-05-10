@@ -14,8 +14,15 @@ explanation for *part* of the
 [passive-EW failure](passive-ew-benchmark.md) that none of our
 relational model rows could close.
 
-Verdict: [`diagnostic`](../leaderboard.md#verdict-labels). No
-run yet — the falsifiable test is below.
+Verdict: [`confirmed-null`](../leaderboard.md#verdict-labels) —
+the cheap test fired and the long-short constructor failed by
+both pre-registered cuts (mean val Sharpe **−0.067** vs the
++0.10 floor; **2/6** positive windows vs the 4/6 floor). The
+"discarded short signal" hypothesis is falsified. See "Result
+(2026-05-10)" below; per the `confirmed-null` next-move rule,
+the line of work pivots to a different prediction problem
+([`TODO/different-prediction-problem`](../TODO/different-prediction-problem.md))
+rather than continuing to tune cross-sectional return forecasting.
 
 ## What the metric does
 
@@ -105,42 +112,108 @@ scorers if their underlying score function can take both signs.
 The TODO is scoped to factor first because the metric mismatch
 is sharpest and the head is the cheapest to re-evaluate.
 
-## Falsifiable next experiment
+## Result (2026-05-10)
 
-Replace the long-only softmax-top-N constructor with a
-market-neutral long-short one for the existing factor-app rank-IC
-heads. Keep training unchanged — the heads stay frozen for v1.
-The test design lives in
-[`TODO/long-short-constructor.md`](../TODO/long-short-constructor.md).
+Implementation: `factor.objectives.long_short_weights` +
+`block_sharpe_long_short` (per-bar z-score → clip ±3σ →
+re-demean → L1-normalize so `sum(w) = 0` and `sum(|w|) = 1`).
+Costs use `commission_frac × L1(Δw)` *without* the 0.5 factor —
+for a market-neutral book the L1 of the delta is already the
+one-sided turnover (the 0.5 factor in `block_sharpe` exists
+because long-only L1(Δw) double-counts under `sum(w) = 1`).
+Initial entry from cash pays full leverage. Per-window column
+added to `WalkForwardWindow.{train,val}_sharpe_long_short`.
 
-Pre-registered pass / fail cuts (per the diagnostic verdict's
-"turn it into a falsifiable hypothesis" rule):
+Driver: `apps/factor/scripts/long_short_eval.py`. Same
+factor-narrow universe, same 6-window walk-forward, same
+linear head, same `n_steps=200 lr=1e-2 wd=1e-3 commission_bps=10`.
+Both arms evaluated on the same head trained on rank-IC.
 
-- **Pass.** Long-short val Sharpe on the factor-narrow walk-
-  forward (linear head, the existing 6-window setup) clears
-  +0.20 with non-negative alpha *over each window's zero-
-  Sharpe market-neutral baseline*. Implication: the head had
-  short-side skill and the constructor was discarding it.
-  Next move is to retrain head with a Sharpe-aligned loss
-  that knows about the long-short constructor.
-- **Fail.** Long-short val Sharpe is below +0.10 or has the
-  same +/-3-window split as long-only. Implication: the
-  head genuinely lacks cross-sectional dispersion at this
-  scale, and the deployment-mismatch hypothesis is falsified.
-  Next move is to pivot to a different prediction problem
-  ([different-prediction-problem.md](../TODO/different-prediction-problem.md))
-  rather than continue to tune cross-sectional return
-  forecasting.
+| win | train_ic | val_ic | val Sharpe LO | val Sharpe LS | LS − LO |
+|---|---:|---:|---:|---:|---:|
+| 0 | +0.1447 | +0.0039 | −0.985 | −0.336 | **+0.649** |
+| 1 | +0.0951 | −0.0101 | +0.855 | −0.382 | **−1.237** |
+| 2 | +0.1255 | +0.0227 | +0.732 | +0.273 | −0.458 |
+| 3 | +0.1245 | +0.0007 | +0.235 | −0.212 | −0.447 |
+| 4 | +0.1148 | −0.0088 | +0.418 | −0.212 | −0.631 |
+| 5 | +0.1063 | +0.0246 | +0.411 | +0.466 | +0.055 |
+| **mean** | **+0.119** | **+0.0055** | **+0.278** | **−0.067** | **−0.345** |
 
-The cost of running the test is one walk-forward pass on a
-checkpoint we already have — no retraining, no new universe
-build. ~80 LoC for the constructor + a new column in the
-walk-forward summary.
+Headline: long-short val Sharpe = **−0.067**, positive windows
+= **2/6**, alpha vs long-only = **−0.345**.
+
+| Pre-registered cut | Threshold | Observed | Verdict |
+|---|---|---|---|
+| mean LS val Sharpe ≥ +0.20 | +0.20 | −0.067 | fail |
+| pos-LS-window fraction ≥ 4/6 | ≥ 4 | 2 | fail |
+| (alt fail trigger) mean LS < +0.10 *or* ≤ 2/6 positive | either | both | fail |
+
+Falsified.
+
+## Why long-short underperformed
+
+Three observations from the per-window table:
+
+1. **No window where LS materially exceeds LO.** The single
+   window where LS lifts (w0, +0.65 Sharpe) is rescuing a
+   catastrophic LO (−0.99), not adding new alpha. w5 has +0.06
+   alpha, within noise. Every other window has LS strictly
+   worse.
+2. **Window 1 is the cleanest evidence against the
+   discarded-short-signal hypothesis.** LO returned +0.86 on
+   that window; if the head's rank-IC had real bottom-tail
+   skill, LS would at minimum match it. LS came in at −0.38, a
+   1.24-Sharpe destruction. The "edge" LO captured on this
+   window was almost entirely market beta of the long-only
+   tilt, not cross-sectional skill.
+3. **Mean train IC +0.119 with mean val IC +0.0055** is the
+   classic overfit signature reported in
+   [`factor-indicator-baseline`](factor-indicator-baseline.md):
+   the head has substantial in-sample fit but ~2-3% of it
+   generalizes. That residual val IC is too small to drive a
+   long-short portfolio above costs (10 bps × 2× turnover ≈
+   400 bps annualized friction). LO's +0.28 Sharpe was
+   overwhelmingly the universe's market-beta tailwind, not
+   the +0.005 IC.
+
+This makes the `confirmed-null` verdict structural rather than
+implementation-specific: any long-short constructor on a head
+with this val-IC magnitude will lose to the friction floor.
+Two-tail prediction skill can't help if neither tail has skill
+above noise.
+
+## Connection to the EW gate
+
+The
+[passive-EW finding](passive-ew-benchmark.md) had already
+shown that the long-only path can't clear EW. This result
+tightens the diagnosis: the alpha gap isn't *just* a
+constructor problem — the underlying head genuinely lacks
+cross-sectional dispersion at the +0.005 to +0.012 IC range
+the indicator stack hits on the 20-day horizon. Friction
+costs eat the signal under either constructor.
+
+The val IC ceiling result was already on the leaderboard
+(`factor-indicator-baseline` row, +0.012 ceiling at the same
+universe / windowing); this run gives the *constructor-side*
+control.
+
+## Implication
+
+`confirmed-null` next-move per the leaderboard's verdict-action
+table: stop testing variations of the same lever, find an
+orthogonal one. Long-short was the cheapest variation of the
+cross-sectional return-forecasting setup; it's now resolved.
+The vol-forecast arc (
+[`factor-multitask-aux-weight-sweep`](factor-multitask-aux-weight-sweep.md))
+already established cross-sectional return prediction is null
+at this universe / horizon. The next test should change the
+prediction problem itself — pair-spread mean reversion,
+drawdown forecasting, or IV-vs-realized — not the constructor
+or the friction stack. See
+[`TODO/different-prediction-problem`](../TODO/different-prediction-problem.md).
 
 ## Master walk-forward log
 
-This finding will land a leaderboard row when the long-short
-test fires. Until then, the
-[passive-EW benchmark](../leaderboard.md#verdict-labels) rows
-remain the operative `confirmed-null` reading on the long-only
-deployment side.
+[2026-05-10 long-short constructor row](../leaderboard.md) —
+[`confirmed-null`](../leaderboard.md#verdict-labels).

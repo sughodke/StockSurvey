@@ -27,7 +27,9 @@ from tinygrad.nn.optim import AdamW
 from ss_features import TickerData, block_windows
 from factor.backbone import Backbone
 from factor.data import AlignedTickers
-from factor.objectives import block_sharpe, masked_mse, pearson_rank_ic
+from factor.objectives import (
+    block_sharpe, block_sharpe_long_short, masked_mse, pearson_rank_ic,
+)
 from factor.scorers import get_scorer
 from factor.train import precompute_inputs
 
@@ -54,6 +56,8 @@ class WalkForwardWindow:
     head_params:       dict[str, np.ndarray]
     train_aux_mse:     float = float('nan')
     val_aux_mse:       float = float('nan')
+    train_sharpe_long_short: float = float('nan')
+    val_sharpe_long_short:   float = float('nan')
 
 
 @dataclass
@@ -93,6 +97,19 @@ class WalkForwardResult:
         if not self.windows:
             return float('nan')
         return float(np.mean([w.val_sharpe for w in self.windows]))
+
+    @property
+    def mean_val_sharpe_long_short(self) -> float:
+        if not self.windows:
+            return float('nan')
+        return float(np.mean([w.val_sharpe_long_short for w in self.windows]))
+
+    @property
+    def positive_val_sharpe_long_short_fraction(self) -> float:
+        if not self.windows:
+            return float('nan')
+        return float(np.mean(
+            [w.val_sharpe_long_short > 0 for w in self.windows]))
 
     @property
     def positive_val_ic_fraction(self) -> float:
@@ -283,12 +300,19 @@ def train_scorer_walkforward(
         val_sh   = float(block_sharpe(
             s_val,   log_temperature, blr_val,   mask_val,
             rebal_days, commission_bps / 1e4).item())
+        train_sh_ls = float(block_sharpe_long_short(
+            s_train, blr_train, mask_train,
+            rebal_days, commission_bps / 1e4).item())
+        val_sh_ls   = float(block_sharpe_long_short(
+            s_val,   blr_val,   mask_val,
+            rebal_days, commission_bps / 1e4).item())
 
         if verbose:
             postfix = {
                 'tr_ic': f'{train_ic:+.3f}',
                 'val_ic': f'{val_ic:+.3f}',
                 'val_sh': f'{val_sh:+.2f}',
+                'val_sh_ls': f'{val_sh_ls:+.2f}',
             }
             if is_multitask:
                 postfix['val_aux'] = f'{val_aux_mse:.3f}'
@@ -304,13 +328,17 @@ def train_scorer_walkforward(
             n_val_bars=val_slc.stop - val_slc.start,
             head_params={k: v.numpy() for k, v in head_params.items()},
             train_aux_mse=train_aux_mse, val_aux_mse=val_aux_mse,
+            train_sharpe_long_short=train_sh_ls,
+            val_sharpe_long_short=val_sh_ls,
         ))
 
     if verbose:
         print(f'walk-forward done: {result.n_windows} windows, '
               f'mean val IC={result.mean_val_ic:+.4f}, '
               f'median val IC={result.median_val_ic:+.4f}, '
-              f'positive-val-IC fraction={result.positive_val_ic_fraction:.2f}')
+              f'positive-val-IC fraction={result.positive_val_ic_fraction:.2f}, '
+              f'mean val Sharpe long-only={result.mean_val_sharpe:+.3f}, '
+              f'mean val Sharpe long-short={result.mean_val_sharpe_long_short:+.3f}')
 
     return result
 

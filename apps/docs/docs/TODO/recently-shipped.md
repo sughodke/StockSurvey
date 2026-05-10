@@ -1,5 +1,16 @@
 # Recently shipped (and dropped from this list)
 
+- **Long-short market-neutral constructor for the rank-IC heads**
+  (2026-05-10) — `factor.objectives.{long_short_weights,
+  block_sharpe_long_short}` + per-window
+  `WalkForwardWindow.{train,val}_sharpe_long_short` column. Driver
+  at `apps/factor/scripts/long_short_eval.py`. Resolved
+  [`long-short-constructor`](long-short-constructor.md) TODO with
+  verdict `confirmed-null`: discarded-short-signal hypothesis
+  falsified, line of work pivots to
+  [`different-prediction-problem`](different-prediction-problem.md).
+  Closing finding:
+  [`factor-rankic-long-only-mismatch`](../findings/factor-rankic-long-only-mismatch.md).
 - `ss-portfolio.broker` (Alpaca adapter shared between regime + relational) +
   `ss-relational live` paper-trade stack with the four risk rails.
 - `apps/relational/scripts/build_canonical_checkpoints.py` — six canonical

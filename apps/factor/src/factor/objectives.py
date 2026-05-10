@@ -130,4 +130,77 @@ def block_sharpe(
     return mean / std * Tensor((TRADING_DAYS / rebal_days) ** 0.5)
 
 
-__all__ = ['TRADING_DAYS', 'block_sharpe', 'masked_mse', 'pearson_rank_ic']
+def long_short_weights(
+    rebal_scores: Tensor, rebal_mask: Tensor,
+    leverage: float = 1.0, clip_sigma: float = 3.0,
+) -> Tensor:
+    """Per-bar market-neutral long-short weights via z-score → clip → L1-normalize.
+
+    Closes the rank-IC / long-only-top-N mismatch documented in
+    `apps/docs/docs/findings/factor-rankic-long-only-mismatch.md`:
+    rank-IC trains a sign-symmetric signal that softmax-top-N can only
+    half-execute. This constructor uses both tails.
+
+    Returns weights with `sum(w_t) ≈ 0` and `sum(|w_t|) ≈ leverage` per
+    bar, where equality is exact for bars with ≥2 valid tickers and a
+    non-degenerate score distribution. Degenerate bars (constant scores
+    or <2 valid tickers) return all-zero weights — no position taken.
+
+    Inputs sanitized to 0 outside `mask=1` cells, matching the defensive
+    pattern in `pearson_rank_ic` / `masked_mse`.
+    """
+    counts = rebal_mask.sum(axis=1, keepdim=True)
+    safe_counts = counts.maximum(1.0)
+    s_mean = (rebal_scores * rebal_mask).sum(axis=1, keepdim=True) / safe_counts
+    s_dev = (rebal_scores - s_mean) * rebal_mask
+    s_var = (s_dev * s_dev).sum(axis=1, keepdim=True) / safe_counts
+    s_std = (s_var + 1e-12).sqrt()
+    z = s_dev / s_std
+    z = z.maximum(-clip_sigma).minimum(clip_sigma) * rebal_mask
+    z_mean = z.sum(axis=1, keepdim=True) / safe_counts
+    z = (z - z_mean) * rebal_mask
+    l1 = z.abs().sum(axis=1, keepdim=True)
+    safe_l1 = l1.maximum(1e-12)
+    w = leverage * z / safe_l1
+    valid_row = (l1 > 1e-9).cast(w.dtype)
+    return w * valid_row
+
+
+def block_sharpe_long_short(
+    rebal_scores: Tensor,
+    block_log_ret: Tensor,
+    rebal_mask: Tensor,
+    rebal_days: int,
+    commission_frac: float,
+    leverage: float = 1.0,
+    clip_sigma: float = 3.0,
+) -> Tensor:
+    """Annualized Sharpe for the market-neutral long-short constructor.
+
+    Mirrors `block_sharpe`'s reduction (mean / std over per-bar block
+    returns, then `sqrt(TRADING_DAYS / rebal_days)` annualization), but
+    swaps the constructor. Costs use `commission_frac * L1(delta_w)`
+    *without* the 0.5 factor: for a market-neutral book the L1 of the
+    delta is already the one-sided turnover (the 0.5 factor in
+    `block_sharpe` exists because long-only L1(delta) double-counts
+    given `sum(w) = 1`). Initial entry from cash pays full leverage.
+
+    `leverage = 1.0` is the comparison gate — Sharpe scales roughly
+    linearly with leverage before costs, so larger values are
+    informative as a sensitivity check, not a shippable result.
+    """
+    w = long_short_weights(rebal_scores, rebal_mask, leverage, clip_sigma)
+    port_block_ret = (w * block_log_ret).sum(axis=1)
+    init_cost = w[0].abs().sum()
+    diff_cost = (w[1:] - w[:-1]).abs().sum(axis=1)
+    costs = commission_frac * init_cost.reshape(1).cat(diff_cost, dim=0)
+    port_block_ret = port_block_ret - costs
+    mean = port_block_ret.mean()
+    std = port_block_ret.std() + 1e-9
+    return mean / std * Tensor((TRADING_DAYS / rebal_days) ** 0.5)
+
+
+__all__ = [
+    'TRADING_DAYS', 'block_sharpe', 'block_sharpe_long_short',
+    'long_short_weights', 'masked_mse', 'pearson_rank_ic',
+]

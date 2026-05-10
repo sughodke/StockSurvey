@@ -17,7 +17,6 @@ Active backlog for the StockSurvey monorepo. Each section from the original
 - [DWT-compression follow-ups](dwt-compression-followups.md)
 - [Rebal-days sweep](rebal-days-sweep.md)
 - [Reversed-price training — falsify the time-symmetry hypothesis](reversed-price-experiment.md)
-- [Long-short constructor — close the rank-IC / long-only-top-N mismatch](long-short-constructor.md)
 
 ## Operations
 
@@ -28,6 +27,7 @@ Active backlog for the StockSurvey monorepo. Each section from the original
 ## Done
 
 - [Recently shipped (and dropped from this list)](recently-shipped.md)
+- [Long-short constructor — resolved 2026-05-10, `confirmed-null`](long-short-constructor.md)
 
 ## Superseded
 

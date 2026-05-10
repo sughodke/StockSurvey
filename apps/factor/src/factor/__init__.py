@@ -41,7 +41,8 @@ Public surface
   `train_scorer_indicators` — deterministic-indicator alternative.
 - `init_linear`, `apply_linear`, `init_mlp`, `apply_mlp`, `get_scorer`,
   `SCORERS` — scoring heads.
-- `pearson_rank_ic`, `block_sharpe` — objectives.
+- `pearson_rank_ic`, `block_sharpe`, `block_sharpe_long_short`,
+  `long_short_weights` — objectives.
 - `TrainResult`, `train_scorer`, `precompute_inputs`, `predict`
   — training loop + helpers.
 """
@@ -59,7 +60,10 @@ from factor.indicator_features import (
     make_indicator_backbone, train_scorer_indicators,
     train_scorer_indicators_walkforward,
 )
-from factor.objectives import block_sharpe, masked_mse, pearson_rank_ic
+from factor.objectives import (
+    block_sharpe, block_sharpe_long_short, long_short_weights,
+    masked_mse, pearson_rank_ic,
+)
 from factor.scorers import (
     SCORERS, apply_linear, apply_mlp, apply_mlp_multitask, get_scorer,
     init_linear, init_mlp, init_mlp_multitask,
@@ -88,6 +92,7 @@ __all__ = [
     'apply_mlp_multitask',
     'backbone_to_pytree',
     'block_sharpe',
+    'block_sharpe_long_short',
     'build_indicator_features',
     'compute_input_stats',
     'forward_log_returns',
@@ -101,6 +106,7 @@ __all__ = [
     'init_mlp_multitask',
     'load_backbone',
     'load_ticker_indicators',
+    'long_short_weights',
     'make_indicator_backbone',
     'masked_mse',
     'pearson_rank_ic',
