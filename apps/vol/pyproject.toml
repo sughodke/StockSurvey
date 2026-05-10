@@ -1,0 +1,29 @@
+[project]
+name = "vol"
+version = "0.1.0"
+requires-python = ">=3.10"
+description = "Implied vol surface predictor — skew/smile/HV-ratio/OI-imbalance/VIX-spread features for the IV/RV gap forecast that NO_OPTIONS.md's 9 scorers did not test."
+dependencies = [
+    "ss-loaders",
+    "ss-features",
+    "ss-portfolio",
+    "ss-iv",
+    "numpy",
+    "pandas",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/vol"]
+
+[project.scripts]
+ss-vol = "vol.cli:main"
+
+[tool.uv.sources]
+ss-loaders = { workspace = true }
+ss-features = { workspace = true }
+ss-portfolio = { workspace = true }
+ss-iv = { workspace = true }

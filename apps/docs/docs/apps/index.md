@@ -11,6 +11,7 @@ or scripts.
 | [`replay`](replay.md) | Active | Multi-head CNN trainer reconstructing technical indicators from causal CWT slices. |
 | [`gate`](gate.md) | Active (v0 partial-OOS) | Aggregate drawdown forecaster — EW-exposure regime gate. Numpy OLS predictor. First test of the prediction-problem pivot. |
 | [`pairs`](pairs.md) | Active (v0 confirmed-null) | Pair-spread mean reversion. Engle-Granger screening + classical z-score trade rules. Numpy + statsmodels. |
+| [`vol`](vol.md) | Active (v0 inconclusive, 5/5 pos) | Implied vol surface predictor. Skew/smile/IV-HV/OI/VIX-spread features → forward IV-RV gap. Numpy OLS. |
 | `lie` | Active | Shape-feature research arc (cross-sectional, manifold experiments). |
 | [`notebook`](notebook.md) | Active | Jupyter playground + scalogram visualizer CLIs (`ss-scalogram`, `ss-scalogram-video`). |
 | `v1` | Parked | Legacy single-ticker workflow + aiohttp web service. |

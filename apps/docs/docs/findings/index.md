@@ -49,3 +49,7 @@ Default eval window unless otherwise stated: 2013-01-29 → 2025-12-11,
 ## Pairs app
 
 - [Pairs classical v0 — confirmed-null per pre-reg, regime-conditional partial signal](pairs-classical-v0.md)
+
+## Vol app
+
+- [Vol surface v0 — multivariate prediction works (val r +0.12), per-cell alpha +0.089 just below threshold (inconclusive, 5/5 positive)](vol-surface-v0.md)

@@ -40,6 +40,7 @@ members = [
     "stocksurvey",
     "stocksurvey-notebook",
     "v1",
+    "vol",
 ]
 
 [[manifest.dependency-metadata]]
@@ -5451,6 +5452,29 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/69/55/257d9217301d0817b4b0b2ed74e8949d1084d6457ad032c13ab81e652c3a/vectorbt-1.0.0.tar.gz", hash = "sha256:e42cd61ecdabb165bf7a482516f15f48b0173ad17629c875916dacfdc39b8fb0", size = 546226, upload-time = "2026-04-22T13:30:02.032Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/4c/08/c15c7ade057b0633ac39fe6f5fffa37c306304745538c4f9187a05e9aa69/vectorbt-1.0.0-py3-none-any.whl", hash = "sha256:c596e11bdad985181150f3b3c8db0a7322c738fbb64c7a919a0418e99326cc13", size = 451657, upload-time = "2026-04-22T13:29:59.982Z" },
+]
+
+[[package]]
+name = "vol"
+version = "0.1.0"
+source = { editable = "apps/vol" }
+dependencies = [
+    { name = "numpy" },
+    { name = "pandas" },
+    { name = "ss-features" },
+    { name = "ss-iv" },
+    { name = "ss-loaders" },
+    { name = "ss-portfolio" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "numpy" },
+    { name = "pandas" },
+    { name = "ss-features", editable = "packages/features" },
+    { name = "ss-iv", editable = "packages/iv" },
+    { name = "ss-loaders", editable = "packages/loaders" },
+    { name = "ss-portfolio", editable = "packages/portfolio" },
 ]
 
 [[package]]

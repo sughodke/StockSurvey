@@ -1,9 +1,25 @@
 # `apps/vol` — IV-vs-realized vol mispricing
 
-**Status: queued (rank 3 of 3 in the prediction-problem pivot).**
-Highest cost in the pivot order — needs new data source,
-new friction stack, new live-trading path. Tracking design
-ahead of time so we know what we're committing to.
+**Status: v0 resolved (2026-05-10) — `inconclusive` per
+pre-reg.** App scaffolded as `apps/vol/` with surface-shape
+feature class (skew, smile, IV/HV ratio, OI imbalance,
+VIX-spread, strike-spread). Mean per-cell-Sharpe alpha **+0.089**,
+**5/5 positive windows** — strongest directional consistency in
+the prediction-problem-pivot arc, but mean just below the +0.10
+marginal floor. **Mean val Pearson r +0.12** (40× the audit's
+univariate max), so the multivariate signal is real even though
+the per-cell PnL is below threshold. Late windows (2022-12 →
+2023-06, post-COVID vol regime) carry the signal: val r > +0.23.
+See [`vol-surface-v0`](../findings/vol-surface-v0.md).
+
+v1 follow-ups parked: per-rebal portfolio aggregator, costs-in-loop,
+DoltHub extension to 2026 (the OOS test the gauss314 span can't
+provide), MLP head, OI-based liquidity restriction. Not blocking
+the next strategic move — see "All three resolved" below.
+
+The original test design is kept below for audit.
+
+---
 
 ## The prediction problem
 

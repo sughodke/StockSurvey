@@ -87,6 +87,7 @@ nav:
       - Replay: apps/replay.md
       - Gate: apps/gate.md
       - Pairs: apps/pairs.md
+      - Vol: apps/vol.md
       - Notebook: apps/notebook.md
   - Packages:
       - packages/index.md
@@ -114,6 +115,7 @@ nav:
       - Loss-pivot — Sharpe/IR losses underperform rank-IC: findings/factor-loss-pivot.md
       - Gate drawdown v0 (partial-OOS): findings/gate-drawdown-v0.md
       - Pairs classical v0 (confirmed-null): findings/pairs-classical-v0.md
+      - Vol surface v0 (inconclusive, 5/5 pos): findings/vol-surface-v0.md
   - Workflows: workflows.md
   - TODO:
       - TODO/index.md
