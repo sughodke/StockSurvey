@@ -105,6 +105,7 @@ nav:
       - Relational DWT-L1 OOS failure: findings/relational-dwt-failure.md
       - Relational polar Morlet OOS failure: findings/relational-morlet-failure.md
       - Passive EW benchmark (regrades shippable rows): findings/passive-ew-benchmark.md
+      - Rank-IC vs long-only top-N mismatch: findings/factor-rankic-long-only-mismatch.md
   - Workflows: workflows.md
   - TODO:
       - TODO/index.md
@@ -118,6 +119,7 @@ nav:
       - DWT-compression follow-ups: TODO/dwt-compression-followups.md
       - Rebal-days sweep: TODO/rebal-days-sweep.md
       - Reversed-price experiment: TODO/reversed-price-experiment.md
+      - Long-short constructor: TODO/long-short-constructor.md
       - Modal-cron live deployment: TODO/modal-cron-live-deployment.md
       - Memory and wall-time follow-ups: TODO/memory-walltime-followups.md
       - Streaming feature pipeline (superseded): TODO/streaming-feature-pipeline.md

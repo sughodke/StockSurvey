@@ -39,3 +39,4 @@ Default eval window unless otherwise stated: 2013-01-29 → 2025-12-11,
 ## Cross-app
 
 - [Passive equal-weight benchmark — every "shippable" relational row was alpha-zero or alpha-negative](passive-ew-benchmark.md)
+- [Rank-IC trains a signed signal that long-only top-N can only half-execute](factor-rankic-long-only-mismatch.md)
