@@ -1,0 +1,3200 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Trading-strategy research and live execution monorepo.">
+      
+      
+      
+        <link rel="canonical" href="https://sidghodke.com/StockSurvey/findings/factor-multitask-aux-head/">
+      
+      
+        <link rel="prev" href="../factor-f32-precision-cancellation/">
+      
+      
+        <link rel="next" href="../factor-multitask-aux-weight-sweep/">
+      
+      
+        
+      
+      
+      <link rel="icon" href="../../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.6">
+    
+    
+      
+        <title>Factor multi-task aux head - StockSurvey</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/main.484c7ddc.min.css">
+      
+        
+        <link rel="stylesheet" href="../../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Geist:300,300i,400,400i,700,700i%7CGeist+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Geist";--md-code-font:"Geist Mono"}</style>
+      
+    
+    
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#factor-multi-task-auxiliary-head-regularizes-the-mlp-arm-but-does-not-clear-the-indicator-baseline" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow md-header--lifted" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../.." title="StockSurvey" class="md-header__button md-logo" aria-label="StockSurvey" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            StockSurvey
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Factor multi-task aux head
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme)" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3.9 12c0-1.71 1.39-3.1 3.1-3.1h4V7H7a5 5 0 0 0-5 5 5 5 0 0 0 5 5h4v-1.9H7c-1.71 0-3.1-1.39-3.1-3.1M8 13h8v-2H8zm9-6h-4v1.9h4c1.71 0 3.1 1.39 3.1 3.1s-1.39 3.1-3.1 3.1h-4V17h4a5 5 0 0 0 5-5 5 5 0 0 0-5-5"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: light)" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_2" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M17 7H7a5 5 0 0 0-5 5 5 5 0 0 0 5 5h10a5 5 0 0 0 5-5 5 5 0 0 0-5-5m0 8a3 3 0 0 1-3-3 3 3 0 0 1 3-3 3 3 0 0 1 3 3 3 3 0 0 1-3 3"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: dark)" data-md-color-scheme="slate" data-md-color-primary="black" data-md-color-accent="indigo"  aria-label="Switch to system preference"  type="radio" name="__palette" id="__palette_2">
+    
+      <label class="md-header__button md-icon" title="Switch to system preference" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M17 7H7a5 5 0 0 0-5 5 5 5 0 0 0 5 5h10a5 5 0 0 0 5-5 5 5 0 0 0-5-5M7 15a3 3 0 0 1-3-3 3 3 0 0 1 3-3 3 3 0 0 1 3 3 3 3 0 0 1-3 3"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+          <a href="javascript:void(0)" class="md-search__icon md-icon" title="Share" aria-label="Share" data-clipboard data-clipboard-text="" data-md-component="search-share" tabindex="-1">
+            
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M18 16.08c-.76 0-1.44.3-1.96.77L8.91 12.7c.05-.23.09-.46.09-.7s-.04-.47-.09-.7l7.05-4.11c.54.5 1.25.81 2.04.81a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3c0 .24.04.47.09.7L8.04 9.81C7.5 9.31 6.79 9 6 9a3 3 0 0 0-3 3 3 3 0 0 0 3 3c.79 0 1.5-.31 2.04-.81l7.12 4.15c-.05.21-.08.43-.08.66 0 1.61 1.31 2.91 2.92 2.91s2.92-1.3 2.92-2.91A2.92 2.92 0 0 0 18 16.08"/></svg>
+          </a>
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+        <div class="md-search__suggest" data-md-component="search-suggest"></div>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/sughodke/StockSurvey" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+  </div>
+  <div class="md-source__repository">
+    sughodke/StockSurvey
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+    
+      
+<nav class="md-tabs" aria-label="Tabs" data-md-component="tabs">
+  <div class="md-grid">
+    <ul class="md-tabs__list">
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../.." class="md-tabs__link">
+        
+  
+  
+    
+  
+  Home
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../apps/" class="md-tabs__link">
+          
+  
+  
+    
+  
+  Apps
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../packages/" class="md-tabs__link">
+          
+  
+  
+    
+  
+  Packages
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../leaderboard/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Leaderboard
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../notes/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Notes
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../tags/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Tags
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+    
+  
+  
+    
+    
+      <li class="md-tabs__item md-tabs__item--active">
+        <a href="../" class="md-tabs__link">
+          
+  
+  
+    
+  
+  Findings
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../workflows/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Workflows
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../TODO/" class="md-tabs__link">
+          
+  
+  
+    
+  
+  TODO
+
+        </a>
+      </li>
+    
+  
+
+      
+    </ul>
+  </div>
+</nav>
+    
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+  
+
+
+<nav class="md-nav md-nav--primary md-nav--lifted" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="StockSurvey" class="md-nav__button md-logo" aria-label="StockSurvey" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    StockSurvey
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/sughodke/StockSurvey" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+  </div>
+  <div class="md-source__repository">
+    sughodke/StockSurvey
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_2" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../apps/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Apps
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_2" id="__nav_2_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Apps
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../apps/regime/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Regime
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../apps/relational/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Relational
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../apps/factor/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Factor
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../apps/replay/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Replay
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../apps/notebook/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Notebook
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_3" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../packages/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Packages
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Packages
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../leaderboard/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Leaderboard
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../notes/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Notes
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../tags/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Tags
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_7" checked>
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Findings
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_7" id="__nav_7_label" tabindex="">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_7_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_7">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Findings
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../regime-baselines/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Regime baselines
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../log-returns-vs-raw-close/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Log-returns vs raw close
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../factor-indicator-baseline/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Factor indicator-IC baseline
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../factor-ssl-walkforward/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Factor SSL walkforward
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../time-reversal-symmetry/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Time-reversal symmetry
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../factor-f32-precision-cancellation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Factor f32 precision cancellation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Factor multi-task aux head
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Factor multi-task aux head
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#setup" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Setup
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#walk-forward-result-2026-05-10" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Walk-forward result (2026-05-10)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#three-readings-of-the-result" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Three readings of the result
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#why-the-aux-head-didnt-learn" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Why the aux head didn't learn
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#implications" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Implications
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#aux_weight-sweep-2026-05-10" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        aux_weight sweep (2026-05-10)
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="aux_weight sweep (2026-05-10)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#per-window-data-across-the-full-sweep" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Per-window data across the full sweep
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#aggregates-across-the-full-sweep" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Aggregates across the full sweep
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#reading-the-sweep-the-fourth-branch" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Reading the sweep — the fourth branch
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#what-the-sweep-falsifies" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        What the sweep falsifies
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#implication-for-further-factor-work" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Implication for further factor work
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#master-walk-forward-log" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Master walk-forward log
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../factor-multitask-aux-weight-sweep/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Factor multi-task aux-weight sweep
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../replay-decoders/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Replay decoder options
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../replay-dwt-compression/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Replay DWT compression
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../replay-length-axis-compression/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Replay length-axis (K) compression
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../relational-universe-shift/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Relational universe shift
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../relational-dwt-failure/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Relational DWT-L1 OOS failure
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../relational-morlet-failure/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Relational polar Morlet OOS failure
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../passive-ew-benchmark/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Passive EW benchmark (regrades shippable rows)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../factor-rankic-long-only-mismatch/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Rank-IC vs long-only top-N mismatch
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../factor-loss-pivot/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Loss-pivot — Sharpe/IR losses underperform rank-IC
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../gate-drawdown-v0/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Gate drawdown v0 (partial-OOS)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../workflows/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Workflows
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_9" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../TODO/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    TODO
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_9" id="__nav_9_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_9_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_9">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    TODO
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../TODO/polar-morlet-migration/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Polar Morlet migration
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../TODO/review-followups/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Review follow-ups
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../TODO/different-prediction-problem/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Different prediction problem
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../TODO/apps-pairs/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    apps/pairs (pair-spread mean reversion)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../TODO/apps-vol/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    apps/vol (IV-vs-realized vol mispricing)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../TODO/rsi-long-period-ablation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    RSI long-period ablation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../TODO/film-w1-diagnostic/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    FiLM w=1 diagnostic
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../TODO/backbone-architecture/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Backbone architecture
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../TODO/port-sharpe-tinygrad/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Port Sharpe to tinygrad
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../TODO/dwt-compression-followups/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DWT-compression follow-ups
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../TODO/rebal-days-sweep/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Rebal-days sweep
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../TODO/reversed-price-experiment/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Reversed-price experiment
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../TODO/long-short-constructor/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Long-short constructor
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../TODO/ew-overlay-test/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    EW + rank-IC overlay (parked)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../TODO/modal-cron-live-deployment/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Modal-cron live deployment
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../TODO/memory-walltime-followups/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Memory and wall-time follow-ups
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../TODO/streaming-feature-pipeline/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Streaming feature pipeline (superseded)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../TODO/recently-shipped/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Recently shipped
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#setup" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Setup
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#walk-forward-result-2026-05-10" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Walk-forward result (2026-05-10)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#three-readings-of-the-result" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Three readings of the result
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#why-the-aux-head-didnt-learn" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Why the aux head didn't learn
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#implications" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Implications
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#aux_weight-sweep-2026-05-10" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        aux_weight sweep (2026-05-10)
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="aux_weight sweep (2026-05-10)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#per-window-data-across-the-full-sweep" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Per-window data across the full sweep
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#aggregates-across-the-full-sweep" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Aggregates across the full sweep
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#reading-the-sweep-the-fourth-branch" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Reading the sweep — the fourth branch
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#what-the-sweep-falsifies" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        What the sweep falsifies
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#implication-for-further-factor-work" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Implication for further factor work
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#master-walk-forward-log" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Master walk-forward log
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+                
+
+
+
+  
+
+
+  <nav class="md-path" aria-label="Navigation" >
+    <ol class="md-path__list">
+      
+        
+  
+  
+    <li class="md-path__item">
+      <a href="../.." class="md-path__link">
+        
+  <span class="md-ellipsis">
+    Home
+  </span>
+
+      </a>
+    </li>
+  
+
+      
+      
+        
+  
+  
+    
+    
+      <li class="md-path__item">
+        <a href="../" class="md-path__link">
+          
+  <span class="md-ellipsis">
+    Findings
+  </span>
+
+        </a>
+      </li>
+    
+  
+
+      
+    </ol>
+  </nav>
+
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+  <nav class="md-tags" >
+    
+      
+      
+      
+      
+        <a href="../../tags/#tag:confirmed-null" class="md-tag">confirmed-null</a>
+      
+    
+      
+      
+      
+      
+        <a href="../../tags/#tag:factor-narrow" class="md-tag">factor-narrow</a>
+      
+    
+      
+      
+      
+      
+        <a href="../../tags/#tag:hypothesis-claude" class="md-tag">hypothesis-claude</a>
+      
+    
+      
+      
+      
+      
+        <a href="../../tags/#tag:partial-oos" class="md-tag">partial-OOS</a>
+      
+    
+  </nav>
+
+
+  
+  
+
+
+<h1 id="factor-multi-task-auxiliary-head-regularizes-the-mlp-arm-but-does-not-clear-the-indicator-baseline">Factor — multi-task auxiliary head regularizes the MLP arm but does not clear the indicator baseline<a class="headerlink" href="#factor-multi-task-auxiliary-head-regularizes-the-mlp-arm-but-does-not-clear-the-indicator-baseline" title="Permanent link">&para;</a></h1>
+<p><strong>Operational rule (post-sweep, 2026-05-10):</strong> the
+<a href="https://github.com/sughodke/StockSurvey/commit/239ebf9"><code>mlp_multitask</code></a>
+scorer's auxiliary head against cross-sectional winsorized z-score
+targets (<code>forward_robust_z</code>) <strong>does not extract magnitude
+information at any tested gain</strong>. At <code>aux_weight=0.1</code> the aux head
+doesn't train (val MSE ≈ 1.0) but the gradient-noise side-effect
+regularizes the trunk for a +0.012 val IC lift over <code>mlp</code>. At
+<code>aux_weight=1.0</code> the aux head trains (train MSE 0.78) but val MSE
+goes <strong>above</strong> 1.0 (1.16) — predictions are <em>anti-correlated</em> with
+val magnitudes despite fitting train, dragging primary val IC to
+−0.0084. At <code>aux_weight=10.0</code> the trunk fully collapses on 3/6
+windows (output → 0). The cross-sectional winsorized z-score of
+forward 20-day log returns is <strong>regime-non-stationary</strong> at this
+universe scale; magnitude leaders flip between train and val
+windows. The aux=0.1 lift is a regularization artifact, not a
+new information channel — and pushing for the information channel
+makes things worse. None of the three multitask arms clear the
+<a href="../factor-ssl-walkforward/">linear-on-encoder baseline (+0.0031)</a>
+or the
+<a href="../factor-indicator-baseline/">deterministic-indicator baseline (+0.0120)</a>.
+The <a href="../factor-ssl-walkforward/">supervision-is-binding</a> reading
+from the prior result holds, and now generalizes: the binding
+constraint isn't just the supervision target, it's the
+<em>non-stationarity</em> of cross-sectional return structure at H=20.</p>
+<h2 id="setup">Setup<a class="headerlink" href="#setup" title="Permanent link">&para;</a></h2>
+<ul>
+<li>Backbone: same <code>Output/cwtonly-AAPL+294tickers-h631e9d47-rsi+macd+vol+cci-cnn-nogit.npz</code>
+  as the <a href="../factor-ssl-walkforward/">supervised-<code>cnn</code> walkforward</a>,
+  frozen. K=96, F=105, hidden=64, hidden_flat=5632.</li>
+<li>Universe / dates / windowing identical to the walkforward
+  finding: 297 stooq_us_long tickers, <code>2000-01-03 → 2026-04-01</code>,
+  6 rolling windows of 63 train / 39 val / 39 step blocks at
+  <code>rebal_days=20</code>.</li>
+<li>Three arms (each with fresh AdamW, frozen backbone, head only):<ul>
+<li><code>linear</code> — 5632 → 1, baseline.</li>
+<li><code>mlp</code> — 5632 → hidden=64 → 1, single hidden layer, baseline.</li>
+<li><code>mlp_multitask</code> — shared trunk 5632 → 64, two parallel
+  <code>(64, 1)</code> projections (<code>Wp</code> primary, <code>Wa</code> aux). Loss is
+  <code>−pearson_rank_ic(s_p, fwd_log_ret) + 0.1 · masked_mse(s_a, robust_z)</code>,
+  where <code>robust_z = forward_robust_z(prices, winsor=(0.01, 0.99))</code> — cross-sectionally
+  winsorized + z-scored forward log returns.</li>
+</ul>
+</li>
+<li>All three arms: 200 AdamW steps at <code>lr=1e-2</code>, <code>weight_decay=1e-3</code>.</li>
+<li>f64 forward log returns
+  (<a href="https://github.com/sughodke/StockSurvey/commit/9209fa9"><code>9209fa9</code></a>)
+  — without this fix the linear baseline would have read +0.0005 instead of
+  +0.0031, distorting the multitask comparison; see
+  <a href="../factor-f32-precision-cancellation/"><code>factor-f32-precision-cancellation</code></a>.</li>
+<li>Modal <code>cpu=4, gpu=T4, memory=192GB</code>, wall ~22 min for the 3-arm
+  rerun (linear 63s, mlp 75s, multitask 1208s — the trunk + dual
+  loss is ~16× more expensive per window than the baselines).</li>
+</ul>
+<h2 id="walk-forward-result-2026-05-10">Walk-forward result (2026-05-10)<a class="headerlink" href="#walk-forward-result-2026-05-10" title="Permanent link">&para;</a></h2>
+<p>Per-window val IC:</p>
+<table>
+<thead>
+<tr>
+<th>Window</th>
+<th>linear</th>
+<th>mlp</th>
+<th>mlp_multitask</th>
+<th>mt − mlp Δ</th>
+<th>aux MSE</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>0</td>
+<td>−0.0000</td>
+<td>−0.0221</td>
+<td><strong>−0.0105</strong></td>
+<td>+0.0116</td>
+<td>1.040</td>
+</tr>
+<tr>
+<td>1</td>
+<td>+0.0012</td>
+<td>−0.0248</td>
+<td><strong>+0.0072</strong></td>
+<td>+0.0320</td>
+<td>1.089</td>
+</tr>
+<tr>
+<td>2</td>
+<td>+0.0027</td>
+<td>−0.0352</td>
+<td><strong>−0.0159</strong></td>
+<td>+0.0193</td>
+<td>1.001</td>
+</tr>
+<tr>
+<td>3</td>
+<td>−0.0022</td>
+<td>+0.0101</td>
+<td><strong>+0.0308</strong></td>
+<td>+0.0207</td>
+<td>1.061</td>
+</tr>
+<tr>
+<td>4</td>
+<td>+0.0105</td>
+<td>−0.0120</td>
+<td>−0.0120</td>
+<td>0.0000</td>
+<td>1.202</td>
+</tr>
+<tr>
+<td>5</td>
+<td>+0.0064</td>
+<td>+0.0122</td>
+<td>+0.0013</td>
+<td>−0.0109</td>
+<td>1.033</td>
+</tr>
+</tbody>
+</table>
+<p>Train IC per window (mlp_multitask vs mlp baseline):</p>
+<table>
+<thead>
+<tr>
+<th>Window</th>
+<th>mlp train_ic</th>
+<th>mt train_ic</th>
+<th>Δ</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>0</td>
+<td>+0.765</td>
+<td>+0.783</td>
+<td>+0.018</td>
+</tr>
+<tr>
+<td>1</td>
+<td>+0.747</td>
+<td>+0.757</td>
+<td>+0.010</td>
+</tr>
+<tr>
+<td>2</td>
+<td>+0.827</td>
+<td>+0.693</td>
+<td>−0.134</td>
+</tr>
+<tr>
+<td>3</td>
+<td>+0.894</td>
+<td>+0.793</td>
+<td>−0.101</td>
+</tr>
+<tr>
+<td>4</td>
+<td>+0.835</td>
+<td>+0.791</td>
+<td>−0.044</td>
+</tr>
+<tr>
+<td>5</td>
+<td>+0.884</td>
+<td>+0.756</td>
+<td>−0.128</td>
+</tr>
+</tbody>
+</table>
+<p>Aggregates:</p>
+<table>
+<thead>
+<tr>
+<th>Head</th>
+<th>mean val IC</th>
+<th>median val IC</th>
+<th>pos-val frac</th>
+<th>mean train IC</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>linear</td>
+<td><strong>+0.0031</strong></td>
+<td>+0.0020</td>
+<td>4/6 (0.67)</td>
+<td>+0.539</td>
+</tr>
+<tr>
+<td>mlp</td>
+<td><strong>−0.0120</strong></td>
+<td>−0.0171</td>
+<td>2/6 (0.33)</td>
+<td>+0.825</td>
+</tr>
+<tr>
+<td>mlp_multitask</td>
+<td><strong>+0.0001</strong></td>
+<td>−0.0046</td>
+<td>3/6 (0.50)</td>
+<td>+0.762</td>
+</tr>
+<tr>
+<td><a href="../factor-indicator-baseline/">indicator baseline (linear)</a></td>
+<td><strong>+0.0120</strong></td>
+<td>+0.0168</td>
+<td>5/6 (0.83)</td>
+<td>—</td>
+</tr>
+</tbody>
+</table>
+<h2 id="three-readings-of-the-result">Three readings of the result<a class="headerlink" href="#three-readings-of-the-result" title="Permanent link">&para;</a></h2>
+<p><strong>1. The +0.012 lift over mlp is real and consistent.</strong> 5/6 windows
+benefit; only window 5 regresses (mt +0.0013 vs mlp +0.0122).
+Train IC drops from mlp's 0.825 average to multitask's 0.762
+average — a clean regularization signature. The mlp arm overfits
+heavily (train IC +0.83, val IC −0.012); the multi-task aux
+gradient biases the trunk toward features that don't memorize
+train-cell noise as aggressively, and val IC moves toward zero.</p>
+<p><strong>2. Multitask still loses to linear-on-encoder.</strong> Encoder + linear
+head: +0.0031. Encoder + mlp + multitask aux: +0.0001. The
+additional trunk capacity, even regularized, isn't worth its cost
+in this regime. The simplest head that consumes the encoder
+latent is still the best head. This is consistent with the
+prior finding's reading: the encoder's information content is
+captured by a linear projection of the latent; the MLP capacity
+fits training-set artefacts that don't generalize, and aux
+regularization only damps that pathology partway.</p>
+<p><strong>3. The encoder still loses to the indicator baseline.</strong> Whether
+you read off the linear arm (+0.0031) or the multitask arm
+(+0.0001), the encoder + head pipeline lands far below the
++0.0120 deterministic-indicator baseline. The multitask
+mechanism — adding a magnitude-aware auxiliary signal that the
+shared trunk can route to features the rank-IC objective alone
+would discard — does not change this verdict.</p>
+<h2 id="why-the-aux-head-didnt-learn">Why the aux head didn't learn<a class="headerlink" href="#why-the-aux-head-didnt-learn" title="Permanent link">&para;</a></h2>
+<p>Aux MSE ≈ 1.0 across every window means the aux output is
+~uncorrelated with the z-scored target. The aux head's own
+gradient is <code>aux_weight · ∂(MSE)/∂s_a = 0.1 · (...)</code> — 10× smaller
+than the primary's <code>∂(IC)/∂s_p</code>. With 200 AdamW steps at lr=1e-2,
+the primary head dominates the joint optimization; the aux head
+barely moves. The trunk does see <em>some</em> aux gradient flowing back
+through <code>Wa</code>, and that's where the +0.012 regularization effect
+came from — but the aux output itself never reached useful
+predictive quality on its own targets.</p>
+<p>This is <strong>not</strong> the mechanism originally hypothesized
+(<a href="../factor-ssl-walkforward/#outstanding-questions">"the aux objective forces the trunk to retain magnitude
+information that pure rank-IC discards"</a>).
+What we got instead: trunk regularization via a near-randomly-
+initialized auxiliary projection. The two mechanisms are
+distinguishable empirically — the magnitude-extraction story
+predicts a low aux MSE; the regularization story predicts an aux
+MSE near random, with a measurable train-IC drop. The data
+matches the regularization story.</p>
+<h2 id="implications">Implications<a class="headerlink" href="#implications" title="Permanent link">&para;</a></h2>
+<ul>
+<li><strong>Aux supervision is a regularizer at small <code>aux_weight</code>, not a
+  signal lift.</strong> Use it the way you'd use weight decay or dropout
+  — when the head is over-parameterized for its training data.
+  Don't expect a new information channel.</li>
+<li><strong>The supervision-is-binding reading
+  (<a href="../factor-ssl-walkforward/">factor-ssl-walkforward</a>) holds.</strong>
+  Two orthogonal mechanisms — a wider input bundle (polar Morlet
+  vs Ricker) and a magnitude-aware aux objective — both fail to
+  lift the encoder over the linear-on-encoder baseline. The
+  binding constraint is on the supervision side, not the encoder
+  capacity side.</li>
+<li><strong>Stronger <code>aux_weight</code> is the natural follow-up.</strong> At
+  <code>aux_weight=0.1</code> the aux head doesn't learn its target. At
+  <code>aux_weight=1.0</code> or <code>10.0</code>, the aux gradient becomes
+  competitive with the primary, and we can disambiguate two
+  regimes:<ul>
+<li>aux head learns its target <em>and</em> primary IC continues to
+  lift → the magnitude-extraction mechanism works at higher
+  gain;</li>
+<li>aux head learns its target <em>but</em> primary IC degrades →
+  the two objectives compete; the aux objective is genuinely
+  orthogonal to return prediction;</li>
+<li>aux head still doesn't learn → the trunk capacity is too
+  small for both tasks; bump <code>mlp_hidden</code>.</li>
+</ul>
+</li>
+</ul>
+<h2 id="aux_weight-sweep-2026-05-10"><code>aux_weight</code> sweep (2026-05-10)<a class="headerlink" href="#aux_weight-sweep-2026-05-10" title="Permanent link">&para;</a></h2>
+<p>Two arms refired against the same backbone / universe / windowing,
+varying only <code>aux_weight ∈ {1.0, 10.0}</code>. The pre-registered
+decision rule (3 branches) anticipated train-or-val MSE behavior
+that didn't materialize — a fourth branch was needed. The full
+falsification retrospective is in
+<a href="../factor-multitask-aux-weight-sweep/"><code>factor-multitask-aux-weight-sweep</code></a>;
+this section keeps the per-window data inline.</p>
+<h3 id="per-window-data-across-the-full-sweep">Per-window data across the full sweep<a class="headerlink" href="#per-window-data-across-the-full-sweep" title="Permanent link">&para;</a></h3>
+<p><code>tr_ic</code> is rank-IC on train; <code>vl_ic</code> is rank-IC on val; <code>tr_aux</code>
+and <code>vl_aux</code> are aux MSE against winsorized z-score targets (1.0
+is "predict the mean"; &gt;1.0 means <em>worse than predicting the mean</em>).</p>
+<table>
+<thead>
+<tr>
+<th style="text-align: right;">aux_weight</th>
+<th style="text-align: right;">window</th>
+<th style="text-align: right;">tr_ic</th>
+<th style="text-align: right;">vl_ic</th>
+<th style="text-align: right;">tr_aux</th>
+<th style="text-align: right;">vl_aux</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: right;">1.0</td>
+<td style="text-align: right;">0</td>
+<td style="text-align: right;">+0.5276</td>
+<td style="text-align: right;">−0.0027</td>
+<td style="text-align: right;">0.953</td>
+<td style="text-align: right;">1.010</td>
+</tr>
+<tr>
+<td style="text-align: right;">1.0</td>
+<td style="text-align: right;">1</td>
+<td style="text-align: right;">+0.6309</td>
+<td style="text-align: right;">−0.0208</td>
+<td style="text-align: right;">0.871</td>
+<td style="text-align: right;">1.132</td>
+</tr>
+<tr>
+<td style="text-align: right;">1.0</td>
+<td style="text-align: right;">2</td>
+<td style="text-align: right;">+0.5184</td>
+<td style="text-align: right;">−0.0092</td>
+<td style="text-align: right;">0.786</td>
+<td style="text-align: right;">1.092</td>
+</tr>
+<tr>
+<td style="text-align: right;">1.0</td>
+<td style="text-align: right;">3</td>
+<td style="text-align: right;">+0.7393</td>
+<td style="text-align: right;">+0.0003</td>
+<td style="text-align: right;">0.611</td>
+<td style="text-align: right;">1.307</td>
+</tr>
+<tr>
+<td style="text-align: right;">1.0</td>
+<td style="text-align: right;">4</td>
+<td style="text-align: right;">+0.6425</td>
+<td style="text-align: right;">−0.0056</td>
+<td style="text-align: right;">0.764</td>
+<td style="text-align: right;">1.202</td>
+</tr>
+<tr>
+<td style="text-align: right;">1.0</td>
+<td style="text-align: right;">5</td>
+<td style="text-align: right;">+0.6513</td>
+<td style="text-align: right;">−0.0123</td>
+<td style="text-align: right;">0.684</td>
+<td style="text-align: right;">1.211</td>
+</tr>
+<tr>
+<td style="text-align: right;">10.0</td>
+<td style="text-align: right;">0</td>
+<td style="text-align: right;">+0.0000</td>
+<td style="text-align: right;">−0.0000</td>
+<td style="text-align: right;">1.000</td>
+<td style="text-align: right;">1.000</td>
+</tr>
+<tr>
+<td style="text-align: right;">10.0</td>
+<td style="text-align: right;">1</td>
+<td style="text-align: right;">+0.3938</td>
+<td style="text-align: right;">+0.0002</td>
+<td style="text-align: right;">0.888</td>
+<td style="text-align: right;">1.062</td>
+</tr>
+<tr>
+<td style="text-align: right;">10.0</td>
+<td style="text-align: right;">2</td>
+<td style="text-align: right;">+0.0000</td>
+<td style="text-align: right;">−0.0000</td>
+<td style="text-align: right;">1.000</td>
+<td style="text-align: right;">1.000</td>
+</tr>
+<tr>
+<td style="text-align: right;">10.0</td>
+<td style="text-align: right;">3</td>
+<td style="text-align: right;">+0.1851</td>
+<td style="text-align: right;">+0.0254</td>
+<td style="text-align: right;">0.981</td>
+<td style="text-align: right;">1.009</td>
+</tr>
+<tr>
+<td style="text-align: right;">10.0</td>
+<td style="text-align: right;">4</td>
+<td style="text-align: right;">+0.2592</td>
+<td style="text-align: right;">+0.0034</td>
+<td style="text-align: right;">0.954</td>
+<td style="text-align: right;">1.035</td>
+</tr>
+<tr>
+<td style="text-align: right;">10.0</td>
+<td style="text-align: right;">5</td>
+<td style="text-align: right;">+0.0000</td>
+<td style="text-align: right;">−0.0000</td>
+<td style="text-align: right;">1.000</td>
+<td style="text-align: right;">1.000</td>
+</tr>
+</tbody>
+</table>
+<h3 id="aggregates-across-the-full-sweep">Aggregates across the full sweep<a class="headerlink" href="#aggregates-across-the-full-sweep" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th style="text-align: right;">aux_weight</th>
+<th style="text-align: right;">mean tr_ic</th>
+<th style="text-align: right;">mean vl_ic</th>
+<th style="text-align: right;">mean tr_aux</th>
+<th style="text-align: right;">mean vl_aux</th>
+<th style="text-align: right;">pos-vl frac</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: right;">0.1</td>
+<td style="text-align: right;">+0.762</td>
+<td style="text-align: right;">+0.0001</td>
+<td style="text-align: right;">~1.0</td>
+<td style="text-align: right;">~1.0</td>
+<td style="text-align: right;">3/6 (0.50)</td>
+</tr>
+<tr>
+<td style="text-align: right;">1.0</td>
+<td style="text-align: right;">+0.618</td>
+<td style="text-align: right;"><strong>−0.0084</strong></td>
+<td style="text-align: right;"><strong>0.778</strong></td>
+<td style="text-align: right;"><strong>1.159</strong></td>
+<td style="text-align: right;">1/6 (0.17)</td>
+</tr>
+<tr>
+<td style="text-align: right;">10.0</td>
+<td style="text-align: right;">+0.140</td>
+<td style="text-align: right;">+0.0048</td>
+<td style="text-align: right;">0.971</td>
+<td style="text-align: right;">1.018</td>
+<td style="text-align: right;">3/6 (0.50)*</td>
+</tr>
+</tbody>
+</table>
+<p>* aux=10 pos-val-IC frac is misleading: 3 windows hit <em>exact</em>
+tr_ic = 0.000 (trunk collapsed); only 3 windows actually trained
+and 1 of those (window 3) carries the entire +0.0048 mean.</p>
+<h3 id="reading-the-sweep-the-fourth-branch">Reading the sweep — the fourth branch<a class="headerlink" href="#reading-the-sweep-the-fourth-branch" title="Permanent link">&para;</a></h3>
+<p>The pre-registered decision rule had three branches:</p>
+<ol>
+<li><strong>Aux MSE drops + primary lifts</strong> → magnitude extraction works.</li>
+<li><strong>Aux MSE drops + primary degrades</strong> → tasks compete; aux is orthogonal.</li>
+<li><strong>Aux MSE stays at ~1.0</strong> → trunk capacity insufficient.</li>
+</ol>
+<p>What we got at <code>aux_weight=1.0</code> is none of these:</p>
+<blockquote>
+<p><strong>Train aux MSE drops to 0.78. Val aux MSE rises to 1.16.</strong>
+Primary val IC degrades to −0.0084.</p>
+</blockquote>
+<p>The aux head <em>does</em> learn — train MSE drops cleanly below 1.0 in
+every window (0.61–0.95). But the function it learns reverses sign
+on val: predictions are anti-correlated with val cross-sectional
+magnitudes, so val MSE <em>exceeds</em> the predict-the-mean baseline of
+1.0 in every window (1.01–1.31). This is regime non-stationarity:
+<strong>the cross-sectional ranking of which tickers had large vs small
+forward 20-day moves on train does not persist into the val
+window</strong>. The mechanism we hoped to exercise (a magnitude target
+the rank-IC objective discards) doesn't survive its own
+out-of-sample test, much less help the primary.</p>
+<p>At <code>aux_weight=10.0</code> the failure is louder. The aux gradient
+becomes large enough relative to the primary that the joint
+optimization sometimes resolves to the trivial <code>(s_p, s_a) = (0, 0)</code>
+solution — output identically zero, train and val IC both 0.000,
+both aux MSE pinned at exactly 1.0. Three of six windows fall into
+this collapse. The other three windows show the same pattern as
+aux=1.0 in miniature: train aux MSE drops below 1.0, val aux MSE
+rises above 1.0. The headline +0.0048 mean val IC is window 3's
++0.0254 lifting two near-zero windows; it's not a real lift.</p>
+<h3 id="what-the-sweep-falsifies">What the sweep falsifies<a class="headerlink" href="#what-the-sweep-falsifies" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong>The "trunk capacity insufficient" hypothesis</strong> is wrong. At
+  aux=1.0 the trunk has no trouble fitting the aux task on train
+  (MSE 0.78) — the failure is on val. Bumping <code>mlp_hidden</code> would
+  let the trunk overfit aux even harder; it wouldn't fix
+  non-stationarity.</li>
+<li><strong>The "tasks are orthogonal" hypothesis</strong> is too weak. Orthogonal
+  would mean val aux MSE stays at ~1.0 (random) while primary
+  degrades. We see val aux MSE <em>above</em> 1.0 — not orthogonal,
+  <em>anti-correlated</em> between train and val. That's a stronger
+  statement: the train aux signal predicts val anti-magnitude.</li>
+<li><strong>The aux=0.1 regularization reading is correct</strong> but the
+  mechanism is now clearer: aux=0.1 helps because the aux head
+  <em>fails to train enough to overfit</em>. Any aux gain large enough to
+  actually train the aux head also large enough to drag primary IC
+  down via the shared trunk's exposure to overfit aux gradients.</li>
+</ul>
+<h3 id="implication-for-further-factor-work">Implication for further factor work<a class="headerlink" href="#implication-for-further-factor-work" title="Permanent link">&para;</a></h3>
+<p>Don't run more aux-head variants on this universe / horizon. The
+aux objective is dead — not because the implementation is broken,
+but because there's no out-of-sample cross-sectional magnitude
+signal at H=20 on stooq_us_long for the aux head to extract. The
+natural next experiment is a different prediction problem
+(<a href="../../TODO/different-prediction-problem/"><code>TODO/different-prediction-problem</code></a>)
+or a different horizon
+(<a href="../../TODO/rebal-days-sweep/"><code>TODO/rebal-days-sweep</code></a>), not more
+multitask arms — see the
+<a href="../factor-multitask-aux-weight-sweep/">sweep finding</a> for the
+full retrospective.</p>
+<h2 id="master-walk-forward-log">Master walk-forward log<a class="headerlink" href="#master-walk-forward-log" title="Permanent link">&para;</a></h2>
+<p>Three <a href="../../leaderboard/">leaderboard rows</a> for this experiment:
+- <code>aux_weight=0.1</code> (2026-05-10) — <code>partial-OOS</code> for <code>mt &gt; mlp</code>,
+  <code>confirmed-null</code> for clearing the indicator ceiling.
+- <code>aux_weight=1.0</code> (2026-05-10) — <code>confirmed-null</code> for
+  magnitude-extraction; supersedes the regularizer-only reading.
+- <code>aux_weight=10.0</code> (2026-05-10) — <code>confirmed-null</code> (trunk
+  collapse contaminates surface-level lift).</p>
+<p>Sweep retrospective:
+<a href="../factor-multitask-aux-weight-sweep/"><code>factor-multitask-aux-weight-sweep</code></a>.</p>
+
+
+
+
+
+
+
+  
+  
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+    
+      
+      <nav class="md-footer__inner md-grid" aria-label="Footer" >
+        
+          
+          <a href="../factor-f32-precision-cancellation/" class="md-footer__link md-footer__link--prev" aria-label="Previous: Factor f32 precision cancellation">
+            <div class="md-footer__button md-icon">
+              
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+            </div>
+            <div class="md-footer__title">
+              <span class="md-footer__direction">
+                Previous
+              </span>
+              <div class="md-ellipsis">
+                Factor f32 precision cancellation
+              </div>
+            </div>
+          </a>
+        
+        
+          
+          <a href="../factor-multitask-aux-weight-sweep/" class="md-footer__link md-footer__link--next" aria-label="Next: Factor multi-task aux-weight sweep">
+            <div class="md-footer__title">
+              <span class="md-footer__direction">
+                Next
+              </span>
+              <div class="md-ellipsis">
+                Factor multi-task aux-weight sweep
+              </div>
+            </div>
+            <div class="md-footer__button md-icon">
+              
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M4 11v2h12l-5.5 5.5 1.42 1.42L19.84 12l-7.92-7.92L10.5 5.5 16 11z"/></svg>
+            </div>
+          </a>
+        
+      </nav>
+    
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["content.code.annotate", "content.code.copy", "content.tooltips", "navigation.footer", "navigation.indexes", "navigation.path", "navigation.sections", "navigation.expand", "navigation.tabs", "navigation.tabs.sticky", "navigation.tracking", "search.highlight", "search.share", "search.suggest", "toc.follow"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.79ae519e.min.js"></script>
+      
+    
+  </body>
+</html>

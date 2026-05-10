@@ -13,11 +13,23 @@
          <lastmod>2026-05-10</lastmod>
     </url>
     <url>
+         <loc>https://sidghodke.com/StockSurvey/tags/</loc>
+         <lastmod>2026-05-10</lastmod>
+    </url>
+    <url>
          <loc>https://sidghodke.com/StockSurvey/workflows/</loc>
          <lastmod>2026-05-10</lastmod>
     </url>
     <url>
          <loc>https://sidghodke.com/StockSurvey/TODO/</loc>
+         <lastmod>2026-05-10</lastmod>
+    </url>
+    <url>
+         <loc>https://sidghodke.com/StockSurvey/TODO/apps-pairs/</loc>
+         <lastmod>2026-05-10</lastmod>
+    </url>
+    <url>
+         <loc>https://sidghodke.com/StockSurvey/TODO/apps-vol/</loc>
          <lastmod>2026-05-10</lastmod>
     </url>
     <url>
@@ -33,7 +45,15 @@
          <lastmod>2026-05-10</lastmod>
     </url>
     <url>
+         <loc>https://sidghodke.com/StockSurvey/TODO/ew-overlay-test/</loc>
+         <lastmod>2026-05-10</lastmod>
+    </url>
+    <url>
          <loc>https://sidghodke.com/StockSurvey/TODO/film-w1-diagnostic/</loc>
+         <lastmod>2026-05-10</lastmod>
+    </url>
+    <url>
+         <loc>https://sidghodke.com/StockSurvey/TODO/long-short-constructor/</loc>
          <lastmod>2026-05-10</lastmod>
     </url>
     <url>
@@ -73,10 +93,6 @@
          <lastmod>2026-05-10</lastmod>
     </url>
     <url>
-         <loc>https://sidghodke.com/StockSurvey/TODO/ssl-forecast-cwt/</loc>
-         <lastmod>2026-05-10</lastmod>
-    </url>
-    <url>
          <loc>https://sidghodke.com/StockSurvey/TODO/streaming-feature-pipeline/</loc>
          <lastmod>2026-05-10</lastmod>
     </url>
@@ -109,7 +125,27 @@
          <lastmod>2026-05-10</lastmod>
     </url>
     <url>
+         <loc>https://sidghodke.com/StockSurvey/findings/factor-f32-precision-cancellation/</loc>
+         <lastmod>2026-05-10</lastmod>
+    </url>
+    <url>
          <loc>https://sidghodke.com/StockSurvey/findings/factor-indicator-baseline/</loc>
+         <lastmod>2026-05-10</lastmod>
+    </url>
+    <url>
+         <loc>https://sidghodke.com/StockSurvey/findings/factor-loss-pivot/</loc>
+         <lastmod>2026-05-10</lastmod>
+    </url>
+    <url>
+         <loc>https://sidghodke.com/StockSurvey/findings/factor-multitask-aux-head/</loc>
+         <lastmod>2026-05-10</lastmod>
+    </url>
+    <url>
+         <loc>https://sidghodke.com/StockSurvey/findings/factor-multitask-aux-weight-sweep/</loc>
+         <lastmod>2026-05-10</lastmod>
+    </url>
+    <url>
+         <loc>https://sidghodke.com/StockSurvey/findings/factor-rankic-long-only-mismatch/</loc>
          <lastmod>2026-05-10</lastmod>
     </url>
     <url>
@@ -117,7 +153,15 @@
          <lastmod>2026-05-10</lastmod>
     </url>
     <url>
+         <loc>https://sidghodke.com/StockSurvey/findings/gate-drawdown-v0/</loc>
+         <lastmod>2026-05-10</lastmod>
+    </url>
+    <url>
          <loc>https://sidghodke.com/StockSurvey/findings/log-returns-vs-raw-close/</loc>
+         <lastmod>2026-05-10</lastmod>
+    </url>
+    <url>
+         <loc>https://sidghodke.com/StockSurvey/findings/passive-ew-benchmark/</loc>
          <lastmod>2026-05-10</lastmod>
     </url>
     <url>
@@ -142,6 +186,10 @@
     </url>
     <url>
          <loc>https://sidghodke.com/StockSurvey/findings/replay-dwt-compression/</loc>
+         <lastmod>2026-05-10</lastmod>
+    </url>
+    <url>
+         <loc>https://sidghodke.com/StockSurvey/findings/replay-length-axis-compression/</loc>
          <lastmod>2026-05-10</lastmod>
     </url>
     <url>
