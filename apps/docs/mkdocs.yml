@@ -17,9 +17,9 @@ theme:
     - navigation.indexes
     - navigation.path
     - navigation.sections
+    - navigation.expand
     - navigation.tabs
     - navigation.tabs.sticky
-    - navigation.top
     - navigation.tracking
     - search.highlight
     - search.share
