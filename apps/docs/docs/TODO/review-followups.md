@@ -14,9 +14,6 @@ Inline `TODO(review #N)` markers point to the file:line. Grep
   exposed via the relational dispatch but importable; document /
   assert long-only invariant at the inference boundary if anyone wires
   it in. (`relational/empirical_sectors_gmm.py:409`)
-- **#7** — `rsi` (matrix) and `rsi_strided` use different lag conventions
-  (`up[t-1]` vs `up[t]`). Both causal but not interchangeable.
-  (`ss_indicators/rsi.py:17`)
 - **#10** — `precompute_windows` per-ticker mean is over ALL TIME, not
   causal. Safe under scale-axis-normalized divergences (KL/JS/cosine/L2)
   only — assert that at call sites, or refactor to a causal rolling

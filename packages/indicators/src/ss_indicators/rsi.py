@@ -17,17 +17,21 @@ import numpy as np
 def rsi(prices: np.ndarray, n: int = 7) -> np.ndarray:
     """Wilder RSI of period `n` over axis 0.
 
-    TODO(review #7): this matrix-form RSI uses `up[t-1]` to compute
-    `out[t]` (one-bar lag); `rsi_strided` below uses `up[t]` (same-bar).
-    Both are causal but not interchangeable — code that swaps one for
-    the other shifts the signal by one bar. Live regime/relational use
-    this matrix form; factor + replay use the stride form.
-
     Output range [0, 100]. Positions before index `n` are filled with the
     neutral value 50. Vectorized over all trailing axes (e.g. `(T, N)`
     input gives `(T, N)` output). Time-recurrent so the smoothing tail
     is a Python loop; per-step cost is a single vectorized op over the
     cross-section.
+
+    Functionally equivalent to `rsi_strided(prices, n, w=1)` on the
+    overlap region (index >= n) — both compute Wilder RSI on
+    same-bar `prices[t] - prices[t-1]` deltas. The two only differ in
+    the warmup region: `rsi` fills [0:n] with 50.0 (neutral); the
+    strided form fills [0:n] with NaN. The internal `up[t-1]` indexing
+    here vs `up[t]` in `rsi_strided` is bookkeeping, not a one-bar
+    signal shift, because `rsi`'s `up` array is built from
+    `np.diff(prices)` (length T−1) so its index runs one ahead of the
+    strided form's `up` (length T).
     """
     prices = np.asarray(prices)
     deltas = np.diff(prices, axis=0)
