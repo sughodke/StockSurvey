@@ -111,15 +111,14 @@ nav:
       - Polar Morlet migration: TODO/polar-morlet-migration.md
       - Review follow-ups: TODO/review-followups.md
       - Different prediction problem: TODO/different-prediction-problem.md
-      - SSL forecast CWT: TODO/ssl-forecast-cwt.md
       - RSI long-period ablation: TODO/rsi-long-period-ablation.md
       - FiLM w=1 diagnostic: TODO/film-w1-diagnostic.md
       - Backbone architecture: TODO/backbone-architecture.md
-      - Streaming feature pipeline: TODO/streaming-feature-pipeline.md
       - Port Sharpe to tinygrad: TODO/port-sharpe-tinygrad.md
       - DWT-compression follow-ups: TODO/dwt-compression-followups.md
       - Rebal-days sweep: TODO/rebal-days-sweep.md
       - Reversed-price experiment: TODO/reversed-price-experiment.md
       - Modal-cron live deployment: TODO/modal-cron-live-deployment.md
       - Memory and wall-time follow-ups: TODO/memory-walltime-followups.md
+      - Streaming feature pipeline (superseded): TODO/streaming-feature-pipeline.md
       - Recently shipped: TODO/recently-shipped.md

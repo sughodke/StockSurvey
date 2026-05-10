@@ -7,12 +7,10 @@ Active backlog for the StockSurvey monorepo. Each section from the original
 
 - [Migrate non-research apps to the polar Morlet input bundle](polar-morlet-migration.md)
 - [Port `ss_portfolio.sharpe.block_sharpe_with_costs` to tinygrad](port-sharpe-tinygrad.md)
-- [Streaming feature pipeline](streaming-feature-pipeline.md)
 
 ## Research threads
 
 - [Different prediction problem — pair-spread / drawdown / IV-vs-realized](different-prediction-problem.md)
-- [Use self-supervised learning to forecast the CWT](ssl-forecast-cwt.md)
 - [Ablation — disentangle why long-period RSI underperforms](rsi-long-period-ablation.md)
 - [Diagnose why w=1 row underperforms in the FiLM (w, n) head](film-w1-diagnostic.md)
 - [Backbone architecture — broader window/indicator coverage](backbone-architecture.md)
@@ -29,3 +27,7 @@ Active backlog for the StockSurvey monorepo. Each section from the original
 ## Done
 
 - [Recently shipped (and dropped from this list)](recently-shipped.md)
+
+## Superseded
+
+- [Streaming feature pipeline](streaming-feature-pipeline.md) — pre-Modal JAX/Colab-era OOM design; the problem was solved a different way (Modal-T4 + the [memory + wall-time audit](memory-walltime-followups.md) trio shipped 2026-05-09). Kept as design archaeology.

@@ -1,5 +1,22 @@
 # Streaming feature pipeline (replace bulk pre-compute, lift the OOM ceiling)
 
+!!! note "Superseded 2026-05-10 — OOM solved a different way"
+    This page describes a JAX/Colab-era pipeline that no longer
+    exists. The OOM problem it was designed to solve (12 GB Colab
+    CPU runtime; `fit_and_evaluate` materializing
+    `n_pool × K × F` rows; FiLM augmentation copies) was solved by
+    moving training to Modal-T4 (`cpu=4 mem=192GB`) and shipping
+    the A1 / A5 / B1 trio from
+    [`memory-walltime-followups`](memory-walltime-followups.md) on
+    2026-05-09 — those changes took the supervised-`cnn`
+    walkforward from "OOMs at 297 tickers in 192 GB" to "fits 3000
+    tickers in ~65 GB" without a streaming refactor. The
+    `LazyTicker` / memmap design below references
+    `decoders.py::fit_cnn_multihead` and the JAX device-copy path,
+    neither of which exists in the current tinygrad+Modal pipeline.
+    Kept as design archaeology in case streaming becomes
+    load-bearing again at a wider universe / longer K.
+
 Today's `fit_and_evaluate` concatenates every train ticker's full
 feature matrix into one giant `(n_pool, K * F)` array before training.
 At 19 tickers × ~3000 valid bars × K=96 × F=33 that's ~720 MB
