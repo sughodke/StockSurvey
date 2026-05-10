@@ -535,12 +535,9 @@ def train(
         if val_end > end:
             break
 
-        # TODO(review #4): pandas .loc is end-inclusive on both sides,
-        # so the bar at `train_end` lands in BOTH train and val. One-bar
-        # warm-start leaks into val and inflates train metrics. Fix:
-        # `prices.loc[window_start:train_end].iloc[:-1]` for the train
-        # slice (research-only — does not affect live).
-        prices_train_full = prices.loc[window_start:train_end]
+        # pandas .loc is end-inclusive, so trim the last train bar — the
+        # bar at `train_end` would otherwise land in both train and val.
+        prices_train_full = prices.loc[window_start:train_end].iloc[:-1]
         prices_val_full = prices.loc[train_end:val_end]
 
         if len(prices_train_full) < 252 or len(prices_val_full) < 126:
@@ -563,13 +560,14 @@ def train(
             window_start += pd.DateOffset(years=step_years)
             continue
 
+        train_dates = prices_train_full.index
         prices_train = prices_train_full[keep_train]
         prices_val = prices_val_full[keep_val]
-        spread_train = (spread_df.loc[window_start:train_end, keep_train]
+        spread_train = (spread_df.loc[train_dates, keep_train]
                         if spread_df is not None else None)
         spread_val = (spread_df.loc[train_end:val_end, keep_val]
                       if spread_df is not None else None)
-        volumes_train = (volumes.loc[window_start:train_end, keep_train]
+        volumes_train = (volumes.loc[train_dates, keep_train]
                          if volumes is not None else None)
         volumes_val = (volumes.loc[train_end:val_end, keep_val]
                        if volumes is not None else None)

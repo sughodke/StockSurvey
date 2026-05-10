@@ -159,6 +159,40 @@ def test_train_per_window_filtering_keeps_pit_universe():
     assert result.windows
 
 
+def test_train_no_boundary_bar_overlap():
+    """The bar at `train_end` must not appear in the train slice — pandas
+    `.loc` is end-inclusive on both sides, so without an explicit trim
+    the boundary bar would land in both train and val. Regression test
+    for review-followups #4."""
+    pytest.importorskip('vectorbt')
+    from regime import trainer
+
+    prices, spread_df = _synthetic(n_days=2200, n_tickers=8)
+    captured: list[pd.DataFrame] = []
+    real_make_objective = trainer._make_objective
+
+    def spy(prices_train, **kw):
+        captured.append(prices_train)
+        return real_make_objective(prices_train, **kw)
+
+    trainer._make_objective = spy
+    try:
+        result = trainer.train(
+            prices, spread_df,
+            n_trials=2, rebalance_days=20, metric='sharpe',
+            commission_bps=10.0,
+            train_years=5, val_years=3, step_years=10,
+        )
+    finally:
+        trainer._make_objective = real_make_objective
+
+    assert captured, 'objective never called'
+    train_slice = captured[0]
+    train_end = result.windows[0].train_end
+    assert train_end not in train_slice.index
+    assert train_slice.index[-1] < train_end
+
+
 def test_train_walk_forward_smoke():
     """End-to-end train() with one walk-forward window + 2 Optuna trials.
 

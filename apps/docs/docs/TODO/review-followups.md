@@ -3,9 +3,6 @@
 Inline `TODO(review #N)` markers point to the file:line. Grep
 `TODO(review` to surface the full backlog.
 
-- **#4** — walk-forward train/val slices double-count the boundary bar
-  via end-inclusive pandas `.loc` (`apps/regime/src/regime/trainer.py:522`).
-  Research-only, no live impact.
 - **#5** — `submit_orders` swallows transport-layer (5xx / connection)
   errors the same way it swallows fractionability rejections. Distinguish
   4xx (skip+log, current) from 5xx (re-raise+abort) so an Alpaca outage
