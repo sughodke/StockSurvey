@@ -2,6 +2,7 @@
 tags:
   - stooq_us_long
   - partial-OOS
+  - hypothesis-user
 ---
 
 # Drawdown gate v0 — real Pearson signal, marginal Sharpe lift

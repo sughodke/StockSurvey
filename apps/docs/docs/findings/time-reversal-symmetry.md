@@ -1,6 +1,7 @@
 ---
 tags:
   - diagnostic
+  - hypothesis-user
 ---
 
 # Time-reversal symmetry — what reversed-price training would tell us about the encoder

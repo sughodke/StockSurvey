@@ -3,6 +3,7 @@ tags:
   - phase-2
   - stooq_us_long
   - reversed-OOS
+  - hypothesis-claude
 ---
 
 # Relational analog k-NN — Phase-2 bundle overfit was a small-N artifact; raw polar Morlet wins on stooq_us_long

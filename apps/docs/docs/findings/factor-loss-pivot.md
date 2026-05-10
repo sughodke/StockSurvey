@@ -2,6 +2,7 @@
 tags:
   - factor-narrow
   - confirmed-null
+  - hypothesis-user
 ---
 
 # Loss-pivot eval — Sharpe and IR-vs-EW losses underperform rank-IC by 0.37 Sharpe

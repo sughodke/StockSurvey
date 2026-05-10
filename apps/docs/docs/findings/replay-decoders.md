@@ -2,6 +2,7 @@
 tags:
   - stooq_us_long
   - partial-OOS
+  - hypothesis-claude
 ---
 
 # Replay decoder options — what `--decoder` actually selects

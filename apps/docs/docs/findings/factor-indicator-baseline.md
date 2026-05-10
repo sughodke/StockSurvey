@@ -3,6 +3,7 @@ tags:
   - factor-narrow
   - confirmed-OOS
   - partial-OOS
+  - hypothesis-claude
 ---
 
 # Factor deterministic-indicator val-IC baseline

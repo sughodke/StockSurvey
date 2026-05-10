@@ -5,6 +5,7 @@ tags:
   - factor-narrow
   - factor-wide
   - diagnostic
+  - hypothesis-user
 ---
 
 # Passive equal-weight benchmark — every "shippable" relational row was alpha-zero or alpha-negative

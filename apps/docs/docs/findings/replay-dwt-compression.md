@@ -2,6 +2,7 @@
 tags:
   - stooq_us_long
   - partial-OOS
+  - hypothesis-user
 ---
 
 # Replay CNN — 2D DWT keep-LL compression preserves indicator-reconstruction signal

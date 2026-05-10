@@ -2,6 +2,7 @@
 tags:
   - factor-narrow
   - confirmed-null
+  - hypothesis-user
 ---
 
 # Rank-IC trains a signed signal that long-only top-N can only half-execute

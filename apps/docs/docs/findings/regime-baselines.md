@@ -3,6 +3,7 @@ tags:
   - regime-2010-24
   - diagnostic
   - confirmed-OOS
+  - hypothesis-user
 ---
 
 # Regime baselines, Optuna instability, JAX-Adam scale-weight collapse

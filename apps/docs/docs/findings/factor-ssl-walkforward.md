@@ -2,6 +2,7 @@
 tags:
   - factor-narrow
   - confirmed-null
+  - hypothesis-user
 ---
 
 # Factor SSL walkforward (supervised-`cnn` backbone) — polar Morlet bundle does not clear the indicator baseline

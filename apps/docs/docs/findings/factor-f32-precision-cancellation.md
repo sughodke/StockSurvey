@@ -2,6 +2,7 @@
 tags:
   - factor-narrow
   - diagnostic
+  - hypothesis-claude
 ---
 
 # Factor — f32 forward log returns silently regressed val IC by 6×

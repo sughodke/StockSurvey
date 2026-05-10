@@ -3,6 +3,7 @@ tags:
   - factor-narrow
   - partial-OOS
   - confirmed-null
+  - hypothesis-claude
 ---
 
 # Factor — multi-task auxiliary head regularizes the MLP arm but does not clear the indicator baseline

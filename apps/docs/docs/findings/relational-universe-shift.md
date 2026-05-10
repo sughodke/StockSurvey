@@ -3,6 +3,7 @@ tags:
   - phase-2
   - stooq_us_long
   - reversed-OOS
+  - hypothesis-user
 ---
 
 # Relational analog cross_ticker — universe shift OFF mega-caps collapses the val edge

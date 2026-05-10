@@ -2,6 +2,7 @@
 tags:
   - factor-narrow
   - confirmed-null
+  - hypothesis-claude
 ---
 
 # Factor — `aux_weight` sweep falsifies cross-sectional magnitude extraction at H=20

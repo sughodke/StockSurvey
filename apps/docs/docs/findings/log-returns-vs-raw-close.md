@@ -2,6 +2,7 @@
 tags:
   - regime-2010-24
   - confirmed-OOS
+  - hypothesis-user
 ---
 
 # Log-returns CWT input degrades Sharpe
