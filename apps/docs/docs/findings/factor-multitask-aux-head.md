@@ -166,9 +166,11 @@ matches the regularization story.
 
 Two arms refired against the same backbone / universe / windowing,
 varying only `aux_weight ∈ {1.0, 10.0}`. The pre-registered
-[decision rule](../TODO/multitask-aux-weight-sweep.md#decision-rule)
-anticipated three branches. The actual result fits *none* of
-them — a fourth branch was needed.
+decision rule (3 branches) anticipated train-or-val MSE behavior
+that didn't materialize — a fourth branch was needed. The full
+falsification retrospective is in
+[`factor-multitask-aux-weight-sweep`](factor-multitask-aux-weight-sweep.md);
+this section keeps the per-window data inline.
 
 ### Per-window data across the full sweep
 
@@ -261,13 +263,13 @@ Don't run more aux-head variants on this universe / horizon. The
 aux objective is dead — not because the implementation is broken,
 but because there's no out-of-sample cross-sectional magnitude
 signal at H=20 on stooq_us_long for the aux head to extract. The
-sweep fully resolves
-[`TODO/multitask-aux-weight-sweep`](../TODO/multitask-aux-weight-sweep.md);
-the natural next experiment is a different prediction problem
+natural next experiment is a different prediction problem
 ([`TODO/different-prediction-problem`](../TODO/different-prediction-problem.md))
 or a different horizon
 ([`TODO/rebal-days-sweep`](../TODO/rebal-days-sweep.md)), not more
-multitask arms.
+multitask arms — see the
+[sweep finding](factor-multitask-aux-weight-sweep.md) for the
+full retrospective.
 
 ## Master walk-forward log
 
@@ -279,6 +281,5 @@ Three [leaderboard rows](../leaderboard.md) for this experiment:
 - `aux_weight=10.0` (2026-05-10) — `confirmed-null` (trunk
   collapse contaminates surface-level lift).
 
-Sweep follow-up
-[`TODO/multitask-aux-weight-sweep`](../TODO/multitask-aux-weight-sweep.md)
-is now resolved and superseded by this finding.
+Sweep retrospective:
+[`factor-multitask-aux-weight-sweep`](factor-multitask-aux-weight-sweep.md).

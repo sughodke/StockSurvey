@@ -97,6 +97,7 @@ nav:
       - Time-reversal symmetry: findings/time-reversal-symmetry.md
       - Factor f32 precision cancellation: findings/factor-f32-precision-cancellation.md
       - Factor multi-task aux head: findings/factor-multitask-aux-head.md
+      - Factor multi-task aux-weight sweep: findings/factor-multitask-aux-weight-sweep.md
       - Replay decoder options: findings/replay-decoders.md
       - Replay DWT compression: findings/replay-dwt-compression.md
       - Replay length-axis (K) compression: findings/replay-length-axis-compression.md
@@ -119,7 +120,6 @@ nav:
       - DWT-compression follow-ups: TODO/dwt-compression-followups.md
       - Rebal-days sweep: TODO/rebal-days-sweep.md
       - Reversed-price experiment: TODO/reversed-price-experiment.md
-      - Multi-task aux-weight sweep: TODO/multitask-aux-weight-sweep.md
       - Modal-cron live deployment: TODO/modal-cron-live-deployment.md
       - Memory and wall-time follow-ups: TODO/memory-walltime-followups.md
       - Recently shipped: TODO/recently-shipped.md

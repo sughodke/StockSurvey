@@ -177,9 +177,8 @@ supervision-is-binding reading from this finding **strengthens**:
 the binding constraint is on the supervision-target side
 (non-stationarity), not the encoder-capacity side. Full data in
 [`factor-multitask-aux-head`](factor-multitask-aux-head.md#aux_weight-sweep-2026-05-10);
-sweep TODO
-[`TODO/multitask-aux-weight-sweep`](../TODO/multitask-aux-weight-sweep.md)
-resolved.
+sweep retrospective in
+[`factor-multitask-aux-weight-sweep`](factor-multitask-aux-weight-sweep.md).
 
 **Strict-SSL backbone (`--decoder masked-ae`) vs supervised-`cnn`.**
 The result above is on a `cnn`-trained backbone (per-target
