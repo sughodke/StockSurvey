@@ -8,6 +8,13 @@ MACD remains unreliable (separate, pre-existing pathology — see TODO).
 ("SSL" wording in earlier revisions was loose — the supervision here
 is per-target indicator reconstruction, not strict-SSL masked-AE.)
 
+The 2D transform compresses both the time-window length `K` and the
+scale axis `S` simultaneously. The
+[K-axis (length) reading](replay-length-axis-compression.md) of this
+result is extracted on a sibling page — actionable for backbone
+defaults and live-bar latency, with a K-only follow-up proposed to
+isolate the claim.
+
 ## Setup
 
 Modal T4, 2026-05-07. CWT-only bundle, 295-ticker `stooq_us_long`

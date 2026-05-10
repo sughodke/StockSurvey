@@ -25,6 +25,7 @@ Default eval window unless otherwise stated: 2013-01-29 → 2025-12-11,
 
 - [Decoder options — what `--decoder` actually selects (linear / mlp / cnn / masked-ae)](replay-decoders.md)
 - [2D DWT keep-LL compression preserves indicator-reconstruction signal at ~4× input reduction](replay-dwt-compression.md)
+- [Length-axis (K) sufficiency — the K=96 default was over-provisioned for indicator reconstruction](replay-length-axis-compression.md)
 
 ## Relational app
 

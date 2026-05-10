@@ -97,6 +97,7 @@ nav:
       - Time-reversal symmetry: findings/time-reversal-symmetry.md
       - Replay decoder options: findings/replay-decoders.md
       - Replay DWT compression: findings/replay-dwt-compression.md
+      - Replay length-axis (K) compression: findings/replay-length-axis-compression.md
       - Relational universe shift: findings/relational-universe-shift.md
       - Relational DWT-L1 OOS failure: findings/relational-dwt-failure.md
       - Relational polar Morlet OOS failure: findings/relational-morlet-failure.md

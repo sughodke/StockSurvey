@@ -100,6 +100,51 @@ result — would justify a wide-universe canonical checkpoint, not just
 Phase-2. If it ties or loses, the result is mega-cap-specific and the
 canonical checkpoints stay Phase-2-only.
 
+## K-only DWT isolation
+
+The
+[length-axis sufficiency finding](../findings/replay-length-axis-compression.md)
+extracts a K-axis-specific reading from the existing 2D DWT
+result, but the underlying experiment compressed both K and S
+simultaneously. The K-axis claim ("K=96 was over-provisioned for
+indicator reconstruction") is suggestive, not isolated.
+
+**Falsifiable hypothesis.** A 1D Haar-L1 DWT applied **only** to
+the K axis (`S=15` left intact) preserves NVDA val R² within ±0.02
+of the K=96 baseline on RSI / CCI / vol heads.
+
+**Test design.** Three Modal-T4 arms on the same 295-ticker
+stooq_us_long pool, K=96 / S=15 / 500 steps / batch 8192:
+
+1. `(K=96, S=15)` — uncompressed baseline.
+2. `(K=48, S=15)` — **K-only 1D DWT-L1**.
+3. `(K=96, S=8)` — S-only 1D DWT-L1 (mirror arm).
+
+Eval: NVDA val R² and CSCO zero-shot peak R² on RSI / CCI / vol.
+MACD excluded (broken in every arm; tracked separately above).
+
+**Decision rule.**
+
+| Outcome                                    | Reading                                                                    |
+|--------------------------------------------|----------------------------------------------------------------------------|
+| Both K-only and S-only preserve R²         | each axis individually sufficient; 2D win not specific to either           |
+| K-only preserves, S-only degrades          | K-axis sufficiency confirmed; default to shorter K                          |
+| K-only degrades, S-only preserves          | flip the operational rule — shorten S, keep K=96                           |
+| Both degrade                               | 2D win was in the joint downsampling pattern; neither axis alone enough   |
+
+**Implementation.** Add `Compression.kind='dwt-1d-K'` and
+`'dwt-1d-S'` modes to
+[`packages/features/src/ss_features/compression.py`](https://github.com/sughodke/StockSurvey/blob/master/packages/features/src/ss_features/compression.py)
+that pass `axes=(-2,)` or `axes=(-1,)` instead of the current
+`axes=(-2, -1)`. ~10 LoC. Modal cost ~30 min total (~10 min/arm,
+CWT cache shared across arms).
+
+**Priority.** Cheaper than the wider-universe DWT validation
+below, lands a clean architectural answer regardless of the
+outcome (every cell in the decision rule has an actionable
+reading). Run before defaulting any new backbone npz to a shorter
+K.
+
 ## Non-Haar wavelet sweep
 
 Haar is the shortest filter (length 2) and produces the blockiest LL
