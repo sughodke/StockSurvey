@@ -17,6 +17,7 @@ Active backlog for the StockSurvey monorepo. Each section from the original
 - [DWT-compression follow-ups](dwt-compression-followups.md)
 - [Rebal-days sweep](rebal-days-sweep.md)
 - [Reversed-price training — falsify the time-symmetry hypothesis](reversed-price-experiment.md)
+- [EW + rank-IC overlay test (parked — option 2 fallback)](ew-overlay-test.md)
 
 ## Operations
 

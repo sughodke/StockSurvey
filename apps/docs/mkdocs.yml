@@ -121,6 +121,7 @@ nav:
       - Rebal-days sweep: TODO/rebal-days-sweep.md
       - Reversed-price experiment: TODO/reversed-price-experiment.md
       - Long-short constructor: TODO/long-short-constructor.md
+      - EW + rank-IC overlay (parked): TODO/ew-overlay-test.md
       - Modal-cron live deployment: TODO/modal-cron-live-deployment.md
       - Memory and wall-time follow-ups: TODO/memory-walltime-followups.md
       - Streaming feature pipeline (superseded): TODO/streaming-feature-pipeline.md
