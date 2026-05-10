@@ -66,19 +66,34 @@ def compute_input_stats(
     `(feat_mu, feat_sd)` of shape `(1, K, F)`. Mirrors what
     `fit_cnn_multihead` does internally so the no-backbone baseline
     sees the same input distribution treatment as the supervised path.
+
+    Streams per ticker (sum / sumsq accumulators in float64) instead of
+    `vstack`-ing the full pool. The previous vstack+astype pattern
+    allocated two full-pool copies — at the 297-ticker / K=96 / F=105
+    panel that was a ~156 GB transient peak, the next OOM cliff after
+    the precompute_inputs fix in commit 3451900.
     """
-    rows = []
+    sum_acc = np.zeros((1, K, F), dtype=np.float64)
+    sumsq_acc = np.zeros((1, K, F), dtype=np.float64)
+    total_count = 0
     for d in tickers:
         feats = d.features[d.valid]
         if feats.size == 0:
             continue
-        rows.append(feats.reshape(-1, K, F))
-    if not rows:
+        feats = feats.reshape(-1, K, F)
+        sum_acc += feats.sum(axis=0, dtype=np.float64, keepdims=True)
+        # Squared-then-sum keeps a single per-ticker f64 transient
+        # rather than materializing the full pool.
+        sumsq_acc += (feats.astype(np.float64) ** 2).sum(
+            axis=0, keepdims=True)
+        total_count += feats.shape[0]
+    if total_count == 0:
         raise ValueError('compute_input_stats: no valid feature rows across '
                          'the supplied ticker list')
-    pool = np.vstack(rows).astype(np.float32)
-    mu = pool.mean(axis=0, keepdims=True)
-    sd = pool.std(axis=0, keepdims=True) + 1e-8
+    mu64 = sum_acc / total_count
+    var = sumsq_acc / total_count - mu64 ** 2
+    mu = mu64.astype(np.float32)
+    sd = (np.sqrt(np.maximum(var, 0.0)) + 1e-8).astype(np.float32)
     return mu, sd
 
 

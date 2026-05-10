@@ -35,8 +35,8 @@ from factor.backbone import (
     Backbone, apply_backbone, apply_backbone_pytree, backbone_to_pytree,
 )
 from factor.data import (
-    AlignedTickers, align_tickers, forward_log_returns,
-    forward_sign_demeaned, forward_vol_innovation,
+    AlignedTickers, align_tickers, align_tickers_at_rebal,
+    forward_log_returns, forward_sign_demeaned, forward_vol_innovation,
 )
 from factor.objectives import block_sharpe, pearson_rank_ic
 from factor.scorers import get_scorer
@@ -123,40 +123,49 @@ def precompute_inputs(
     `block_log_ret_rb` is independent of this choice — Sharpe eval
     always sees actual realized returns.
     """
-    aligned = align_tickers(tickers, K=backbone.K, F=backbone.F)
-    D, N, K, F = aligned.features.shape
+    # `align_tickers_at_rebal` materializes features only at rebal bars,
+    # not the full daily axis. The encoder consumes one row per rebal
+    # block downstream, so allocating the full `(D, N, K, F)` panel was
+    # wasted — both wasted RAM (786 GB at 3000 tickers) and wasted FLOPs
+    # (encoder forward over D bars when only D' get used). aligned.prices
+    # / aligned.valid stay daily because the forward-return helpers
+    # operate on daily bars; both are cheap (~78 MB / ~19 MB at scale).
+    aligned = align_tickers_at_rebal(
+        tickers, K=backbone.K, F=backbone.F, rebal_days=rebal_days)
+    rebal_idx = aligned.rebal_idx
+    D = len(aligned.dates)
+    Dp, N, K, F = aligned.features.shape
 
-    # `aligned.features` is already float32 (allocated as float32 in
-    # `align_tickers`). `.astype(np.float32, copy=False)` is a no-op
-    # rather than a 2x duplicate — at full-pool scale (D=6500, N=297,
-    # K=96, F=105) the panel is ~78 GB, so saving the duplicate matters.
-    # `reshape` returns a view of the same buffer.
-    flat = aligned.features.reshape(D * N, K, F).astype(
+    # Run encoder forward over the rebal-aligned features. At 3000 tickers
+    # with hidden_flat=5632 this is ~22 GB of latent (vs ~470 GB if we
+    # ran over the full daily panel). One allocation, written in chunks.
+    flat_rb = aligned.features.reshape(Dp * N, K, F).astype(
         np.float32, copy=False)
-    # Run encoder forward in numpy-out-numpy-in chunks. Pre-allocate
-    # `repr_full` once and write each chunk's output directly into its
-    # slice — avoids the chunk-list accumulator + np.concatenate pattern
-    # that held two ~41 GB copies of the latent simultaneously and
-    # OOM'd at 192 GB on the full pool. Single allocation keeps the
-    # peak at ~41 GB (plus aligned.features at 78 GB).
-    repr_full = np.empty(
-        (D * N, backbone.hidden_flat), dtype=np.float32)
+    repr_rb_flat = np.empty(
+        (Dp * N, backbone.hidden_flat), dtype=np.float32)
     CHUNK = 8192
     Tensor.training = False
-    for s in range(0, flat.shape[0], CHUNK):
-        x = Tensor(flat[s:s + CHUNK])
+    for s in range(0, flat_rb.shape[0], CHUNK):
+        x = Tensor(flat_rb[s:s + CHUNK])
         chunk_out = apply_backbone(backbone, x).numpy()
-        repr_full[s:s + chunk_out.shape[0]] = chunk_out
-    # `reshape` is a view — no copy.
-    repr_full = repr_full.reshape(D, N, backbone.hidden_flat)
+        repr_rb_flat[s:s + chunk_out.shape[0]] = chunk_out
+    repr_rb_full = repr_rb_flat.reshape(Dp, N, backbone.hidden_flat)
 
+    # Daily-axis forward-return computations (cheap — `(D, N)` panels).
     fwd_ret = forward_log_returns(aligned.prices, rebal_days=rebal_days)
-    daily_log_ret = np.zeros_like(aligned.prices, dtype=np.float64)
-    log_p = np.log(np.maximum(aligned.prices, 1e-12))
+    # f32 throughout — block sums below run over <=rebal_days bars (no
+    # long-horizon accumulation), so f32 precision is plenty.
+    daily_log_ret = np.zeros_like(aligned.prices, dtype=np.float32)
+    log_p = np.log(np.maximum(aligned.prices, 1e-12)).astype(np.float32)
     daily_log_ret[1:] = log_p[1:] - log_p[:-1]
 
-    base_mask = (aligned.valid & np.isfinite(fwd_ret)
-                 & np.isfinite(repr_full).all(axis=-1))
+    # Build the base mask at rebal positions only. The encoder-output
+    # finite check is naturally at rebal too (repr_rb_full lives there).
+    base_mask_rb = (
+        aligned.valid[rebal_idx]
+        & np.isfinite(fwd_ret[rebal_idx])
+        & np.isfinite(repr_rb_full).all(axis=-1)
+    )
     if spread is not None:
         if spread.shape != aligned.prices.shape:
             raise ValueError(
@@ -164,49 +173,51 @@ def precompute_inputs(
                 f'{aligned.prices.shape}')
         if max_spread is None:
             raise ValueError('spread provided but max_spread is None')
-        base_mask &= spread <= max_spread
+        base_mask_rb &= spread[rebal_idx] <= max_spread
 
     if forward_target_kind == 'log_return':
-        target = fwd_ret
+        target_rb = fwd_ret[rebal_idx]
     elif forward_target_kind == 'sign_demeaned':
-        # Demean against only the liquid peer set at each bar — must
-        # match what the IC eval will see, otherwise the target would
-        # be centered on a different cross-section than the loss reads.
-        target = forward_sign_demeaned(
-            aligned.prices, rebal_days=rebal_days, valid=base_mask)
+        # Demean against the liquid peer set at each bar. We compute the
+        # full-daily mask only for the rows the demean reads (rebal_idx)
+        # — `forward_sign_demeaned` works over a `(D, N)` panel, so pad
+        # the daily-mask back out and slice the result.
+        full_mask = np.zeros_like(fwd_ret, dtype=bool)
+        full_mask[rebal_idx] = base_mask_rb
+        target_full = forward_sign_demeaned(
+            aligned.prices, rebal_days=rebal_days, valid=full_mask)
+        target_rb = target_full[rebal_idx]
     elif forward_target_kind == 'vol_innovation':
-        target = forward_vol_innovation(
+        target_full = forward_vol_innovation(
             aligned.prices, rebal_days=rebal_days)
+        target_rb = target_full[rebal_idx]
         # Vol innovation has its own NaN edges (leading + trailing
         # rebal_days rows, plus zero-variance windows). Tighten the
         # mask so the IC eval doesn't see those cells as "valid with
         # zero target" after the nan_to_num below.
-        base_mask &= np.isfinite(target)
+        base_mask_rb &= np.isfinite(target_rb)
     else:
         raise ValueError(
             f'forward_target_kind={forward_target_kind!r} not in '
             "{'log_return', 'sign_demeaned', 'vol_innovation'}")
 
-    rebal_idx = np.arange(0, D, rebal_days)
-    rebal_idx = rebal_idx[rebal_idx + rebal_days < D]
     n_blocks = len(rebal_idx)
-    if n_blocks < 4:
-        raise ValueError(
-            f'only {n_blocks} rebalance blocks fit in {D} aligned dates with '
-            f'rebal_days={rebal_days}; need >=4 for a sensible train/val.')
-
-    block_log_ret = np.empty((n_blocks, N), dtype=np.float64)
+    block_log_ret = np.empty((n_blocks, N), dtype=np.float32)
     for b, i in enumerate(rebal_idx):
         block_log_ret[b] = daily_log_ret[i + 1: i + rebal_days + 1].sum(axis=0)
 
-    repr_rb = np.nan_to_num(repr_full[rebal_idx], nan=0.0).astype(np.float32)
-    fwd_rb = np.nan_to_num(target[rebal_idx], nan=0.0).astype(np.float32)
+    repr_rb = np.nan_to_num(repr_rb_full, nan=0.0).astype(np.float32)
+    fwd_rb = np.nan_to_num(target_rb, nan=0.0).astype(np.float32)
     blr_rb = np.nan_to_num(block_log_ret, nan=0.0).astype(np.float32)
+    # `D` (full daily count) is unused after this point but exposed so
+    # downstream debugging can correlate rebal positions with calendar
+    # dates without reconstructing the math.
+    _ = D
     return {
         'aligned': aligned,
         'representation_rb': repr_rb,
         'fwd_ret_rb': fwd_rb,
-        'mask_rb': base_mask[rebal_idx].astype(np.float32),
+        'mask_rb': base_mask_rb.astype(np.float32),
         'block_log_ret_rb': blr_rb,
         'rebal_idx': rebal_idx,
     }
@@ -377,9 +388,10 @@ def train_scorer(
         # backbone moves. Rebuild from raw aligned features per step.
         del repr_train_t   # release VRAM hold on stage-1 cache
         aligned = pre['aligned']
-        rebal_idx = pre['rebal_idx']
-        feat_rb = np.nan_to_num(aligned.features[rebal_idx],
-                                nan=0.0).astype(np.float32)
+        # `align_tickers_at_rebal` already subsamples features to rebal
+        # positions, so `aligned.features` is `(n_blocks, N, K, F)` —
+        # the legacy `[rebal_idx]` indexing would be a no-op here.
+        feat_rb = np.nan_to_num(aligned.features, nan=0.0).astype(np.float32)
         K = backbone.K
         F = backbone.F
         N = aligned.features.shape[1]
@@ -542,13 +554,21 @@ def predict(
     head_t = {k: Tensor(v) for k, v in head_params.items()}
 
     Tensor.training = False
-    flat = aligned.features.reshape(D * N, K, F).astype(np.float32)
+    # Mirror precompute_inputs (commit 3451900): aligned.features is
+    # already f32, so `.astype(np.float32, copy=False)` is a no-op
+    # rather than a duplicate. Pre-allocate `repr_full` and write each
+    # chunk's output directly into its slice — avoids the chunk-list
+    # accumulator + np.concatenate pattern that doubled the latent.
+    flat = aligned.features.reshape(D * N, K, F).astype(
+        np.float32, copy=False)
+    repr_full = np.empty(
+        (D * N, backbone.hidden_flat), dtype=np.float32)
     CHUNK = 8192
-    repr_chunks: list[np.ndarray] = []
     for s in range(0, flat.shape[0], CHUNK):
-        repr_chunks.append(apply_backbone(backbone, Tensor(flat[s:s + CHUNK])).numpy())
-    repr_flat = np.concatenate(repr_chunks, axis=0)
-    repr_full = repr_flat.reshape(D, N, backbone.hidden_flat)
+        x = Tensor(flat[s:s + CHUNK])
+        chunk_out = apply_backbone(backbone, x).numpy()
+        repr_full[s:s + chunk_out.shape[0]] = chunk_out
+    repr_full = repr_full.reshape(D, N, backbone.hidden_flat)
     scores = apply_fn(head_t, Tensor(repr_full)).numpy()
     finite = np.isfinite(repr_full).all(axis=-1)
     return np.where(finite, scores, np.nan).astype(np.float64)

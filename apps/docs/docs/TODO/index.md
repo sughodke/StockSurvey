@@ -23,6 +23,7 @@ Active backlog for the StockSurvey monorepo. Each section from the original
 
 - [Review follow-ups — paper-trade can proceed without these](review-followups.md)
 - [Modal-cron live deployment for ss-relational](modal-cron-live-deployment.md)
+- [Memory and wall-time audit follow-ups](memory-walltime-followups.md)
 
 ## Done
 

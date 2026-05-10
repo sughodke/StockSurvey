@@ -18,7 +18,7 @@ import numpy as np
 import pandas as pd
 
 from factor import (
-    Backbone, TrainResult, apply_backbone, backbone_to_pytree,
+    Backbone, TrainResult, align_tickers, apply_backbone, backbone_to_pytree,
     precompute_inputs, predict, train_scorer,
 )
 from ss_features import TickerData
@@ -180,8 +180,13 @@ def test_predict_returns_full_grid():
         n_steps=5, learning_rate=1e-3, weight_decay=1e-2,
         finetune_steps=0, verbose=False,
     )
-    scores = predict(res.aligned, bb, res.params, scorer='linear')
-    D = res.aligned.features.shape[0]
+    # predict()'s "full grid" semantics require daily-aligned features.
+    # `res.aligned` from train_scorer is now rebal-subsampled (encoder
+    # only runs on bars whose latents are actually consumed); callers
+    # who want daily-frequency scores should re-align with `align_tickers`.
+    aligned_daily = align_tickers(tickers, K=bb.K, F=bb.F)
+    scores = predict(aligned_daily, bb, res.params, scorer='linear')
+    D = aligned_daily.features.shape[0]
     assert scores.shape == (D, N_TICKERS)
     # Synthetic features are all-finite, so scores should be too.
     assert np.isfinite(scores).all()

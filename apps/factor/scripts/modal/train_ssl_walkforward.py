@@ -120,9 +120,31 @@ def _resolve_ticker_list(
 
 
 def _load_one_ticker(args):
-    """Worker: build a TickerData via load_ticker() with the SSL backbone's
-    training-time meta. Returns (ticker, TickerData) or (ticker, error_str)."""
-    ticker, stooq_subset, start, end, load_kwargs = args
+    """Worker: build a TickerData via load_ticker() with the supervised-`cnn`
+    backbone's training-time meta, persist its features to a per-ticker
+    `.npy` on container disk, and return a small stub (no big array
+    through pickle).
+
+    Returns `(ticker, stub_dict)` on success or `(ticker, error_str)` on
+    failure. The stub carries the small daily arrays (`prices`, `dates`,
+    `valid`, ~50KB total) plus the `.npy` path; the parent reconstitutes
+    a TickerData with `features` mmap'd from disk so subsequent slicing
+    by `align_tickers_at_rebal` only pages in the rebal rows.
+
+    Why disk-handoff instead of pickling features: at the supervised-`cnn`
+    pretrain panel size (D=6500, K=96, F=105) each `.features` array is
+    ~262 MB.
+    The original `imap_unordered` pickle path streamed ~78 GB through
+    the parent at 297 tickers (~786 GB at 3000), driving the peak RSS
+    that triggered the 192 GB OOM cliff. Disk-handoff drops parent IPC
+    residency to a few KB per ticker; per-ticker disk peak is the
+    `.features` size (transient — parent unlinks after assembling the
+    aligned panel).
+    """
+    import os
+    import numpy as np
+
+    ticker, stooq_subset, start, end, load_kwargs, tmp_dir = args
     from ss_features import load_ticker
     try:
         td = load_ticker(
@@ -131,23 +153,41 @@ def _load_one_ticker(args):
         )
         if not td.valid.any():
             return ticker, '(no valid bars)'
-        return ticker, td
+        # `np.save` (single-array .npy) is mmap-able; `np.savez` (zipped
+        # archive) is not. `allow_pickle=False` is a safety knob — features
+        # are dense numeric, never object arrays.
+        npy_path = os.path.join(tmp_dir, f'{ticker}.features.npy')
+        np.save(npy_path, td.features, allow_pickle=False)
+        return ticker, {
+            'name':           td.name,
+            'dates':          td.dates,
+            'prices':         td.prices,
+            'valid':          td.valid,
+            'features_path':  npy_path,
+            'features_shape': tuple(td.features.shape),
+            'features_dtype': str(td.features.dtype),
+        }
     except Exception as e:
         return ticker, f'({type(e).__name__}: {e})'
 
 
-# Memory: at min_history_bars=6500 + 297 tickers + K=96 / F=105
-# polar-Morlet bundle:
-#   - per-ticker .features ≈ 6500 * 96 * 105 * 4 bytes = 262 MB
-#     × 297 tickers ≈ 78 GB held in host memory through Step 2.
-#   - `align_tickers` then allocates a new (D, N, K, F) ≈ 78 GB panel
-#     and copies each ticker into it. The original list[TickerData]
-#     features stay alive (caller holds the list reference), so peak
-#     during alignment is ~156 GB before any tinygrad tensors land.
-#   - precomputed (D, N, hidden_flat) representation tensor + Stage 1
-#     head AdamW state add ~3-4 GB.
-# 64 GB and 128 GB both OOM'd at exit 137 mid-Step 3; 192 GB lands the
-# alignment peak with ~30 GB margin for the GPU-side compute.
+# Memory profile (after the 2026-05-09 audit fixes — disk-handoff
+# workers + `align_tickers_at_rebal` + streaming compute_input_stats):
+#   - Workers persist per-ticker .features (~262 MB each at K=96, F=105,
+#     D=6500) to /tmp/factor-features/<ticker>.npy and return a small
+#     stub. Parent IPC residency is a few KB per ticker.
+#   - Parent reconstitutes TickerData with `features = np.load(..., mmap)`,
+#     so the 262 MB-per-ticker arrays live on container disk; only the
+#     pages aligned with rebal positions get paged in.
+#   - `align_tickers_at_rebal` allocates `(D', N, K, F)` where D' = D /
+#     rebal_days ≈ 325 — that's ~4 GB at 297 tickers, ~39 GB at 3000.
+#     Encoder forward yields the same shape latent, so peak adds another
+#     ~3 GB / ~22 GB.
+#   - Per-ticker .npy files are unlinked after the panel is built.
+# Container disk (ephemeral) needs to hold N × per-ticker .features bytes
+# concurrently — ~78 GB at 297 tickers, ~786 GB at 3000. Configure a
+# Modal Volume or larger ephemeral disk if scaling past what the host's
+# /tmp + rootfs can hold.
 @app.function(gpu='T4', cpu=4, memory=196608, timeout=60 * 90)
 def train_ssl_walkforward(
     backbone_npz_name: str,
@@ -170,9 +210,15 @@ def train_ssl_walkforward(
     import os
     import subprocess
     import multiprocessing as mp
+    import shutil
 
     os.makedirs(f'{REMOTE_REPO}/Output', exist_ok=True)
     output = Path(f'{REMOTE_REPO}/Output')
+    # Per-ticker `.features` npy spool. Ephemeral; cleaned up at end.
+    features_tmp_dir = '/tmp/factor-features'
+    if os.path.exists(features_tmp_dir):
+        shutil.rmtree(features_tmp_dir)
+    os.makedirs(features_tmp_dir, exist_ok=True)
     os.environ['CUDA'] = '1'
 
     print('=== Step 1/4: uv sync workspace deps (one-time per cold start) ===',
@@ -233,16 +279,28 @@ def train_ssl_walkforward(
     print(f'  parallelizing feature build across {n_workers} workers',
           flush=True)
 
+    import numpy as np
     t0 = time.perf_counter()
     ticker_data: list[TickerData] = []
     skipped: list[str] = []
-    work_args = [(t, STOOQ_SUBSET, start, end, load_kwargs)
+    work_args = [(t, STOOQ_SUBSET, start, end, load_kwargs, features_tmp_dir)
                  for t in ticker_list]
     with mp.Pool(n_workers) as pool:
         for i, (ticker, result) in enumerate(
                 pool.imap_unordered(_load_one_ticker, work_args)):
-            if isinstance(result, TickerData):
-                ticker_data.append(result)
+            if isinstance(result, dict):
+                # `np.load(..., mmap_mode='r')` opens the .npy as a
+                # memory-mapped array; downstream slices in
+                # `align_tickers_at_rebal` only fault in the rebal rows.
+                features_mmap = np.load(result['features_path'], mmap_mode='r')
+                ticker_data.append(TickerData(
+                    name=result['name'],
+                    prices=result['prices'],
+                    dates=result['dates'],
+                    features=features_mmap,
+                    targets={},
+                    valid=result['valid'],
+                ))
             else:
                 skipped.append(f'{ticker} {result}')
             if (i + 1) % 25 == 0:
@@ -251,6 +309,10 @@ def train_ssl_walkforward(
     ticker_data.sort(key=lambda td: td.name)
     print(f'  feature build done: {len(ticker_data)} usable / '
           f'{len(skipped)} skipped  ({time.perf_counter()-t0:.0f}s)', flush=True)
+    # Disk usage check — at full pool the spool can be hundreds of GB.
+    spool_bytes = sum(p.stat().st_size for p in Path(features_tmp_dir).iterdir())
+    print(f'  features spool: {spool_bytes / (1 << 30):.1f} GB on '
+          f'{features_tmp_dir}', flush=True)
     if skipped[:5]:
         print(f'  first 5 skipped: {skipped[:5]}', flush=True)
     if len(ticker_data) < 4:
@@ -335,6 +397,13 @@ def train_ssl_walkforward(
 
     print('\n=== Step 4/4: per-window comparison plot ===', flush=True)
     _plot_walkforward(summary, output / 'ssl-walkforward-comparison.png')
+
+    # Free the per-ticker .features npy spool — by this point the
+    # aligned panel has been built and per-window training is done.
+    # Keeping the spool around would just sit on container disk until
+    # teardown.
+    if os.path.exists(features_tmp_dir):
+        shutil.rmtree(features_tmp_dir)
 
     artifacts: dict[str, bytes] = {}
     for p in sorted(output.iterdir()):

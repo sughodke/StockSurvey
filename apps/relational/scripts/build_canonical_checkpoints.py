@@ -189,12 +189,16 @@ def build_velocity_checkpoint(stooq_dir: Path) -> RelationalCheckpoint:
     # full lookback + tail + train window so the script's universe pin
     # mirrors the one tested.
     min_history = 120 + 20 + 252 + 10  # lookback + n_tail + train_days + slack
+    # tickers=None triggers a fresh ~12K-file scan; cache the merged
+    # panel so subsequent canonical-checkpoint rebuilds skip the scan.
+    # Matches the convention in factor/scripts/universe_pivot_walkforward.py.
     prices, _, _, _ = load_stooq_matrix(
         str(stooq_dir),
         min_history=min_history,
         start_date=PHASE11_TRAIN_START,
         end_date=PHASE11_VAL_END,
         tickers=None,
+        cache_path=str(stooq_dir / '.cache.pkl'),
     )
     universe = list(prices.columns)
     print(f'velocity universe resolved: {len(universe)} tickers from {stooq_dir}')

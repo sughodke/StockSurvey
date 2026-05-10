@@ -24,18 +24,36 @@ from ss_features import TickerData
 class AlignedTickers:
     """Aligned multi-ticker tensors on a common date axis.
 
-    Shapes (D = aligned dates, N = n_tickers, K = window_cols, F = channels):
+    Two modes — distinguished by whether `rebal_idx` is set:
+
+    * **Daily mode** (`rebal_idx is None`): every field has the full
+      daily date axis. `features` is `(D, N, K, F)`. Returned by
+      `align_tickers`.
+    * **Rebal-aligned mode** (`rebal_idx is not None`): `features`
+      is pre-subsampled to `(len(rebal_idx), N, K, F)` while `dates`,
+      `prices`, `valid` keep the full daily axis. Returned by
+      `align_tickers_at_rebal`. Used by the supervised-`cnn` / indicator
+      walk-forward pipelines so the encoder runs only on the bars
+      whose latents are actually consumed (one row per rebalance),
+      avoiding a full `(D, N, K, F)` panel allocation. At 3000 tickers
+      that's the difference between ~786 GB and ~39 GB resident.
+
+    Shapes (D = full daily dates, D' = `len(rebal_idx)`, N = n_tickers,
+    K = window_cols, F = channels):
       - dates:     `(D,)` numpy datetime64 / object array
       - names:     `(N,)` ticker names
-      - features:  `(D, N, K, F)` float32
+      - features:  `(D, N, K, F)` daily / `(D', N, K, F)` rebal — float32
       - prices:    `(D, N)` float64
       - valid:     `(D, N)` bool — replay's per-ticker valid mask, aligned
+      - rebal_idx: `None` (daily) or `(D',)` int64 — daily-axis positions
+                   the rebal features were sampled at
     """
     dates: np.ndarray
     names: tuple[str, ...]
     features: np.ndarray
     prices: np.ndarray
     valid: np.ndarray
+    rebal_idx: np.ndarray | None = None
 
 
 def align_tickers(
@@ -77,7 +95,11 @@ def align_tickers(
             raise ValueError(
                 f'ticker {td.name!r}: {len(missing)} common dates not '
                 f'found in its index — duplicate dates?')
-        features[:, j] = td.features[loc].reshape(-1, K, F).astype(np.float32)
+        # `features` is already preallocated as f32; assignment casts on
+        # the fly. The explicit `.astype(np.float32)` here used to
+        # allocate a per-ticker transient (~262 MB at full pool) only to
+        # immediately copy into the f32 destination — drop it.
+        features[:, j] = td.features[loc].reshape(-1, K, F)
         prices[:, j] = td.prices[loc]
         valid[:, j] = td.valid[loc]
 
@@ -87,6 +109,87 @@ def align_tickers(
         features=features,
         prices=prices,
         valid=valid,
+    )
+
+
+def align_tickers_at_rebal(
+    tickers: list[TickerData], *, K: int, F: int, rebal_days: int,
+) -> AlignedTickers:
+    """Like `align_tickers`, but only materializes features at rebalance bars.
+
+    Computes `rebal_idx = arange(0, D, rebal_days)` over the common
+    daily axis (filtered to keep `idx + rebal_days < D` so the forward-
+    return target window fits), then allocates a `(len(rebal_idx), N, K, F)`
+    feature panel — not the full `(D, N, K, F)`. Daily-axis prices and
+    valid mask are still materialized in full because the forward-return
+    helpers (`forward_log_returns` / `forward_vol_innovation`) work over
+    daily bars; both are tiny (~78 MB / ~19 MB at D=6500, N=3000).
+
+    The encoder forward in `precompute_inputs` only consumes one row per
+    rebal block — running it over the full daily panel was wasted work
+    AND wasted RAM. At 3000 tickers / D=6500 / K=96 / F=105 this drops
+    aligned-features residency from ~786 GB to ~39 GB and the encoder
+    pass from ~470 GB to ~22 GB of latent.
+
+    Per-ticker feature reads are sparse (`td.features[loc_at_rebal]`
+    where `loc_at_rebal` has D' entries, not D), so memmap-backed
+    `td.features` (e.g. from a Modal worker that wrote to /tmp) only
+    pages in the rebal rows.
+    """
+    if not tickers:
+        raise ValueError('align_tickers_at_rebal needs at least one TickerData')
+    if rebal_days < 1:
+        raise ValueError(f'rebal_days={rebal_days} must be >= 1')
+    for td in tickers:
+        if td.features.shape[1] != K * F:
+            raise ValueError(
+                f'ticker {td.name!r}: features shape {td.features.shape} '
+                f'incompatible with K*F = {K * F} (K={K}, F={F})')
+
+    indexes = [pd.DatetimeIndex(td.dates) for td in tickers]
+    common = indexes[0]
+    for idx in indexes[1:]:
+        common = common.intersection(idx)
+    if len(common) == 0:
+        raise ValueError(
+            'tickers have no overlapping dates; check --start / --end')
+    common = common.sort_values()
+
+    D = len(common)
+    N = len(tickers)
+    rebal_idx = np.arange(0, D, rebal_days, dtype=np.int64)
+    rebal_idx = rebal_idx[rebal_idx + rebal_days < D]
+    if len(rebal_idx) < 4:
+        raise ValueError(
+            f'only {len(rebal_idx)} rebalance bars fit in {D} aligned dates '
+            f'with rebal_days={rebal_days}; need >=4 for a sensible split')
+    Dp = len(rebal_idx)
+
+    features = np.empty((Dp, N, K, F), dtype=np.float32)
+    prices = np.empty((D, N), dtype=np.float64)
+    valid = np.zeros((D, N), dtype=bool)
+    for j, (td, idx) in enumerate(zip(tickers, indexes)):
+        loc_full = idx.get_indexer(common)
+        if (loc_full < 0).any():
+            missing = common[loc_full < 0]
+            raise ValueError(
+                f'ticker {td.name!r}: {len(missing)} common dates not '
+                f'found in its index — duplicate dates?')
+        # Sparse read: only the rebal rows from this ticker's features.
+        # When `td.features` is a memmap, this pages in only the bytes
+        # for D' rows — not all D.
+        loc_at_rebal = loc_full[rebal_idx]
+        features[:, j] = td.features[loc_at_rebal].reshape(-1, K, F)
+        prices[:, j] = td.prices[loc_full]
+        valid[:, j] = td.valid[loc_full]
+
+    return AlignedTickers(
+        dates=common.to_numpy(),
+        names=tuple(td.name for td in tickers),
+        features=features,
+        prices=prices,
+        valid=valid,
+        rebal_idx=rebal_idx,
     )
 
 
@@ -100,9 +203,13 @@ def forward_log_returns(
     to close-of-(i+rebal_days). The trailing `rebal_days` rows are NaN
     (the future window doesn't fit).
     """
-    log_p = np.log(np.maximum(prices.astype(np.float64), 1e-12))
+    # f32 throughout — log() of f64 prices then subtracted in-window
+    # has no accumulation, so f32 precision (~7 digits) is plenty for
+    # forward log returns on the [-1, 1] range typical of horizons we
+    # use. Keeps a `(D, N)` panel at half the bytes.
+    log_p = np.log(np.maximum(prices, 1e-12)).astype(np.float32)
     D, N = prices.shape
-    fwd = np.full((D, N), np.nan, dtype=np.float64)
+    fwd = np.full((D, N), np.nan, dtype=np.float32)
     if D > rebal_days:
         fwd[:D - rebal_days] = log_p[rebal_days:] - log_p[:D - rebal_days]
     return fwd

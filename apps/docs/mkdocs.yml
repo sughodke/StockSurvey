@@ -112,4 +112,5 @@ nav:
       - DWT-compression follow-ups: TODO/dwt-compression-followups.md
       - Rebal-days sweep: TODO/rebal-days-sweep.md
       - Modal-cron live deployment: TODO/modal-cron-live-deployment.md
+      - Memory and wall-time follow-ups: TODO/memory-walltime-followups.md
       - Recently shipped: TODO/recently-shipped.md

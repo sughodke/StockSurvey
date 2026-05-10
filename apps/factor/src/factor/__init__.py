@@ -34,7 +34,8 @@ Public surface
   convenience; that package owns the on-disk npz format.
 - `apply_backbone`, `apply_backbone_pytree`, `backbone_to_pytree`,
   `compute_input_stats`, `identity_backbone` — tinygrad runtime.
-- `AlignedTickers`, `align_tickers`, `forward_log_returns` — data prep.
+- `AlignedTickers`, `align_tickers`, `align_tickers_at_rebal`,
+  `forward_log_returns` — data prep.
 - `IndicatorGridConfig`, `build_indicator_features`,
   `load_ticker_indicators`, `make_indicator_backbone`,
   `train_scorer_indicators` — deterministic-indicator alternative.
@@ -49,8 +50,8 @@ from factor.backbone import (
     compute_input_stats, identity_backbone, load_backbone,
 )
 from factor.data import (
-    AlignedTickers, align_tickers, forward_log_returns,
-    forward_sign_demeaned, forward_vol_innovation,
+    AlignedTickers, align_tickers, align_tickers_at_rebal,
+    forward_log_returns, forward_sign_demeaned, forward_vol_innovation,
 )
 from factor.indicator_features import (
     IndicatorGridConfig, build_indicator_features, load_ticker_indicators,
@@ -77,6 +78,7 @@ __all__ = [
     'WalkForwardResult',
     'WalkForwardWindow',
     'align_tickers',
+    'align_tickers_at_rebal',
     'apply_backbone',
     'apply_backbone_pytree',
     'apply_linear',

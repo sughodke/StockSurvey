@@ -26,9 +26,13 @@ def precompute_windows(
     Per-ticker normalization
     ------------------------
     Each ticker's power is divided by its mean over (scales, time) before
-    cumsum, to keep the float32 cumsum well-conditioned across ~3000
-    dates (raw CWT power on high-priced names exceeds 1e11 and overflows
-    float32 cumsum). This *does* use full-history information, but the
+    cumsum, to keep the cumsum well-conditioned across ~3000 dates (raw
+    CWT power on high-priced names exceeds 1e11 and would overflow
+    float32 cumsum). After normalization power is O(1) per cell, so
+    cumsum across ~3000 dates stays well within f32 precision and we
+    can keep the whole pipeline in f32 — used to upcast to f64 here
+    to be safe pre-normalization, but the normalization above already
+    bounds magnitude. This *does* use full-history information, but the
     KL divergence in `ss_indicators.symmetric_kl_divergence` is
     invariant to a per-ticker uniform rescaling of power, so no future
     information actually leaks into training scores. If the divergence
@@ -46,11 +50,11 @@ def precompute_windows(
     # call sites or refactor to a causal rolling mean before exposing
     # this to a non-scale-invariant downstream op.
     pm = power.mean(axis=(0, 1), keepdims=True)
-    power = power / np.maximum(pm, 1e-12)
+    power = (power / np.maximum(pm, 1e-12)).astype(np.float32, copy=False)
 
-    cs = np.cumsum(power.astype(np.float64), axis=1)
+    cs = np.cumsum(power, axis=1)
     cs = np.concatenate(
-        [np.zeros((n_scales, 1, n_tickers), dtype=np.float64), cs],
+        [np.zeros((n_scales, 1, n_tickers), dtype=np.float32), cs],
         axis=1,
     )
 
@@ -58,4 +62,4 @@ def precompute_windows(
               - cs[:, lookback - n_tail + 1: n_dates - n_tail + 1, :]) / n_tail
     historical = (cs[:, n_hist + 1: n_valid + n_hist + 1, :]
                   - cs[:, :n_valid, :]) / (n_hist + 1)
-    return recent.astype(np.float32), historical.astype(np.float32)
+    return recent, historical

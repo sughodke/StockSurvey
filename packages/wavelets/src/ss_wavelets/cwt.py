@@ -22,8 +22,33 @@ ticker rather than O(n_dates * lookback).
 
 from __future__ import annotations
 
+import os
+from concurrent.futures import ThreadPoolExecutor
+
 import numpy as np
 from scipy.signal import fftconvolve
+
+
+def _cwt_thread_count(n_scales: int) -> int:
+    """Threads to use for the per-scale FFT loop.
+
+    Capped at `min(8, n_scales, cpu_count)` — scipy's `fftconvolve`
+    releases the GIL inside the C kernels, so independent scales
+    parallelize linearly until memory bandwidth binds. Eight is the
+    knee point on a typical 8-core laptop / Modal box; more workers
+    contend for the same FFT plan cache without speedup.
+
+    Override with `SS_WAVELETS_CWT_THREADS=N` (1 disables threading).
+    """
+    override = os.environ.get('SS_WAVELETS_CWT_THREADS')
+    if override:
+        try:
+            n = int(override)
+            if n >= 1:
+                return min(n, n_scales)
+        except ValueError:
+            pass
+    return min(8, n_scales, os.cpu_count() or 1)
 
 
 # 13 logarithmically spaced lookbacks from 3 days (intra-week noise) to
@@ -116,16 +141,32 @@ def causal_cwt(
     the first `lookback` outputs anyway via `precompute_windows`.
     """
     n_dates, _ = prices.shape
-    x_norm = _rolling_z_norm(prices, lookback)
+    # Cast z-normed input to f32 so each per-scale FFT runs at half
+    # the bytes (and ~2x faster). Z-norm output is bounded ~[-3, 3] so
+    # f32 precision is plenty — no risk of overflow / cancellation.
+    x_norm = _rolling_z_norm(prices, lookback).astype(
+        np.float32, copy=False)
 
     coeffs = np.zeros((len(scales), n_dates, prices.shape[1]),
                       dtype=np.float32)
-    for si, s in enumerate(scales):
-        kernel = _ricker_causal(s, n_dates)
+
+    def _conv_one(si_s: tuple[int, int]) -> None:
+        si, s = si_s
+        kernel = _ricker_causal(s, n_dates).astype(np.float32)
         full = fftconvolve(x_norm, kernel[:, None], mode='full', axes=0)
         # full[t] = sum_k x_norm[k] * kernel[t-k] over valid k, which uses
         # x_norm[max(0, t-points) .. t] — strictly causal at index t.
-        coeffs[si] = full[:n_dates].astype(np.float32)
+        coeffs[si] = full[:n_dates]
+
+    n_threads = _cwt_thread_count(len(scales))
+    if n_threads <= 1:
+        for item in enumerate(scales):
+            _conv_one(item)
+    else:
+        # scipy fftconvolve releases the GIL inside the C kernels;
+        # disjoint output slices = no shared-state writes.
+        with ThreadPoolExecutor(max_workers=n_threads) as ex:
+            list(ex.map(_conv_one, enumerate(scales)))
     return coeffs
 
 
@@ -150,10 +191,20 @@ def causal_cwt_morlet(
 
     coeffs = np.zeros((len(scales), n_dates, prices.shape[1]),
                       dtype=np.complex64)
-    for si, s in enumerate(scales):
+
+    def _conv_one(si_s: tuple[int, int]) -> None:
+        si, s = si_s
         kernel = _morlet_causal(s, n_dates, omega0=omega0)
         full = fftconvolve(x_norm, kernel[:, None], mode='full', axes=0)
         coeffs[si] = full[:n_dates].astype(np.complex64)
+
+    n_threads = _cwt_thread_count(len(scales))
+    if n_threads <= 1:
+        for item in enumerate(scales):
+            _conv_one(item)
+    else:
+        with ThreadPoolExecutor(max_workers=n_threads) as ex:
+            list(ex.map(_conv_one, enumerate(scales)))
     return coeffs
 
 
@@ -179,8 +230,18 @@ def causal_cwt_gaussian(
     x = series.astype(np.float64)
 
     coeffs = np.zeros((len(scales), n_dates, n_tickers), dtype=np.float32)
-    for si, s in enumerate(scales):
+
+    def _conv_one(si_s: tuple[int, int]) -> None:
+        si, s = si_s
         kernel = _gaussian_causal(s, n_dates)
         full = fftconvolve(x, kernel[:, None], mode='full', axes=0)
         coeffs[si] = full[:n_dates].astype(np.float32)
+
+    n_threads = _cwt_thread_count(len(scales))
+    if n_threads <= 1:
+        for item in enumerate(scales):
+            _conv_one(item)
+    else:
+        with ThreadPoolExecutor(max_workers=n_threads) as ex:
+            list(ex.map(_conv_one, enumerate(scales)))
     return coeffs
