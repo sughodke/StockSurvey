@@ -1,20 +1,29 @@
 # Factor — multi-task auxiliary head regularizes the MLP arm but does not clear the indicator baseline
 
-**Operational rule:** the
+**Operational rule (post-sweep, 2026-05-10):** the
 [`mlp_multitask`](https://github.com/sughodke/StockSurvey/commit/239ebf9)
-scorer with `aux_weight=0.1` against winsorized z-score targets
-(`forward_robust_z`) lifts mean val IC by **+0.012** over the
-plain `mlp` baseline (−0.0120 → +0.0001), but does **not** clear
-the [linear-on-encoder baseline (+0.0031)](factor-ssl-walkforward.md)
+scorer's auxiliary head against cross-sectional winsorized z-score
+targets (`forward_robust_z`) **does not extract magnitude
+information at any tested gain**. At `aux_weight=0.1` the aux head
+doesn't train (val MSE ≈ 1.0) but the gradient-noise side-effect
+regularizes the trunk for a +0.012 val IC lift over `mlp`. At
+`aux_weight=1.0` the aux head trains (train MSE 0.78) but val MSE
+goes **above** 1.0 (1.16) — predictions are *anti-correlated* with
+val magnitudes despite fitting train, dragging primary val IC to
+−0.0084. At `aux_weight=10.0` the trunk fully collapses on 3/6
+windows (output → 0). The cross-sectional winsorized z-score of
+forward 20-day log returns is **regime-non-stationary** at this
+universe scale; magnitude leaders flip between train and val
+windows. The aux=0.1 lift is a regularization artifact, not a
+new information channel — and pushing for the information channel
+makes things worse. None of the three multitask arms clear the
+[linear-on-encoder baseline (+0.0031)](factor-ssl-walkforward.md)
 or the
 [deterministic-indicator baseline (+0.0120)](factor-indicator-baseline.md).
-The lift comes from **gradient regularization through the shared
-trunk**, not from the encoder learning magnitudes — the auxiliary
-head's own MSE stays pinned near 1.0 (≈ random on z-scored
-targets) across every window. Aux supervision in this regime is
-a regularizer, not a magnitude-extracting mechanism. The
-[supervision-is-binding](factor-ssl-walkforward.md) reading from
-the prior result holds.
+The [supervision-is-binding](factor-ssl-walkforward.md) reading
+from the prior result holds, and now generalizes: the binding
+constraint isn't just the supervision target, it's the
+*non-stationarity* of cross-sectional return structure at H=20.
 
 ## Setup
 
@@ -153,12 +162,123 @@ matches the regularization story.
     - aux head still doesn't learn → the trunk capacity is too
       small for both tasks; bump `mlp_hidden`.
 
+## `aux_weight` sweep (2026-05-10)
+
+Two arms refired against the same backbone / universe / windowing,
+varying only `aux_weight ∈ {1.0, 10.0}`. The pre-registered
+[decision rule](../TODO/multitask-aux-weight-sweep.md#decision-rule)
+anticipated three branches. The actual result fits *none* of
+them — a fourth branch was needed.
+
+### Per-window data across the full sweep
+
+`tr_ic` is rank-IC on train; `vl_ic` is rank-IC on val; `tr_aux`
+and `vl_aux` are aux MSE against winsorized z-score targets (1.0
+is "predict the mean"; >1.0 means *worse than predicting the mean*).
+
+| aux_weight | window | tr_ic   | vl_ic   | tr_aux | vl_aux |
+|-----------:|-------:|--------:|--------:|-------:|-------:|
+| 1.0        | 0      | +0.5276 | −0.0027 |  0.953 |  1.010 |
+| 1.0        | 1      | +0.6309 | −0.0208 |  0.871 |  1.132 |
+| 1.0        | 2      | +0.5184 | −0.0092 |  0.786 |  1.092 |
+| 1.0        | 3      | +0.7393 | +0.0003 |  0.611 |  1.307 |
+| 1.0        | 4      | +0.6425 | −0.0056 |  0.764 |  1.202 |
+| 1.0        | 5      | +0.6513 | −0.0123 |  0.684 |  1.211 |
+| 10.0       | 0      | +0.0000 | −0.0000 |  1.000 |  1.000 |
+| 10.0       | 1      | +0.3938 | +0.0002 |  0.888 |  1.062 |
+| 10.0       | 2      | +0.0000 | −0.0000 |  1.000 |  1.000 |
+| 10.0       | 3      | +0.1851 | +0.0254 |  0.981 |  1.009 |
+| 10.0       | 4      | +0.2592 | +0.0034 |  0.954 |  1.035 |
+| 10.0       | 5      | +0.0000 | −0.0000 |  1.000 |  1.000 |
+
+### Aggregates across the full sweep
+
+| aux_weight | mean tr_ic | mean vl_ic | mean tr_aux | mean vl_aux | pos-vl frac |
+|-----------:|-----------:|-----------:|------------:|------------:|------------:|
+| 0.1        |     +0.762 |    +0.0001 |        ~1.0 |        ~1.0 | 3/6 (0.50)  |
+| 1.0        |     +0.618 | **−0.0084**|   **0.778** |   **1.159** | 1/6 (0.17)  |
+| 10.0       |     +0.140 |    +0.0048 |       0.971 |       1.018 | 3/6 (0.50)* |
+
+\* aux=10 pos-val-IC frac is misleading: 3 windows hit *exact*
+tr_ic = 0.000 (trunk collapsed); only 3 windows actually trained
+and 1 of those (window 3) carries the entire +0.0048 mean.
+
+### Reading the sweep — the fourth branch
+
+The pre-registered decision rule had three branches:
+
+1. **Aux MSE drops + primary lifts** → magnitude extraction works.
+2. **Aux MSE drops + primary degrades** → tasks compete; aux is orthogonal.
+3. **Aux MSE stays at ~1.0** → trunk capacity insufficient.
+
+What we got at `aux_weight=1.0` is none of these:
+
+> **Train aux MSE drops to 0.78. Val aux MSE rises to 1.16.**
+> Primary val IC degrades to −0.0084.
+
+The aux head *does* learn — train MSE drops cleanly below 1.0 in
+every window (0.61–0.95). But the function it learns reverses sign
+on val: predictions are anti-correlated with val cross-sectional
+magnitudes, so val MSE *exceeds* the predict-the-mean baseline of
+1.0 in every window (1.01–1.31). This is regime non-stationarity:
+**the cross-sectional ranking of which tickers had large vs small
+forward 20-day moves on train does not persist into the val
+window**. The mechanism we hoped to exercise (a magnitude target
+the rank-IC objective discards) doesn't survive its own
+out-of-sample test, much less help the primary.
+
+At `aux_weight=10.0` the failure is louder. The aux gradient
+becomes large enough relative to the primary that the joint
+optimization sometimes resolves to the trivial `(s_p, s_a) = (0, 0)`
+solution — output identically zero, train and val IC both 0.000,
+both aux MSE pinned at exactly 1.0. Three of six windows fall into
+this collapse. The other three windows show the same pattern as
+aux=1.0 in miniature: train aux MSE drops below 1.0, val aux MSE
+rises above 1.0. The headline +0.0048 mean val IC is window 3's
++0.0254 lifting two near-zero windows; it's not a real lift.
+
+### What the sweep falsifies
+
+- **The "trunk capacity insufficient" hypothesis** is wrong. At
+  aux=1.0 the trunk has no trouble fitting the aux task on train
+  (MSE 0.78) — the failure is on val. Bumping `mlp_hidden` would
+  let the trunk overfit aux even harder; it wouldn't fix
+  non-stationarity.
+- **The "tasks are orthogonal" hypothesis** is too weak. Orthogonal
+  would mean val aux MSE stays at ~1.0 (random) while primary
+  degrades. We see val aux MSE *above* 1.0 — not orthogonal,
+  *anti-correlated* between train and val. That's a stronger
+  statement: the train aux signal predicts val anti-magnitude.
+- **The aux=0.1 regularization reading is correct** but the
+  mechanism is now clearer: aux=0.1 helps because the aux head
+  *fails to train enough to overfit*. Any aux gain large enough to
+  actually train the aux head also large enough to drag primary IC
+  down via the shared trunk's exposure to overfit aux gradients.
+
+### Implication for further factor work
+
+Don't run more aux-head variants on this universe / horizon. The
+aux objective is dead — not because the implementation is broken,
+but because there's no out-of-sample cross-sectional magnitude
+signal at H=20 on stooq_us_long for the aux head to extract. The
+sweep fully resolves
+[`TODO/multitask-aux-weight-sweep`](../TODO/multitask-aux-weight-sweep.md);
+the natural next experiment is a different prediction problem
+([`TODO/different-prediction-problem`](../TODO/different-prediction-problem.md))
+or a different horizon
+([`TODO/rebal-days-sweep`](../TODO/rebal-days-sweep.md)), not more
+multitask arms.
+
 ## Master walk-forward log
 
-[Leaderboard row](../leaderboard.md) tagged
-[`confirmed-null`](../leaderboard.md#verdict-labels) for the
-ceiling-clearing claim; the +0.012 lift over `mlp` is a real
-mechanism observation worth keeping but does not move the
-indicator-baseline ceiling. Follow-up `aux_weight` sweep tracked
-in
-[`TODO/multitask-aux-weight-sweep.md`](../TODO/multitask-aux-weight-sweep.md).
+Three [leaderboard rows](../leaderboard.md) for this experiment:
+- `aux_weight=0.1` (2026-05-10) — `partial-OOS` for `mt > mlp`,
+  `confirmed-null` for clearing the indicator ceiling.
+- `aux_weight=1.0` (2026-05-10) — `confirmed-null` for
+  magnitude-extraction; supersedes the regularizer-only reading.
+- `aux_weight=10.0` (2026-05-10) — `confirmed-null` (trunk
+  collapse contaminates surface-level lift).
+
+Sweep follow-up
+[`TODO/multitask-aux-weight-sweep`](../TODO/multitask-aux-weight-sweep.md)
+is now resolved and superseded by this finding.

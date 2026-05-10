@@ -1,14 +1,28 @@
 # Multi-task aux head — `aux_weight` sweep
 
+!!! success "Resolved 2026-05-10 — `confirmed-null` for magnitude-extraction"
+    Sweep ran for `aux_weight ∈ {1.0, 10.0}`. Result: aux=1.0
+    fits train aux (MSE 0.78) but val aux MSE rises to 1.16
+    (worse than predicting zero), val IC −0.0084. aux=10.0
+    collapses the trunk on 3/6 windows. None of the three
+    pre-registered decision-rule branches matched — a fourth
+    branch ("aux head learns train, reverses on val due to
+    cross-sectional regime non-stationarity") was added.
+    Full data + analysis in
+    [`findings/factor-multitask-aux-head#aux_weight-sweep-2026-05-10`](../findings/factor-multitask-aux-head.md#aux_weight-sweep-2026-05-10).
+    Next experiment is **not** another aux-head variant — it's a
+    different prediction problem ([`different-prediction-problem`](different-prediction-problem.md))
+    or a different horizon ([`rebal-days-sweep`](rebal-days-sweep.md)).
+
 The
 [`aux_weight=0.1` result](../findings/factor-multitask-aux-head.md)
 showed a real +0.012 trunk-regularization lift over the `mlp`
 baseline but did not clear the linear-on-encoder baseline (+0.0031)
 or the indicator baseline (+0.0120). Aux MSE stayed at ~1.0
-throughout — the aux head itself learned nothing. That makes the
-mechanism observation incomplete: at `aux_weight=0.1` we cannot
-tell whether the magnitude-extraction hypothesis is wrong, or
-whether the aux gradient is just too weak to exercise it.
+throughout — the aux head itself learned nothing. That made the
+mechanism observation incomplete: at `aux_weight=0.1` we couldn't
+tell whether the magnitude-extraction hypothesis was wrong, or
+whether the aux gradient was just too weak to exercise it.
 
 ## Falsifiable hypothesis
 

@@ -161,18 +161,25 @@ the 2-channel encoder's choices. Two readings of the headline:
 
 ## Outstanding questions
 
-**Multi-task aux head — answered (2026-05-10):** the
-`mlp_multitask` arm with `aux_weight=0.1` lifts mean val IC by
-+0.012 over the `mlp` baseline (−0.0120 → +0.0001) but does not
-clear the linear-on-encoder baseline (+0.0031) or the
-[indicator baseline (+0.0120)](factor-indicator-baseline.md). The
-lift is gradient regularization through the shared trunk, not aux
-magnitude extraction (val_aux MSE pinned at ~1.0 — the aux head
-itself learned nothing). Full result in
-[`factor-multitask-aux-head`](factor-multitask-aux-head.md);
-follow-up `aux_weight ∈ {1.0, 10.0}` sweep in
-[`TODO/multitask-aux-weight-sweep`](../TODO/multitask-aux-weight-sweep.md).
-The supervision-is-binding reading from this finding stands.
+**Multi-task aux head — fully answered (2026-05-10, post-sweep):**
+the magnitude-extraction hypothesis is `confirmed-null` across
+the full `aux_weight ∈ {0.1, 1.0, 10.0}` sweep. At `aux_weight=0.1`
+the aux head doesn't train (val aux MSE ~1.0) but the gradient
+side-effect regularizes the trunk for a +0.012 val IC lift over
+`mlp`. At `aux_weight=1.0` the aux head trains (train MSE 0.78)
+but **val MSE goes above 1.0 (1.16)** — predictions are
+*anti-correlated* with val magnitudes, dragging primary val IC to
+−0.0084. At `aux_weight=10.0` the trunk collapses on 3/6 windows.
+The cross-sectional winsorized z-score of forward 20-day log
+returns is regime-non-stationary at this universe scale; no aux
+head can extract OOS magnitude signal that doesn't exist. The
+supervision-is-binding reading from this finding **strengthens**:
+the binding constraint is on the supervision-target side
+(non-stationarity), not the encoder-capacity side. Full data in
+[`factor-multitask-aux-head`](factor-multitask-aux-head.md#aux_weight-sweep-2026-05-10);
+sweep TODO
+[`TODO/multitask-aux-weight-sweep`](../TODO/multitask-aux-weight-sweep.md)
+resolved.
 
 **Strict-SSL backbone (`--decoder masked-ae`) vs supervised-`cnn`.**
 The result above is on a `cnn`-trained backbone (per-target
