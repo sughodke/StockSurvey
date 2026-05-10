@@ -1,10 +1,22 @@
 # `apps/pairs` — pair-spread mean reversion
 
-**Status: in-flight (2026-05-10).** Scaffolding shipped — see
-[`apps/pairs`](../apps/pairs.md). Classical baseline walk-forward
-on factor-narrow is running; result lands as a leaderboard row +
-finding when it completes. v2 ML head still parked pending v1
-verdict.
+**Status: v0 resolved (2026-05-10) — `confirmed-null` per
+pre-registration.** Mean agg val Sharpe +0.099 (below +0.20 fail
+threshold), 4/6 windows positive, dragged down by single
+catastrophic window 0 (dot-com pairs in 2005-2007 bull market).
+Regime-conditional partial signal noted as v2 follow-up. See
+[`pairs-classical-v0`](../findings/pairs-classical-v0.md) for
+detail.
+
+Per `confirmed-null` next-move rule: pivoting to
+[`apps/vol`](apps-vol.md). v2 follow-ups (regime gate on
+EG-passing-rate, stop-loss on widening spreads, sector
+restriction, ML predictor) parked until `apps/vol` lands.
+
+The original test design + pre-registration + scope discipline
+sections are kept below for audit.
+
+---
 
 ## The prediction problem
 

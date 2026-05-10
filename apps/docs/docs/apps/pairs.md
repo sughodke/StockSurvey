@@ -122,9 +122,27 @@ sensible β=0.726, intercept=+0.338, n_obs=2769 — the
 infrastructure is validated; the famous pair just doesn't
 co-integrate strongly in this window.
 
-## Walk-forward result
+## Walk-forward result — `confirmed-null` per pre-registration
 
-[Coming next commit] — full factor-narrow run pending.
+See [`pairs-classical-v0`](../findings/pairs-classical-v0.md) for
+detail. Headline: mean agg val Sharpe **+0.099** across 6 windows
+(below the +0.20 fail threshold), but 4/6 windows positive with a
+clear regime-conditional structure:
+
+| win | val period | agg Sharpe | EG passing |
+|---|---|---:|---:|
+| 0 | 2005-01 → 2008-02 | **−1.233** | 3918 |
+| 1 | 2008-02 → 2011-03 | **+0.870** | 3522 |
+| 2 | 2011-03 → 2014-04 | +0.593 | 3118 |
+| 3 | 2014-04 → 2017-05 | +0.392 | 4755 |
+| 4 | 2017-06 → 2020-07 | +0.080 | 2249 |
+| 5 | 2020-07 → 2023-08 | −0.109 | 2857 |
+
+Window 0's catastrophe (dot-com-trained pairs deployed into
+2005-2007 bull market) drags the unconditional mean below the
+threshold; ex-w0 mean is +0.365. Pair trading worked in
+2008-2017 mean-reverting markets, failed in trending bull
+markets (2005-2007, 2020-2023).
 
 ## Reuses + dependencies
 

@@ -45,3 +45,7 @@ Default eval window unless otherwise stated: 2013-01-29 → 2025-12-11,
 ## Gate app
 
 - [Drawdown gate v0 — real Pearson signal (+0.26), marginal Sharpe lift (+0.07 alpha)](gate-drawdown-v0.md)
+
+## Pairs app
+
+- [Pairs classical v0 — confirmed-null per pre-reg, regime-conditional partial signal](pairs-classical-v0.md)
