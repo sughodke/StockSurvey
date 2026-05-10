@@ -842,7 +842,9 @@
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" >
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_3" >
         
           
           <div class="md-nav__link md-nav__container">
@@ -966,6 +968,12 @@
       
         
       
+        
+      
+        
+      
+        
+      
     
     
     
@@ -979,7 +987,9 @@
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_6" >
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_6" >
         
           
           <div class="md-nav__link md-nav__container">
@@ -1091,6 +1101,90 @@
     
   
     Factor indicator-IC baseline
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../findings/factor-ssl-walkforward/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Factor SSL walkforward
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../findings/time-reversal-symmetry/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Time-reversal symmetry
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../findings/replay-decoders/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Replay decoder options
   
 
     
@@ -1289,6 +1383,10 @@
       
         
       
+        
+      
+        
+      
     
     
     
@@ -1302,7 +1400,9 @@
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_8" >
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_8" >
         
           
           <div class="md-nav__link md-nav__container">
@@ -1658,6 +1758,34 @@
   
   
     <li class="md-nav__item">
+      <a href="../../TODO/reversed-price-experiment/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Reversed-price experiment
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../../TODO/modal-cron-live-deployment/" class="md-nav__link">
         
   
@@ -1666,6 +1794,34 @@
     
   
     Modal-cron live deployment
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../TODO/memory-walltime-followups/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Memory and wall-time follow-ups
   
 
     
@@ -1887,7 +2043,12 @@ The artifact this trainer ships is a backbone npz that downstream
 <a href="../factor/">factor</a> scoring consumes via <code>ss_features.load_backbone</code>,
 and the encoder's capacity story is unpacked in the
 <a href="../../findings/replay-dwt-compression/">DWT compression finding</a> and
-the <a href="../../notes/#self-supervised-pretrain-why-and-how">Notes SSL section</a>.</p>
+the <a href="../../notes/#self-supervised-pretrain-why-and-how">Notes SSL section</a>.
+The four <code>--decoder</code> options the trainer exposes
+(<a href="../../findings/replay-decoders/"><code>linear</code> / <code>mlp</code> / <code>cnn</code> / <code>masked-ae</code></a>)
+have a precise reference page — note that every production backbone
+npz is <code>cnn</code>-trained (per-target indicator reconstruction with
+self-derived labels), not strict-SSL <code>masked-ae</code>.</p>
 <h2 id="what-reconstructing-an-indicator-looks-like">What "reconstructing an indicator" looks like<a class="headerlink" href="#what-reconstructing-an-indicator-looks-like" title="Permanent link">&para;</a></h2>
 <p><img alt="AAPL reconstruction — predicted vs true RSI / MACD / vol / price strips" src="../images/replay-aapl-reconstruction.png" /></p>
 <p>The simplest sanity check on the trainer: hand it AAPL, ask it to
@@ -1896,7 +2057,9 @@ plot predicted vs true. RSI / vol / price track tightly; MACD is the
 visibly noisy strip — that pathology is preserved across compression
 arms and is the
 <a href="../../TODO/dwt-compression-followups/#macd-head-pathology-replay">outstanding follow-up</a>
-that gates declaring the SSL pipeline trustworthy for live use.</p>
+that gates declaring the
+<a href="../../findings/replay-decoders/">indicator-reconstruction (<code>--decoder cnn</code>) pipeline</a>
+trustworthy for live use.</p>
 <h2 id="film-conditioned-attention">FiLM-conditioned attention<a class="headerlink" href="#film-conditioned-attention" title="Permanent link">&para;</a></h2>
 <p><img alt="FiLM-conditioned head attention on AAPL — gamma/beta MLPs across (n, w) grid" src="../images/replay-film-attention.png" /></p>
 <p>The <code>(n, w)</code> parameter grid the FiLM heads are conditioned over isn't
@@ -1968,12 +2131,6 @@ later compared a Haar-LL-compressed backbone against.</p>
 <script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
         </div>
         
-          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
-  
-  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
-  Back to top
-</button>
-        
       </main>
       
         <footer class="md-footer">
@@ -2043,7 +2200,7 @@ later compared a Haar-LL-compressed backbone against.</p>
     
       
       
-      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["content.code.annotate", "content.code.copy", "content.tooltips", "navigation.footer", "navigation.indexes", "navigation.path", "navigation.sections", "navigation.tabs", "navigation.tabs.sticky", "navigation.top", "navigation.tracking", "search.highlight", "search.share", "search.suggest", "toc.follow"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["content.code.annotate", "content.code.copy", "content.tooltips", "navigation.footer", "navigation.indexes", "navigation.path", "navigation.sections", "navigation.expand", "navigation.tabs", "navigation.tabs.sticky", "navigation.tracking", "search.highlight", "search.share", "search.suggest", "toc.follow"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
     
     
       <script src="../../assets/javascripts/bundle.79ae519e.min.js"></script>

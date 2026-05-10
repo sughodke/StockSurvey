@@ -701,10 +701,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#ssl-backbone-does-the-encoder-beat-the-indicators" class="md-nav__link">
+  <a href="#supervised-cnn-backbone-does-the-encoder-beat-the-indicators" class="md-nav__link">
     <span class="md-ellipsis">
       
-        SSL backbone — does the encoder beat the indicators?
+        Supervised-cnn backbone — does the encoder beat the indicators?
       
     </span>
   </a>
@@ -712,10 +712,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#what-the-ssl-latent-attends-to" class="md-nav__link">
+  <a href="#what-the-supervised-cnn-latent-attends-to" class="md-nav__link">
     <span class="md-ellipsis">
       
-        What the SSL latent attends to
+        What the supervised-cnn latent attends to
       
     </span>
   </a>
@@ -831,7 +831,9 @@
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" >
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_3" >
         
           
           <div class="md-nav__link md-nav__container">
@@ -955,6 +957,12 @@
       
         
       
+        
+      
+        
+      
+        
+      
     
     
     
@@ -968,7 +976,9 @@
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_6" >
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_6" >
         
           
           <div class="md-nav__link md-nav__container">
@@ -1080,6 +1090,90 @@
     
   
     Factor indicator-IC baseline
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../findings/factor-ssl-walkforward/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Factor SSL walkforward
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../findings/time-reversal-symmetry/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Time-reversal symmetry
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../findings/replay-decoders/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Replay decoder options
   
 
     
@@ -1278,6 +1372,10 @@
       
         
       
+        
+      
+        
+      
     
     
     
@@ -1291,7 +1389,9 @@
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_8" >
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_8" >
         
           
           <div class="md-nav__link md-nav__container">
@@ -1647,6 +1747,34 @@
   
   
     <li class="md-nav__item">
+      <a href="../../TODO/reversed-price-experiment/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Reversed-price experiment
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../../TODO/modal-cron-live-deployment/" class="md-nav__link">
         
   
@@ -1655,6 +1783,34 @@
     
   
     Modal-cron live deployment
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../TODO/memory-walltime-followups/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Memory and wall-time follow-ups
   
 
     
@@ -1752,10 +1908,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#ssl-backbone-does-the-encoder-beat-the-indicators" class="md-nav__link">
+  <a href="#supervised-cnn-backbone-does-the-encoder-beat-the-indicators" class="md-nav__link">
     <span class="md-ellipsis">
       
-        SSL backbone — does the encoder beat the indicators?
+        Supervised-cnn backbone — does the encoder beat the indicators?
       
     </span>
   </a>
@@ -1763,10 +1919,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#what-the-ssl-latent-attends-to" class="md-nav__link">
+  <a href="#what-the-supervised-cnn-latent-attends-to" class="md-nav__link">
     <span class="md-ellipsis">
       
-        What the SSL latent attends to
+        What the supervised-cnn latent attends to
       
     </span>
   </a>
@@ -1856,10 +2012,16 @@
 <p>Cross-sectional rank-IC scorer (tinygrad). Two input paths feed the
 same head + objective:</p>
 <ol>
-<li>The SSL-pretrained CNN backbone produced by <code>ss-replay --decoder
-   cnn</code>, loaded via <code>ss_features.load_backbone</code>. The replay trainer's
-   per-target reconstruction heads are discarded; only the shared
-   conv stack survives into the npz.</li>
+<li>The supervised-<code>cnn</code>-pretrained CWT backbone produced by
+   <a href="../../findings/replay-decoders/"><code>ss-replay --decoder cnn</code></a>,
+   loaded via <code>ss_features.load_backbone</code>. The replay trainer's
+   per-target reconstruction heads (RSI / MACD / vol / CCI) are
+   discarded; only the shared conv stack survives into the npz.
+   <em>Note</em>: this is <strong>not</strong> the strict-SSL <code>--decoder masked-ae</code>
+   path — <code>cnn</code> uses self-derived but explicit per-target labels.
+   The pages here use "SSL backbone" in section headers as
+   shorthand; for the precise decoder breakdown see
+   <a href="../../findings/replay-decoders/">replay-decoders</a>.</li>
 <li><code>IndicatorGridConfig</code> — a 74-channel deterministic stack of strided
    RSI/CCI grids, MACD over a fast-period grid, realized vol over a
    window grid, and rolling Pearson coherence between short/long
@@ -1883,7 +2045,7 @@ converges much faster than direct Sharpe optimization.</p>
 <tbody>
 <tr>
 <td>SSL (<code>train_scorer</code>)</td>
-<td>replay-pretrained conv (frozen by default; optionally fine-tuned in Stage 2 at 0.1× lr)</td>
+<td><a href="../../findings/replay-decoders/">supervised-<code>cnn</code></a> replay-pretrained conv (frozen by default; optionally fine-tuned in Stage 2 at 0.1× lr)</td>
 <td>fresh linear or MLP, learns rank-IC</td>
 </tr>
 <tr>
@@ -1893,10 +2055,10 @@ converges much faster than direct Sharpe optimization.</p>
 </tr>
 </tbody>
 </table>
-<p>The IndicatorGridConfig path is there so we can compare <em>does the SSL
-backbone beat hand-crafted indicators on the same head + objective</em>
-head-to-head — the +0.012 mean val IC of the deterministic baseline
-is the bar.</p>
+<p>The IndicatorGridConfig path is there so we can compare <em>does the
+supervised-<code>cnn</code> backbone beat hand-crafted indicators on the same
+head + objective</em> head-to-head — the +0.012 mean val IC of the
+deterministic baseline is the bar.</p>
 <h2 id="how-factor-uses-the-replay-backbone">How factor uses the replay backbone<a class="headerlink" href="#how-factor-uses-the-replay-backbone" title="Permanent link">&para;</a></h2>
 <p><code>factor.train.train_scorer</code> is two-stage:</p>
 <ul>
@@ -1935,21 +2097,30 @@ IC and then gives most of it back on val — the classic overfit
 signature. The +0.012 number is the line every later experiment has
 been trying to clear, and the <a href="../../leaderboard/">Leaderboard</a> records
 every arm that didn't.</p>
-<h2 id="ssl-backbone-does-the-encoder-beat-the-indicators">SSL backbone — does the encoder beat the indicators?<a class="headerlink" href="#ssl-backbone-does-the-encoder-beat-the-indicators" title="Permanent link">&para;</a></h2>
-<p><img alt="SSL walk-forward across 6 windows" src="../images/factor-ssl-walkforward.png" /></p>
-<p>The promise of SSL pretrain was simple: an encoder that's seen the
-full structure of the CWT bundle should expose return-predictive
+<h2 id="supervised-cnn-backbone-does-the-encoder-beat-the-indicators">Supervised-<code>cnn</code> backbone — does the encoder beat the indicators?<a class="headerlink" href="#supervised-cnn-backbone-does-the-encoder-beat-the-indicators" title="Permanent link">&para;</a></h2>
+<p><img alt="Supervised-cnn walk-forward across 6 windows" src="../images/factor-ssl-walkforward.png" /></p>
+<p>The promise of pretrain on the indicator-reconstruction objective
+was simple: an encoder that's been forced to encode RSI / MACD /
+vol / CCI from the CWT bundle should expose return-predictive
 geometry the linear-on-indicators path can't reach. The promise is
-testable. The figure above is the test — six rolling windows, val IC
-overlaid against the <a href="../../findings/factor-indicator-baseline/">indicator
-baseline</a>. The takeaway is
-gentle and honest: the SSL-pretrained latent does not lift val IC off
-the +0.012 ceiling. The data is the bottleneck, not the encoder. Why this
-matters for the broader research program is unpacked in the
+testable. The figure above is the test — six rolling windows, val
+IC overlaid against the <a href="../../findings/factor-indicator-baseline/">indicator
+baseline</a>. The takeaway
+is gentle and honest: the supervised-<code>cnn</code> latent does not lift
+val IC off the +0.012 ceiling
+(<a href="../../findings/factor-ssl-walkforward/">factor-ssl-walkforward</a>).
+The data is the bottleneck, not the encoder. Whether a strict-SSL
+<a href="../../findings/replay-decoders/"><code>--decoder masked-ae</code></a> backbone —
+encoder pretrained on masked-CWT autoencoding instead of indicator
+reconstruction — would clear that ceiling is an
+<a href="../../findings/replay-decoders/#open-question--does-masked-ae-beat-supervised-cnn">open question</a>;
+the masked-AE path is wired but no production npz exists for it.</p>
+<p>Why this matters for the broader research program is unpacked in
+the
 <a href="../../notes/#self-supervised-pretrain-why-and-how">Notes</a> and the
 <a href="../../notes/#what-we-already-know-about-supervision-being-the-binding-constraint">supervision-is-binding finding</a>.</p>
-<h2 id="what-the-ssl-latent-attends-to">What the SSL latent attends to<a class="headerlink" href="#what-the-ssl-latent-attends-to" title="Permanent link">&para;</a></h2>
-<p><img alt="SSL backbone attention compared across heads" src="../images/factor-ssl-attention.png" /></p>
+<h2 id="what-the-supervised-cnn-latent-attends-to">What the supervised-<code>cnn</code> latent attends to<a class="headerlink" href="#what-the-supervised-cnn-latent-attends-to" title="Permanent link">&para;</a></h2>
+<p><img alt="Supervised-cnn backbone attention compared across heads" src="../images/factor-ssl-attention.png" /></p>
 <p>A learned-attention readout of which slices of the CWT bundle each
 indicator head reaches into. Worth lingering on: the heads partition
 the latent space cleanly — RSI activates the high-frequency end, vol
@@ -1983,12 +2154,6 @@ horizon-bound, universe-bound, or supervision-bound</em> is in the
           
 <script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
         </div>
-        
-          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
-  
-  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
-  Back to top
-</button>
         
       </main>
       
@@ -2059,7 +2224,7 @@ horizon-bound, universe-bound, or supervision-bound</em> is in the
     
       
       
-      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["content.code.annotate", "content.code.copy", "content.tooltips", "navigation.footer", "navigation.indexes", "navigation.path", "navigation.sections", "navigation.tabs", "navigation.tabs.sticky", "navigation.top", "navigation.tracking", "search.highlight", "search.share", "search.suggest", "toc.follow"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["content.code.annotate", "content.code.copy", "content.tooltips", "navigation.footer", "navigation.indexes", "navigation.path", "navigation.sections", "navigation.expand", "navigation.tabs", "navigation.tabs.sticky", "navigation.tracking", "search.highlight", "search.share", "search.suggest", "toc.follow"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
     
     
       <script src="../../assets/javascripts/bundle.79ae519e.min.js"></script>

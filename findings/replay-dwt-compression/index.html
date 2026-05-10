@@ -13,7 +13,7 @@
         <link rel="canonical" href="https://sidghodke.com/StockSurvey/findings/replay-dwt-compression/">
       
       
-        <link rel="prev" href="../factor-indicator-baseline/">
+        <link rel="prev" href="../replay-decoders/">
       
       
         <link rel="next" href="../relational-universe-shift/">
@@ -78,7 +78,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#replay-cnn-2d-dwt-keep-ll-compression-preserves-ssl-signal" class="md-skip">
+        <a href="#replay-cnn-2d-dwt-keep-ll-compression-preserves-indicator-reconstruction-signal" class="md-skip">
           Skip to content
         </a>
       
@@ -510,7 +510,9 @@
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2" >
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_2" >
         
           
           <div class="md-nav__link md-nav__container">
@@ -724,7 +726,9 @@
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" >
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_3" >
         
           
           <div class="md-nav__link md-nav__container">
@@ -834,6 +838,12 @@
       
         
           
+        
+      
+        
+      
+        
+      
         
       
         
@@ -978,6 +988,90 @@
     
   
     Factor indicator-IC baseline
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../factor-ssl-walkforward/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Factor SSL walkforward
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../time-reversal-symmetry/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Time-reversal symmetry
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../replay-decoders/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Replay decoder options
   
 
     
@@ -1355,6 +1449,10 @@
       
         
       
+        
+      
+        
+      
     
     
     
@@ -1368,7 +1466,9 @@
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_8" >
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_8" >
         
           
           <div class="md-nav__link md-nav__container">
@@ -1724,6 +1824,34 @@
   
   
     <li class="md-nav__item">
+      <a href="../../TODO/reversed-price-experiment/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Reversed-price experiment
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../../TODO/modal-cron-live-deployment/" class="md-nav__link">
         
   
@@ -1732,6 +1860,34 @@
     
   
     Modal-cron live deployment
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../TODO/memory-walltime-followups/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Memory and wall-time follow-ups
   
 
     
@@ -2006,11 +2162,14 @@
   
 
 
-<h1 id="replay-cnn-2d-dwt-keep-ll-compression-preserves-ssl-signal">Replay CNN — 2D DWT keep-LL compression preserves SSL signal<a class="headerlink" href="#replay-cnn-2d-dwt-keep-ll-compression-preserves-ssl-signal" title="Permanent link">&para;</a></h1>
-<p><strong>Operational rule:</strong> replay CNN backbone training can use
+<h1 id="replay-cnn-2d-dwt-keep-ll-compression-preserves-indicator-reconstruction-signal">Replay CNN — 2D DWT keep-LL compression preserves indicator-reconstruction signal<a class="headerlink" href="#replay-cnn-2d-dwt-keep-ll-compression-preserves-indicator-reconstruction-signal" title="Permanent link">&para;</a></h1>
+<p><strong>Operational rule:</strong> replay
+<a href="../replay-decoders/"><code>--decoder cnn</code></a> backbone training can use
 <code>--compress dwt --compress-levels 1 --compress-wavelet haar</code> to shrink
 input ~4× without measurable quality loss on RSI / CCI / vol heads.
-MACD remains unreliable (separate, pre-existing pathology — see TODO).</p>
+MACD remains unreliable (separate, pre-existing pathology — see TODO).
+("SSL" wording in earlier revisions was loose — the supervision here
+is per-target indicator reconstruction, not strict-SSL masked-AE.)</p>
 <h2 id="setup">Setup<a class="headerlink" href="#setup" title="Permanent link">&para;</a></h2>
 <p>Modal T4, 2026-05-07. CWT-only bundle, 295-ticker <code>stooq_us_long</code>
 pool, AAPL primary, NVDA val, CSCO zero-shot, 500 steps, batch 8192,
@@ -2161,9 +2320,9 @@ DWT-compression follow-ups TODO.</p>
 <p><a href="https://github.com/sughodke/StockSurvey/commit/4c4d48b2"><code>4c4d48b2</code></a> — recorded in <code>CLAUDE.md</code> under "Key findings" (2026-05-07).</p>
 <p>Master walk-forward log: <a href="../../leaderboard/">Leaderboard</a> (the
 <em>2D Haar DWT-L1 keep-LL CWT-tile compression vs uncompressed</em> row —
-<a href="../../leaderboard/#verdict-labels"><code>partial-OOS</code></a>; SSL R² is
-not a portfolio metric, so the verdict tracks reconstruction quality,
-not Sharpe).</p>
+<a href="../../leaderboard/#verdict-labels"><code>partial-OOS</code></a>; reconstruction R²
+is not a portfolio metric, so the verdict tracks reconstruction
+quality, not Sharpe).</p>
 
 
 
@@ -2184,12 +2343,6 @@ not Sharpe).</p>
 <script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
         </div>
         
-          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
-  
-  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
-  Back to top
-</button>
-        
       </main>
       
         <footer class="md-footer">
@@ -2199,7 +2352,7 @@ not Sharpe).</p>
       <nav class="md-footer__inner md-grid" aria-label="Footer" >
         
           
-          <a href="../factor-indicator-baseline/" class="md-footer__link md-footer__link--prev" aria-label="Previous: Factor indicator-IC baseline">
+          <a href="../replay-decoders/" class="md-footer__link md-footer__link--prev" aria-label="Previous: Replay decoder options">
             <div class="md-footer__button md-icon">
               
               <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
@@ -2209,7 +2362,7 @@ not Sharpe).</p>
                 Previous
               </span>
               <div class="md-ellipsis">
-                Factor indicator-IC baseline
+                Replay decoder options
               </div>
             </div>
           </a>
@@ -2259,7 +2412,7 @@ not Sharpe).</p>
     
       
       
-      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["content.code.annotate", "content.code.copy", "content.tooltips", "navigation.footer", "navigation.indexes", "navigation.path", "navigation.sections", "navigation.tabs", "navigation.tabs.sticky", "navigation.top", "navigation.tracking", "search.highlight", "search.share", "search.suggest", "toc.follow"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["content.code.annotate", "content.code.copy", "content.tooltips", "navigation.footer", "navigation.indexes", "navigation.path", "navigation.sections", "navigation.expand", "navigation.tabs", "navigation.tabs.sticky", "navigation.tracking", "search.highlight", "search.share", "search.suggest", "toc.follow"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
     
     
       <script src="../../assets/javascripts/bundle.79ae519e.min.js"></script>
