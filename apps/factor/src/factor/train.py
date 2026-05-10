@@ -36,9 +36,10 @@ from factor.backbone import (
 )
 from factor.data import (
     AlignedTickers, align_tickers, align_tickers_at_rebal,
-    forward_log_returns, forward_sign_demeaned, forward_vol_innovation,
+    forward_log_returns, forward_robust_z, forward_sign_demeaned,
+    forward_vol_innovation,
 )
-from factor.objectives import block_sharpe, pearson_rank_ic
+from factor.objectives import block_sharpe, masked_mse, pearson_rank_ic
 from factor.scorers import get_scorer
 
 
@@ -96,6 +97,8 @@ def precompute_inputs(
     rebal_days: int, max_spread: float | None = None,
     spread: np.ndarray | None = None,
     forward_target_kind: str = 'log_return',
+    aux_target_kind: str | None = None,
+    aux_winsor: tuple[float, float] = (0.01, 0.99),
 ) -> dict[str, np.ndarray]:
     """Run the frozen backbone over every (date, ticker) and prep tensors.
 
@@ -122,6 +125,14 @@ def precompute_inputs(
         is subtracted by the ratio form.
     `block_log_ret_rb` is independent of this choice — Sharpe eval
     always sees actual realized returns.
+
+    `aux_target_kind`, when set, also computes a magnitude-aware
+    auxiliary target stored in `aux_target_rb`:
+      * `'robust_z'`: cross-sectionally winsorized + z-scored forward
+        log returns at `aux_winsor` quantile clip (see
+        `factor.data.forward_robust_z`). Used as the aux head's MSE
+        target in the multi-task path.
+    Pass `None` (default) to skip the aux build.
     """
     # `align_tickers_at_rebal` materializes features only at rebal bars,
     # not the full daily axis. The encoder consumes one row per rebal
@@ -209,11 +220,27 @@ def precompute_inputs(
     repr_rb = np.nan_to_num(repr_rb_full, nan=0.0).astype(np.float32)
     fwd_rb = np.nan_to_num(target_rb, nan=0.0).astype(np.float32)
     blr_rb = np.nan_to_num(block_log_ret, nan=0.0).astype(np.float32)
+
+    aux_target_rb: np.ndarray | None = None
+    if aux_target_kind is not None:
+        if aux_target_kind == 'robust_z':
+            full_mask = np.zeros_like(fwd_ret, dtype=bool)
+            full_mask[rebal_idx] = base_mask_rb
+            aux_full = forward_robust_z(
+                aligned.prices, rebal_days=rebal_days,
+                winsor=aux_winsor, valid=full_mask)
+            aux_target_rb = np.nan_to_num(
+                aux_full[rebal_idx], nan=0.0).astype(np.float32)
+        else:
+            raise ValueError(
+                f'aux_target_kind={aux_target_kind!r} not in '
+                "{'robust_z', None}")
+
     # `D` (full daily count) is unused after this point but exposed so
     # downstream debugging can correlate rebal positions with calendar
     # dates without reconstructing the math.
     _ = D
-    return {
+    out: dict[str, np.ndarray] = {
         'aligned': aligned,
         'representation_rb': repr_rb,
         'fwd_ret_rb': fwd_rb,
@@ -221,6 +248,9 @@ def precompute_inputs(
         'block_log_ret_rb': blr_rb,
         'rebal_idx': rebal_idx,
     }
+    if aux_target_rb is not None:
+        out['aux_target_rb'] = aux_target_rb
+    return out
 
 
 def train_scorer(
@@ -242,6 +272,8 @@ def train_scorer(
     train_temperature: bool = True,
     spread: np.ndarray | None = None,
     max_spread: float | None = None,
+    aux_weight: float = 0.0,
+    aux_winsor: tuple[float, float] = (0.01, 0.99),
     verbose: bool = True,
 ) -> TrainResult:
     """Train a scoring head against rank IC on the (optionally fine-tuned)
@@ -278,14 +310,45 @@ def train_scorer(
     head memorizes train-cell noise and val IC collapses to ~0. 1e-2 is
     a reasonable starting point. log_temperature gets decayed too but
     that's a benign pull toward the init (softmax temp 1.0).
+
+    Multi-task auxiliary head (`aux_weight > 0`) requires
+    `scorer='mlp_multitask'`. The shared MLP trunk feeds two parallel
+    scalar heads: primary (rank-IC against forward log returns) and
+    aux (MSE against cross-sectionally winsorized + z-scored forward
+    returns). Aux gradients flow back through the trunk, biasing the
+    representation toward features that encode magnitude rather than
+    just ordering. Reported `train_ic` / `val_ic` always reflect the
+    **primary** head; the aux output is regularization-only.
     """
+    if aux_weight < 0.0:
+        raise ValueError(f'aux_weight={aux_weight} must be >= 0')
+    if aux_weight > 0.0 and scorer != 'mlp_multitask':
+        raise ValueError(
+            f'aux_weight > 0 requires scorer=mlp_multitask, got {scorer!r}')
+    if aux_weight == 0.0 and scorer == 'mlp_multitask':
+        raise ValueError(
+            'scorer=mlp_multitask requires aux_weight > 0 (otherwise '
+            'the aux head trains nothing — use scorer=mlp instead)')
+    if aux_weight > 0.0 and finetune_steps > 0:
+        # Stage 2 with the multi-task loss is a bigger experiment than
+        # what we're validating here (joint head + trunk + backbone, all
+        # with the dual loss). Punt rather than silently doing the wrong
+        # thing — caller can run Stage 1 multitask first, then if it
+        # clears the val IC ceiling, enable Stage 2 separately.
+        raise ValueError(
+            'aux_weight > 0 with finetune_steps > 0 not yet supported; '
+            'run Stage 1 multitask first to validate, then revisit.')
+
     pre = precompute_inputs(
         tickers, backbone, rebal_days=rebal_days,
-        max_spread=max_spread, spread=spread)
+        max_spread=max_spread, spread=spread,
+        aux_target_kind='robust_z' if aux_weight > 0.0 else None,
+        aux_winsor=aux_winsor)
     repr_rb_np = pre['representation_rb']
     fwd_rb_np = pre['fwd_ret_rb']
     mask_rb_np = pre['mask_rb']
     blr_rb_np = pre['block_log_ret_rb']
+    aux_rb_np: np.ndarray | None = pre.get('aux_target_rb')
 
     n_blocks = repr_rb_np.shape[0]
     n_train = int(train_frac * n_blocks)
@@ -298,11 +361,12 @@ def train_scorer(
 
     init_fn, apply_fn = get_scorer(scorer)
     rng = np.random.default_rng(seed)
-    if scorer == 'mlp':
+    if scorer in ('mlp', 'mlp_multitask'):
         head_params = init_fn(
             rng, backbone.hidden_flat, hidden=mlp_hidden, n_layers=mlp_layers)
     else:
         head_params = init_fn(rng, backbone.hidden_flat)
+    is_multitask = scorer == 'mlp_multitask'
 
     # `log_temperature` only affects the Sharpe eval (the IC objective is
     # scale-invariant) — its gradient is identically zero either way.
@@ -320,13 +384,16 @@ def train_scorer(
     head_param_list = list(head_params.values())
     opt = AdamW(head_param_list, lr=learning_rate, weight_decay=weight_decay)
 
-    def _scores_from_repr(repr_t: Tensor) -> Tensor:
-        return apply_fn(head_params, repr_t)
+    def _primary_scores(repr_t: Tensor) -> Tensor:
+        out = apply_fn(head_params, repr_t)
+        # Multitask returns (primary, aux); single-output scorers return
+        # one tensor. Eval helpers only ever look at the primary head.
+        return out[0] if is_multitask else out
 
     def _eval_ic(slc: slice) -> float:
         Tensor.training = False
         repr_t = Tensor(repr_rb_np[slc])
-        s = _scores_from_repr(repr_t)
+        s = _primary_scores(repr_t)
         ic = pearson_rank_ic(s, Tensor(fwd_rb_np[slc]),
                              Tensor(mask_rb_np[slc]))
         return float(ic.item())
@@ -334,7 +401,7 @@ def train_scorer(
     def _eval_sharpe(slc: slice) -> float:
         Tensor.training = False
         repr_t = Tensor(repr_rb_np[slc])
-        s = _scores_from_repr(repr_t)
+        s = _primary_scores(repr_t)
         sh = block_sharpe(s, log_temperature, Tensor(blr_rb_np[slc]),
                           Tensor(mask_rb_np[slc]),
                           rebal_days, commission_bps / 1e4)
@@ -359,14 +426,25 @@ def train_scorer(
     repr_train_t = Tensor(repr_rb_np[train_slc])
     fwd_train_t = Tensor(fwd_rb_np[train_slc])
     mask_train_t = Tensor(mask_rb_np[train_slc])
+    aux_train_t: Tensor | None = (
+        Tensor(aux_rb_np[train_slc]) if is_multitask else None)
     for step in pbar:
         Tensor.training = True
         opt.zero_grad()
-        s = _scores_from_repr(repr_train_t)
-        loss = -pearson_rank_ic(s, fwd_train_t, mask_train_t)
+        out = apply_fn(head_params, repr_train_t)
+        if is_multitask:
+            s_primary, s_aux = out
+            primary_ic = pearson_rank_ic(s_primary, fwd_train_t, mask_train_t)
+            aux_loss = masked_mse(s_aux, aux_train_t, mask_train_t)
+            loss = -primary_ic + aux_weight * aux_loss
+        else:
+            primary_ic = pearson_rank_ic(out, fwd_train_t, mask_train_t)
+            loss = -primary_ic
         loss.backward()
         opt.step()
-        train_ic_val = -float(loss.item())
+        # `.item()` realizes the tensor — call it AFTER backward so we
+        # don't sever the autograd graph between forward and backward.
+        train_ic_val = float(primary_ic.item())
         train_hist.append(train_ic_val)
         if step % 5 == 0 or step == n_steps - 1:
             vi = _eval_ic(val_slc)

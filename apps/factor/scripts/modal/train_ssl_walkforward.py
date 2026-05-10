@@ -206,6 +206,9 @@ def train_ssl_walkforward(
     min_history_bars: int,
     mlp_hidden: int,
     mlp_layers: int,
+    aux_weight: float,
+    aux_winsor_lo: float,
+    aux_winsor_hi: float,
 ) -> dict[str, bytes]:
     import os
     import subprocess
@@ -326,9 +329,17 @@ def train_ssl_walkforward(
           f'(train={train_window_blocks} val={val_window_blocks} '
           f'step={step_window_blocks} blocks)', flush=True)
 
+    aux_winsor = (aux_winsor_lo, aux_winsor_hi)
     summary: list[dict] = []
     for scorer in s_list:
-        prefix = f'ssl-walkforward-{scorer}-s{n_steps}-wd{weight_decay:g}'
+        # Tag artifact filenames with the aux config so an A/B against
+        # a baseline run does not overwrite — only multitask scorers
+        # get the aux suffix; baseline `linear` / `mlp` keep their
+        # existing filename pattern.
+        aux_tag = (
+            f'-aux{aux_weight:g}' if scorer == 'mlp_multitask' else '')
+        prefix = (
+            f'ssl-walkforward-{scorer}-s{n_steps}-wd{weight_decay:g}{aux_tag}')
         print(f'\n  >>> {prefix}', flush=True)
         t1 = time.perf_counter()
         try:
@@ -341,7 +352,10 @@ def train_ssl_walkforward(
                 scorer=scorer,
                 mlp_hidden=mlp_hidden, mlp_layers=mlp_layers,
                 n_steps=n_steps, learning_rate=learning_rate,
-                weight_decay=weight_decay, verbose=True,
+                weight_decay=weight_decay,
+                aux_weight=(aux_weight if scorer == 'mlp_multitask' else 0.0),
+                aux_winsor=aux_winsor,
+                verbose=True,
             )
         except Exception as e:
             print(f'    FAILED: {type(e).__name__}: {e}', flush=True)
@@ -360,11 +374,15 @@ def train_ssl_walkforward(
                 'val_block_end': w.val_block_end,
                 'train_ic': w.train_ic, 'val_ic': w.val_ic,
                 'train_sharpe': w.train_sharpe, 'val_sharpe': w.val_sharpe,
+                'train_aux_mse': w.train_aux_mse,
+                'val_aux_mse': w.val_aux_mse,
                 'n_train_bars': w.n_train_bars, 'n_val_bars': w.n_val_bars,
             } for w in wf.windows
         ]
         summary.append({
             'scorer': scorer, 'n_steps': n_steps, 'weight_decay': weight_decay,
+            'aux_weight': (aux_weight if scorer == 'mlp_multitask' else 0.0),
+            'aux_winsor': list(aux_winsor),
             'n_windows': wf.n_windows,
             'mean_val_ic': wf.mean_val_ic,
             'median_val_ic': wf.median_val_ic,
@@ -431,6 +449,10 @@ def _save_walkforward_npz(path: Path, wf, backbone) -> None:
         [w.train_sharpe for w in wf.windows], dtype=np.float32)
     blob['val_sharpe'] = np.array(
         [w.val_sharpe for w in wf.windows], dtype=np.float32)
+    blob['train_aux_mse'] = np.array(
+        [w.train_aux_mse for w in wf.windows], dtype=np.float32)
+    blob['val_aux_mse'] = np.array(
+        [w.val_aux_mse for w in wf.windows], dtype=np.float32)
     if wf.windows:
         for k in wf.windows[0].head_params:
             blob[f'head_{k}'] = np.stack(
@@ -509,21 +531,35 @@ def walkforward(
     min_history_bars: int = 6500,
     mlp_hidden: int = 64,
     mlp_layers: int = 1,
+    aux_weight: float = 0.0,
+    aux_winsor_lo: float = 0.01,
+    aux_winsor_hi: float = 0.99,
 ) -> None:
     """Local entrypoint. The backbone npz path is interpreted relative to
     the workspace root, e.g. `Output/cwtonly-AAPL+...npz`. The bytes get
-    mirrored into the Modal container under /root/backbone/<basename>."""
+    mirrored into the Modal container under /root/backbone/<basename>.
+
+    Multi-task aux head: pass `--scorers mlp_multitask --aux-weight 0.1`
+    (or any positive value) to add a magnitude-aware auxiliary head
+    sharing the trunk with the rank-IC primary head. The aux target is
+    cross-sectionally winsorized + z-scored forward log returns at
+    `[--aux-winsor-lo, --aux-winsor-hi]` quantile clip. Aux head is
+    regularization-only — `mean_val_ic` reports the primary head."""
     backbone_local = REPO_ROOT / backbone_npz
     if not backbone_local.exists():
         raise SystemExit(
             f'backbone npz not found at {backbone_local}\n'
             f'(passed --backbone-npz {backbone_npz!r})')
     LOCAL_OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+    aux_tag = (
+        f' aux_weight={aux_weight} winsor=({aux_winsor_lo}, {aux_winsor_hi})'
+        if aux_weight > 0.0 else '')
     print(f'launching factor SSL walkforward on Modal '
           f'(backbone={backbone_local.name}, scorers={scorers}, '
           f'n_steps={n_steps}, wd={weight_decay}, '
           f'train={train_window_blocks}/val={val_window_blocks}/step={step_window_blocks} blocks, '
-          f'max_tickers={max_tickers}, min_history_bars={min_history_bars})')
+          f'max_tickers={max_tickers}, min_history_bars={min_history_bars}'
+          f'{aux_tag})')
     artifacts = train_ssl_walkforward.remote(
         backbone_npz_name=backbone_local.name,
         scorers=scorers,
@@ -541,6 +577,9 @@ def walkforward(
         min_history_bars=min_history_bars,
         mlp_hidden=mlp_hidden,
         mlp_layers=mlp_layers,
+        aux_weight=aux_weight,
+        aux_winsor_lo=aux_winsor_lo,
+        aux_winsor_hi=aux_winsor_hi,
     )
     for name, data in artifacts.items():
         out = LOCAL_OUTPUT_DIR / name

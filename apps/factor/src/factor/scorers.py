@@ -79,9 +79,59 @@ def apply_mlp(params: dict[str, Tensor], X: Tensor) -> Tensor:
     return h.squeeze(-1)
 
 
+def init_mlp_multitask(
+    rng: np.random.Generator, hidden_flat: int, *,
+    hidden: int = 64, n_layers: int = 1,
+) -> dict[str, Tensor]:
+    """Shared trunk + two parallel scalar output heads (primary + aux).
+
+    Trunk is the same `n_layers` × `hidden` ReLU MLP that `init_mlp`
+    builds (`W{i}/b{i}` keys for `i in [0, n_layers)`); two extra
+    `(hidden, 1)` projections (`Wp/bp` primary, `Wa/ba` aux) sit on top.
+
+    Why a separate scorer kind: the multi-task gradient flow is the
+    whole point. Aux loss flows back through `Wa/ba` into the trunk,
+    shaping the representation the primary head's `Wp` then consumes.
+    Two fully independent heads on the same frozen-backbone latent
+    would not share gradients (Stage 1 freezes the conv stack).
+    """
+    if n_layers < 1:
+        raise ValueError(f'n_layers must be >= 1, got {n_layers}')
+    sizes = [hidden_flat] + [hidden] * n_layers
+    params: dict[str, Tensor] = {}
+    for i, (fan_in, fan_out) in enumerate(zip(sizes[:-1], sizes[1:])):
+        params[f'W{i}'] = _he_normal(rng, (fan_in, fan_out), fan_in)
+        params[f'b{i}'] = Tensor(np.zeros(fan_out, dtype=np.float32),
+                                 requires_grad=True)
+    params['Wp'] = _he_normal(rng, (hidden, 1), hidden)
+    params['bp'] = Tensor(np.zeros(1, dtype=np.float32), requires_grad=True)
+    params['Wa'] = _he_normal(rng, (hidden, 1), hidden)
+    params['ba'] = Tensor(np.zeros(1, dtype=np.float32), requires_grad=True)
+    return params
+
+
+def apply_mlp_multitask(
+    params: dict[str, Tensor], X: Tensor,
+) -> tuple[Tensor, Tensor]:
+    """`X` shape `(..., hidden_flat)` → `(scores_primary, scores_aux)`.
+
+    Trunk depth inferred from `W{i}` keys excluding the two output
+    projections (`Wp`, `Wa`).
+    """
+    n_trunk = sum(1 for k in params
+                  if k.startswith('W') and k not in ('Wp', 'Wa'))
+    h = X
+    for i in range(n_trunk):
+        h = (h @ params[f'W{i}'] + params[f'b{i}']).relu()
+    p = (h @ params['Wp'] + params['bp']).squeeze(-1)
+    a = (h @ params['Wa'] + params['ba']).squeeze(-1)
+    return p, a
+
+
 SCORERS: dict[str, tuple] = {
     'linear': (init_linear, apply_linear),
     'mlp': (init_mlp, apply_mlp),
+    'mlp_multitask': (init_mlp_multitask, apply_mlp_multitask),
 }
 
 

@@ -252,6 +252,64 @@ def forward_sign_demeaned(
     return out
 
 
+def forward_robust_z(
+    prices: np.ndarray, *, rebal_days: int,
+    winsor: tuple[float, float] = (0.01, 0.99),
+    valid: np.ndarray | None = None,
+) -> np.ndarray:
+    """`(D, N)` of cross-sectionally winsorized + z-scored forward log returns.
+
+    Per bar, on the valid peer set:
+      1. Compute forward log return.
+      2. Clip to the `[winsor[0], winsor[1]]` cross-sectional quantiles.
+      3. Subtract cross-sectional mean and divide by cross-sectional std
+         (both computed on the clipped returns).
+
+    Preserves *relative magnitude* (unlike `forward_sign_demeaned` which
+    discards it) but trims the heavy-tail outliers that dominate
+    raw-return MSE supervision. Used as the auxiliary-head target in the
+    multi-task path: the primary head still optimizes pure rank-IC; the
+    aux head sees magnitude-aware targets that share the trunk.
+
+    Bars with fewer than 4 valid peers (the minimum for a meaningful
+    quantile estimate) produce all-zero rows. Cells outside the valid
+    mask also stay 0 so masked MSE picks them up correctly.
+
+    Mirrors the masking convention of `forward_sign_demeaned` — pass
+    `valid` aligned to the same `(D, N)` price grid if you want the
+    demean/winsor stats restricted to the liquid universe.
+    """
+    fwd = forward_log_returns(prices, rebal_days=rebal_days)
+    if valid is None:
+        valid_eff = np.isfinite(fwd)
+    else:
+        valid_eff = valid & np.isfinite(fwd)
+
+    D, _ = fwd.shape
+    out = np.zeros_like(fwd, dtype=np.float64)
+    q_lo, q_hi = winsor
+    if not (0.0 <= q_lo < q_hi <= 1.0):
+        raise ValueError(
+            f'winsor={winsor!r} must satisfy 0 <= q_lo < q_hi <= 1')
+
+    for t in range(D):
+        v = valid_eff[t]
+        n_valid = int(v.sum())
+        if n_valid < 4:
+            continue
+        r = fwd[t, v].astype(np.float64)
+        lo = np.quantile(r, q_lo)
+        hi = np.quantile(r, q_hi)
+        r_clipped = np.clip(r, lo, hi)
+        mu = r_clipped.mean()
+        sd = r_clipped.std()
+        if sd <= 1e-12:
+            continue
+        out[t, v] = (r_clipped - mu) / sd
+
+    return out
+
+
 def forward_vol_innovation(
     prices: np.ndarray, *, rebal_days: int,
 ) -> np.ndarray:

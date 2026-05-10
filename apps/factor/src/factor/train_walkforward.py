@@ -27,7 +27,7 @@ from tinygrad.nn.optim import AdamW
 from ss_features import TickerData, block_windows
 from factor.backbone import Backbone
 from factor.data import AlignedTickers
-from factor.objectives import block_sharpe, pearson_rank_ic
+from factor.objectives import block_sharpe, masked_mse, pearson_rank_ic
 from factor.scorers import get_scorer
 from factor.train import precompute_inputs
 
@@ -52,6 +52,8 @@ class WalkForwardWindow:
     n_train_bars:      int
     n_val_bars:        int
     head_params:       dict[str, np.ndarray]
+    train_aux_mse:     float = float('nan')
+    val_aux_mse:       float = float('nan')
 
 
 @dataclass
@@ -123,6 +125,8 @@ def train_scorer_walkforward(
     spread:      np.ndarray | None = None,
     max_spread:  float | None = None,
     forward_target_kind: str = 'log_return',
+    aux_weight:  float = 0.0,
+    aux_winsor:  tuple[float, float] = (0.01, 0.99),
     verbose:     bool = True,
 ) -> WalkForwardResult:
     """Walk-forward variant of `train_scorer`.
@@ -144,19 +148,43 @@ def train_scorer_walkforward(
     docstring). val_ic / train_ic are computed against whatever target
     the loss saw, so they remain comparable to the loss value; val_sharpe
     / train_sharpe are always against actual block log returns.
+
+    Multi-task aux head: setting `aux_weight > 0` requires
+    `scorer='mlp_multitask'` and adds a second output head that
+    predicts cross-sectionally winsorized + z-scored forward log
+    returns via MSE. The shared MLP trunk gets gradients from both
+    losses; the primary `Wp` head's `train_ic` / `val_ic` is what's
+    reported. `train_aux_mse` / `val_aux_mse` track the aux head as a
+    sanity check that it learned something. See
+    `factor.scorers.init_mlp_multitask` and
+    `factor.objectives.masked_mse`.
     """
+    if aux_weight < 0.0:
+        raise ValueError(f'aux_weight={aux_weight} must be >= 0')
+    if aux_weight > 0.0 and scorer != 'mlp_multitask':
+        raise ValueError(
+            f'aux_weight > 0 requires scorer=mlp_multitask, got {scorer!r}')
+    if aux_weight == 0.0 and scorer == 'mlp_multitask':
+        raise ValueError(
+            'scorer=mlp_multitask requires aux_weight > 0 (otherwise '
+            'the aux head trains nothing — use scorer=mlp instead)')
+    is_multitask = scorer == 'mlp_multitask'
+
     if step_window_blocks is None:
         step_window_blocks = val_window_blocks
 
     pre = precompute_inputs(
         tickers, backbone, rebal_days=rebal_days,
         max_spread=max_spread, spread=spread,
-        forward_target_kind=forward_target_kind)
+        forward_target_kind=forward_target_kind,
+        aux_target_kind='robust_z' if is_multitask else None,
+        aux_winsor=aux_winsor)
     repr_rb_np: np.ndarray = pre['representation_rb']
     fwd_rb_np:  np.ndarray = pre['fwd_ret_rb']
     mask_rb_np: np.ndarray = pre['mask_rb']
     blr_rb_np:  np.ndarray = pre['block_log_ret_rb']
     aligned:    AlignedTickers = pre['aligned']
+    aux_rb_np: np.ndarray | None = pre.get('aux_target_rb')
 
     n_blocks = repr_rb_np.shape[0]
     slices = block_windows(
@@ -171,11 +199,14 @@ def train_scorer_walkforward(
                              requires_grad=False)
 
     if verbose:
+        aux_tag = (
+            f' aux_weight={aux_weight} winsor={aux_winsor}' if is_multitask
+            else '')
         print(f'walk-forward: {len(slices)} windows over {n_blocks} blocks  '
               f'(train={train_window_blocks}, val={val_window_blocks}, '
               f'step={step_window_blocks})  scorer={scorer} '
               f'n_steps={n_steps} lr={learning_rate} wd={weight_decay} '
-              f'target={forward_target_kind}')
+              f'target={forward_target_kind}{aux_tag}')
 
     result = WalkForwardResult(
         scorer=scorer, n_steps=n_steps, learning_rate=learning_rate,
@@ -193,7 +224,7 @@ def train_scorer_walkforward(
         # Fresh head per window. Different seed per window so any
         # sensitivity to init is averaged out across the result.
         rng = np.random.default_rng(seed + w_idx)
-        if scorer == 'mlp':
+        if scorer in ('mlp', 'mlp_multitask'):
             head_params = init_fn(
                 rng, backbone.hidden_flat, hidden=mlp_hidden, n_layers=mlp_layers)
         else:
@@ -210,18 +241,40 @@ def train_scorer_walkforward(
         mask_val   = Tensor(mask_rb_np[val_slc])
         blr_train  = Tensor(blr_rb_np[train_slc])
         blr_val    = Tensor(blr_rb_np[val_slc])
+        aux_train: Tensor | None = (
+            Tensor(aux_rb_np[train_slc]) if is_multitask else None)
+        aux_val: Tensor | None = (
+            Tensor(aux_rb_np[val_slc]) if is_multitask else None)
 
         for _ in range(n_steps):
             Tensor.training = True
             opt.zero_grad()
-            s = apply_fn(head_params, repr_train)
-            loss = -pearson_rank_ic(s, fwd_train, mask_train)
+            out = apply_fn(head_params, repr_train)
+            if is_multitask:
+                s_p, s_a = out
+                loss = (
+                    -pearson_rank_ic(s_p, fwd_train, mask_train)
+                    + aux_weight * masked_mse(s_a, aux_train, mask_train)
+                )
+            else:
+                loss = -pearson_rank_ic(out, fwd_train, mask_train)
             loss.backward()
             opt.step()
 
         Tensor.training = False
-        s_train = apply_fn(head_params, repr_train)
-        s_val   = apply_fn(head_params, repr_val)
+        if is_multitask:
+            s_train_p, s_train_a = apply_fn(head_params, repr_train)
+            s_val_p, s_val_a = apply_fn(head_params, repr_val)
+            s_train, s_val = s_train_p, s_val_p
+            train_aux_mse = float(masked_mse(
+                s_train_a, aux_train, mask_train).item())
+            val_aux_mse = float(masked_mse(
+                s_val_a, aux_val, mask_val).item())
+        else:
+            s_train = apply_fn(head_params, repr_train)
+            s_val   = apply_fn(head_params, repr_val)
+            train_aux_mse = float('nan')
+            val_aux_mse = float('nan')
         train_ic = float(pearson_rank_ic(s_train, fwd_train, mask_train).item())
         val_ic   = float(pearson_rank_ic(s_val,   fwd_val,   mask_val  ).item())
         train_sh = float(block_sharpe(
@@ -232,10 +285,14 @@ def train_scorer_walkforward(
             rebal_days, commission_bps / 1e4).item())
 
         if verbose:
-            pbar.set_postfix(
-                tr_ic=f'{train_ic:+.3f}',
-                val_ic=f'{val_ic:+.3f}',
-                val_sh=f'{val_sh:+.2f}')
+            postfix = {
+                'tr_ic': f'{train_ic:+.3f}',
+                'val_ic': f'{val_ic:+.3f}',
+                'val_sh': f'{val_sh:+.2f}',
+            }
+            if is_multitask:
+                postfix['val_aux'] = f'{val_aux_mse:.3f}'
+            pbar.set_postfix(**postfix)
 
         result.windows.append(WalkForwardWindow(
             window_idx=w_idx,
@@ -246,6 +303,7 @@ def train_scorer_walkforward(
             n_train_bars=train_slc.stop - train_slc.start,
             n_val_bars=val_slc.stop - val_slc.start,
             head_params={k: v.numpy() for k, v in head_params.items()},
+            train_aux_mse=train_aux_mse, val_aux_mse=val_aux_mse,
         ))
 
     if verbose:

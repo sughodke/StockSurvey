@@ -61,6 +61,31 @@ def pearson_rank_ic(
     return (per_bar_ic * bar_valid).sum() / bar_valid.sum().maximum(1.0)
 
 
+def masked_mse(
+    scores: Tensor, targets: Tensor, mask: Tensor,
+) -> Tensor:
+    """Mean squared error averaged over `(bar, ticker)` cells with `mask=1`.
+
+    All inputs shape `(n_bars, n_tickers)`. `mask` is 1.0 for cells the
+    auxiliary loss should see, 0.0 otherwise. NaN/Inf values are
+    sanitized to 0 before the diff so a missed mask upstream cannot
+    NaN-poison the gradient — same defensive pattern as
+    `pearson_rank_ic`.
+
+    Used as the auxiliary loss in the multi-task path: the aux head
+    predicts cross-sectionally winsorized + z-scored forward returns
+    (see `factor.data.forward_robust_z`). Mean-over-cells rather than
+    mean-over-bars-then-mean keeps gradient magnitude proportional to
+    actual sample count, which matters for early bars with fewer valid
+    tickers.
+    """
+    scores = _isfinite(scores).where(scores, 0.0)
+    targets = _isfinite(targets).where(targets, 0.0)
+    sq = (scores - targets) ** 2 * mask
+    n_valid = mask.sum().maximum(1.0)
+    return sq.sum() / n_valid
+
+
 def block_sharpe(
     rebal_scores: Tensor,
     log_temperature: Tensor,
@@ -105,4 +130,4 @@ def block_sharpe(
     return mean / std * Tensor((TRADING_DAYS / rebal_days) ** 0.5)
 
 
-__all__ = ['TRADING_DAYS', 'block_sharpe', 'pearson_rank_ic']
+__all__ = ['TRADING_DAYS', 'block_sharpe', 'masked_mse', 'pearson_rank_ic']

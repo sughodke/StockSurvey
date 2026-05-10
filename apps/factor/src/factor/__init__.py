@@ -51,16 +51,18 @@ from factor.backbone import (
 )
 from factor.data import (
     AlignedTickers, align_tickers, align_tickers_at_rebal,
-    forward_log_returns, forward_sign_demeaned, forward_vol_innovation,
+    forward_log_returns, forward_robust_z, forward_sign_demeaned,
+    forward_vol_innovation,
 )
 from factor.indicator_features import (
     IndicatorGridConfig, build_indicator_features, load_ticker_indicators,
     make_indicator_backbone, train_scorer_indicators,
     train_scorer_indicators_walkforward,
 )
-from factor.objectives import block_sharpe, pearson_rank_ic
+from factor.objectives import block_sharpe, masked_mse, pearson_rank_ic
 from factor.scorers import (
-    SCORERS, apply_linear, apply_mlp, get_scorer, init_linear, init_mlp,
+    SCORERS, apply_linear, apply_mlp, apply_mlp_multitask, get_scorer,
+    init_linear, init_mlp, init_mlp_multitask,
 )
 from factor.train import (
     TrainResult, precompute_inputs, predict, train_scorer,
@@ -83,20 +85,24 @@ __all__ = [
     'apply_backbone_pytree',
     'apply_linear',
     'apply_mlp',
+    'apply_mlp_multitask',
     'backbone_to_pytree',
     'block_sharpe',
     'build_indicator_features',
     'compute_input_stats',
     'forward_log_returns',
+    'forward_robust_z',
     'forward_sign_demeaned',
     'forward_vol_innovation',
     'get_scorer',
     'identity_backbone',
     'init_linear',
     'init_mlp',
+    'init_mlp_multitask',
     'load_backbone',
     'load_ticker_indicators',
     'make_indicator_backbone',
+    'masked_mse',
     'pearson_rank_ic',
     'precompute_inputs',
     'predict',
