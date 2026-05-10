@@ -22,6 +22,7 @@ Default eval window unless otherwise stated: 2013-01-29 → 2025-12-11,
 
 ## Replay app
 
+- [Decoder options — what `--decoder` actually selects (linear / mlp / cnn / masked-ae)](replay-decoders.md)
 - [2D DWT keep-LL compression preserves SSL signal at ~4× input reduction](replay-dwt-compression.md)
 
 ## Relational app
