@@ -20,6 +20,7 @@ StockSurvey is a uv-workspace monorepo containing trading-strategy research and 
 - `apps/relational/` — sector-relative + fingerprint-space CWT scorers. Six scoreboard winners (empirical / gmm / analog / farthest / diversified / velocity) wired through `ss-relational live` for paper trading. Active.
 - `apps/factor/`     — cross-sectional rank-IC scorer (tinygrad). Two input paths share the same head + objective: SSL-pretrained CNN backbone (`ss_features.load_backbone`) or `IndicatorGridConfig` (74-channel deterministic stack). Walk-forward eval is the primary OOS protocol.
 - `apps/replay/`     — multi-head CNN trainer (`ss-replay`) reconstructing technical indicators (RSI/MACD/vol/CCI/price) from causal CWT slices, with FiLM conditioning. Tinygrad. Produces backbone npz artifacts that `apps/factor` consumes.
+- `apps/gate/`       — aggregate drawdown forecaster as an EW-exposure gate. Numpy-only OLS predictor on trailing aggregate features (vol, return, trailing DD, breadth) over EW universe. v0 is `partial-OOS` (mean val Pearson r +0.26, mean alpha +0.07 within noise). First test of the prediction-problem pivot off cross-sectional return forecasting.
 - `apps/notebook/`   — Jupyter playground + scalogram visualizer CLIs (`ss-scalogram`, `ss-scalogram-video`).
 - `apps/docs/`       — Material for MkDocs site; canonical home for findings, workflows, TODO.
 - `apps/v1/`         — legacy single-ticker workflow + aiohttp web service. Parked.

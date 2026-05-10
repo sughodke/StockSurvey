@@ -107,6 +107,7 @@ nav:
       - Passive EW benchmark (regrades shippable rows): findings/passive-ew-benchmark.md
       - Rank-IC vs long-only top-N mismatch: findings/factor-rankic-long-only-mismatch.md
       - Loss-pivot — Sharpe/IR losses underperform rank-IC: findings/factor-loss-pivot.md
+      - Gate drawdown v0 (partial-OOS): findings/gate-drawdown-v0.md
   - Workflows: workflows.md
   - TODO:
       - TODO/index.md
