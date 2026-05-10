@@ -109,19 +109,88 @@ result, but the underlying experiment compressed both K and S
 simultaneously. The K-axis claim ("K=96 was over-provisioned for
 indicator reconstruction") is suggestive, not isolated.
 
+**Polar Morlet caveat (added 2026-05-10).** The original plan
+below pre-dates the
+[polar Morlet rewrite](polar-morlet-migration.md) and treats the
+input as if it were a single real-valued scalogram. The current
+bundle is 7 channels per scale: `|c|`, `|c|²`, `cos(arg)`,
+`sin(arg)`, `g`, `g²`, `log-L2-amp`. Five are amplitudes (smooth,
+bounded, well-behaved under linear smoothing); two are **phase**.
+Haar LL is just a 2-tap mean — `mean(cos(θ_t), cos(θ_{t+1})) ≠
+cos((θ_t + θ_{t+1})/2)`. At low scales, where phase rotates fast
+within a 2-bar K window, the LL of the phase channels is a
+mixture that represents neither sample. Compressing all 7
+channels uniformly via Haar LL asks the phase channels to do
+something they can't do; the 2D DWT result on the books got
+bailed out by the channel-mix ratio (5 amp vs 2 phase) without
+ever isolating per-channel reconstruction quality.
+
+Three handlings, cheapest to most invasive:
+
+1. **Amp-only compression**, leave `cos`/`sin` at full K.
+   Concedes K-shrink is partial; concat compressed-amp +
+   uncompressed-phase along the channel axis is awkward for the
+   CNN reshape but doable.
+2. **Complex-domain compression.** Re-derive `c = |c|·(cos +
+   i·sin)` per scale, run `pywt.wavedec` (handles complex), keep
+   LL, re-derive `|c|`, `|c|²`, `cos(arg)`, `sin(arg)` from the
+   compressed complex coeff. Complex Haar LL = complex mean,
+   which is the *right* averaging operation for both magnitude
+   and phase jointly. Mathematically clean answer.
+3. **Compress all 7 uniformly anyway** (the original plan), but
+   stratify the diagnostic R² **per-channel** so the phase
+   damage is at least visible. Cheap, but if "R² preserved" is
+   just amp channels carrying phase channels we draw the wrong
+   conclusion again.
+
+Option 2 is the only one that actually answers "is the K-axis of
+the *polar Morlet CWT* compressible".
+
+**Pre-experiment diagnostic (added 2026-05-10) — run before any
+Modal training.** A pure-numpy round-trip CWT-reconstruction
+test isolates whether the input is even compressible along K
+without burning Modal time on a CNN training loop:
+
+1. Pick one ticker (NVDA), compute the polar bundle via
+   `ss_features.compute_scalogram_polar`.
+2. Compress complex coeffs along K with Haar L=1 (option 2
+   above).
+3. `pywt.waverec` back to original K with detail bands
+   zero-filled.
+4. Report per-scale R² and RMSE of reconstructed `|c|`, `arg`
+   vs original. Fail-fast threshold: R² < 0.9 at the smallest
+   scale → option 2 doesn't preserve enough; option 1
+   (amp-only) becomes the plan.
+
+Also emit a 4-panel side-by-side figure (original `|c|` /
+reconstructed `|c|` / original `arg` / reconstructed `arg`) at
+one mid-scale and one low-scale. The
+[parent finding page](../findings/replay-length-axis-compression.md)
+embeds 8 downstream-target images but **zero** input-CWT
+visualizations, so any future K-axis claim has no visual
+grounding for the input transformation; this plot fills the gap.
+Lands in `Output/` and folds into the finding page.
+
 **Falsifiable hypothesis.** A 1D Haar-L1 DWT applied **only** to
-the K axis (`S=15` left intact) preserves NVDA val R² within ±0.02
-of the K=96 baseline on RSI / CCI / vol heads.
+the K axis (`S=15` left intact, complex-domain per option 2)
+preserves NVDA val R² within ±0.02 of the K=96 baseline on
+RSI / CCI / vol heads, *and* per-channel reconstruction R² on
+`cos(arg)` / `sin(arg)` stays above 0.9 at every scale.
 
 **Test design.** Three Modal-T4 arms on the same 295-ticker
 stooq_us_long pool, K=96 / S=15 / 500 steps / batch 8192:
 
 1. `(K=96, S=15)` — uncompressed baseline.
-2. `(K=48, S=15)` — **K-only 1D DWT-L1**.
-3. `(K=96, S=8)` — S-only 1D DWT-L1 (mirror arm).
+2. `(K=48, S=15)` — **K-only 1D DWT-L1, complex-domain**
+   (option 2). Per-tile shape `(48, 15)` after re-deriving the
+   7 polar channels from the LL complex coeff.
+3. `(K=96, S=8)` — S-only 1D DWT-L1 (mirror arm). S-axis is
+   the scale axis — no phase-vs-amp confound applies.
 
-Eval: NVDA val R² and CSCO zero-shot peak R² on RSI / CCI / vol.
-MACD excluded (broken in every arm; tracked separately above).
+Eval: NVDA val R² and CSCO zero-shot peak R² on RSI / CCI / vol,
+plus per-channel CWT-reconstruction R² from the diagnostic above
+for arm 2. MACD excluded (broken in every arm; tracked
+separately above).
 
 **Decision rule.**
 
@@ -134,16 +203,130 @@ MACD excluded (broken in every arm; tracked separately above).
 
 **Implementation.** Add `Compression.kind='dwt-1d-K'` and
 `'dwt-1d-S'` modes to
-[`packages/features/src/ss_features/compression.py`](https://github.com/sughodke/StockSurvey/blob/master/packages/features/src/ss_features/compression.py)
-that pass `axes=(-2,)` or `axes=(-1,)` instead of the current
-`axes=(-2, -1)`. ~10 LoC. Modal cost ~30 min total (~10 min/arm,
-CWT cache shared across arms).
+[`packages/features/src/ss_features/compression.py`](https://github.com/sughodke/StockSurvey/blob/master/packages/features/src/ss_features/compression.py).
+For `dwt-1d-S` (no phase confound): pass `axis=-1` to
+`pywt.wavedec`. For `dwt-1d-K` per option 2: build the complex
+coeff stack inside `cwt_features.build_features_and_targets`
+*before* the polar derivation, run `pywt.wavedec(complex,
+axis=-2)`, keep LL, then re-derive the 7 polar channels from
+the compressed complex coeff. The polar derivation move means
+~30-40 LoC, not the original ~10 estimate. Modal cost ~30 min
+total (~10 min/arm, CWT cache shared across arms).
 
-**Priority.** Cheaper than the wider-universe DWT validation
-below, lands a clean architectural answer regardless of the
-outcome (every cell in the decision rule has an actionable
-reading). Run before defaulting any new backbone npz to a shorter
-K.
+**Priority.** Run the pre-experiment diagnostic *first* — it's
+~30 LoC of pure numpy, no GPU, ~5 min. If reconstruction R² is
+clean at every scale, the Modal training run is justified. If
+the smallest scales fail, fall back to option 1 (amp-only) or
+shrink the scale grid before the training arm. Cheaper than the
+wider-universe DWT validation below.
+
+**K' length determinant.** `K' = ceil(K / 2^L)` under
+`mode='periodization'` (current default). `K=96, L=1 → K'=48`;
+`L=2 → 24`; `L=3 → 12`. Wavelet family is irrelevant to output
+length under periodization. Lower bound: K' must be ≥ the
+encoder's effective K-receptive field; verify before pushing
+past `L=1`.
+
+## Lossless polar-CWT compression
+
+The K-only DWT plan above is **lossy by construction** — it
+keeps only the LL band of the DWT and discards detail
+coefficients. The
+[parent finding](../findings/replay-length-axis-compression.md)
+and the existing
+[2D DWT result](../findings/replay-dwt-compression.md) are
+silent on this; both justify the compression entirely on
+downstream R² preservation, never on the round-trip property.
+Worth scoping the lossless ceiling separately so the lossy
+choice is at least informed.
+
+**Channel-axis lossless (free, ~2.3× immediate win).** The
+7-channel polar bundle has 4 redundant channels:
+
+- `|c|²` derives from `|c|`.
+- `cos(arg)² + sin(arg)² = 1` — phase is one DOF, not two.
+- `g²` derives from `g`.
+- `log-L2-amp` derives from `|c|` over the K-window.
+
+Independent DOF count is **3**, not 7. Equivalently, store
+`(c = Re + i·Im, g)` — 2 real + 1 real = 3 reals per scale, all
+7 channels exactly recoverable. The CNN could be re-trained to
+consume the 3-channel form directly with no loss of input
+information. Implementation: stop materializing the derived
+channels in
+[`cwt_features.build_features_and_targets`](https://github.com/sughodke/StockSurvey/blob/master/packages/features/src/ss_features/cwt_features.py)
+and add a `(Re, Im, g)` consumer path in the encoder. Storage
+shrinks 7→3; no fitting per ticker; truly lossless.
+
+**K-axis lossless (Shannon-bounded, per-scale).** The CWT at
+scale `s` is bandlimited along K to ~`±1/s` cycles per bar
+(wavelet uncertainty / Heisenberg-Gabor). By Nyquist, the K
+axis at scale `s` can be subsampled by ~`s/2` losslessly under
+sinc reconstruction:
+
+| Scale `s` | Max lossless K decimation |
+|-----------|---------------------------|
+| 2         | 1× (no shrink possible)   |
+| 8         | 4×                        |
+| 32        | 16×                       |
+| 64        | 32×                       |
+
+This is the structural insight behind the dyadic Mallat DWT —
+why the *full-coefficient* DWT is invertible to float
+precision. For the polar Morlet's non-dyadic scale grid,
+per-scale polyphase decimation at `~s/2` is the principled
+lossless K-shrink. Total storage drops from `K · n_scales` to
+`K · Σ(2/s)`. On the current geometric scale grid this is
+~3-4× lossless K-shrink; on a linear grid the win shrinks
+because small scales (which dominate K storage) can't be
+compressed.
+
+**Combined ceiling.** Channel collapse (~2.3×, free) ×
+per-scale Nyquist along K (~3-4× on the current grid) →
+**~7-9× lossless** total for the polar Morlet bundle, before
+any generic byte-level compression (blosc/zlib on float32 adds
+another ~2× for storage only).
+
+**Vs. the lossy K-only plan.** The Haar-LL keep-only along K
+is ~2× per axis but lossy. Lossless along K via per-scale
+Nyquist gives variable shrink (1× at the small end, 32× at the
+large end) and requires polyphase resampling instead of a
+single Haar pass.
+
+**Falsifiable hypotheses (two, separable).**
+
+1. *Channel collapse.* Re-training the encoder on `(Re, Im, g)`
+   instead of the 7-channel polar bundle preserves NVDA val R²
+   within ±0.01 on RSI / CCI / vol heads (since the input
+   information content is identical and the encoder is
+   capacity-unconstrained at current sizes).
+2. *Per-scale Nyquist K decimation.* Replacing the uniform
+   K=96 input with per-scale-decimated K (variable per scale)
+   and reconstructing via sinc interpolation before the
+   encoder preserves NVDA val R² within ±0.02 on the same
+   heads.
+
+**Test design.** Diagnostic-first, training-second:
+
+1. Pure-numpy: per-scale Nyquist decimation + sinc
+   reconstruction on NVDA's polar coeffs; report per-scale R²
+   of reconstructed `c` vs original. If R² > 0.99 at every
+   scale, the bandlimit assumption holds and the training arm
+   is justified.
+2. Modal arms (only if diagnostic passes):
+    - `7-channel, K=96` — current baseline.
+    - `(Re, Im, g)` 3-channel, K=96 — channel-collapse only.
+    - `(Re, Im, g)` 3-channel, per-scale K — both losses
+      together.
+
+**Priority.** The channel-collapse pre-screen is ~5 min of
+work and immediately tells us whether the encoder is using the
+redundant channels (it shouldn't be, but worth confirming).
+Run after the K-only DWT diagnostic above (overlapping
+infrastructure). The per-scale Nyquist arm is a bigger lift
+(polyphase resampling + variable-K input plumbing) and only
+worth doing if channel-collapse and K-only DWT both come back
+clean.
 
 ## Non-Haar wavelet sweep
 
