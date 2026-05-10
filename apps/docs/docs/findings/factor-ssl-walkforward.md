@@ -77,7 +77,37 @@ generalizes).
 This is the same conclusion the prior factor run reached on the
 legacy 2-channel bundle. The bundle migration to polar Morlet
 (`ss_features.causal_polar_morlet_matrix`, 7 channels per scale)
-did not move the needle on this benchmark. Two readings:
+did not move the needle on this benchmark.
+
+A note on why "more channels" didn't help — the bundle change is
+*additive at the input layer* but not at the latent the factor head
+consumes:
+
+- **Different network, not augmented network.** Input F went from
+  ~30 (2-channel Ricker × 15 scales) to 105 (7-channel polar Morlet
+  × 15 scales). The first conv has different shape; the rest of the
+  encoder is fresh-initialized and trained from scratch. It's a
+  different model with a different optimization trajectory, not an
+  old encoder with extra channels bolted on.
+- **Fixed-capacity encoder, reallocated.** Hidden is 64 channels
+  regardless of input width, hidden_flat=5632 regardless of input F.
+  The supervised reconstruction loss decides which input channels to
+  pull on; if phase channels (`cos arg, sin arg, g`) reduce
+  reconstruction loss on RSI / MACD / vol / CCI, latent dims that
+  carried amplitude features in the 2-channel run get reallocated
+  to phase. Latent dims spent on phase aren't a free lunch for the
+  factor head — they're more noise dims a 200-step rank-IC head
+  has to learn to ignore on 39 val blocks.
+- **Pretext ≠ downstream.** "More input information" is only
+  additive *with respect to the pretext objective*
+  (indicator-reconstruction). The objective doesn't know about
+  forward returns, so additional pretext signal doesn't have to
+  imply additional downstream signal — it has to survive what the
+  encoder chose to compress.
+
+The encoder + supervision pair decided what to keep, and what it
+kept was no better-aligned with 20-day cross-sectional rank-IC than
+the 2-channel encoder's choices. Two readings of the headline:
 
 1. **The bottleneck isn't the encoder.** Train IC of +0.50–0.89
    shows the heads can fit the latent → forward-return mapping
@@ -143,3 +173,17 @@ freeze-and-fresh-head pattern is leaving signal on the table.
 These are independent: (1) tests *the encoder objective*, (2)
 tests *whether the encoder can adapt to the alpha objective at
 all*. Both are wired but unrun.
+
+**Time-reversal diagnostic.** A third, orthogonal probe — train
+the same supervised-`cnn` backbone on time-*reversed* prices and
+re-run the factor walk-forward against the (negated) reversed-time
+forward returns. If the reversed pipeline recovers val IC ≈ −0.0031
+(clean inversion), the encoder is reading time-symmetric chart
+shapes and the asymmetric structure of forward markets is inert
+noise on top — supervision is the lever, not encoder capacity. If
+it lands materially off −0.0031, the encoder is using genuinely
+asymmetric information and the +0.0031 ceiling is a structural
+statement about the universe / horizon, not the encoder. Analysis
+in [`time-reversal-symmetry`](time-reversal-symmetry.md);
+experiment design in
+[`TODO/reversed-price-experiment`](../TODO/reversed-price-experiment.md).

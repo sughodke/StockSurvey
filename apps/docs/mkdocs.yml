@@ -93,6 +93,9 @@ nav:
       - Regime baselines: findings/regime-baselines.md
       - Log-returns vs raw close: findings/log-returns-vs-raw-close.md
       - Factor indicator-IC baseline: findings/factor-indicator-baseline.md
+      - Factor SSL walkforward: findings/factor-ssl-walkforward.md
+      - Time-reversal symmetry: findings/time-reversal-symmetry.md
+      - Replay decoder options: findings/replay-decoders.md
       - Replay DWT compression: findings/replay-dwt-compression.md
       - Relational universe shift: findings/relational-universe-shift.md
       - Relational DWT-L1 OOS failure: findings/relational-dwt-failure.md
@@ -111,6 +114,7 @@ nav:
       - Port Sharpe to tinygrad: TODO/port-sharpe-tinygrad.md
       - DWT-compression follow-ups: TODO/dwt-compression-followups.md
       - Rebal-days sweep: TODO/rebal-days-sweep.md
+      - Reversed-price experiment: TODO/reversed-price-experiment.md
       - Modal-cron live deployment: TODO/modal-cron-live-deployment.md
       - Memory and wall-time follow-ups: TODO/memory-walltime-followups.md
       - Recently shipped: TODO/recently-shipped.md

@@ -19,6 +19,7 @@ Default eval window unless otherwise stated: 2013-01-29 → 2025-12-11,
 
 - [Deterministic-indicator val-IC baseline (the bar the supervised-`cnn` backbone must beat)](factor-indicator-baseline.md)
 - [Supervised-`cnn` walk-forward on the polar Morlet bundle does not clear the indicator baseline](factor-ssl-walkforward.md)
+- [Time-reversal symmetry diagnostic — what reversed-price training would tell us about the encoder](time-reversal-symmetry.md)
 
 ## Replay app
 

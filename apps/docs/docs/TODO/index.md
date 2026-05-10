@@ -18,6 +18,7 @@ Active backlog for the StockSurvey monorepo. Each section from the original
 - [Backbone architecture — broader window/indicator coverage](backbone-architecture.md)
 - [DWT-compression follow-ups](dwt-compression-followups.md)
 - [Rebal-days sweep](rebal-days-sweep.md)
+- [Reversed-price training — falsify the time-symmetry hypothesis](reversed-price-experiment.md)
 
 ## Operations
 
