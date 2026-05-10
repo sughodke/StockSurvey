@@ -3,10 +3,16 @@
 Cross-sectional rank-IC scorer (tinygrad). Two input paths feed the
 same head + objective:
 
-1. The SSL-pretrained CNN backbone produced by `ss-replay --decoder
-   cnn`, loaded via `ss_features.load_backbone`. The replay trainer's
-   per-target reconstruction heads are discarded; only the shared
-   conv stack survives into the npz.
+1. The supervised-`cnn`-pretrained CWT backbone produced by
+   [`ss-replay --decoder cnn`](../findings/replay-decoders.md),
+   loaded via `ss_features.load_backbone`. The replay trainer's
+   per-target reconstruction heads (RSI / MACD / vol / CCI) are
+   discarded; only the shared conv stack survives into the npz.
+   *Note*: this is **not** the strict-SSL `--decoder masked-ae`
+   path — `cnn` uses self-derived but explicit per-target labels.
+   The pages here use "SSL backbone" in section headers as
+   shorthand; for the precise decoder breakdown see
+   [replay-decoders](../findings/replay-decoders.md).
 2. `IndicatorGridConfig` — a 74-channel deterministic stack of strided
    RSI/CCI grids, MACD over a fast-period grid, realized vol over a
    window grid, and rolling Pearson coherence between short/long
@@ -22,13 +28,13 @@ converges much faster than direct Sharpe optimization.
 
 | Path                        | Backbone                                                                                  | Head                                       |
 |-----------------------------|-------------------------------------------------------------------------------------------|--------------------------------------------|
-| SSL (`train_scorer`)        | replay-pretrained conv (frozen by default; optionally fine-tuned in Stage 2 at 0.1× lr)   | fresh linear or MLP, learns rank-IC        |
+| SSL (`train_scorer`)        | [supervised-`cnn`](../findings/replay-decoders.md) replay-pretrained conv (frozen by default; optionally fine-tuned in Stage 2 at 0.1× lr) | fresh linear or MLP, learns rank-IC |
 | IndicatorGridConfig (`train_scorer_indicators`) | identity (no learned weights — `K=1, F=74` strided-RSI/CCI/MACD/vol stack passes straight through) | same rank-IC head                          |
 
-The IndicatorGridConfig path is there so we can compare *does the SSL
-backbone beat hand-crafted indicators on the same head + objective*
-head-to-head — the +0.012 mean val IC of the deterministic baseline
-is the bar.
+The IndicatorGridConfig path is there so we can compare *does the
+supervised-`cnn` backbone beat hand-crafted indicators on the same
+head + objective* head-to-head — the +0.012 mean val IC of the
+deterministic baseline is the bar.
 
 ## How factor uses the replay backbone
 
@@ -74,25 +80,35 @@ signature. The +0.012 number is the line every later experiment has
 been trying to clear, and the [Leaderboard](../leaderboard.md) records
 every arm that didn't.
 
-## SSL backbone — does the encoder beat the indicators?
+## Supervised-`cnn` backbone — does the encoder beat the indicators?
 
-![SSL walk-forward across 6 windows](images/factor-ssl-walkforward.png)
+![Supervised-`cnn` walk-forward across 6 windows](images/factor-ssl-walkforward.png)
 
-The promise of SSL pretrain was simple: an encoder that's seen the
-full structure of the CWT bundle should expose return-predictive
+The promise of pretrain on the indicator-reconstruction objective
+was simple: an encoder that's been forced to encode RSI / MACD /
+vol / CCI from the CWT bundle should expose return-predictive
 geometry the linear-on-indicators path can't reach. The promise is
-testable. The figure above is the test — six rolling windows, val IC
-overlaid against the [indicator
-baseline](../findings/factor-indicator-baseline.md). The takeaway is
-gentle and honest: the SSL-pretrained latent does not lift val IC off
-the +0.012 ceiling. The data is the bottleneck, not the encoder. Why this
-matters for the broader research program is unpacked in the
+testable. The figure above is the test — six rolling windows, val
+IC overlaid against the [indicator
+baseline](../findings/factor-indicator-baseline.md). The takeaway
+is gentle and honest: the supervised-`cnn` latent does not lift
+val IC off the +0.012 ceiling
+([factor-ssl-walkforward](../findings/factor-ssl-walkforward.md)).
+The data is the bottleneck, not the encoder. Whether a strict-SSL
+[`--decoder masked-ae`](../findings/replay-decoders.md) backbone —
+encoder pretrained on masked-CWT autoencoding instead of indicator
+reconstruction — would clear that ceiling is an
+[open question](../findings/replay-decoders.md#open-question--does-masked-ae-beat-supervised-cnn);
+the masked-AE path is wired but no production npz exists for it.
+
+Why this matters for the broader research program is unpacked in
+the
 [Notes](../notes.md#self-supervised-pretrain-why-and-how) and the
 [supervision-is-binding finding](../notes.md#what-we-already-know-about-supervision-being-the-binding-constraint).
 
-## What the SSL latent attends to
+## What the supervised-`cnn` latent attends to
 
-![SSL backbone attention compared across heads](images/factor-ssl-attention.png)
+![Supervised-`cnn` backbone attention compared across heads](images/factor-ssl-attention.png)
 
 A learned-attention readout of which slices of the CWT bundle each
 indicator head reaches into. Worth lingering on: the heads partition

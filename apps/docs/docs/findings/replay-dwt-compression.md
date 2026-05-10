@@ -1,9 +1,12 @@
-# Replay CNN — 2D DWT keep-LL compression preserves SSL signal
+# Replay CNN — 2D DWT keep-LL compression preserves indicator-reconstruction signal
 
-**Operational rule:** replay CNN backbone training can use
+**Operational rule:** replay
+[`--decoder cnn`](replay-decoders.md) backbone training can use
 `--compress dwt --compress-levels 1 --compress-wavelet haar` to shrink
 input ~4× without measurable quality loss on RSI / CCI / vol heads.
 MACD remains unreliable (separate, pre-existing pathology — see TODO).
+("SSL" wording in earlier revisions was loose — the supervision here
+is per-target indicator reconstruction, not strict-SSL masked-AE.)
 
 ## Setup
 
@@ -128,6 +131,6 @@ Implementation:
 
 Master walk-forward log: [Leaderboard](../leaderboard.md) (the
 *2D Haar DWT-L1 keep-LL CWT-tile compression vs uncompressed* row —
-[`partial-OOS`](../leaderboard.md#verdict-labels); SSL R² is
-not a portfolio metric, so the verdict tracks reconstruction quality,
-not Sharpe).
+[`partial-OOS`](../leaderboard.md#verdict-labels); reconstruction R²
+is not a portfolio metric, so the verdict tracks reconstruction
+quality, not Sharpe).

@@ -178,10 +178,14 @@ mechanism dominates.
   [Leaderboard](../leaderboard.md) — once the row lands it carries
   the [`reversed-OOS`](../leaderboard.md#verdict-labels) verdict
   alongside the existing analog cross_ticker rows.
-- The polar Morlet bundle remains the canonical SSL CNN input for
-  `apps/replay`. The CNN learns the bundle differently from a kNN
-  distance metric — a signal that hurts metric-space matching can
-  still help a learned head. The replay reconstruction R² result
+- The polar Morlet bundle remains the canonical input bundle for
+  the [`apps/replay --decoder cnn`](replay-decoders.md) backbone
+  trainer (per-target indicator reconstruction; not strict-SSL
+  masked-AE — `masked-ae` is implemented but hasn't produced a
+  production npz). The CNN learns the bundle differently from a
+  kNN distance metric — a signal that hurts metric-space matching
+  can still help a learned head. The replay reconstruction R²
+  result
   ([replay-dwt-compression](replay-dwt-compression.md)) was
   independent of this kNN finding.
 

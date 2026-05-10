@@ -59,8 +59,10 @@ informative regime-change signal that DWT-LL erases.
 ## Notes
 
 The DWT primitive is preserved as research infrastructure, and the
-replay-side reconstruction R² result is independent — that was an SSL
-setup, not a portfolio metric.
+replay-side reconstruction R² result is independent — that was an
+indicator-reconstruction setup
+([`--decoder cnn`](replay-decoders.md), not strict-SSL `masked-ae`),
+and reconstruction R² is not a portfolio metric.
 
 ## Artifacts
 

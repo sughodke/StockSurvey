@@ -7,6 +7,23 @@ two are *probes* (fit a head per target, no shared backbone), two
 consume via `ss_features.load_backbone`. The terminology around
 "SSL" is loose in the docs; this page is the precise reference.
 
+!!! note "Doc-correction note (2026-05-09)"
+    Earlier findings and app pages described the production backbone
+    as "SSL-pretrained" without distinguishing between the
+    *supervised-reconstruction `cnn` path* (which is what every
+    production `Output/*-cnn-*.npz` actually used) and the
+    *strict-SSL `masked-ae` path* (which was implemented but never
+    trained as a production npz). The wording read as if `masked-ae`
+    was in play when in fact it wasn't. Affected pages have been
+    updated in commit
+    [`24ba87e`](https://github.com/sughodke/StockSurvey/commit/24ba87e)
+    onward to call the production backbone the *supervised-`cnn`
+    backbone* (or *indicator-reconstruction backbone*) and to flag
+    where "SSL" is being used in the loose sense vs the strict
+    masked-AE sense. The table below is the canonical reference for
+    which decoder produces what — link to it from any doc that
+    needs to be precise.
+
 ## The four decoder options
 
 | `--decoder` | Architecture | Training signal | Saves a backbone npz? | Introduced |

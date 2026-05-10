@@ -1,6 +1,20 @@
-# Factor SSL backbone walk-forward — polar Morlet bundle does not clear the indicator baseline
+# Factor SSL walkforward (supervised-`cnn` backbone) — polar Morlet bundle does not clear the indicator baseline
 
-**Operational rule: the polar-Morlet-pretrained replay backbone +
+**Decoder note (2026-05-09):** the backbone evaluated here was
+trained with [`apps/replay --decoder cnn`](replay-decoders.md)
+(supervised reconstruction of RSI / MACD / vol / CCI), not the
+strict-SSL [`--decoder masked-ae`](replay-decoders.md) path. The
+production filename `*-rsi+macd+vol+cci-cnn-*.npz` reflects this.
+Earlier wording on this page used "SSL backbone" loosely; references
+have been tightened to "supervised-`cnn` backbone" or
+"indicator-reconstruction backbone" where the decoder choice is
+load-bearing. The strict-SSL `masked-ae` path is wired but no
+production npz exists for it, and the head-to-head against this
+result hasn't been run — see the open question at the bottom of
+this page.
+
+**Operational rule: the polar-Morlet-pretrained
+[supervised-`cnn`](replay-decoders.md) replay backbone +
 freshly-initialized rank-IC head does not beat the
 [deterministic-indicator baseline](factor-indicator-baseline.md)
 of mean val IC = +0.012 on the 297-ticker stooq_us_long /
@@ -30,7 +44,7 @@ change the headline factor verdict.
 
 ## Walk-forward result (2026-05-09)
 
-![SSL backbone vs indicator baseline, 6 rolling windows](images/factor-ssl-walkforward.png)
+![Supervised-`cnn` backbone vs indicator baseline, 6 rolling windows](images/factor-ssl-walkforward.png)
 
 Per-window IC summary:
 
@@ -54,13 +68,14 @@ Aggregates:
 
 ## Read
 
-The SSL linear head lands at ~1/4 of the indicator linear head's
-val IC. The SSL MLP head goes *negative* on average — worse than
-random — even though its train IC averages +0.83 (so the head is
-learning something, just nothing that generalizes).
+The supervised-`cnn`-backbone linear head lands at ~1/4 of the
+indicator linear head's val IC. The MLP head goes *negative* on
+average — worse than random — even though its train IC averages
++0.83 (so the head is learning something, just nothing that
+generalizes).
 
-This is the same conclusion the prior factor SSL run reached on
-the legacy 2-channel bundle. The bundle migration to polar Morlet
+This is the same conclusion the prior factor run reached on the
+legacy 2-channel bundle. The bundle migration to polar Morlet
 (`ss_features.causal_polar_morlet_matrix`, 7 channels per scale)
 did not move the needle on this benchmark. Two readings:
 
@@ -70,7 +85,7 @@ did not move the needle on this benchmark. Two readings:
    shows the mapping doesn't survive the 39-block validation
    window. That's data-noise / supervision-binding, not encoder
    capacity.
-2. **The polar Morlet representation is informative for SSL
+2. **The polar Morlet representation is informative for indicator
    reconstruction targets but not for cross-sectional return
    prediction at this horizon.** This matches the same split we
    see on the relational side: the bundle improves analog kNN val
@@ -78,8 +93,9 @@ did not move the needle on this benchmark. Two readings:
    [relational-morlet-failure](relational-morlet-failure.md)) —
    different objective, different result. Cross-sectional 20-day
    return prediction at this universe size is a hard ceiling that
-   neither the deterministic indicator stack nor the SSL latent
-   has crossed.
+   neither the deterministic indicator stack nor the supervised-
+   `cnn` latent has crossed. (Whether *strict-SSL* `masked-ae`
+   pretraining lifts off this floor is the open question below.)
 
 ## Notes
 
@@ -99,15 +115,31 @@ did not move the needle on this benchmark. Two readings:
   comparison.png, linear-s200-wd0.001-windows.npz,
   mlp-s200-wd0.001-windows.npz}`.
 
-## Outstanding question
+## Outstanding questions
 
-Whether a Stage 2 fine-tune (joint head + backbone, backbone lr
-scaled 0.1×) lifts val IC. The walk-forward harness intentionally
-doesn't expose Stage 2 because it would multiply per-window cost
-by the fine-tune step count (cached representation goes stale on
-every backbone update). If the supervision-is-binding hypothesis is
-right, fine-tuning shouldn't help — the data ceiling is the data
-ceiling. If it lifts val IC noticeably, the encoder *was* the
-bottleneck and the freeze-and-fresh-head pattern is leaving signal
-on the table. Worth a single-window probe before deciding whether
-to wire it.
+**Strict-SSL backbone (`--decoder masked-ae`) vs supervised-`cnn`.**
+The result above is on a `cnn`-trained backbone (per-target
+indicator reconstruction with self-derived labels). The strict-SSL
+`masked-ae` path
+([replay-decoders](replay-decoders.md#the-four-decoder-options))
+trains the same encoder shape against masked-CWT autoencoding — no
+per-target supervision, just predict the masked region. If the
+supervised-`cnn` path's indicator-reconstruction objective is
+constraining the encoder to features that are linearly combinable
+into RSI / MACD / vol / CCI (and *removing* return-predictive
+geometry the bundle carried), `masked-ae` should produce a
+backbone whose freeze-and-fresh-head val IC is higher. If
+masked-AE lands at the same +0.0031, the supervision-is-binding
+hypothesis stands and the encoder isn't the lever.
+
+**Stage 2 fine-tune (joint head + backbone).** Backbone lr scaled
+0.1× per `factor.train.train_scorer`'s docstring. The walk-forward
+harness intentionally doesn't expose Stage 2 because it would
+multiply per-window cost by the fine-tune step count (cached
+representation goes stale on every backbone update). If
+fine-tuning lifts val IC noticeably on a single-window probe, the
+freeze-and-fresh-head pattern is leaving signal on the table.
+
+These are independent: (1) tests *the encoder objective*, (2)
+tests *whether the encoder can adapt to the alpha objective at
+all*. Both are wired but unrun.

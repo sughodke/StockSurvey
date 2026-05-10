@@ -13,6 +13,11 @@ The artifact this trainer ships is a backbone npz that downstream
 and the encoder's capacity story is unpacked in the
 [DWT compression finding](../findings/replay-dwt-compression.md) and
 the [Notes SSL section](../notes.md#self-supervised-pretrain-why-and-how).
+The four `--decoder` options the trainer exposes
+([`linear` / `mlp` / `cnn` / `masked-ae`](../findings/replay-decoders.md))
+have a precise reference page — note that every production backbone
+npz is `cnn`-trained (per-target indicator reconstruction with
+self-derived labels), not strict-SSL `masked-ae`.
 
 ## What "reconstructing an indicator" looks like
 
@@ -24,7 +29,9 @@ plot predicted vs true. RSI / vol / price track tightly; MACD is the
 visibly noisy strip — that pathology is preserved across compression
 arms and is the
 [outstanding follow-up](../TODO/dwt-compression-followups.md#macd-head-pathology-replay)
-that gates declaring the SSL pipeline trustworthy for live use.
+that gates declaring the
+[indicator-reconstruction (`--decoder cnn`) pipeline](../findings/replay-decoders.md)
+trustworthy for live use.
 
 ## FiLM-conditioned attention
 

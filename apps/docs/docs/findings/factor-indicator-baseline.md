@@ -1,8 +1,11 @@
 # Factor deterministic-indicator val-IC baseline
 
-The bar the SSL-pretrained CWT backbone path must beat: **mean val
+The bar the supervised-`cnn` CWT backbone path must beat: **mean val
 IC > +0.012, pos-val-IC frac ≥ 5/6** on the same universe and
-walk-forward config.
+walk-forward config. (Earlier wording said "SSL-pretrained" without
+specifying the decoder — the production backbones are
+[`--decoder cnn`](replay-decoders.md), not the strict-SSL
+`masked-ae` path.)
 
 ## Setup
 

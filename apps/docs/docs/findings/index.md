@@ -17,13 +17,13 @@ Default eval window unless otherwise stated: 2013-01-29 → 2025-12-11,
 
 ## Factor app
 
-- [Deterministic-indicator val-IC baseline (the bar SSL must beat)](factor-indicator-baseline.md)
-- [SSL walk-forward on the polar Morlet bundle does not clear the indicator baseline](factor-ssl-walkforward.md)
+- [Deterministic-indicator val-IC baseline (the bar the supervised-`cnn` backbone must beat)](factor-indicator-baseline.md)
+- [Supervised-`cnn` walk-forward on the polar Morlet bundle does not clear the indicator baseline](factor-ssl-walkforward.md)
 
 ## Replay app
 
 - [Decoder options — what `--decoder` actually selects (linear / mlp / cnn / masked-ae)](replay-decoders.md)
-- [2D DWT keep-LL compression preserves SSL signal at ~4× input reduction](replay-dwt-compression.md)
+- [2D DWT keep-LL compression preserves indicator-reconstruction signal at ~4× input reduction](replay-dwt-compression.md)
 
 ## Relational app
 
