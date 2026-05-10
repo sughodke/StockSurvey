@@ -1320,10 +1320,10 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#status-capacity-ruled-out-wider-universe-in-flight-2026-05-09" class="md-nav__link">
+  <a href="#status-wider-universe-gate-cleared-raw-morlet-wins-on-n312-2026-05-09" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Status — capacity ruled out, wider-universe in flight — 2026-05-09
+        Status — wider-universe gate cleared, raw Morlet wins on N=312 — 2026-05-09
       
     </span>
   </a>
@@ -1770,10 +1770,10 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#status-capacity-ruled-out-wider-universe-in-flight-2026-05-09" class="md-nav__link">
+  <a href="#status-wider-universe-gate-cleared-raw-morlet-wins-on-n312-2026-05-09" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Status — capacity ruled out, wider-universe in flight — 2026-05-09
+        Status — wider-universe gate cleared, raw Morlet wins on N=312 — 2026-05-09
       
     </span>
   </a>
@@ -1993,7 +1993,7 @@ run</a>.
 Morlet narrowband behaviour at long scales may either sharpen or noise
 that signal — empirical question.</p>
 <h2 id="appsrelational-live-trading-strategy-change-all-six-checkpoints"><code>apps/relational</code> (live trading) — STRATEGY CHANGE, all six checkpoints<a class="headerlink" href="#appsrelational-live-trading-strategy-change-all-six-checkpoints" title="Permanent link">&para;</a></h2>
-<h3 id="status-capacity-ruled-out-wider-universe-in-flight-2026-05-09">Status — capacity ruled out, wider-universe in flight — 2026-05-09<a class="headerlink" href="#status-capacity-ruled-out-wider-universe-in-flight-2026-05-09" title="Permanent link">&para;</a></h3>
+<h3 id="status-wider-universe-gate-cleared-raw-morlet-wins-on-n312-2026-05-09">Status — wider-universe gate cleared, raw Morlet wins on N=312 — 2026-05-09<a class="headerlink" href="#status-wider-universe-gate-cleared-raw-morlet-wins-on-n312-2026-05-09" title="Permanent link">&para;</a></h3>
 <ul>
 <li>✅ <code>ss_features.causal_polar_morlet_matrix</code> — matrix-form polar
   bundle helper added (4 channels per scale, see API note above).</li>
@@ -2022,47 +2022,55 @@ that signal — empirical question.</p>
   <code>prep_phase2_prices.py</code> prep step)</li>
 </ul>
 </li>
-<li>🟡 <strong>Phase-2 3-arm: raw bundle overfits, DWT-L1 fixes the
-  overfit but not val.</strong> See
+<li>🟡 <strong>Phase-2 3-arm (in-sample for the small-N hypothesis):</strong>
+  Ricker train 1.01 → val <strong>1.146</strong>; raw Morlet train 1.24 → val
+  0.84; Morlet-DWT-L1 train 0.99 → val 0.82. Both Morlet arms
+  cluster at val ≈ 0.83 regardless of capacity — pure
+  regularization didn't recover val. The standalone read at the
+  time was "bundle is weaker on N=21" but Phase-2 was always going
+  to be too narrow to distinguish bundle quality (mega-cap pool,
+  N=21, val Sharpe noise floor across variants of order ±0.3); see
   <a href="../../findings/relational-morlet-failure/">findings/relational-morlet-failure</a>
-  for the full numbers. Ricker train 1.01 → val <strong>1.146</strong>; raw
-  Morlet train 1.24 → val 0.84; Morlet-DWT-L1 train 0.99 → val
-  0.82. Both Morlet arms cluster at val ≈ 0.83 regardless of
-  capacity — <strong>capacity is not the explanation for the val
-  regression.</strong> The polar Morlet representation is genuinely weaker
-  for kNN distance on this universe + horizon, or Phase-2 is too
-  narrow to distinguish strong from weak strategies (Ricker val
-  1.15 collapses to ~0.48 off mega-caps; the Morlet 0.83 sits
-  between the two).</li>
-<li>🟡 <strong>Wider-universe Modal A/B (<code>stooq_us_long</code>, N=312) — IN
-  FLIGHT.</strong> <code>relational_morlet_stooq_long.py</code> (with the persistent
-  <code>ss-relational-cwt-cache</code> Modal volume) runs the same three arms
-  on a 15× larger pool. The result is the deciding gate: if Morlet
-  val ≥ Ricker val on this pool, the bundle is informative and
-  Phase-2 was just too narrow. If not, the bundle is universally
-  weaker for this objective and the migration to other distance
-  scorers stops here.</li>
-<li>⏸️ <strong>Pause extension to other strategies until the
-  wider-universe rerun resolves.</strong> Plumbing wavelet through
-  <code>empirical</code>, <code>gmm</code>, <code>farthest</code>, <code>diversified</code>, <code>velocity</code> is
-  deferred — the Phase-2 result already shows the bundle doesn't
-  help via kNN distance with or without regularization, so the
-  wider-universe outcome is the only remaining argument that could
-  flip the verdict.</li>
-<li>N/A Canonical checkpoint regen — <code>Output/relational-{strategy}.json</code>
-  files all stay on Ricker.</li>
+  for why.</li>
+<li>✅ <strong>Wider-universe Modal A/B (<code>stooq_us_long</code>, N=312) cleared:</strong>
+  Ricker train 0.611 → val 0.547; raw Morlet train 0.591 → val
+  <strong>0.717</strong> (+0.17 val Sharpe, train Δ −0.02 — no overfit);
+  Morlet-DWT-L1 train 0.696 → val <strong>0.247</strong> (+0.08 train, −0.30
+  val — DWT <em>introduces</em> overfit on the wider pool, opposite of
+  Phase-2). The bundle's extra channels (phase pair + Gaussian
+  companion) are informative for kNN-distance cross-sectional
+  return prediction once the candidate pool is large enough to
+  constrain them. <strong>Operational verdict: raw Morlet is the new
+  default for any wider-universe analog deploy; DWT-L1 stays
+  research-only (universe-dependent inversion); Phase-2-restricted
+  checkpoints stay on Ricker because the Phase-2 mega-cap basket is
+  itself the limiting factor (see
+  <a href="../../findings/relational-universe-shift/">universe-shift</a>).</strong></li>
+<li>🟢 <strong>Extension to other strategies is unblocked.</strong> Each of
+  <code>empirical</code>, <code>gmm</code>, <code>farthest</code>, <code>diversified</code>, <code>velocity</code> should
+  get the same plumbing (<code>wavelet=</code> through their <code>weights_*</code>
+  builders, dispatch entry in <code>inference._build_weights_panel</code>)
+  followed by an <code>stooq_us_long</code> 2-arm A/B (Ricker vs raw Morlet,
+  skip DWT-L1 — it's universe-dependent and stays research-only).
+  No <code>Output/relational-{strategy}.json</code> regenerates until each
+  per-strategy A/B clears the same +val-Sharpe-no-train-overfit
+  bar.</li>
+<li>🟡 Canonical checkpoint regen for <code>analog</code>: introduce a
+  parallel <code>Output/relational-analog-wide-morlet.json</code> (raw Morlet,
+  pinned to <code>stooq_us_long</code> universe) once a wider-universe
+  deploy target is confirmed. The Phase-2 <code>relational-analog.json</code>
+  stays on Ricker indefinitely — Phase-2 is a backtest universe,
+  not a deploy universe.</li>
 </ul>
 <p>Migration scope deviated from the prescribed "regime first" decision
 order — the user asked the relational migration first since <code>analog</code>
 is Phase-2's canonical winner and the SSL bundle is independently
-useful there. Regime is still pending; given that the analog
-<strong>raw-bundle</strong> gate failed but the DWT-L1 / wider-universe
-experiments haven't run, the regime migration's expected value is
-unchanged so far — its KL/JS divergence math operates on <code>|c|^2</code>
-only and so doesn't carry the phase + Gaussian DOF that drove the
-analog overfit. Regime migration is not blocked; queue it for after
-the analog gating experiments since their outcome informs whether
-to deploy raw or DWT-compressed Morlet there too.</p>
+useful there. Regime is still pending; the analog wider-universe
+result strengthens the case for migrating it: regime's KL/JS
+divergence math operates on <code>|c|^2</code> only (one channel per scale,
+DOF identical to Ricker), so the train-side overfit risk that
+showed up on Phase-2 analog doesn't apply. Queue regime as the next
+A/B target now that the bundle has cleared one wider-universe gate.</p>
 <p>Files (every CWT-touching scoring module):</p>
 <ul>
 <li><code>apps/relational/src/relational/scalogram_cache.py:30,66</code> — the

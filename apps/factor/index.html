@@ -679,6 +679,17 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
+  <a href="#how-factor-uses-the-replay-backbone" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        How factor uses the replay backbone
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#the-deterministic-indicator-baseline" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1719,6 +1730,17 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
+  <a href="#how-factor-uses-the-replay-backbone" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        How factor uses the replay backbone
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#the-deterministic-indicator-baseline" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1835,14 +1857,75 @@
 same head + objective:</p>
 <ol>
 <li>The SSL-pretrained CNN backbone produced by <code>ss-replay --decoder
-   cnn</code>, loaded via <code>ss_features.load_backbone</code>.</li>
+   cnn</code>, loaded via <code>ss_features.load_backbone</code>. The replay trainer's
+   per-target reconstruction heads are discarded; only the shared
+   conv stack survives into the npz.</li>
 <li><code>IndicatorGridConfig</code> — a 74-channel deterministic stack of strided
    RSI/CCI grids, MACD over a fast-period grid, realized vol over a
    window grid, and rolling Pearson coherence between short/long
    realized vol — fed through <code>identity_backbone(K=1, F=74)</code>.</li>
 </ol>
-<p>Walk-forward eval is the OOS protocol; the rolling-train-and-fresh-head
-loop is the only honest answer to overfitting in this regime.</p>
+<p>Both paths share the rest of the stack: a fresh <strong>linear or MLP head</strong>
+initialized per run, an <strong>AdamW loop minimizing <code>-pearson_rank_ic</code></strong>
+against forward log-returns at rebalance granularity, and a per-window
+walk-forward wrapper that rolls a fresh head across rolling
+train/val splits. Sharpe is logged via <code>block_sharpe</code> for evaluation
+only — rank-IC gives a per-rebalance dense gradient signal that
+converges much faster than direct Sharpe optimization.</p>
+<table>
+<thead>
+<tr>
+<th>Path</th>
+<th>Backbone</th>
+<th>Head</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>SSL (<code>train_scorer</code>)</td>
+<td>replay-pretrained conv (frozen by default; optionally fine-tuned in Stage 2 at 0.1× lr)</td>
+<td>fresh linear or MLP, learns rank-IC</td>
+</tr>
+<tr>
+<td>IndicatorGridConfig (<code>train_scorer_indicators</code>)</td>
+<td>identity (no learned weights — <code>K=1, F=74</code> strided-RSI/CCI/MACD/vol stack passes straight through)</td>
+<td>same rank-IC head</td>
+</tr>
+</tbody>
+</table>
+<p>The IndicatorGridConfig path is there so we can compare <em>does the SSL
+backbone beat hand-crafted indicators on the same head + objective</em>
+head-to-head — the +0.012 mean val IC of the deterministic baseline
+is the bar.</p>
+<h2 id="how-factor-uses-the-replay-backbone">How factor uses the replay backbone<a class="headerlink" href="#how-factor-uses-the-replay-backbone" title="Permanent link">&para;</a></h2>
+<p><code>factor.train.train_scorer</code> is two-stage:</p>
+<ul>
+<li><strong>Stage 1 (always runs).</strong> The frozen backbone is forward-passed
+  over every (date, ticker) feature row once up front
+  (<code>precompute_inputs</code>); latents materialize on host as numpy. A
+  fresh linear or MLP head streams Tensor minibatches of that cached
+  representation and runs <code>n_steps</code> AdamW updates against rank-IC.
+  Cheap — the backbone forward is amortized.</li>
+<li><strong>Stage 2 (optional, off by default).</strong> When <code>finetune_steps &gt; 0</code>,
+  the cached representation is dropped (it goes stale once weights
+  move) and the encoder is re-applied per-step on raw features.
+  Backbone params get <code>learning_rate * finetune_lr_scale</code> (default
+  0.1×) so the pretrained features get nudged, not overwritten; head
+  stays at full lr.</li>
+</ul>
+<p><code>feat_mu</code> / <code>feat_sd</code> (input z-norm) are not optimized in either
+stage — the backbone keeps seeing the same input distribution it was
+pretrained on. The <strong>input bundle factor builds at runtime</strong> is the
+<a href="../../TODO/polar-morlet-migration/">polar Morlet bundle</a> from
+<code>ss_features.load_ticker</code> (<code>build_features_and_targets</code>) — 7 channels
+per scale (<code>|c|, |c|², cos(arg), sin(arg), g, g², log_L2_amp</code>) over
+a <code>window_cols</code>-bar lag stack. Fresh runs against the new-bundle
+backbones in <code>Output/</code> are end-to-end consistent; older 2-channel
+backbones in <code>Output/</code> are stale and will fail with a shape mismatch
+on the first conv (worth deleting before they confuse anyone).</p>
+<p>Walk-forward eval (<code>train_scorer_walkforward</code>) is the OOS protocol;
+the rolling-train-and-fresh-head loop is the only honest answer to
+overfitting in this regime.</p>
 <h2 id="the-deterministic-indicator-baseline">The deterministic indicator baseline<a class="headerlink" href="#the-deterministic-indicator-baseline" title="Permanent link">&para;</a></h2>
 <p><img alt="74-channel IndicatorGridConfig walk-forward — linear vs MLP heads" src="../images/factor-indicator-grid.png" /></p>
 <p>What 74 hand-designed channels can buy you on a 297-ticker universe at
