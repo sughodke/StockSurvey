@@ -61,8 +61,8 @@ from factor.indicator_features import (
     train_scorer_indicators_walkforward,
 )
 from factor.objectives import (
-    block_sharpe, block_sharpe_long_short, long_short_weights,
-    masked_mse, pearson_rank_ic,
+    block_ir_vs_ew, block_sharpe, block_sharpe_long_short,
+    long_short_weights, masked_mse, pearson_rank_ic,
 )
 from factor.scorers import (
     SCORERS, apply_linear, apply_mlp, apply_mlp_multitask, get_scorer,
@@ -91,6 +91,7 @@ __all__ = [
     'apply_mlp',
     'apply_mlp_multitask',
     'backbone_to_pytree',
+    'block_ir_vs_ew',
     'block_sharpe',
     'block_sharpe_long_short',
     'build_indicator_features',

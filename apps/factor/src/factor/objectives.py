@@ -200,7 +200,61 @@ def block_sharpe_long_short(
     return mean / std * Tensor((TRADING_DAYS / rebal_days) ** 0.5)
 
 
+def block_ir_vs_ew(
+    rebal_scores: Tensor,
+    log_temperature: Tensor,
+    block_log_ret: Tensor,
+    rebal_mask: Tensor,
+    rebal_days: int,
+    commission_frac: float,
+) -> Tensor:
+    """Annualized Information Ratio of the softmax-LO portfolio vs the
+    universe's EW benchmark.
+
+    `IR_t = (port_after_cost_t − ew_pre_cost_t) / TE`. EW benchmark is
+    the per-bar mean of `block_log_ret` over `rebal_mask=1` cells —
+    treated as frictionless (the standard convention; matched-friction
+    EW would require modeling EW's drift-rebalance turnover, which
+    only adds bias in the same direction for both arms).
+
+    Mirrors `block_sharpe`'s constructor and cost treatment exactly,
+    so this is a drop-in replacement loss for that path. The optimum
+    of this loss differs from the optimum of `block_sharpe`: this one
+    rewards alpha per unit *tracking error*, not per unit total
+    volatility — directly aligned with the EW gate operational rule
+    in `CLAUDE.md` that requires `alpha = model_val_sharpe −
+    passive_val_sharpe ≥ 0` for shippability.
+
+    Why it matters: rank-IC training is scale-invariant and rewards
+    spreading thin information across the cross-section. Sharpe-as-loss
+    rewards risk-adjusted absolute return. IR-as-loss rewards
+    risk-adjusted *active* return, which is the metric the EW gate
+    measures. See `findings/factor-rankic-long-only-mismatch.md` for
+    the diagnostic that motivated this loss.
+    """
+    temp = log_temperature.exp()
+    s = rebal_scores / temp + (rebal_mask + 1e-12).log()
+    s = s - s.max(axis=1, keepdim=True)
+    exp_s = s.exp() * rebal_mask
+    w = exp_s / (exp_s.sum(axis=1, keepdim=True) + 1e-12)
+
+    port_block_ret = (w * block_log_ret).sum(axis=1)
+    counts = rebal_mask.sum(axis=1).maximum(1.0)
+    ew_block_ret = (block_log_ret * rebal_mask).sum(axis=1) / counts
+
+    init_cost = w[0].abs().sum()
+    diff_cost = 0.5 * (w[1:] - w[:-1]).abs().sum(axis=1)
+    costs = commission_frac * init_cost.reshape(1).cat(diff_cost, dim=0)
+    port_block_ret = port_block_ret - costs
+
+    active = port_block_ret - ew_block_ret
+    mean = active.mean()
+    std = active.std() + 1e-9
+    return mean / std * Tensor((TRADING_DAYS / rebal_days) ** 0.5)
+
+
 __all__ = [
     'TRADING_DAYS', 'block_sharpe', 'block_sharpe_long_short',
-    'long_short_weights', 'masked_mse', 'pearson_rank_ic',
+    'block_ir_vs_ew', 'long_short_weights', 'masked_mse',
+    'pearson_rank_ic',
 ]

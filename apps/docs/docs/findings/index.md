@@ -23,6 +23,7 @@ Default eval window unless otherwise stated: 2013-01-29 → 2025-12-11,
 - [f32 forward log returns silently regressed val IC by 6× — Pearson cancellation in the +0.003 signal regime](factor-f32-precision-cancellation.md)
 - [Multi-task aux head regularizes the MLP arm (+0.012 vs mlp) but does not clear the indicator baseline](factor-multitask-aux-head.md)
 - [`aux_weight` sweep falsifies cross-sectional magnitude extraction at H=20 — fourth-branch outcome (train fits, val anti-correlates)](factor-multitask-aux-weight-sweep.md)
+- [Loss-pivot eval — Sharpe and IR-vs-EW losses underperform rank-IC by 0.37 Sharpe (rank-IC's spread-thin behavior was inadvertent risk control)](factor-loss-pivot.md)
 
 ## Replay app
 

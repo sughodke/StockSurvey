@@ -28,7 +28,8 @@ from ss_features import TickerData, block_windows
 from factor.backbone import Backbone
 from factor.data import AlignedTickers
 from factor.objectives import (
-    block_sharpe, block_sharpe_long_short, masked_mse, pearson_rank_ic,
+    block_ir_vs_ew, block_sharpe, block_sharpe_long_short,
+    masked_mse, pearson_rank_ic,
 )
 from factor.scorers import get_scorer
 from factor.train import precompute_inputs
@@ -58,6 +59,9 @@ class WalkForwardWindow:
     val_aux_mse:       float = float('nan')
     train_sharpe_long_short: float = float('nan')
     val_sharpe_long_short:   float = float('nan')
+    train_ir_vs_ew:    float = float('nan')
+    val_ir_vs_ew:      float = float('nan')
+    final_log_temperature: float = 0.0
 
 
 @dataclass
@@ -97,6 +101,18 @@ class WalkForwardResult:
         if not self.windows:
             return float('nan')
         return float(np.mean([w.val_sharpe for w in self.windows]))
+
+    @property
+    def mean_val_ir_vs_ew(self) -> float:
+        if not self.windows:
+            return float('nan')
+        return float(np.mean([w.val_ir_vs_ew for w in self.windows]))
+
+    @property
+    def positive_val_ir_vs_ew_fraction(self) -> float:
+        if not self.windows:
+            return float('nan')
+        return float(np.mean([w.val_ir_vs_ew > 0 for w in self.windows]))
 
     @property
     def mean_val_sharpe_long_short(self) -> float:
@@ -144,6 +160,7 @@ def train_scorer_walkforward(
     forward_target_kind: str = 'log_return',
     aux_weight:  float = 0.0,
     aux_winsor:  tuple[float, float] = (0.01, 0.99),
+    loss_kind:   str = 'rank_ic',
     verbose:     bool = True,
 ) -> WalkForwardResult:
     """Walk-forward variant of `train_scorer`.
@@ -187,6 +204,16 @@ def train_scorer_walkforward(
             'the aux head trains nothing — use scorer=mlp instead)')
     is_multitask = scorer == 'mlp_multitask'
 
+    valid_losses = {'rank_ic', 'block_sharpe', 'ir_vs_ew'}
+    if loss_kind not in valid_losses:
+        raise ValueError(
+            f'loss_kind={loss_kind!r} not in {sorted(valid_losses)}')
+    if loss_kind != 'rank_ic' and is_multitask:
+        raise ValueError(
+            f'loss_kind={loss_kind!r} not supported with mlp_multitask '
+            f'(aux loss is rank-IC-coupled by construction)')
+    train_temp = loss_kind != 'rank_ic'
+
     if step_window_blocks is None:
         step_window_blocks = val_window_blocks
 
@@ -212,8 +239,6 @@ def train_scorer_walkforward(
             f'each window needs train+val={train_window_blocks + val_window_blocks}')
 
     init_fn, apply_fn = get_scorer(scorer)
-    log_temperature = Tensor(np.array(init_log_temperature, dtype=np.float32),
-                             requires_grad=False)
 
     if verbose:
         aux_tag = (
@@ -222,8 +247,8 @@ def train_scorer_walkforward(
         print(f'walk-forward: {len(slices)} windows over {n_blocks} blocks  '
               f'(train={train_window_blocks}, val={val_window_blocks}, '
               f'step={step_window_blocks})  scorer={scorer} '
-              f'n_steps={n_steps} lr={learning_rate} wd={weight_decay} '
-              f'target={forward_target_kind}{aux_tag}')
+              f'loss={loss_kind} n_steps={n_steps} lr={learning_rate} '
+              f'wd={weight_decay} target={forward_target_kind}{aux_tag}')
 
     result = WalkForwardResult(
         scorer=scorer, n_steps=n_steps, learning_rate=learning_rate,
@@ -248,7 +273,20 @@ def train_scorer_walkforward(
             head_params = init_fn(rng, backbone.hidden_flat)
 
         head_param_list = list(head_params.values())
-        opt = AdamW(head_param_list, lr=learning_rate, weight_decay=weight_decay)
+        # Sharpe / IR losses care about score magnitude (constructor is
+        # softmax(score / temp)), so the temperature is part of what
+        # the optimizer should tune. Rank-IC is scale-invariant so the
+        # temperature is irrelevant to its loss; keep it frozen at
+        # init for backwards compatibility with prior runs.
+        # Shape (1,) not () so AdamW.assign's shape-match works
+        # (tinygrad's broadcast doesn't drop dims).
+        log_temperature = Tensor(
+            np.array([init_log_temperature], dtype=np.float32),
+            requires_grad=train_temp)
+        opt_params = list(head_param_list)
+        if train_temp:
+            opt_params.append(log_temperature)
+        opt = AdamW(opt_params, lr=learning_rate, weight_decay=weight_decay)
 
         repr_train = Tensor(repr_rb_np[train_slc])
         fwd_train  = Tensor(fwd_rb_np[train_slc])
@@ -263,6 +301,7 @@ def train_scorer_walkforward(
         aux_val: Tensor | None = (
             Tensor(aux_rb_np[val_slc]) if is_multitask else None)
 
+        commission_frac = commission_bps / 1e4
         for _ in range(n_steps):
             Tensor.training = True
             opt.zero_grad()
@@ -273,8 +312,18 @@ def train_scorer_walkforward(
                     -pearson_rank_ic(s_p, fwd_train, mask_train)
                     + aux_weight * masked_mse(s_a, aux_train, mask_train)
                 )
-            else:
+            elif loss_kind == 'rank_ic':
                 loss = -pearson_rank_ic(out, fwd_train, mask_train)
+            elif loss_kind == 'block_sharpe':
+                loss = -block_sharpe(
+                    out, log_temperature, blr_train, mask_train,
+                    rebal_days, commission_frac)
+            elif loss_kind == 'ir_vs_ew':
+                loss = -block_ir_vs_ew(
+                    out, log_temperature, blr_train, mask_train,
+                    rebal_days, commission_frac)
+            else:
+                raise AssertionError(f'unreachable loss_kind={loss_kind}')
             loss.backward()
             opt.step()
 
@@ -306,14 +355,24 @@ def train_scorer_walkforward(
         val_sh_ls   = float(block_sharpe_long_short(
             s_val,   blr_val,   mask_val,
             rebal_days, commission_bps / 1e4).item())
+        train_ir = float(block_ir_vs_ew(
+            s_train, log_temperature, blr_train, mask_train,
+            rebal_days, commission_bps / 1e4).item())
+        val_ir   = float(block_ir_vs_ew(
+            s_val,   log_temperature, blr_val,   mask_val,
+            rebal_days, commission_bps / 1e4).item())
+        final_log_temp = float(np.asarray(log_temperature.numpy()).reshape(-1)[0])
 
         if verbose:
             postfix = {
                 'tr_ic': f'{train_ic:+.3f}',
                 'val_ic': f'{val_ic:+.3f}',
                 'val_sh': f'{val_sh:+.2f}',
+                'val_ir': f'{val_ir:+.2f}',
                 'val_sh_ls': f'{val_sh_ls:+.2f}',
             }
+            if train_temp:
+                postfix['logT'] = f'{final_log_temp:+.2f}'
             if is_multitask:
                 postfix['val_aux'] = f'{val_aux_mse:.3f}'
             pbar.set_postfix(**postfix)
@@ -330,6 +389,8 @@ def train_scorer_walkforward(
             train_aux_mse=train_aux_mse, val_aux_mse=val_aux_mse,
             train_sharpe_long_short=train_sh_ls,
             val_sharpe_long_short=val_sh_ls,
+            train_ir_vs_ew=train_ir, val_ir_vs_ew=val_ir,
+            final_log_temperature=final_log_temp,
         ))
 
     if verbose:
