@@ -42,6 +42,20 @@ change the headline factor verdict.
 - Modal `cpu=4, gpu=T4, memory=192GB` after three OOM-bumps
   (`cac94e1` → `ed4043f` → memory + copy-elim in `3451900`).
 
+!!! note "f32 precision regression + restoration (2026-05-10)"
+    The 2026-05-09 numbers below were silently regressed for ~24h by
+    commit
+    [`3002e8d`](https://github.com/sughodke/StockSurvey/commit/3002e8d)'s
+    f32 demotion of `forward_log_returns` /
+    `daily_log_ret`, then restored by
+    [`9209fa9`](https://github.com/sughodke/StockSurvey/commit/9209fa9).
+    Mean linear val IC drifted +0.0031 → +0.0005 (regressed) →
+    +0.0031 (restored). Mechanism is Pearson-IC numerator
+    cancellation in f32 — see
+    [`factor-f32-precision-cancellation`](factor-f32-precision-cancellation.md).
+    The per-window numbers in the table below are the f64 truth and
+    reproduce bit-for-bit on the post-fix path.
+
 ## Walk-forward result (2026-05-09)
 
 ![Supervised-`cnn` backbone vs indicator baseline, 6 rolling windows](images/factor-ssl-walkforward.png)

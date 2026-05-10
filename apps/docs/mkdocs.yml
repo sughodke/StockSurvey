@@ -95,6 +95,7 @@ nav:
       - Factor indicator-IC baseline: findings/factor-indicator-baseline.md
       - Factor SSL walkforward: findings/factor-ssl-walkforward.md
       - Time-reversal symmetry: findings/time-reversal-symmetry.md
+      - Factor f32 precision cancellation: findings/factor-f32-precision-cancellation.md
       - Replay decoder options: findings/replay-decoders.md
       - Replay DWT compression: findings/replay-dwt-compression.md
       - Replay length-axis (K) compression: findings/replay-length-axis-compression.md

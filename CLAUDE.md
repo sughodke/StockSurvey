@@ -155,6 +155,7 @@ Two implicit prerequisites enforced earlier:
 - **Do not pin `compression=` on canonical relational checkpoints.** DWT-L1 won single-arm bt but failed walk-forward across all four distance scorers.
 - **Replay CNN: `--compress dwt --compress-levels 1 --compress-wavelet haar` is safe** for SSL backbone training (~4× input shrink, no quality loss on RSI/CCI/vol). MACD remains pathological in either arm.
 - **The regime signal works on monthly-to-biannual horizons.** Short-scale weights collapse to <1% under JAX-Adam; don't expect short-term predictiveness.
+- **Keep `forward_log_returns` and any rank-IC target array at f64 internally.** `pearson_rank_ic`'s covariance numerator cancels catastrophically when val IC is small (~0.003); f32 rounding on `log_p` propagates to the cov sum at exactly that magnitude. The Tensor-boundary cast to f32 in `precompute_inputs` is the only place precision should drop. See `findings/factor-f32-precision-cancellation.md` for the regression-and-fix that motivated this rule.
 
 ## Common workflows
 

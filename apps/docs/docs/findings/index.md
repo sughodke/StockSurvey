@@ -20,6 +20,7 @@ Default eval window unless otherwise stated: 2013-01-29 → 2025-12-11,
 - [Deterministic-indicator val-IC baseline (the bar the supervised-`cnn` backbone must beat)](factor-indicator-baseline.md)
 - [Supervised-`cnn` walk-forward on the polar Morlet bundle does not clear the indicator baseline](factor-ssl-walkforward.md)
 - [Time-reversal symmetry diagnostic — what reversed-price training would tell us about the encoder](time-reversal-symmetry.md)
+- [f32 forward log returns silently regressed val IC by 6× — Pearson cancellation in the +0.003 signal regime](factor-f32-precision-cancellation.md)
 
 ## Replay app
 
