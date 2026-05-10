@@ -113,6 +113,8 @@ nav:
       - Polar Morlet migration: TODO/polar-morlet-migration.md
       - Review follow-ups: TODO/review-followups.md
       - Different prediction problem: TODO/different-prediction-problem.md
+      - apps/pairs (pair-spread mean reversion): TODO/apps-pairs.md
+      - apps/vol (IV-vs-realized vol mispricing): TODO/apps-vol.md
       - RSI long-period ablation: TODO/rsi-long-period-ablation.md
       - FiLM w=1 diagnostic: TODO/film-w1-diagnostic.md
       - Backbone architecture: TODO/backbone-architecture.md

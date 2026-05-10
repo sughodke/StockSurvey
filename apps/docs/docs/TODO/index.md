@@ -11,6 +11,8 @@ Active backlog for the StockSurvey monorepo. Each section from the original
 ## Research threads
 
 - [Different prediction problem — pair-spread / drawdown / IV-vs-realized](different-prediction-problem.md)
+  - [`apps/pairs` — pair-spread mean reversion (rank 2 of 3)](apps-pairs.md)
+  - [`apps/vol` — IV-vs-realized vol mispricing (rank 3 of 3)](apps-vol.md)
 - [Ablation — disentangle why long-period RSI underperforms](rsi-long-period-ablation.md)
 - [Diagnose why w=1 row underperforms in the FiLM (w, n) head](film-w1-diagnostic.md)
 - [Backbone architecture — broader window/indicator coverage](backbone-architecture.md)
