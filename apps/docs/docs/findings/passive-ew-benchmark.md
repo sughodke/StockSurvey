@@ -1,3 +1,12 @@
+---
+tags:
+  - phase-2
+  - stooq_us_long
+  - factor-narrow
+  - factor-wide
+  - diagnostic
+---
+
 # Passive equal-weight benchmark — every "shippable" relational row was alpha-zero or alpha-negative
 
 **Operational rule (added 2026-05-10 to

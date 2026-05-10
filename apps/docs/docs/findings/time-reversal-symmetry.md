@@ -1,3 +1,8 @@
+---
+tags:
+  - diagnostic
+---
+
 # Time-reversal symmetry — what reversed-price training would tell us about the encoder
 
 A diagnostic about *what kind* of information the

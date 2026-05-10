@@ -1,3 +1,10 @@
+---
+tags:
+  - phase-2
+  - stooq_us_long
+  - reversed-OOS
+---
+
 # Relational analog cross_ticker — universe shift OFF mega-caps collapses the val edge
 
 **Operational rule:** `Output/relational-analog.json` should remain

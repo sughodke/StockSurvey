@@ -1,3 +1,10 @@
+---
+tags:
+  - regime-2010-24
+  - diagnostic
+  - confirmed-OOS
+---
+
 # Regime baselines, Optuna instability, JAX-Adam scale-weight collapse
 
 Eval window: 2013-01-29 → 2025-12-11, 10bps commission, 20-day rebal.

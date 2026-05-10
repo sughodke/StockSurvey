@@ -1,3 +1,9 @@
+---
+tags:
+  - factor-narrow
+  - confirmed-null
+---
+
 # Factor — `aux_weight` sweep falsifies cross-sectional magnitude extraction at H=20
 
 **Operational rule.** The

@@ -1,3 +1,9 @@
+---
+tags:
+  - regime-2010-24
+  - confirmed-OOS
+---
+
 # Log-returns CWT input degrades Sharpe
 
 **Operational rule:** default to raw close for the regime trainer's

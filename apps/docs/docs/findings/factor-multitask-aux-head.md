@@ -1,3 +1,10 @@
+---
+tags:
+  - factor-narrow
+  - partial-OOS
+  - confirmed-null
+---
+
 # Factor — multi-task auxiliary head regularizes the MLP arm but does not clear the indicator baseline
 
 **Operational rule (post-sweep, 2026-05-10):** the

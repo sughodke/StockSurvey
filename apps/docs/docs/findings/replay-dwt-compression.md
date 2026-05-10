@@ -1,3 +1,9 @@
+---
+tags:
+  - stooq_us_long
+  - partial-OOS
+---
+
 # Replay CNN — 2D DWT keep-LL compression preserves indicator-reconstruction signal
 
 **Operational rule:** replay

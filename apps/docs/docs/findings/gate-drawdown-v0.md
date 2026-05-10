@@ -1,3 +1,9 @@
+---
+tags:
+  - stooq_us_long
+  - partial-OOS
+---
+
 # Drawdown gate v0 — real Pearson signal, marginal Sharpe lift
 
 First test of the [`different-prediction-problem`](../TODO/different-prediction-problem.md)

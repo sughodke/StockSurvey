@@ -1,3 +1,9 @@
+---
+tags:
+  - stooq_us_long
+  - partial-OOS
+---
+
 # Replay decoder options — what `--decoder` actually selects
 
 `ss-replay --decoder` selects what trains on top of the polar Morlet

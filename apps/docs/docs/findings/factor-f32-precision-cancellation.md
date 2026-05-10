@@ -1,3 +1,9 @@
+---
+tags:
+  - factor-narrow
+  - diagnostic
+---
+
 # Factor — f32 forward log returns silently regressed val IC by 6×
 
 **Operational rule:** keep `forward_log_returns`, `daily_log_ret`,

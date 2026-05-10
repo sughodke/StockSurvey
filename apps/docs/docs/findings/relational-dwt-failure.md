@@ -1,3 +1,9 @@
+---
+tags:
+  - phase-2
+  - reversed-OOS
+---
+
 # Relational distance scorers — DWT-L1 fingerprint compression FAILS OOS
 
 **Operational rule: do NOT pin compression on canonical relational

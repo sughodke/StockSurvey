@@ -74,6 +74,8 @@ markdown_extensions:
 
 plugins:
   - search
+  - tags:
+      tags_file: tags.md
 
 nav:
   - Home: index.md
@@ -88,6 +90,7 @@ nav:
       - packages/index.md
   - Leaderboard: leaderboard.md
   - Notes: notes.md
+  - Tags: tags.md
   - Findings:
       - findings/index.md
       - Regime baselines: findings/regime-baselines.md

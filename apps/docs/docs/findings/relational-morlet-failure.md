@@ -1,3 +1,10 @@
+---
+tags:
+  - phase-2
+  - stooq_us_long
+  - reversed-OOS
+---
+
 # Relational analog k-NN — Phase-2 bundle overfit was a small-N artifact; raw polar Morlet wins on stooq_us_long
 
 **Operational rule, post-`stooq_us_long` rerun (2026-05-09):** the

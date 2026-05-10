@@ -1,3 +1,9 @@
+---
+tags:
+  - factor-narrow
+  - confirmed-null
+---
+
 # Rank-IC trains a signed signal that long-only top-N can only half-execute
 
 A structural diagnostic on the gap between training metric and

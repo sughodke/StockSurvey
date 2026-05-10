@@ -1,3 +1,10 @@
+---
+tags:
+  - factor-narrow
+  - confirmed-OOS
+  - partial-OOS
+---
+
 # Factor deterministic-indicator val-IC baseline
 
 The bar the supervised-`cnn` CWT backbone path must beat: **mean val

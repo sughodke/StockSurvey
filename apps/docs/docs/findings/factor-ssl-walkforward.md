@@ -1,3 +1,9 @@
+---
+tags:
+  - factor-narrow
+  - confirmed-null
+---
+
 # Factor SSL walkforward (supervised-`cnn` backbone) — polar Morlet bundle does not clear the indicator baseline
 
 **Decoder note (2026-05-09):** the backbone evaluated here was

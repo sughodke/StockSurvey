@@ -1,3 +1,9 @@
+---
+tags:
+  - factor-narrow
+  - confirmed-null
+---
+
 # Loss-pivot eval — Sharpe and IR-vs-EW losses underperform rank-IC by 0.37 Sharpe
 
 The cheap test motivated by the user's diagnosis after the

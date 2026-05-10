@@ -1,3 +1,9 @@
+---
+tags:
+  - stooq_us_long
+  - partial-OOS
+---
+
 # Replay CNN — length-axis (K) sufficiency for indicator reconstruction
 
 **Operational rule:** for the
