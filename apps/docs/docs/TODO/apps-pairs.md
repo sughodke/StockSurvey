@@ -1,10 +1,10 @@
 # `apps/pairs` — pair-spread mean reversion
 
-**Status: queued (rank 2 of 3 in the prediction-problem pivot).**
-After [`apps/gate`](apps-gate.md) (cheapest, reuses existing
-`apps/factor` infra) lands a verdict, this is the next prediction
-problem to attempt. Tracking it as its own TODO so the design is
-ready when we pick it up.
+**Status: in-flight (2026-05-10).** Scaffolding shipped — see
+[`apps/pairs`](../apps/pairs.md). Classical baseline walk-forward
+on factor-narrow is running; result lands as a leaderboard row +
+finding when it completes. v2 ML head still parked pending v1
+verdict.
 
 ## The prediction problem
 
