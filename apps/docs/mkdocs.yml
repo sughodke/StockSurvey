@@ -103,6 +103,7 @@ nav:
       - Relational universe shift: findings/relational-universe-shift.md
       - Relational DWT-L1 OOS failure: findings/relational-dwt-failure.md
       - Relational polar Morlet OOS failure: findings/relational-morlet-failure.md
+      - Passive EW benchmark (regrades shippable rows): findings/passive-ew-benchmark.md
   - Workflows: workflows.md
   - TODO:
       - TODO/index.md
