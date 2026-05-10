@@ -161,6 +161,19 @@ the 2-channel encoder's choices. Two readings of the headline:
 
 ## Outstanding questions
 
+**Multi-task aux head — answered (2026-05-10):** the
+`mlp_multitask` arm with `aux_weight=0.1` lifts mean val IC by
++0.012 over the `mlp` baseline (−0.0120 → +0.0001) but does not
+clear the linear-on-encoder baseline (+0.0031) or the
+[indicator baseline (+0.0120)](factor-indicator-baseline.md). The
+lift is gradient regularization through the shared trunk, not aux
+magnitude extraction (val_aux MSE pinned at ~1.0 — the aux head
+itself learned nothing). Full result in
+[`factor-multitask-aux-head`](factor-multitask-aux-head.md);
+follow-up `aux_weight ∈ {1.0, 10.0}` sweep in
+[`TODO/multitask-aux-weight-sweep`](../TODO/multitask-aux-weight-sweep.md).
+The supervision-is-binding reading from this finding stands.
+
 **Strict-SSL backbone (`--decoder masked-ae`) vs supervised-`cnn`.**
 The result above is on a `cnn`-trained backbone (per-target
 indicator reconstruction with self-derived labels). The strict-SSL

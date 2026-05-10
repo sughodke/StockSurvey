@@ -21,6 +21,7 @@ Default eval window unless otherwise stated: 2013-01-29 → 2025-12-11,
 - [Supervised-`cnn` walk-forward on the polar Morlet bundle does not clear the indicator baseline](factor-ssl-walkforward.md)
 - [Time-reversal symmetry diagnostic — what reversed-price training would tell us about the encoder](time-reversal-symmetry.md)
 - [f32 forward log returns silently regressed val IC by 6× — Pearson cancellation in the +0.003 signal regime](factor-f32-precision-cancellation.md)
+- [Multi-task aux head regularizes the MLP arm (+0.012 vs mlp) but does not clear the indicator baseline](factor-multitask-aux-head.md)
 
 ## Replay app
 
