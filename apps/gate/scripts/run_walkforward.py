@@ -20,6 +20,7 @@ import json
 from pathlib import Path
 
 import numpy as np
+import pandas as pd
 
 from ss_loaders import load_stooq_matrix
 
@@ -61,6 +62,13 @@ def main() -> None:
                         'train predictions.')
     p.add_argument('--gate-mode', default='binary',
                    choices=['binary', 'sigmoid'])
+    p.add_argument('--with-macro', action='store_true',
+                   help='Include FRED macro features (fed_funds, '
+                        'credit_baa, m2_yoy, real_yield_10y, vix) in '
+                        'the predictor stack. Drops the Pearson-r-noise '
+                        'slope_10y_3m feature per the macro-regime-'
+                        'diagnostic finding. Adds ~3y to the usable '
+                        'date floor (TIPS DFII10 starts 2003).')
     p.add_argument('--output-dir', default=str(DEFAULT_OUTPUT))
     args = p.parse_args()
 
@@ -81,6 +89,23 @@ def main() -> None:
     agg = build_ew_aggregate(prices, min_active=10)
     feat_df = build_aggregate_features(agg)
     target = forward_max_drawdown(agg.ew_log_ret, horizon=args.horizon)
+
+    if args.with_macro:
+        # Per macro-regime-diagnostic finding: 5 of 6 FRED features
+        # carry directional signal (Pearson r [+0.34, +0.49] or
+        # -0.38). Drop the noise feature (slope_10y_3m, |r|=0.06).
+        from ss_macro import load_macro_panel
+        print('  loading macro panel from FRED...')
+        macro = load_macro_panel(target_index=feat_df.index)
+        macro_keep = ['fed_funds', 'credit_baa', 'm2_yoy',
+                      'real_yield_10y', 'vix']
+        macro_features = macro[macro_keep]
+        # Concat to gate's existing 10-feature aggregate stack.
+        feat_df = pd.concat([feat_df, macro_features], axis=1)
+        print(f'  added {len(macro_keep)} macro features → '
+              f'feature stack now {len(feat_df.columns)} cols '
+              f'({list(feat_df.columns)})')
+
     feature_names = list(feat_df.columns)
 
     mask = (~feat_df.isna().any(axis=1).values) & (~np.isnan(target))
@@ -200,7 +225,8 @@ def main() -> None:
                    'window before deciding')
     print(f'\nverdict: {verdict}')
 
-    out_path = output / 'gate-walkforward-summary.json'
+    suffix = '-with-macro' if args.with_macro else ''
+    out_path = output / f'gate-walkforward-summary{suffix}.json'
     out_path.write_text(json.dumps({
         'horizon': args.horizon,
         'gate_mode': args.gate_mode,

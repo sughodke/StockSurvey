@@ -224,6 +224,141 @@ Either way, the macro infrastructure (`packages/macro/`) is
 load-bearing for the next step in the prediction-problem-pivot
 arc.
 
+## v1 results (2026-05-11)
+
+Both v1 arms ran. The diagnostic's "either way" prediction was
+half right: within-app feature integration backfired (option 1),
+the meta-gate is partially useful (option 3) but the simple
+binary VIX threshold is too crude to fully capture the
+diagnostic-level signal.
+
+### v1a — macro as direct features in gate's predictor stack (`run_walkforward.py --with-macro`)
+
+5 macro features (`fed_funds`, `credit_baa`, `m2_yoy`,
+`real_yield_10y`, `vix`; dropped `slope_10y_3m` as the
+diagnostic showed it was the noise feature) added to gate's
+existing 10-feature aggregate stack. Re-ran the walk-forward.
+
+| Metric | v0 (no macro) | v1a (with macro) | Δ |
+|---|---:|---:|---:|
+| mean val Pearson r | +0.264 | **+0.012** | −0.252 |
+| mean alpha | +0.067 | **−0.086** | **−0.153** |
+| Positive windows | 4/6 | **1/5** | |
+| Verdict | partial-OOS | **FAIL (worse than null)** | |
+
+The COVID window (val 2020-05 → 2023-06) is the killer: gated
+Sharpe +0.263 vs unc +1.045, alpha **−0.782**. The predictor
+trained on 2015-2020 (Goldilocks low-vol calm) saw macro
+features within a tight distribution; in val (COVID + Fed
+extreme + war), macro features hit values the train slice
+never saw, and the model overfit to "VIX high → expect DD"
+fired during the *recovery* from COVID rather than during the
+crash. Flatting cost +0.78 of Sharpe.
+
+**Lesson:** macro features have non-stationary distributions
+across train/val regimes. Adding them as direct predictor
+inputs forces the model to extrapolate out-of-distribution.
+The within-app features that worked (vol, return, drawdown)
+are scale-invariant — their distributions don't shift much
+between calm and stress regimes; they just take different
+values within a stable range. Macro features are the
+opposite: a Fed funds reading of 5% is fundamentally a
+different operating point from 0%, not just "more of the
+same."
+
+Verdict for v1a: `confirmed-null` worse than baseline.
+
+### v1b — macro as a binary meta-gate (`macro_meta_gate_eval.py`)
+
+Apply VIX-above-1y-rolling-median as a deploy/suspend gate to
+each pivot app's existing v0 walk-forward results. If at
+val_start, VIX > 1y rolling median: keep the app's actual
+val alpha. If VIX < median: replace with 0 (didn't deploy).
+
+| App | n | raw mean alpha | meta-gated mean alpha | Δ | high-VIX | low-VIX |
+|---|---:|---:|---:|---:|---:|---:|
+| gate | 6 | +0.067 | +0.058 | −0.008 | 2 | 4 |
+| pairs | 6 | +0.099 | **+0.127** | **+0.028** | 2 | 4 |
+| vol | 5 | +0.089 | +0.031 | −0.058 | 1 | 4 |
+| **ALL** | **17** | **+0.085** | **+0.075** | **−0.010** | 5 | 12 |
+
+Pooled per-app-z-scored alpha:
+
+| | Raw | Meta-gated | Lift |
+|---|---:|---:|---:|
+| Pooled z-score | 0.000 | **+0.215** | **+0.215** |
+
+The 0.215 z-score lift is real (suspending bad windows
+improves *risk-adjusted* performance) but the raw-units lift
+is essentially zero (because suspending also drops some good
+windows). Per-app reads:
+
+- **Pairs benefits most.** Its catastrophic window 0 (−1.23
+  alpha, dot-com pairs deployed into 2005-2007 bull market)
+  occurred at VIX 13.5 vs 1y median 15.3 — correctly classified
+  as low-VIX and suspended. Saves 1.23 of negative alpha; raw
+  lift +0.028.
+- **Gate is roughly break-even.** Its high-VIX wins (w1 GFC
+  +0.32, w5 COVID +0.03) are kept; its low-VIX wins (w2 +0.05,
+  w4 +0.02) and losses (w0 / w3) are suspended. Lift −0.008
+  (small numerator, small denominator).
+- **Vol loses most.** Its w4 (val 2022-12 → 2023-06, alpha
+  +0.134) had spot VIX 22.8 vs 1y rolling median 25.6 — just
+  below median because the 2021-2022 vol regime had elevated
+  the rolling baseline. The simple binary cut classifies it as
+  "low" and suspends a positive-alpha window. Lift −0.058.
+
+**Lesson:** the binary VIX-above-median threshold is too crude.
+The diagnostic's Pearson r captured a graduated relationship
+(higher VIX → higher alpha) but the binary cut throws away the
+magnitude information. A continuous gate (e.g. exposure scaled
+by VIX percentile, or 2-state Markov regime classifier on
+multiple macro features) would likely capture more of the
+diagnostic's predictive content.
+
+Verdict for v1b: `partial-OOS` at the pooled risk-adjusted
+level (+0.215 z-score lift), `inconclusive` at raw alpha.
+
+### Combined verdict + revised v2 plan
+
+The macro signal is real (diagnostic Pearson r confirmed across
+5/6 features) but neither naive v1 monetizes it cleanly:
+
+- **v1a (direct features)** — `confirmed-null` worse than v0;
+  distribution shift kills the predictor.
+- **v1b (binary meta-gate)** — `partial-OOS` risk-adjusted but
+  raw lift near zero; threshold too crude.
+
+The revised v2 plan:
+
+1. **Continuous meta-gate** instead of binary. Use VIX percentile
+   (e.g. CDF over 5y rolling) as a continuous exposure scaler:
+   high-percentile VIX → full deployment; low-percentile → flat.
+   Smooth between via sigmoid. Removes the threshold-cliff
+   problem that hurt vol w4 (just-below-median).
+2. **Multi-feature macro composite** instead of single-feature
+   VIX. The 5 useful features were highly correlated within our
+   17-window sample but a published composite (Chicago Fed
+   NFCI, KC Fed FCI, FRB-NY ACM term premium) would aggregate
+   them with proper variance handling.
+3. **Larger n** before any further v1 cycles. n=17 has Pearson
+   SE ≈ 0.26, so even big-magnitude effects are noisy. Run
+   walk-forwards with smaller train/val window sizes to
+   multiply the window count (gate could go from 6 → 12+ at
+   the cost of less data per training fit).
+
+These v2 follow-ups are not blocking. The cleanest immediate
+takeaway is the operational rule, refined:
+
+**REVISED OPERATIONAL RULE (in CLAUDE.md):** macro state is a
+real but graduated regime signal — *do not* add macro features
+directly to within-app predictor stacks (overfits train regime),
+*do* use macro features as a continuous deployment scaler for
+risk-adjusted improvement. The simple binary VIX gate captures
+some but not all of the diagnostic's predictive content; v2
+should test continuous + composite-macro variants before
+committing to a deployment-side architecture.
+
 ## Caveats
 
 - **n = 17 is small.** Pearson r SE ≈ 0.26; individually no
