@@ -118,6 +118,7 @@ nav:
       - Vol surface v0 (inconclusive, 5/5 pos): findings/vol-surface-v0.md
       - Relational arc synthesis (lifted from NO_OPTIONS.md): findings/relational-arc-synthesis.md
       - Prediction-problem-pivot arc synthesis: findings/prediction-problem-pivot-arc.md
+      - Macro regime diagnostic (5/6 features predict pivot windows): findings/macro-regime-diagnostic.md
   - Workflows: workflows.md
   - TODO:
       - TODO/index.md

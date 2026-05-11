@@ -46,6 +46,7 @@ ss-plotting = { workspace = true }
 ss-stream = { workspace = true }
 ss-features = { workspace = true }
 ss-iv = { workspace = true }
+ss-macro = { workspace = true }
 ss-tg-ops = { workspace = true }
 ss-cli = { workspace = true }
 regime = { workspace = true }

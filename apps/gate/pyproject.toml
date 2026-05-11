@@ -6,6 +6,7 @@ description = "Aggregate drawdown forecaster — regime gate that scales EW expo
 dependencies = [
     "ss-loaders",
     "ss-portfolio",
+    "ss-macro",
     "numpy",
     "pandas",
 ]
@@ -23,3 +24,4 @@ ss-gate = "gate.cli:main"
 [tool.uv.sources]
 ss-loaders = { workspace = true }
 ss-portfolio = { workspace = true }
+ss-macro = { workspace = true }

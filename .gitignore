@@ -10,3 +10,5 @@ StooqData/
 .env
 .env.*
 !.env.example
+
+.macro-cache/

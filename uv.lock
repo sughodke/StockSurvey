@@ -32,6 +32,7 @@ members = [
     "ss-indicators",
     "ss-iv",
     "ss-loaders",
+    "ss-macro",
     "ss-plotting",
     "ss-portfolio",
     "ss-stream",
@@ -1341,6 +1342,7 @@ dependencies = [
     { name = "numpy" },
     { name = "pandas" },
     { name = "ss-loaders" },
+    { name = "ss-macro" },
     { name = "ss-portfolio" },
 ]
 
@@ -1349,6 +1351,7 @@ requires-dist = [
     { name = "numpy" },
     { name = "pandas" },
     { name = "ss-loaders", editable = "packages/loaders" },
+    { name = "ss-macro", editable = "packages/macro" },
     { name = "ss-portfolio", editable = "packages/portfolio" },
 ]
 
@@ -4883,6 +4886,21 @@ requires-dist = [
     { name = "requests" },
     { name = "tqdm" },
     { name = "yfinance" },
+]
+
+[[package]]
+name = "ss-macro"
+version = "0.1.0"
+source = { editable = "packages/macro" }
+dependencies = [
+    { name = "numpy" },
+    { name = "pandas" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "numpy" },
+    { name = "pandas" },
 ]
 
 [[package]]

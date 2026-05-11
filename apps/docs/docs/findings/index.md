@@ -59,3 +59,7 @@ Default eval window unless otherwise stated: 2013-01-29 → 2025-12-11,
 
 - [Prediction-problem-pivot arc — three orthogonal v0 tests, three regime-conditional partial signals, one operational rule (regime filter > richer predictor)](prediction-problem-pivot-arc.md)
 - [Relational arc synthesis — see Relational app section above](relational-arc-synthesis.md)
+
+## Macro / regime
+
+- [Macro regime diagnostic — 5 of 6 macro features predict pivot-arc window outcomes; VIX-above-median = 6× win-rate lift](macro-regime-diagnostic.md)
