@@ -269,6 +269,49 @@ Where the next-experiment hypothesis lands:
    `stooq_us_long`, the effect is mega-cap-specific; otherwise the
    train/val split was the binding constraint" is.
 
+### Executing a TODO end-to-end
+
+When you pick a `TODO/<topic>.md` item and start implementing it,
+follow this loop so the TODO converts cleanly into a leaderboard row
++ findings page without intermediate state going missing:
+
+1. **Implement against the TODO's stated test design.** If the TODO is
+   thin, push back and refine it before coding — every step below
+   assumes a falsifiable hypothesis with universe/windowing/expected
+   delta already pinned.
+2. **Smoke test locally first** (`--max-tickers 30 --n-steps 50` style;
+   see "Compute placement"). Fast feedback on the wiring before
+   spending Modal time. **Commit when the smoke test passes** — a
+   green scaffold is a checkpoint worth preserving even if the full
+   eval later reverses the verdict.
+3. **Decide whether the full eval is a leaderboard row.** Not every
+   TODO produces one — refactors, plumbing, debug investigations
+   don't. The test for "is this a leaderboard row?" is: does the
+   eval produce a train/val number against a named universe and
+   windowing in [Operating conditions](apps/docs/docs/leaderboard.md#operating-conditions)?
+   If yes, run on Modal per the heavy-work rule. If no (e.g. you're
+   just verifying a code path), local is fine and skip the
+   leaderboard step.
+4. **Run the Modal eval, commit the driver/script before kicking off.**
+   The remote run is the load-bearing artifact; the local commit is
+   the reproducibility anchor.
+5. **When the Modal run finishes, convert the TODO to learnings in
+   one pass:**
+   - Append the row to `apps/docs/docs/leaderboard.md` with the
+     verdict label.
+   - Write or extend the `apps/docs/docs/findings/<topic>.md` page
+     per the "After every experiment" protocol above.
+   - Update `TODO/<topic>.md`: if the experiment closes the
+     workstream, mark it superseded with a pointer to the finding
+     and consider removing the TODO entry from `mkdocs.yml` nav. If
+     it spawns a follow-up, rewrite the page to reflect the new
+     verdict → next-experiment chain.
+   - Commit the docs changes as a single follow-up commit referencing
+     the implementation commit.
+6. **Do not leave a Modal run unrecorded.** A finished eval without
+   a leaderboard row is the worst state — the result decays from
+   memory and the next researcher re-runs it.
+
 ### Mechanics
 
 - `uv run ss-docs-serve` live-previews at http://127.0.0.1:8000. The
