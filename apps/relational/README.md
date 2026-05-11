@@ -26,7 +26,6 @@ Dep-wise, this app intentionally avoids the trainer-side dragons (no tinygrad, n
 apps/relational/
 ├── pyproject.toml
 ├── README.md
-├── NO_OPTIONS.md              full research log of phases 1-12
 ├── ideas.md                   open recipe sketches
 ├── scripts/
 │   └── build_canonical_checkpoints.py
@@ -200,7 +199,8 @@ Six checkpoints are produced:
 | `relational-diversified.json` | farthest-first thin (idea-D) | 21 (Phase-2) | 10 | +1.07 |
 | `relational-velocity.json` | fingerprint velocity (Phase-11) | 312 (wide) | 20 | +0.60 |
 
-**Phase-2 wins are mega-cap-specific.** Phase-8 of the NO_OPTIONS arc
+**Phase-2 wins are mega-cap-specific.** Phase 8 of the relational arc
+([`relational-arc-synthesis`](../docs/docs/findings/relational-arc-synthesis.md))
 showed all four ideas (A/B/C/D) degrade from Sharpe ~1.1 to ~0.4 when
 run on the wider 312-ticker `stooq_us_long` universe instead. The
 checkpoint `train_sharpe`/`val_sharpe` fields record the actual

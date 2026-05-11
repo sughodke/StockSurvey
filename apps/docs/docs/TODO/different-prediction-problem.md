@@ -1,5 +1,28 @@
 # Different prediction problem — pair-spread / drawdown / IV-vs-realized
 
+**Status: resolved 2026-05-10** — all three orthogonal prediction
+problems were tested as v0 walk-forwards. Closing arc-level
+synthesis:
+[`prediction-problem-pivot-arc`](../findings/prediction-problem-pivot-arc.md).
+Headline: three independent partial-OOS results at consistent
+magnitudes (mean alpha +0.07 to +0.10, 4-5/5-6 positive windows),
+all regime-conditional. No standalone shipper but the arc
+established that **predictions with non-zero multivariate signal
+but regime-conditional deployment performance need a regime
+filter, not a richer predictor** (operational rule added to
+CLAUDE.md). v0 results:
+
+- [`gate-drawdown-v0`](../findings/gate-drawdown-v0.md) —
+  `partial-OOS` (mean alpha +0.067, val r +0.26)
+- [`pairs-classical-v0`](../findings/pairs-classical-v0.md) —
+  `confirmed-null` per pre-reg (mean alpha +0.099)
+- [`vol-surface-v0`](../findings/vol-surface-v0.md) —
+  `inconclusive`, 5/5 positive (mean alpha +0.089, val r +0.12)
+
+The original framing is preserved below for audit.
+
+---
+
 The [+0.012 ceiling](../findings/factor-indicator-baseline.md) is for
 *cross-sectional return direction* at 297 tickers / 20d. Other targets
 may carry more signal:

@@ -116,14 +116,13 @@ nav:
       - Gate drawdown v0 (partial-OOS): findings/gate-drawdown-v0.md
       - Pairs classical v0 (confirmed-null): findings/pairs-classical-v0.md
       - Vol surface v0 (inconclusive, 5/5 pos): findings/vol-surface-v0.md
+      - Relational arc synthesis (lifted from NO_OPTIONS.md): findings/relational-arc-synthesis.md
+      - Prediction-problem-pivot arc synthesis: findings/prediction-problem-pivot-arc.md
   - Workflows: workflows.md
   - TODO:
       - TODO/index.md
       - Polar Morlet migration: TODO/polar-morlet-migration.md
       - Review follow-ups: TODO/review-followups.md
-      - Different prediction problem: TODO/different-prediction-problem.md
-      - apps/pairs (pair-spread mean reversion): TODO/apps-pairs.md
-      - apps/vol (IV-vs-realized vol mispricing): TODO/apps-vol.md
       - RSI long-period ablation: TODO/rsi-long-period-ablation.md
       - FiLM w=1 diagnostic: TODO/film-w1-diagnostic.md
       - Backbone architecture: TODO/backbone-architecture.md
@@ -131,9 +130,12 @@ nav:
       - DWT-compression follow-ups: TODO/dwt-compression-followups.md
       - Rebal-days sweep: TODO/rebal-days-sweep.md
       - Reversed-price experiment: TODO/reversed-price-experiment.md
-      - Long-short constructor: TODO/long-short-constructor.md
       - EW + rank-IC overlay (parked): TODO/ew-overlay-test.md
       - Modal-cron live deployment: TODO/modal-cron-live-deployment.md
       - Memory and wall-time follow-ups: TODO/memory-walltime-followups.md
       - Streaming feature pipeline (superseded): TODO/streaming-feature-pipeline.md
+      - Done — different prediction problem (resolved): TODO/different-prediction-problem.md
+      - Done — apps/pairs v0 (resolved): TODO/apps-pairs.md
+      - Done — apps/vol v0 (resolved): TODO/apps-vol.md
+      - Done — long-short constructor (resolved): TODO/long-short-constructor.md
       - Recently shipped: TODO/recently-shipped.md

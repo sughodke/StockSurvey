@@ -421,7 +421,7 @@ def gmm_cluster_pair_weights(
     long-only. NOT wired into `relational.inference.target_weights`'s
     long-only dispatch — `apply_position_cap`'s normalize-then-clip
     math would misbehave on a near-zero-sum series. Falsified in
-    NO_OPTIONS.md phase 7 anyway. If ever wired in, gate behind an
+    relational arc phase 7 (findings/relational-arc-synthesis.md) anyway. If ever wired in, gate behind an
     explicit long_short=True flag in RelationalCheckpoint.
 
     For each MAP-cluster `c` on date `t`:

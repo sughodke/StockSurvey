@@ -5,7 +5,7 @@ Six strategies, two universes:
 
   Phase-2 mega-cap (21 names, PHASE2_TICKERS):
     * empirical   — k-means clusters of CWT fingerprints
-                    (NO_OPTIONS phase 2: long-only Sharpe 1.07-1.13)
+                    (relational arc phase 2: long-only Sharpe 1.07-1.13)
     * gmm         — soft-cluster GMM replacement (+0.03 over empirical)
     * analog      — k-NN analog forecasting on fingerprints (idea-B)
     * farthest    — centroid-distance scoring (idea-C)
@@ -20,7 +20,7 @@ list of names (rather than a placeholder). The Phase-2 list is
 literal; the wide universe is enumerated by `load_stooq_matrix`.
 
 KNOWN CONCENTRATION RISK on the Phase-2 strategies: phase-8 of the
-NO_OPTIONS arc showed all four ideas (A/B/C/D) degrade from
+relational arc showed all four ideas (A/B/C/D) degrade from
 Sharpe ~1.1 to ~0.4 when run on the 312-ticker `stooq_us_long`
 universe instead. The Phase-2 wins are mega-cap-specific. The
 checkpoint metadata records this honestly via train_sharpe /
@@ -92,7 +92,7 @@ def build_phase2_checkpoints() -> list[RelationalCheckpoint]:
     """Five mega-cap-specific strategies, all on PHASE2_TICKERS."""
     universe = list(PHASE2_TICKERS)
     return [
-        # idea-A — Sharpe 1.07 long-only (NO_OPTIONS phase-2)
+        # idea-A — Sharpe 1.07 long-only (relational arc phase-2)
         RelationalCheckpoint(
             **_common('empirical'),
             universe=universe,
@@ -210,7 +210,7 @@ def build_velocity_checkpoint(stooq_dir: Path) -> RelationalCheckpoint:
         top_n=20,  # diagnostic_velocity.py default
         train_start=PHASE11_TRAIN_START, train_end=PHASE11_TRAIN_END,
         val_start=PHASE11_VAL_START, val_end=PHASE11_VAL_END,
-        train_sharpe=0.60, val_sharpe=0.60,  # NO_OPTIONS phase-11 long-only
+        train_sharpe=0.60, val_sharpe=0.60,  # relational arc phase-11 long-only
         strategy_kwargs=dict(
             fp_window=21,
             w_delta=20,

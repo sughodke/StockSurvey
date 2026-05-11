@@ -8,7 +8,7 @@ long-history US universe (~296 names).
 The point isn't to find a new winner — it's to disentangle "strategy
 adds cross-sectional alpha" from "strategy was riding the mega-cap
 macro tailwind". If the val Sharpe collapses on the wider universe
-the way Phase-8 of the NO_OPTIONS arc did (Sharpe ~1.1 → ~0.4 on the
+the way phase 8 of the relational arc (apps/docs findings/relational-arc-synthesis.md) did (Sharpe ~1.1 → ~0.4 on the
 312-ticker universe), the Phase-2 win is regime-bound. If it holds
 or only mildly degrades, the strategy has cross-sectional skill that
 generalises.

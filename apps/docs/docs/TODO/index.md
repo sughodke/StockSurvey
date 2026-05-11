@@ -10,9 +10,6 @@ Active backlog for the StockSurvey monorepo. Each section from the original
 
 ## Research threads
 
-- [Different prediction problem — pair-spread / drawdown / IV-vs-realized](different-prediction-problem.md)
-  - [`apps/pairs` — pair-spread mean reversion (rank 2 of 3)](apps-pairs.md)
-  - [`apps/vol` — IV-vs-realized vol mispricing (rank 3 of 3)](apps-vol.md)
 - [Ablation — disentangle why long-period RSI underperforms](rsi-long-period-ablation.md)
 - [Diagnose why w=1 row underperforms in the FiLM (w, n) head](film-w1-diagnostic.md)
 - [Backbone architecture — broader window/indicator coverage](backbone-architecture.md)
@@ -31,6 +28,9 @@ Active backlog for the StockSurvey monorepo. Each section from the original
 
 - [Recently shipped (and dropped from this list)](recently-shipped.md)
 - [Long-short constructor — resolved 2026-05-10, `confirmed-null`](long-short-constructor.md)
+- [Different prediction problem — resolved 2026-05-10, three v0 partial-OOS rows; superseded by [`prediction-problem-pivot-arc`](../findings/prediction-problem-pivot-arc.md)](different-prediction-problem.md)
+- [`apps/pairs` v0 — resolved 2026-05-10, `confirmed-null` per pre-reg](apps-pairs.md)
+- [`apps/vol` v0 — resolved 2026-05-10, `inconclusive` (5/5 pos)](apps-vol.md)
 
 ## Superseded
 

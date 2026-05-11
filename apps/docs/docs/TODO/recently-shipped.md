@@ -1,5 +1,34 @@
 # Recently shipped (and dropped from this list)
 
+- **`packages/iv` (`ss_iv`)** (2026-05-10) — promoted
+  `iv_data.py` + `short_vol.py` from
+  `apps/relational/src/relational/` to `packages/iv/` when
+  `apps/vol` became a second consumer (clean lift: pure numpy +
+  pandas + `ss_features`, no relational-internal imports). Updated
+  consumers: relational `research/diagnostic_dislocation_vs_vol.py`
+  and `diagnostic_short_vol_pnl.py`. Pyproject + workspace sources
+  updated. Tests 131/131 pass.
+- **Prediction-problem-pivot arc** (2026-05-10) — three new apps
+  scaffolded + v0 walk-forwards + closing arc-level synthesis.
+  Three orthogonal prediction problems all show non-zero
+  multivariate signal but partial-OOS at consistent magnitudes
+  (mean alpha +0.07 to +0.10, regime-conditional). Closing
+  finding:
+  [`prediction-problem-pivot-arc`](../findings/prediction-problem-pivot-arc.md).
+  Resolved TODOs:
+  [`different-prediction-problem`](different-prediction-problem.md),
+  [`apps-pairs`](apps-pairs.md), [`apps-vol`](apps-vol.md). New
+  apps: `apps/gate`, `apps/pairs`, `apps/vol` (each ~600-700
+  LoC).
+- **Relational arc synthesis** (2026-05-10) — lifted the
+  `apps/relational/NO_OPTIONS.md` 12-phase research arc into
+  [`relational-arc-synthesis`](../findings/relational-arc-synthesis.md)
+  and deleted the source. Captures: shippable strategies (Phase-2
+  long-only equal-weight, transition-triggered rebal,
+  velocity-magnitude scorer), falsified strategy classes (sizing
+  overlays, pair-trades / market-neutral / cluster-pair, NN-pair
+  hedge), and the operational rule "fingerprint embedding for
+  selection and timing; not for hedging" (now in CLAUDE.md).
 - **Long-short market-neutral constructor for the rank-IC heads**
   (2026-05-10) — `factor.objectives.{long_short_weights,
   block_sharpe_long_short}` + per-window

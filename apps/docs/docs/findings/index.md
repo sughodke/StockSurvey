@@ -36,6 +36,7 @@ Default eval window unless otherwise stated: 2013-01-29 → 2025-12-11,
 - [Analog cross_ticker val edge collapses off mega-caps](relational-universe-shift.md)
 - [DWT-L1 fingerprint compression fails OOS across all four distance scorers](relational-dwt-failure.md)
 - [Polar Morlet input bundle fails the Phase-2 OOS gate for analog k-NN](relational-morlet-failure.md)
+- [Relational arc synthesis — 12-phase research arc (lifted from `NO_OPTIONS.md`): what's shippable, what's falsified, the "fingerprint embedding for selection / not for hedging" rule](relational-arc-synthesis.md)
 
 ## Cross-app
 
@@ -53,3 +54,8 @@ Default eval window unless otherwise stated: 2013-01-29 → 2025-12-11,
 ## Vol app
 
 - [Vol surface v0 — multivariate prediction works (val r +0.12), per-cell alpha +0.089 just below threshold (inconclusive, 5/5 positive)](vol-surface-v0.md)
+
+## Arc syntheses
+
+- [Prediction-problem-pivot arc — three orthogonal v0 tests, three regime-conditional partial signals, one operational rule (regime filter > richer predictor)](prediction-problem-pivot-arc.md)
+- [Relational arc synthesis — see Relational app section above](relational-arc-synthesis.md)
