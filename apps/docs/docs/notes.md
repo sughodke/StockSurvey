@@ -347,6 +347,128 @@ several are partially implemented in `apps/relational/`.
 - **CWT of volume.** Each day has a 2D vector `(n_samples, n_days)` —
   volume regime as a scalogram alongside price.
 
+## Master target — there isn't one (and what to use instead)
+
+"What target do firms like Jane Street use as a master?" is a
+category error in the same way that asking it of our own stack is.
+Top quant firms do **not** have a single master prediction target;
+they have a hierarchy with very different things at different
+levels, and the answer to "what's the master?" depends on which
+level you're asking about.
+
+The category error matters because it leaks into research design:
+new researchers (and AIs) routinely look for "the right thing to
+predict" as if a single answer exists, then either chase a target
+that's not tradeable at the firm's horizon or paper-over the
+portfolio-construction layer as an afterthought. The honest framing
+is that **prediction targets live one level below the master objective,
+and a serious shop has many of them**.
+
+### What "master target" decomposes into by firm class
+
+| Firm class | Examples | Master objective | Decomposed into |
+|---|---|---|---|
+| Market-maker | Jane Street, Citadel Securities, Virtu, IMC, Jump | Expected revenue per unit of risk capacity used | Spread captured − adverse selection − inventory carry − hedging cost |
+| Systematic alpha (medium horizon) | Two Sigma, DE Shaw, AQR | Portfolio Sharpe / IR vs benchmark | Many forward-return forecasts × portfolio-construction layer |
+| HFT stat-arb | Renaissance Medallion, HRT, XTX | Forward price move at signal's natural horizon | Per-signal microsecond-to-minute point forecasts |
+| Discretionary multi-strat | Citadel, Millennium, Point72 | Per-PM Sharpe + drawdown-constrained P&L | Bespoke per pod; allocator allocates based on rolling Sharpe |
+| Risk-parity / factor | Bridgewater, AQR factor side | Vol-targeted return per asset class | Forecast covariance + factor premia → optimal portfolio under risk parity |
+
+The key insight: **for market-makers, "what direction will price
+move?" is one input among many**, and not the most important one.
+Inventory cost dominates at microsecond scales because spreads are
+tight and price moves are noisy. The decision-time objective at
+Jane Street is roughly:
+
+```
+maximize  Σ_quote  [ probability_of_fill × expected_revenue_per_fill
+                  − inventory_penalty(current_inventory + Δ)
+                  − adverse_selection_cost ]
+```
+
+Each term has its own predictor (microstructure model, short-horizon
+mid forecast, queue-position model, adverse-selection model). The
+"master" is the combined EV. The famous Jane Street EV-puzzle
+interview style signals exactly for this composition.
+
+For systematic alpha at our horizon (daily bars, ~20-day holding):
+the master is **portfolio Sharpe** decomposed as
+
+```
+portfolio_Sharpe = portfolio_construction(  many_alpha_signals
+                                          + risk_model
+                                          + cost_model
+                                          + capacity_constraints )
+```
+
+Each signal predicts forward returns at its natural horizon. None
+individually is "the master."
+
+### Three questions that determine the right target
+
+Instead of asking "what's the master target?", a research-design
+discussion should answer:
+
+1. **At what horizon are you trying to make money?** Microseconds
+   (microstructure), days (medium-horizon stat-arb), quarters
+   (factor / fundamental). The horizon dictates which signals are
+   tradeable.
+2. **Are you a price-taker or a price-maker?** Alpha shop vs
+   market-maker — fundamentally different objectives. Most of the
+   academic finance literature is written from the price-taker
+   side, which is why "predict forward returns" is the default
+   answer; it's only the right answer for one of the five firm
+   classes above.
+3. **What's the risk capacity and capital constraint?** Sets the
+   λ in `E[return] − λ · risk`. A small fund with high turnover
+   and tight risk budget cares about Sharpe; a large allocator
+   with multi-decade horizons cares more about expected return
+   given an acceptable drawdown.
+
+### How this maps to our stack
+
+We're closest to the **systematic-alpha medium-horizon** class.
+Concretely:
+
+| Industry pattern | Our analog | Status |
+|---|---|---|
+| Many alpha signals at the same horizon | [`factor`](apps/factor.md) (cross-sec return), [`lie`](apps/index.md) v3 (per-ticker shape kNN), eventually more | Have ~2 signals at 20d; need more |
+| Risk model (covariance, factor exposures) | `ss_portfolio.apply_position_cap` only | **Missing** the covariance / factor-risk layer |
+| Cost model | 10 bps round-trip baked into block-Sharpe eval | Crude — single number, not dynamic |
+| Portfolio construction combining signals | None — each scorer outputs weights independently | **Missing** — proposed [`apps/cfr`](TODO/apps-cfr.md) is exactly this layer |
+| Master scoring metric | Walk-forward Sharpe minus passive-EW Sharpe (alpha) | Have this — [`passive-ew-benchmark`](findings/passive-ew-benchmark.md) made it load-bearing |
+| Risk-side predictors | [`gate`](apps/gate.md) forward-DD; [`lie`](apps/index.md) market-state regime | Have early versions |
+
+The thing we lack that every serious systematic shop has is the
+**portfolio-construction layer** — the piece that takes many alpha
+signals + a risk model + a cost model + capacity constraints and
+produces a target portfolio. Right now each scorer in our stack is a
+complete strategy from signal to weights; there is no separation
+between **alpha generation** and **portfolio construction**. That
+separation is the architectural step the [`apps/cfr`](TODO/apps-cfr.md)
+TODO proposes — using existing scorers as the alpha menu, CFR as
+the meta-allocator.
+
+### Our master metric, named explicitly
+
+For us, at our horizon and capital constraint, the closest analog
+to a "master target" is
+
+> **mean per-window val Sharpe minus passive-EW Sharpe on the same universe**
+
+That's our alpha; everything we predict is in service of pushing
+this number up. It was made load-bearing by the
+[passive-EW benchmark finding](findings/passive-ew-benchmark.md),
+which reclassified three previously "shippable" rows after raw val
+Sharpe turned out to be ~entirely market beta of the chosen
+universe. Per-window numbers, not aggregate; alpha vs passive, not
+raw Sharpe; same universe + window for both arms, not cherry-picked
+baselines.
+
+Different from any single prediction target the apps train against
+(rank-IC, OLS R², forward-DD Pearson r), and intentionally so —
+those targets exist to *serve* this metric, not to be it.
+
 ## Where the result-bearing sections went
 
 Earlier drafts of this notes file carried full prose for each
