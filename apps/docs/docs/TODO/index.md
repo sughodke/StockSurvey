@@ -10,6 +10,8 @@ Active backlog for the StockSurvey monorepo. Each section from the original
 
 ## Research threads
 
+- [`apps/cfr` — Deep CFR meta-allocator over existing scorers](apps-cfr.md)
+- [Factor sizing-input reframe — re-purpose apps/factor as a meta-gate input](factor-sizing-input-reframe.md)
 - [Ablation — disentangle why long-period RSI underperforms](rsi-long-period-ablation.md)
 - [Diagnose why w=1 row underperforms in the FiLM (w, n) head](film-w1-diagnostic.md)
 - [Backbone architecture — broader window/indicator coverage](backbone-architecture.md)
