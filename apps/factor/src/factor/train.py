@@ -102,12 +102,17 @@ def precompute_inputs(
 ) -> dict[str, np.ndarray]:
     """Run the frozen backbone over every (date, ticker) and prep tensors.
 
-    Returns a dict with `representation_rb`, `fwd_ret_rb`, `mask_rb` (all
-    rebal-subsampled), plus the underlying `aligned` and
-    `block_log_ret_rb` for downstream Sharpe eval. All arrays are numpy
-    (host-side) — Stage 1 head training pulls Tensor minibatches each
-    step. This matches the JAX path's "run encoder once up front" trick
-    and keeps the backbone latent off the GPU.
+    Returns a dict with `representation_rb`, `fwd_ret_rb`,
+    `alpha_target_rb`, `mask_rb` (all rebal-subsampled), plus the
+    underlying `aligned` and `block_log_ret_rb` for downstream Sharpe
+    eval. `alpha_target_rb` is `fwd_ret_rb` per-bar cross-sectionally
+    demeaned against the same liquid-universe mask — the target for the
+    `mse_alpha` loss path that calibrates score *magnitude* to forward
+    alpha (vs `pearson_rank_ic` which is scale-invariant on the
+    predictor). All arrays are numpy (host-side) — Stage 1 head
+    training pulls Tensor minibatches each step. This matches the JAX
+    path's "run encoder once up front" trick and keeps the backbone
+    latent off the GPU.
 
     `spread`, if given, must be aligned to the same dates / tickers as
     the ticker list (caller's responsibility — we do not compute it
@@ -223,6 +228,20 @@ def precompute_inputs(
     fwd_rb = np.nan_to_num(target_rb, nan=0.0).astype(np.float32)
     blr_rb = np.nan_to_num(block_log_ret, nan=0.0).astype(np.float32)
 
+    # Per-bar cross-sectional demean of the forward target produces the
+    # alpha target used by the `mse_alpha` loss path. Demean uses
+    # `base_mask_rb` so masked cells contribute neither to the bar mean
+    # nor to the residual. Kept in f64 through the subtraction (small
+    # bar means at the +1e-4 magnitude lose precision on f32 demean);
+    # demoted to f32 only at the Tensor boundary, matching the rule in
+    # `findings/factor-f32-precision-cancellation.md`.
+    mask_b = base_mask_rb.astype(np.float64)
+    counts_b = mask_b.sum(axis=1)
+    safe_counts_b = np.maximum(counts_b, 1.0)
+    bar_means = (target_rb * mask_b).sum(axis=1) / safe_counts_b
+    alpha_target = (target_rb - bar_means[:, None]) * mask_b
+    alpha_rb = np.nan_to_num(alpha_target, nan=0.0).astype(np.float32)
+
     aux_target_rb: np.ndarray | None = None
     if aux_target_kind is not None:
         if aux_target_kind == 'robust_z':
@@ -246,6 +265,7 @@ def precompute_inputs(
         'aligned': aligned,
         'representation_rb': repr_rb,
         'fwd_ret_rb': fwd_rb,
+        'alpha_target_rb': alpha_rb,
         'mask_rb': base_mask_rb.astype(np.float32),
         'block_log_ret_rb': blr_rb,
         'rebal_idx': rebal_idx,
