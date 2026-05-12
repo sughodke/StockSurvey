@@ -6,10 +6,13 @@ tags:
 
 # `apps/cfr` — Deep CFR meta-allocator across the existing strategy menu
 
-Status: **Phase 0 shipped (2026-05-12)** — tabular CFR scaffold,
-universe-agnostic action menu, walk-forward driver, baselines,
-tests, smoke. Phase 1 walk-forward against the canonical 6-window
-spec is the next concrete eval.
+Status: **Phase 1 partial-OOS (2026-05-12)** — tabular CFR cleared
+the pre-registered Phase 1 PASS cut against trailing-best-greedy
+(+0.609 Sharpe in 6/6 windows) but ties naive uniform mix (+0.002)
+and undershoots passive EW (alpha −0.093). See
+[`cfr-phase1`](../findings/cfr-phase1.md) for full analysis. Phase
+2 (13F imitation pretrain + deep CFR) is the architectural
+correction.
 
 The architectural premise — *predictions with regime-conditional
 deployment performance need a regime filter, not a richer
@@ -133,81 +136,91 @@ The price-taker assumption means we update regret for *every*
 action at every visit, not just the sampled one — so the regret
 estimator has zero sampling variance from the played-action axis.
 
-## Phase 0 smoke result (2026-05-12)
+## Phase 1 result (2026-05-12, Modal CPU 8c, 23s wall)
 
-3-window walk-forward on the curated `stooq_us_long` subset (312
-tickers, 2010-2025, 5y train / 3y val / 3y step):
+6 walk-forward windows on the canonical `stooq_us_long` (312
+tickers, 2000-2025, 5y train / 3y val / 3y step, 1 training pass):
 
-| Window | val_dates | CFR Sh | Passive EW | Trailing-best | Naive uniform | α vs EW | CFR vs trailing |
+| win | val_dates | CFR Sh | Passive EW | Trailing-best | Naive uniform | α vs EW | CFR vs trailing |
 |---:|---|---:|---:|---:|---:|---:|---:|
-| 0 | 2015-01 → 2018-02 | +0.508 | +0.904 | +0.204 | +0.562 | −0.396 | **+0.304** |
-| 1 | 2018-02 → 2021-03 | +0.982 | +0.738 | +0.227 | +0.819 | +0.244 | **+0.755** |
-| 2 | 2021-03 → 2024-04 | −0.042 | +0.435 | −0.244 | +0.250 | −0.476 | **+0.203** |
-| **mean** | | **+0.483** | **+0.692** | **+0.062** | **+0.544** | **−0.209** | **+0.420** |
+| 0 | 2005-01 → 2008-02 | +0.279 | +0.529 | −0.727 | +0.321 | −0.251 | **+1.006** |
+| 1 | 2008-02 → 2011-03 | **+0.596** | +0.331 | −0.312 | +0.416 | **+0.265** | **+0.908** |
+| 2 | 2011-03 → 2014-04 | +0.817 | +0.928 | +0.174 | +0.711 | −0.111 | +0.643 |
+| 3 | 2014-04 → 2017-05 | +0.727 | +0.916 | +0.256 | +0.637 | −0.189 | +0.471 |
+| 4 | 2017-05 → 2020-07 | +0.440 | +0.440 | +0.060 | +0.288 | +0.000 | +0.380 |
+| 5 | 2020-07 → 2023-08 | +0.697 | +0.968 | +0.452 | +1.172 | −0.271 | +0.245 |
+| **mean** | | **+0.593** | **+0.685** | **−0.016** | **+0.591** | **−0.093** | **+0.609** |
 
-**Reads:**
+**Headline reads** (full mechanism in
+[cfr-phase1](../findings/cfr-phase1.md)):
 
-1. **CFR beats trailing-best-greedy by +0.42 Sharpe across 3 / 3
-   windows.** The algorithm earns its keep against the naive
-   "pick the recent winner" ensemble.
-2. **CFR Sharpe ≈ naive uniform mix.** At 3 windows the CFR
-   policy isn't materially better than mixing across all actions
-   uniformly. Two interpretations: (a) the menu's modes are
-   close enough to alpha-zero that mixing is near-Pareto;
-   (b) the algorithm needs more training data than 3 windows ×
-   1260 train bars to converge to a useful policy. Phase 1's
-   canonical 6-window 25y span (full StooqData/) will resolve
-   this.
-3. **No baseline clears passive EW.** Consistent with the
-   [passive-EW benchmark](../findings/passive-ew-benchmark.md):
-   passive EW on this universe has a +0.69 mean Sharpe that no
-   action-menu mix has surpassed. Beating passive EW
-   structurally requires either (a) modes that are themselves
-   alpha-positive (not the case for momentum / reversal /
-   vol-ranked here), or (b) regime-conditional deployment that
-   sits in cash during EW's worst stretches. Phase 1 will tell us
-   whether the regime-conditional argument has legs.
+1. **PASS vs trailing-best-greedy** by +0.609 Sharpe (threshold
+   was +0.10), in 6/6 windows. The algorithm reliably refuses to
+   follow the regime-mismatched "switch into whatever just won"
+   heuristic.
+2. **Tied with naive uniform mix** within noise (+0.593 vs
+   +0.591). CFR doesn't add information over 1/16 uniform mixing
+   on this menu × universe.
+3. **−0.093 alpha vs passive EW**, within ±0.10 noise band, 1/6
+   positive windows (window 1 = GFC, the same outlier window
+   carrying alpha across the pivot arc).
 
-Smoke is a smoke — no leaderboard row, no verdict. Validates
-end-to-end mechanics and that the algorithm beats its weakest
-baseline.
+**Architectural read:** the algorithm works correctly — regret
+matching converges to the Cover universal-portfolio uniform-mix
+limit when no infoset has clearly positive cumulative regret,
+which is the right behavior. The binding constraint is the
+**action menu**: universe-agnostic top-K factor exposures
+(momentum / reversal / vol-rank) on a 312-name universe are too
+close to alpha-zero to reward concentration. Phase 2's natural
+move is to add alpha-positive modes (13F-imitation-pretrained
+scorers, sector-restricted variants) so regret matching has
+something to discover beyond uniform.
 
 ## Running
 
 ```bash
-# Phase 0 sanity (fast, ~10s + load)
+# Local sanity smoke (~10s + load)
 uv run python apps/cfr/scripts/smoke.py --data-dir apps/notebook/data/stooq_us_long
 
-# Phase 0 multi-window on curated subset (~10s + load)
-uv run python apps/cfr/scripts/run_walkforward.py \
-    --data-dir apps/notebook/data/stooq_us_long \
-    --start 2010-01-01 --end 2025-12-11 \
-    --output Output/cfr-smoke-multiwin.json
-
-# Phase 1 canonical 6-window on full StooqData/ (slow load, fast compute)
+# Phase 1 canonical 6-window on full StooqData/ (local, slow load)
 uv run python apps/cfr/scripts/run_walkforward.py \
     --data-dir ./StooqData \
     --output Output/cfr-phase1.json
 
-# Tests
+# Phase 1 on Modal CPU (recommended; 23s total wall after image cache)
+uv run python apps/cfr/scripts/modal/prep_phase1_data.py
+uvx modal run apps/cfr/scripts/modal/run_phase1.py
+
+# Tests (23 unit tests)
 uv run pytest apps/cfr/tests/
 ```
 
-## Next
+## Next — Phase 2 (13F imitation pretrain + deep CFR)
 
-Per the [`apps/cfr` TODO](../TODO/apps-cfr.md) Phase 0 → Phase 1
-chain: run the canonical 6-window walk-forward on the full
-`stooq_us_long` universe (25 years of data, 6 windows at 5y/3y/3y).
-The pre-registered Phase 1 cuts:
+The Phase 1 result reframes the Phase 2 priorities. The TODO had
+the order as Phase 0 scaffold → Phase 1 baseline → Phase 2 = add
+imitation. The "tied with naive uniform" caveat from Phase 1 says
+**add alpha-positive modes first**, *then* worry about deep CFR.
+The pre-registered Phase 2 cut becomes: **CFR with 13F-imitation
+modes > Phase 1 CFR by ≥ +0.10 mean Sharpe**.
 
-- **PASS** — CFR ≥ trailing-best-greedy + 0.10 mean **AND**
-  CFR > trailing in ≥ 4/6 windows → proceed to Phase 2 (13F
-  imitation pretrain).
-- **MARGINAL** — within ±0.10 → diagnose where the policies
-  diverge per window.
-- **FAIL** — CFR < trailing-best-greedy − 0.10 **OR** CFR >
-  trailing in < 3/6 windows → confirmed-null, park the arc.
+Concrete next steps:
 
-The smoke run already clears the PASS lift (+0.42 vs needed +0.10)
-on a 3-window subset, which is encouraging but not conclusive —
-the canonical 6-window eval is the load-bearing test.
+1. **Build the 13F loader** (`packages/edgar` or
+   `apps/cfr/data/`). SEC EDGAR XML, per-quarter / per-fund /
+   per-ticker aggregation. ~1 week build estimate.
+2. **Add `mode_long_13f_consensus` (top-N fund consensus by
+   trailing Sharpe) to the action menu.** Wraps the 13F
+   aggregation as an action that gives target weights at any
+   bar. Should be alpha-positive in some regimes by construction
+   (it's an imitation of presumed-skilled traders).
+3. **Re-run Phase 1 eval with the expanded menu.** If CFR's
+   regret matching now concentrates on `mode_long_13f_consensus`
+   in some infosets (and we see CFR > naive uniform by
+   ≥ +0.10 Sharpe in ≥ 4/6 windows), the algorithm has been
+   validated against a more meaningful baseline.
+4. **Then** deep CFR + multi-modal encoder per the [original
+   Phase 3 design](../TODO/apps-cfr.md).
+
+The current Phase 1 numbers are a real baseline against which
+every Phase 2+ variant will be measured.

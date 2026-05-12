@@ -1,15 +1,21 @@
 # `apps/cfr` — Deep CFR meta-allocator across existing scorers
 
-**Status (2026-05-12):** Phase 0 scaffold shipped — tabular CFR, 16-action
-universe-agnostic menu (EW / top-K momentum / reversal / low-vol /
-high-vol × {0, 0.5, 1.0, 2.0} gross), 9-cell infoset on trailing
-vol × cross-sectional dispersion, walk-forward driver, baselines
-(passive EW, trailing-best-greedy, naive uniform), 23 unit tests
-green. Phase 0 smoke (3 windows on curated stooq_us_long): **CFR
-beats trailing-best-greedy by +0.42 Sharpe in 3/3 windows**, ties
-naive uniform mix, undershoots passive EW. Not a verdict — see
-[`apps/cfr` overview](../apps/cfr.md) for full smoke table. **Next:
-the canonical Phase 1 6-window walk-forward on full StooqData/.**
+**Status (2026-05-12):** Phase 0 scaffold + **Phase 1 result shipped
+same day.** Tabular CFR cleared the pre-registered PASS cut against
+trailing-best-greedy on the canonical 6-window stooq_us_long walk-
+forward (mean +0.609 Sharpe lift, 6/6 windows positive vs +0.10
+threshold) but **ties naive uniform mix within noise** (Δ +0.002)
+and undershoots passive EW (alpha −0.093, only 1/6 positive).
+Verdict: [`partial-OOS`](../leaderboard.md#verdict-labels) — PASS
+on the pre-registered cut but the practically-useful comparisons
+(vs naive uniform, vs passive) don't separate. Architectural read:
+the algorithm works (Cover universal-portfolio uniform-mix limit
+when no infoset has positive cumulative regret) but the action
+menu's universe-agnostic top-K factor exposures are too close to
+alpha-zero to reward concentration. **Phase 2 priority shift:
+build alpha-positive modes (13F imitation) FIRST, then deep CFR
+on top.** See [`cfr-phase1`](../findings/cfr-phase1.md) for the
+load-bearing analysis.
 
 **Verdict → next-experiment chain.** The
 [prediction-problem-pivot arc](../findings/prediction-problem-pivot-arc.md)

@@ -57,6 +57,10 @@ Default eval window unless otherwise stated: 2013-01-29 → 2025-12-11,
 
 - [Vol surface v0 — multivariate prediction works (val r +0.12), per-cell alpha +0.089 just below threshold (inconclusive, 5/5 positive)](vol-surface-v0.md)
 
+## CFR app
+
+- [CFR Phase 1 — tabular CFR clears trailing-best-greedy by +0.609 (6/6 wins) but ties naive uniform mix; menu is the binding constraint](cfr-phase1.md)
+
 ## Arc syntheses
 
 - [Prediction-problem-pivot arc — three orthogonal v0 tests, three regime-conditional partial signals, one operational rule (regime filter > richer predictor)](prediction-problem-pivot-arc.md)

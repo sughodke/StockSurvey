@@ -122,6 +122,7 @@ nav:
       - Relational arc synthesis (lifted from NO_OPTIONS.md): findings/relational-arc-synthesis.md
       - Prediction-problem-pivot arc synthesis: findings/prediction-problem-pivot-arc.md
       - Macro regime diagnostic (5/6 features predict pivot windows): findings/macro-regime-diagnostic.md
+      - CFR Phase 1 — tabular CFR clears trailing-best by +0.609 (6/6) but ties naive uniform: findings/cfr-phase1.md
   - Workflows: workflows.md
   - TODO:
       - TODO/index.md
