@@ -2,11 +2,15 @@
 name = "ss-macro"
 version = "0.1.0"
 requires-python = ">=3.10"
-description = "Macro-econ time-series loaders (FRED) — fed funds, yield curve, credit spreads, M2, TIPS yields, VIX. Shared across apps that need universe-wide regime features."
+description = "Macro-econ time-series loaders — FRED (fed funds, yield curve, credit spreads, M2, TIPS yields, VIX, gold-VIX) and Stooq (gold price level + YoY via GLD.US, since FRED's no-auth endpoint doesn't expose LBMA gold). Shared across apps that need universe-wide regime features."
 dependencies = [
     "numpy",
     "pandas",
+    "ss-loaders",
 ]
+
+[tool.uv.sources]
+ss-loaders = { workspace = true }
 
 [build-system]
 requires = ["hatchling"]

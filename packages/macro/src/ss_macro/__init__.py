@@ -8,14 +8,23 @@ hiking cycle) and "lose" windows in macro-calm eras (2014-2020
 ZIRP, 2021 melt-up). `ss_macro` provides the data layer for the
 regime classifier this points to.
 
-Six canonical features (academic regime-classification standard):
+Canonical features (academic regime-classification standard):
 
   fed_funds       — `FEDFUNDS` policy stance
   slope_10y_3m    — `T10Y3M` yield curve slope (inversion proxy)
   credit_baa      — `BAA10Y` credit spread (BAA corporate − 10y)
-  m2_yoy          — derived from `M2SL` (year-over-year % change)
+  m2_level/_yoy   — `M2SL` raw + derived 12-month % change
   real_yield_10y  — `DFII10` 10-year TIPS real yield
   vix             — `VIXCLS` (CBOE Volatility Index)
+  gold_vix        — `GVZCLS` CBOE Gold ETF Volatility (daily 2008-06+)
+  gold_level/_yoy — Stooq `GLD.US` ETF close + 252d YoY % change
+                    (FRED's no-auth CSV endpoint does NOT expose the
+                    LBMA gold series, so we proxy via the SPDR Gold
+                    Shares ETF). Gold-YoY is the regime-signal form
+                    (rising = USD debasement / risk-off); raw level
+                    is non-stationary across-sample. Loaded only
+                    when `load_macro_panel(stooq_data_dir=...)` is
+                    given.
 
 All series fetched from FRED's no-auth CSV endpoint
 (`https://fred.stlouisfed.org/graph/fredgraph.csv?id=<SERIES>`),
@@ -33,6 +42,7 @@ from ss_macro.loaders import (
     DEFAULT_SERIES,
     fred_series_url,
     load_fred_series,
+    load_gold_features_from_stooq,
     load_macro_panel,
 )
 
@@ -41,5 +51,6 @@ __all__ = [
     'DEFAULT_SERIES',
     'fred_series_url',
     'load_fred_series',
+    'load_gold_features_from_stooq',
     'load_macro_panel',
 ]

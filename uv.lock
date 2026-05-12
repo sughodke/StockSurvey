@@ -4895,12 +4895,14 @@ source = { editable = "packages/macro" }
 dependencies = [
     { name = "numpy" },
     { name = "pandas" },
+    { name = "ss-loaders" },
 ]
 
 [package.metadata]
 requires-dist = [
     { name = "numpy" },
     { name = "pandas" },
+    { name = "ss-loaders", editable = "packages/loaders" },
 ]
 
 [[package]]
