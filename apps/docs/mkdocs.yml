@@ -88,6 +88,7 @@ nav:
       - Gate: apps/gate.md
       - Pairs: apps/pairs.md
       - Vol: apps/vol.md
+      - CFR: apps/cfr.md
       - Notebook: apps/notebook.md
   - Packages:
       - packages/index.md

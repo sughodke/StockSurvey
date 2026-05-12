@@ -13,6 +13,7 @@ or scripts.
 | [`pairs`](pairs.md) | Active (v0 confirmed-null) | Pair-spread mean reversion. Engle-Granger screening + classical z-score trade rules. Numpy + statsmodels. |
 | [`vol`](vol.md) | Active (v0 inconclusive, 5/5 pos) | Implied vol surface predictor. Skew/smile/IV-HV/OI/VIX-spread features → forward IV-RV gap. Numpy OLS. |
 | `lie` | Active | Lie-group / hierarchical-network arc — three sub-arcs: (v1) HRP + effective-rank regime indicator on correlation spectrum; (v2) timeless 26-D market-state fingerprint + manifold + kNN forward-return predictor; (v3) per-ticker shape-feature cross-sectional kNN (`+3.75 t-stat ticker-only`, strongest result). The market-state-vector path is the **market-internal regime classifier** sibling to the macro classifier `packages/macro` would feed. |
+| [`cfr`](cfr.md) | Active (Phase 0 shipped 2026-05-12) | Deep CFR meta-allocator across existing strategy menu. Tabular CFR over `(infoset, action)` at Phase 1; deep CFR over a multi-modal encoder at Phase 2+. Phase 0 smoke (3 windows, curated stooq_us_long): CFR beats trailing-best-greedy by +0.42 Sharpe in 3/3 windows. |
 | [`notebook`](notebook.md) | Active | Jupyter playground + scalogram visualizer CLIs (`ss-scalogram`, `ss-scalogram-video`). |
 | `v1` | Parked | Legacy single-ticker workflow + aiohttp web service. |
 | `docs` | Active | This Material for MkDocs site. |
@@ -33,6 +34,7 @@ linked page; this table is the cross-app index.
 | [`pairs`](pairs.md) | **Log-prices only** (close → `engle_granger_test(log_p_a, log_p_b)` → spread → z-score). No CWT, no indicators. | `pairs/cointegration.py` |
 | [`vol`](vol.md) | **10 implied-vol surface features** (ATM / OTM / DOTM IV + skew + smile + multi-horizon IV-HV ratio + OI imbalance + VIX-spread + strike-spread). | `ss_iv` + `vol/features.py::build_vol_features` |
 | `lie` | Two parallel paths: (a) **26-D market-state fingerprint** per bar — top-8 correlation eigenvalues (as fraction of trace) + participation ratio + cross-sectional mean/std/skew/kurt of vol-normalized returns at 5d/21d/63d + aggregate skew/kurt/tail-fraction + spectral gap. PCA-projected via `ManifoldMapper`, fed to `TimelessPredictor` (kNN with 60-day temporal-gap exclusion). (b) **Per-ticker shape features** for cross-sectional kNN; 168-D CWT bundle was head-to-head-tested and parked (`lie v4 shape > cwt`). | (a) `lie/state_builder.py::build_market_state` + `lie/manifold.py` + `lie/predictor.py`; (b) `lie/ticker_features.py::build_ticker_features` + `lie/cross_sectional.py` |
+| [`cfr`](cfr.md) | **Tabular CFR over `(infoset, action)`**: infoset is `(trailing-vol-bucket, dispersion-bucket)` — 3×3 = 9 cells; action is `(mode, gross-bucket)` over universe-agnostic modes (EW, top-K momentum / reversal / low-vol / high-vol) × {0, 0.5, 1.0, 2.0} gross. 16 actions × 9 infosets at Phase 1. Phase 2+ swaps the table for a regret-net + policy-net over a multi-modal encoder. | `cfr/menu.py` + `cfr/state.py` + `cfr/tabular.py` |
 | [`notebook`](notebook.md) | Visualization only — renders the same CWT primitives the other apps consume. | n/a |
 | `v1` | Legacy single-ticker indicators in `v1/util/indicators.py` (RSI n=14 etc., pre-`ss_indicators`). Parked. | n/a |
 
@@ -51,6 +53,7 @@ former have a single number we can call an IC.
 | [`vol`](vol.md) | Forward 20d IV-vs-realized-vol gap | Per surface cell, per bar | OLS Pearson r per cell; quantile-gated short-vol Sharpe |
 | [`replay`](replay.md) | Reconstructed technical indicators (RSI / MACD / vol / CCI / price) from causal CWT slices | Per ticker, per bar, per indicator | MSE per indicator (SSL reconstruction loss) |
 | `lie` | (v2) forward universe-aggregate return via kNN over 26-D market-state fingerprint; (v3) forward per-ticker return via kNN over per-ticker shape features | (v2) per bar; (v3) per ticker per bar | Information coefficient (Spearman-style rank correlation) |
+| [`cfr`](cfr.md) | *Counterfactual regret per `(infoset, action)`* over a forward block. Trained policy = regret matching on cumulative regret. | Per rebal, per action | Mean per-window val Sharpe minus trailing-best-greedy Sharpe |
 | [`regime`](regime.md) | *No point-prediction target.* Optuna search over CWT-power-divergence weight functions; objective is walk-forward portfolio Sharpe | Portfolio | vectorbt walk-forward Sharpe |
 | [`relational`](relational.md) | *No point-prediction target.* Heuristic scorers in CWT fingerprint space (empirical, gmm, analog, farthest, diversified, velocity) | Portfolio | Walk-forward Sharpe |
 

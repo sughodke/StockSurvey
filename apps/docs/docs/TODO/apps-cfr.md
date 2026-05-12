@@ -1,5 +1,16 @@
 # `apps/cfr` — Deep CFR meta-allocator across existing scorers
 
+**Status (2026-05-12):** Phase 0 scaffold shipped — tabular CFR, 16-action
+universe-agnostic menu (EW / top-K momentum / reversal / low-vol /
+high-vol × {0, 0.5, 1.0, 2.0} gross), 9-cell infoset on trailing
+vol × cross-sectional dispersion, walk-forward driver, baselines
+(passive EW, trailing-best-greedy, naive uniform), 23 unit tests
+green. Phase 0 smoke (3 windows on curated stooq_us_long): **CFR
+beats trailing-best-greedy by +0.42 Sharpe in 3/3 windows**, ties
+naive uniform mix, undershoots passive EW. Not a verdict — see
+[`apps/cfr` overview](../apps/cfr.md) for full smoke table. **Next:
+the canonical Phase 1 6-window walk-forward on full StooqData/.**
+
 **Verdict → next-experiment chain.** The
 [prediction-problem-pivot arc](../findings/prediction-problem-pivot-arc.md)
 landed three independent partial-OOS results (`gate`, `pairs`, `vol`)
@@ -461,16 +472,64 @@ The three core papers if anyone picks this up cold:
 
 If/when this becomes top-priority:
 
-1. Build the **13F loader** first (longest lead time, useful even
+1. ~~Build the **13F loader** first (longest lead time, useful even
    standalone for diagnostic work like "does following Berkshire
-   beat EW?").
-2. Build **Phase 0 scaffold** (action menu, replay buffer, encoder
-   + heads, walk-forward driver) in parallel.
-3. Run **Phase 1** with the minimal 9-action menu. Verdict in.
-4. Decide on Phase 2 based on Phase 1 result.
+   beat EW?").~~ — *Deferred to Phase 2 prep; Phase 0 used
+   universe-agnostic deterministic modes that don't require an
+   expert prior.*
+2. ~~Build **Phase 0 scaffold** (action menu, replay buffer, encoder
+   + heads, walk-forward driver) in parallel.~~ — **Shipped
+   2026-05-12.** `apps/cfr/src/cfr/{menu,state,regret,tabular,
+   buffer,baselines,walkforward,persist,cli}.py` +
+   `apps/cfr/tests/` (23 unit tests green) +
+   `apps/cfr/scripts/{smoke,run_walkforward}.py`. Tabular instead
+   of deep at Phase 1 — 9 infosets × 16 actions = 144 table
+   entries, dense enough to validate on 25y of data.
+3. **Next: Run Phase 1** — canonical 6-window walk-forward on full
+   StooqData/ with `stooq_us_long` manifest. Command:
+   `uv run python apps/cfr/scripts/run_walkforward.py
+   --output Output/cfr-phase1.json`. Pre-registered cuts above
+   gate the Phase 2 decision.
+4. Decide on Phase 2 (13F imitation pretrain + deep CFR) based on
+   Phase 1 result.
 
-Estimated total to a Phase 3 verdict: 2-3 months of focused work,
-mostly in the encoder pretraining and walk-forward debugging. The
-algorithm itself is straightforward once the data and menu are
-right; the failure modes are all in data quality and action-menu
-design.
+Estimated remaining to a Phase 3 verdict: 6-10 weeks of focused
+work, mostly in 13F loader + encoder pretraining + walk-forward
+debugging. The algorithm itself is now in place; the failure modes
+are in data quality and action-menu design.
+
+## Phase 0 scaffold — design decisions
+
+A few choices worth noting for future contributors:
+
+- **Tabular at Phase 1, deep at Phase 2+.** Tabular CFR is well-
+  understood, easier to validate (regret matching is one np.maximum
+  call), and the 144-entry table converges within the available
+  ~6,000 train rebals. Deep CFR replaces the table with a regret_net
+  + policy_net at Phase 2+ once 13F imitation pretraining can
+  initialize the policy net non-randomly.
+- **Universe-agnostic modes, no checkpoints.** Phase 0 ships with
+  EW / top-K momentum / reversal / low-vol / high-vol modes that
+  are pure-numpy heuristics over the price panel. Sidesteps the
+  dependency on saved factor/relational checkpoints (which are
+  Phase-2-mega-cap-specific per
+  [relational-universe-shift](../findings/relational-universe-shift.md)).
+  Phase 2 adds modes wrapping existing scorers as part of the
+  imitation prior.
+- **Infoset = (vol bucket × dispersion bucket), train-only fit.**
+  3×3 = 9 cells encodes the macro-regime-diagnostic's two strongest
+  feature axes (VIX-proxy + dispersion) universe-internally. Bucket
+  cutoffs frozen on train sidesteps the distribution-shift problem
+  that killed
+  [macro v1a's direct-feature arm](../findings/macro-regime-diagnostic.md).
+- **Closed-form counterfactual regret.** `compute_block_regrets`
+  uses `log(weights @ exp(per_ticker_logret))` which is exact for
+  arbitrary block sizes. Approximate first-order form (`weights @
+  logret`) is also correct within ~1bp at 20-day blocks but
+  diverges at longer horizons; keeping the exact form means
+  rebal_days is a free hyperparameter without correctness risk.
+- **Action mixing at eval, not sampling.** `CFRWalkForward._eval_cfr`
+  uses the expectation of action weights under the average policy
+  rather than sampling. Removes Monte Carlo variance from val
+  Sharpe measurement (the policy is what we want to evaluate, not
+  one realization of it).
