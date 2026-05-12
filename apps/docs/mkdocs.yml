@@ -113,6 +113,7 @@ nav:
       - Passive EW benchmark (regrades shippable rows): findings/passive-ew-benchmark.md
       - Rank-IC vs long-only top-N mismatch: findings/factor-rankic-long-only-mismatch.md
       - Loss-pivot — Sharpe/IR losses underperform rank-IC: findings/factor-loss-pivot.md
+      - Sizing-input v0 — MSE-on-alpha calibrates but adds no information for rank-based emission: findings/factor-sizing-input-v0.md
       - Gate drawdown v0 (partial-OOS): findings/gate-drawdown-v0.md
       - Pairs classical v0 (confirmed-null): findings/pairs-classical-v0.md
       - Vol surface v0 (inconclusive, 5/5 pos): findings/vol-surface-v0.md

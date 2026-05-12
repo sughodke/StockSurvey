@@ -1,5 +1,26 @@
 # Factor sizing-input reframe — re-purpose apps/factor as a meta-gate input
 
+**v0 resolved 2026-05-12: `confirmed-null` on the loss-axis hypothesis.**
+`mse_alpha` training calibrates score magnitudes (val MSE-alpha 52×
+smaller than rank_ic) but adds zero information for the rank-based
+signal-quality emission — both arms hit Spearman ρ = +0.486 and lag-1
+autocorr +0.82-+0.91. **v1 proceeds with the rank_ic head as the
+upstream signal-quality source** (no benefit to switching). Closing
+finding: [`factor-sizing-input-v0`](../findings/factor-sizing-input-v0.md).
+Leaderboard row: 2026-05-12 sizing-input v0 head-to-head,
+[`confirmed-null`](../leaderboard.md#verdict-labels). Implementation
+landed in `factor.{train,train_walkforward}` (`loss_kind='mse_alpha'`,
+`alpha_target_rb`, `signal_quality_per_val_bar`, `val_start_date`);
+drivers `apps/factor/scripts/sizing_input_eval.py` (local) +
+`apps/factor/scripts/modal/sizing_input_eval.py` (T4).
+
+The original test design and pre-registration are kept below for
+audit. **v1 (deployment layer) is the next sub-section that fires** —
+the calibration-layer null doesn't block it, the signal-quality
+artifact has the downstream-useful properties either way.
+
+---
+
 Motivating findings:
 [`factor-rankic-long-only-mismatch`](../findings/factor-rankic-long-only-mismatch.md),
 [`factor-loss-pivot`](../findings/factor-loss-pivot.md),
