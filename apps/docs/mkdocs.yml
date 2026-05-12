@@ -114,6 +114,7 @@ nav:
       - Rank-IC vs long-only top-N mismatch: findings/factor-rankic-long-only-mismatch.md
       - Loss-pivot — Sharpe/IR losses underperform rank-IC: findings/factor-loss-pivot.md
       - Sizing-input v0 — MSE-on-alpha calibrates but adds no information for rank-based emission: findings/factor-sizing-input-v0.md
+      - Sizing-input v1 — factor signal-quality at 6-window resolution is too lagged to clear VIX gate: findings/factor-sizing-input-v1.md
       - Gate drawdown v0 (partial-OOS): findings/gate-drawdown-v0.md
       - Pairs classical v0 (confirmed-null): findings/pairs-classical-v0.md
       - Vol surface v0 (inconclusive, 5/5 pos): findings/vol-surface-v0.md

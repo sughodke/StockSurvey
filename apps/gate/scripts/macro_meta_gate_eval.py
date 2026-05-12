@@ -140,9 +140,181 @@ def main() -> None:
     print(f'  positive lift confirms meta-gate adds value at the '
           f'pooled level')
 
+    # ---------------------------------------------------------------
+    # v1 extension (2026-05-12): factor signal-quality as a second
+    # meta-gate input, plus VIX-AND-factor / VIX-OR-factor composites.
+    #
+    # Factor signal-quality (per-val-bar top-decile − bottom-decile
+    # predicted alpha) was validated as a candidate gate input in
+    # `findings/factor-sizing-input-v0.md`: pooled lag-1 autocorr +0.91
+    # and Spearman ρ vs val Sharpe +0.486 from the rank_ic-trained
+    # indicator head. v1 question: does it add lift on top of the
+    # binary VIX-median gate at the meta-level?
+    #
+    # Temporal alignment: factor walk-forward has 6 val_start dates
+    # (~3y spacing); pivot-arc windows have 17 val_starts (~1-2y
+    # spacing). For each pivot row we look up the most recent factor
+    # val_start ≤ pivot val_start and use that factor window's
+    # `signal_quality_mean`. This is the most-recent OOS factor read
+    # *available at the pivot deployment moment* (no look-ahead).
+    # Resolution is coarse (6 distinct factor values across 17 pivot
+    # rows) — v1 is a diagnostic, v2 would refine the factor windowing.
+    # ---------------------------------------------------------------
+    factor_npz_path = OUTPUT / 'sizing-input-rank_ic-windows.npz'
+    if not factor_npz_path.exists():
+        print(f'\n[v1 extension skipped] factor signal-quality artifact '
+              f'not found at {factor_npz_path} — run '
+              f'`uvx modal run apps/factor/scripts/modal/sizing_input_eval.py` '
+              f'first.')
+    else:
+        print('\n' + '=' * 70)
+        print(f'v1: loading factor signal-quality from {factor_npz_path.name}')
+        f_npz = np.load(factor_npz_path)
+        factor_df = pd.DataFrame({
+            'factor_val_start': pd.to_datetime(
+                [s.decode() for s in f_npz['val_start_date']]),
+            'factor_sq': f_npz['signal_quality_mean'].astype(float),
+        }).sort_values('factor_val_start').reset_index(drop=True)
+        print(factor_df.to_string(index=False))
+
+        def _most_recent_factor_sq(pivot_val_start: pd.Timestamp) -> float:
+            eligible = factor_df.loc[
+                factor_df['factor_val_start'] <= pivot_val_start]
+            if eligible.empty:
+                return float('nan')
+            return float(eligible['factor_sq'].iloc[-1])
+
+        out['factor_sq'] = out['val_start'].apply(_most_recent_factor_sq)
+        factor_median = float(factor_df['factor_sq'].median())
+        out['factor_state'] = np.where(
+            out['factor_sq'].isna(), 'unknown',
+            np.where(out['factor_sq'] >= factor_median, 'high', 'low'))
+        print(f'\nfactor median (over {len(factor_df)} windows): '
+              f'{factor_median:.3f}  — gate threshold')
+
+        out['alpha_factor_gated'] = np.where(
+            out['factor_state'] == 'high', out['alpha'], 0.0)
+        out['alpha_and_gated'] = np.where(
+            (out['factor_state'] == 'high') & (out['vix_state'] == 'high'),
+            out['alpha'], 0.0)
+        out['alpha_or_gated'] = np.where(
+            (out['factor_state'] == 'high') | (out['vix_state'] == 'high'),
+            out['alpha'], 0.0)
+        out['alpha_factor_gated_z'] = np.where(
+            out['factor_state'] == 'high', out['alpha_z'], 0.0)
+        out['alpha_and_gated_z'] = np.where(
+            (out['factor_state'] == 'high') & (out['vix_state'] == 'high'),
+            out['alpha_z'], 0.0)
+        out['alpha_or_gated_z'] = np.where(
+            (out['factor_state'] == 'high') | (out['vix_state'] == 'high'),
+            out['alpha_z'], 0.0)
+
+        print('\nPer-window factor + composite gate decisions:')
+        print(f'{"app":>5s} {"win":>3s} {"val_start":>12s} '
+              f'{"vix":>5s} {"f_sq":>6s} {"f_st":>4s} '
+              f'{"alpha":>8s} '
+              f'{"vix_g":>7s} {"f_g":>7s} {"and_g":>7s} {"or_g":>7s}')
+        print('-' * 90)
+        for _, r in out.iterrows():
+            f_sq_str = (
+                f'{r["factor_sq"]:>6.3f}' if not pd.isna(r['factor_sq'])
+                else f'{"n/a":>6s}')
+            print(f'{r["app"]:>5s} {r["window_idx"]:>3d} '
+                  f'{str(r["val_start"].date()):>12s} '
+                  f'{r["vix_state"]:>5s} {f_sq_str} '
+                  f'{r["factor_state"]:>4s} '
+                  f'{r["alpha"]:>+8.3f} '
+                  f'{r["alpha_meta_gated"]:>+7.3f} '
+                  f'{r["alpha_factor_gated"]:>+7.3f} '
+                  f'{r["alpha_and_gated"]:>+7.3f} '
+                  f'{r["alpha_or_gated"]:>+7.3f}')
+
+        print('\n' + '=' * 70)
+        print('Pooled comparison across all 17 windows:')
+        print(f'{"arm":>22s}  {"raw_mean":>9s}  {"gated_mean":>10s}  '
+              f'{"lift":>8s}  {"n_deploy":>8s}')
+        print('-' * 70)
+        n_total = len(out)
+        rows_to_print = [
+            ('raw (no gate)', out['alpha'].mean(), out['alpha'].mean(),
+             n_total),
+            ('VIX-only',
+             out['alpha'].mean(),
+             out['alpha_meta_gated'].mean(),
+             int((out['vix_state'] == 'high').sum())),
+            ('factor-only',
+             out['alpha'].mean(),
+             out['alpha_factor_gated'].mean(),
+             int((out['factor_state'] == 'high').sum())),
+            ('VIX AND factor',
+             out['alpha'].mean(),
+             out['alpha_and_gated'].mean(),
+             int(((out['vix_state'] == 'high')
+                  & (out['factor_state'] == 'high')).sum())),
+            ('VIX OR factor',
+             out['alpha'].mean(),
+             out['alpha_or_gated'].mean(),
+             int(((out['vix_state'] == 'high')
+                  | (out['factor_state'] == 'high')).sum())),
+        ]
+        for label, raw, gated, n_dep in rows_to_print:
+            lift = gated - raw
+            print(f'{label:>22s}  {raw:>+9.3f}  {gated:>+10.3f}  '
+                  f'{lift:>+8.3f}  {n_dep:>8d}')
+
+        print()
+        print(f'{"arm":>22s}  {"raw_z":>9s}  {"gated_z":>10s}  {"lift_z":>8s}')
+        print('-' * 60)
+        raw_z = float(out['alpha_z'].mean())
+        for label, gated_col in (
+            ('VIX-only', 'alpha_meta_gated_z'),
+            ('factor-only', 'alpha_factor_gated_z'),
+            ('VIX AND factor', 'alpha_and_gated_z'),
+            ('VIX OR factor', 'alpha_or_gated_z'),
+        ):
+            gz = float(out[gated_col].mean())
+            print(f'{label:>22s}  {raw_z:>+9.3f}  {gz:>+10.3f}  '
+                  f'{(gz - raw_z):>+8.3f}')
+
+        print()
+        print('Pre-registered v1 cuts '
+              '(TODO/factor-sizing-input-reframe.md):')
+        print('  PASS — any factor arm pooled z-score lift ≥ +0.30')
+        print(f'         (≈ +0.10 absolute over VIX-only baseline +0.215)')
+        print(f'  FAIL — within ±0.05 of VIX-only z-score lift')
+        print()
+        vix_lift_z = float(out['alpha_meta_gated_z'].mean()) - raw_z
+        best_arm = None; best_lift = float('-inf')
+        for label, gated_col in (
+            ('factor-only', 'alpha_factor_gated_z'),
+            ('VIX AND factor', 'alpha_and_gated_z'),
+            ('VIX OR factor', 'alpha_or_gated_z'),
+        ):
+            gz = float(out[gated_col].mean()) - raw_z
+            if gz > best_lift:
+                best_arm = label; best_lift = gz
+        # PASS: any factor arm exceeds +0.30 z lift (pre-reg).
+        # FAIL: every factor arm is at or below VIX-only minus 0.05
+        #       (factor adds no information over VIX alone).
+        # INCONCLUSIVE: between the two — best factor arm above
+        #               VIX-only-minus-0.05 but below the PASS bar.
+        if best_lift >= 0.30:
+            verdict = f'PASS — best factor arm "{best_arm}" lift +{best_lift:.3f} ≥ +0.30'
+        elif best_lift <= vix_lift_z - 0.05:
+            verdict = (f'FAIL (confirmed-null on incremental lift) — best factor arm '
+                       f'"{best_arm}" lift +{best_lift:.3f} is below '
+                       f'VIX-only +{vix_lift_z:.3f} by ≥0.05; factor signal-quality '
+                       f'at this temporal resolution adds no value over VIX alone')
+        else:
+            verdict = (f'INCONCLUSIVE — best factor arm "{best_arm}" lift '
+                       f'+{best_lift:.3f}, VIX-only +{vix_lift_z:.3f}')
+        print(f'verdict: {verdict}')
+
     out_path = OUTPUT / 'macro-meta-gate-eval.json'
     out_serialized = out.copy()
     out_serialized['val_start'] = out_serialized['val_start'].dt.strftime('%Y-%m-%d')
+    if 'factor_val_start' in out_serialized.columns:
+        out_serialized = out_serialized.drop(columns=['factor_val_start'])
     out_serialized.to_json(out_path, orient='records', indent=2)
     print(f'\n-> {out_path}')
 

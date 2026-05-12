@@ -4,20 +4,34 @@
 `mse_alpha` training calibrates score magnitudes (val MSE-alpha 52×
 smaller than rank_ic) but adds zero information for the rank-based
 signal-quality emission — both arms hit Spearman ρ = +0.486 and lag-1
-autocorr +0.82-+0.91. **v1 proceeds with the rank_ic head as the
-upstream signal-quality source** (no benefit to switching). Closing
-finding: [`factor-sizing-input-v0`](../findings/factor-sizing-input-v0.md).
-Leaderboard row: 2026-05-12 sizing-input v0 head-to-head,
-[`confirmed-null`](../leaderboard.md#verdict-labels). Implementation
-landed in `factor.{train,train_walkforward}` (`loss_kind='mse_alpha'`,
-`alpha_target_rb`, `signal_quality_per_val_bar`, `val_start_date`);
-drivers `apps/factor/scripts/sizing_input_eval.py` (local) +
-`apps/factor/scripts/modal/sizing_input_eval.py` (T4).
+autocorr +0.82-+0.91. Closing finding:
+[`factor-sizing-input-v0`](../findings/factor-sizing-input-v0.md).
+
+**v1 resolved 2026-05-12: `confirmed-null` on the incremental-meta-gate-lift
+hypothesis.** Joining factor signal-quality at each pivot-arc val_start
+(via most-recent-OOS factor val_start lookup) to the
+`macro_meta_gate_eval` harness as a second gate input degrades
+performance on every arm: factor-only **−0.143 z** lift (worse than
+no-gate), composite arms below VIX-only +0.215 z baseline. Mechanism:
+6-window factor walk-forward emits sq at ~3y resolution; at pivot
+val_start the available factor read is 0–3y stale and reflects the
+previous regime, not the current one. v0's per-window Spearman ρ
++0.486 is real *within* the factor walkforward but doesn't transfer
+to a cross-app gate because of the lag. Closing finding:
+[`factor-sizing-input-v1`](../findings/factor-sizing-input-v1.md).
+
+**v2 plan (parked, lower priority than other v2 follow-ups):** use
+the existing `signal_quality_per_val_bar` arrays (shape `(6, 39)`,
+already emitted by the v0 walkforward — no retraining needed) to
+look up factor sq at *per-bar* grain instead of per-window grain.
+At each pivot val_start, find the most recent factor *rebal bar*
+(not val_start_date) and use its signal-quality. Lag bounded by
+`rebal_days=20` instead of 780. ~2-hour wiring fix. If that still
+fails, the architecture is wrong; if it succeeds, escalate to an
+expanding-window factor retrain.
 
 The original test design and pre-registration are kept below for
-audit. **v1 (deployment layer) is the next sub-section that fires** —
-the calibration-layer null doesn't block it, the signal-quality
-artifact has the downstream-useful properties either way.
+audit.
 
 ---
 
