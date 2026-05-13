@@ -26,11 +26,38 @@ import pandas as pd
 from cfr.menu import ActionMenu
 from cfr.state import InfosetBuilder
 from cfr.tabular import TabularCFR
-from cfr.regret import compute_block_regrets
+from cfr.regret import compute_block_regrets, regret_matching
 from cfr.baselines import (
     PassiveEW, TrailingBestGreedy, NaiveUniform, evaluate_baseline,
     _portfolio_simulate,
 )
+
+
+def _mask_and_renormalize(policy: np.ndarray, mask: np.ndarray) -> np.ndarray:
+    """Zero out unavailable actions in `policy` and renormalize.
+
+    Falls back to uniform over the available subset if the original
+    policy puts zero mass on any available action (e.g., regret
+    matching said "concentrate on action X" but X is unavailable
+    here). If no actions are available at all, returns all-cash
+    (assumes index 0 is the canonical cash action per ActionMenu's
+    dedup convention).
+    """
+    masked = policy.copy()
+    masked[~mask] = 0.0
+    total = masked.sum()
+    if total > 0:
+        return masked / total
+    # No mass on available actions → uniform over available
+    n_avail = int(mask.sum())
+    if n_avail > 0:
+        out = np.zeros_like(policy)
+        out[mask] = 1.0 / n_avail
+        return out
+    # Nothing available → all cash (index 0)
+    out = np.zeros_like(policy)
+    out[0] = 1.0
+    return out
 
 
 @dataclass
@@ -104,13 +131,24 @@ class CFRWalkForward:
         self,
         train_prices: pd.DataFrame,
         action_weights_train: np.ndarray,
+        action_avail_train: np.ndarray,
         infoset_ids_train: np.ndarray,
         rebal_indices_train: np.ndarray,
         menu: ActionMenu,
         builder: InfosetBuilder,
         rng: np.random.Generator,
     ) -> TabularCFR:
-        """Run `n_training_passes` chronological passes of CFR updates."""
+        """Run `n_training_passes` chronological passes of CFR updates.
+
+        Per-bar action availability mask `action_avail_train` (`(T,
+        n_actions) bool`) gates which actions participate at each
+        rebal: unavailable actions are excluded from sampling, do not
+        receive regret updates, and are masked out of the played-
+        policy used for the cumulative-strategy table. This prevents
+        the Phase 2b cash-equivalent contamination bug where a 13F
+        mode with no panel data still received policy mass in early
+        windows.
+        """
         log_p = np.log(train_prices.values,
                        where=(train_prices.values > 0),
                        out=np.full_like(train_prices.values, np.nan, dtype=np.float64))
@@ -118,7 +156,6 @@ class CFRWalkForward:
             n_infosets=builder.n_infosets,
             n_actions=menu.n_actions,
         )
-        n_rebals = len(rebal_indices_train)
         for pass_idx in range(self.n_training_passes):
             for k, t in enumerate(rebal_indices_train):
                 t = int(t)
@@ -128,43 +165,52 @@ class CFRWalkForward:
                 infoset = int(infoset_ids_train[t])
                 if infoset == builder.warmup_id:
                     continue
-                pi = table.current_policy(infoset)
-                # Counterfactual: realized block log return over [t, t_end]
-                block_logret = log_p[t_end] - log_p[t]   # (N,)
-                action_w_t = action_weights_train[t]      # (A, N)
-                # Played action sampled from pi (variance-reducing
-                # alternative: just compute regrets vs the *expected*
-                # mixed action; we use sampled for canonical CFR shape).
+                avail_t = action_avail_train[t]            # (A,) bool
+                if not avail_t.any():
+                    continue
+                pi_raw = table.current_policy(infoset)
+                pi = _mask_and_renormalize(pi_raw, avail_t)
+                block_logret = log_p[t_end] - log_p[t]      # (N,)
+                action_w_t = action_weights_train[t]        # (A, N)
                 played = int(rng.choice(menu.n_actions, p=pi))
                 regrets = compute_block_regrets(
                     block_logret, action_w_t, played)
-                table.update(infoset, regrets, pi)
+                # Mask regrets for unavailable actions so they don't
+                # accumulate in the table.
+                regrets_masked = np.where(avail_t, regrets, 0.0)
+                table.update(infoset, regrets_masked, pi)
         return table
 
     def _eval_cfr(
         self,
         val_prices: pd.DataFrame,
         action_weights_val: np.ndarray,
+        action_avail_val: np.ndarray,
         infoset_ids_val: np.ndarray,
         rebal_indices_val: np.ndarray,
         table: TabularCFR,
         builder: InfosetBuilder,
         menu: ActionMenu,
     ) -> tuple[np.ndarray, float, float]:
-        """Apply the trained policy to val and return (daily_ret, avg_gross, avg_turnover)."""
+        """Apply the trained policy to val and return (daily_ret, avg_gross, avg_turnover).
+
+        Honors per-bar action availability: at each val rebal, the
+        average policy is masked to the available action subset and
+        renormalized before mixing.
+        """
         T, A, N = action_weights_val.shape
         target_per_rebal = np.zeros((len(rebal_indices_val), N), dtype=np.float64)
         gross_per_rebal = np.zeros(len(rebal_indices_val), dtype=np.float64)
         for k, t in enumerate(rebal_indices_val):
             t = int(t)
             infoset = int(infoset_ids_val[t])
-            if infoset == builder.warmup_id:
-                # All-cash during warmup.
+            avail_t = action_avail_val[t]
+            if infoset == builder.warmup_id or not avail_t.any():
                 target_per_rebal[k] = 0.0
                 gross_per_rebal[k] = 0.0
                 continue
-            pi = table.average_policy(infoset)
-            # Mixed target = expectation of action weights under pi
+            pi_raw = table.average_policy(infoset)
+            pi = _mask_and_renormalize(pi_raw, avail_t)
             mixed_w = (pi[:, None] * action_weights_val[t]).sum(axis=0)
             target_per_rebal[k] = mixed_w
             gross_per_rebal[k] = float(mixed_w.sum())
@@ -189,11 +235,12 @@ class CFRWalkForward:
                 f'no windows fit: have {len(prices)} bars but need '
                 f'train+val={self.train_window_days + self.val_window_days}')
 
-        # Precompute menu weights ONCE on the full panel — same modes
-        # across windows means same precomputed scores. The slicing
-        # below is just into the precomputed tensor.
+        # Precompute menu weights + availability ONCE on the full
+        # panel — same modes across windows means same precomputed
+        # scores. The slicing below is just into the precomputed
+        # tensors.
         menu = self.menu_builder()
-        action_weights = menu.precompute(prices)  # (T, A, N)
+        action_weights, action_avail = menu.precompute(prices)  # (T, A, N), (T, A)
 
         per_window: list[WindowResult] = []
         for w_idx, (lo, mid, hi) in enumerate(windows):
@@ -201,6 +248,8 @@ class CFRWalkForward:
             val_prices   = prices.iloc[mid:hi]
             action_weights_train = action_weights[lo:mid]
             action_weights_val   = action_weights[mid:hi]
+            action_avail_train   = action_avail[lo:mid]
+            action_avail_val     = action_avail[mid:hi]
 
             builder = self.infoset_builder_factory()
             ids_train = builder.fit_transform(train_prices)
@@ -216,13 +265,13 @@ class CFRWalkForward:
             )
 
             table = self._train_table(
-                train_prices, action_weights_train,
+                train_prices, action_weights_train, action_avail_train,
                 ids_train, rebal_indices_train,
                 menu, builder, rng,
             )
 
             cfr_daily, cfr_gross, cfr_turnover = self._eval_cfr(
-                val_prices, action_weights_val,
+                val_prices, action_weights_val, action_avail_val,
                 ids_val, rebal_indices_val,
                 table, builder, menu,
             )

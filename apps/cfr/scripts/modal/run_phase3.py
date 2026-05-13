@@ -1,20 +1,22 @@
-"""Modal entrypoint — Phase 2b CFR walk-forward with the Phase 2a
-deterministic menu PLUS a `Top13FConsensusMode` derived from real
-SEC 13F-HR filings across 15 curated institutional managers.
+"""Modal entrypoint — Phase 3 Deep CFR walk-forward.
+
+Replaces tabular CFR's `(infoset, action) → cumulative regret` with
+a tinygrad MLP regret_net `(state_vec → predicted regret per action)`
+over a continuous 10-feature state vector (6 universe-internal + 4
+macro). Same Phase 2b 31-action menu (Phase 2a deterministic +
+top13f), same per-bar action availability (Phase 2b bugfix),
+same Phase 2b friction.
 
 Pipeline:
-    apps/cfr/scripts/modal/prep_phase1_data.py    → close panel pickle
-    apps/cfr/scripts/modal/prep_phase2b_data.py   → 13F consensus panel pickle
-    uvx modal run apps/cfr/scripts/modal/run_phase2b.py
+    apps/cfr/scripts/modal/prep_phase1_data.py     → close panel pickle
+    apps/cfr/scripts/modal/prep_phase2b_data.py    → 13F consensus pickle
+    apps/cfr/scripts/modal/prep_phase3_data.py     → macro panel pickle
+    uvx modal run apps/cfr/scripts/modal/run_phase3.py
 
-Returns `Output/cfr-phase2b.json`.
-
-The consensus panel is built from 13F-HR filings since 2013-01-01;
-walk-forward windows starting before 2013 (the early w0, w1) will
-have the `top13f` mode reduced to cash for most of their span. The
-algorithm should learn this and not concentrate on 13F in those
-windows; in late windows (2013+) the 13F mode has real signal
-content.
+Returns `Output/cfr-phase3.json` with per-window + summary stats +
+verdict against the pre-registered Phase 3 cut: deep CFR mean
+Sharpe ≥ Phase 1 + 0.15 (i.e., ≥ +0.74) AND CFR > naive uniform
+on Phase 2b menu by ≥ +0.10.
 """
 from __future__ import annotations
 
@@ -35,7 +37,7 @@ REMOTE_REPO = '/root/StockSurvey'
 
 image = (
     modal.Image.debian_slim(python_version='3.12')
-    .apt_install('git', 'curl', 'build-essential')
+    .apt_install('git', 'curl', 'build-essential', 'clang')
     .pip_install('uv')
     .env({'PYTHONUNBUFFERED': '1'})
     .add_local_dir(
@@ -44,7 +46,8 @@ image = (
         ignore=[
             '.git/**',
             '.venv/**',
-            '.edgar-cache/**',     # cache is large; consensus panel ships via RPC
+            '.edgar-cache/**',
+            '.macro-cache/**',
             'Output/**',
             'StooqData/**',
             'Nasdaq3347/**',
@@ -55,7 +58,7 @@ image = (
             'apps/factor/src/**',
             'apps/lie/src/**',
             'apps/notebook/data/**',
-            'apps/docs/**',         # in-flight doc edits not needed in Modal
+            'apps/docs/**',
             '**/__pycache__/**',
             '**/.pytest_cache/**',
             '**/.ruff_cache/**',
@@ -64,58 +67,67 @@ image = (
     )
 )
 
-app = modal.App('cfr-phase2b', image=image)
+app = modal.App('cfr-phase3', image=image)
 
 
 @app.function(cpu=8, memory=24576, timeout=2 * 60 * 60)
 def run_walkforward_remote(
     close_pickle: bytes,
     consensus_pickle: bytes,
+    macro_pickle: bytes,
     *,
     train_window_days: int,
     val_window_days: int,
     step_window_days: int,
     rebal_days: int,
     top_k: int,
-    n_training_passes: int,
+    hidden: int,
+    learning_rate: float,
+    batch_size: int,
+    train_every: int,
+    n_sgd_per_batch: int,
     seed: int,
     filing_lag_days: int,
-    output_name: str = 'cfr-phase2b.json',
+    output_name: str,
 ) -> dict[str, bytes]:
     import os
     import subprocess
 
-    print('=== Step 1/4: uv sync workspace deps ===', flush=True)
+    print('=== Step 1/4: uv sync workspace deps (cfr) ===', flush=True)
     t0 = time.perf_counter()
     subprocess.run(
         ['uv', 'sync', '--package', 'cfr', '--inexact'],
+        cwd=REMOTE_REPO, check=True)
+    # Tinygrad needed for Phase 3; install separately to keep base
+    # cfr deps light.
+    subprocess.run(
+        ['uv', 'pip', 'install', 'tinygrad'],
         cwd=REMOTE_REPO, check=True)
     import site
     site.addsitedir(f'{REMOTE_REPO}/.venv/lib/python3.12/site-packages')
     print(f'  sync wall: {time.perf_counter() - t0:.1f}s', flush=True)
 
-    print('\n=== Step 2/4: deserialize close + consensus panels ===', flush=True)
+    print('\n=== Step 2/4: deserialize panels ===', flush=True)
     import pickle
     import pandas as pd
     close: pd.DataFrame = pickle.loads(close_pickle)
     consensus: pd.DataFrame = pickle.loads(consensus_pickle)
-    print(f'  close shape: {close.shape}  '
-          f'date range: {close.index[0].date()} .. {close.index[-1].date()}',
+    macro: pd.DataFrame = pickle.loads(macro_pickle)
+    print(f'  close: {close.shape}  '
+          f'{close.index[0].date()} → {close.index[-1].date()}', flush=True)
+    print(f'  consensus: {consensus.shape}  '
+          f'{consensus.index[0].date()} → {consensus.index[-1].date()}',
           flush=True)
-    print(f'  consensus shape: {consensus.shape}  '
-          f'period range: {consensus.index[0].date()} .. {consensus.index[-1].date()}',
-          flush=True)
-    print(f'  in-universe consensus tickers: '
-          f'{len([c for c in consensus.columns if c in close.columns])}',
+    print(f'  macro: {macro.shape}  cols {list(macro.columns)}',
           flush=True)
 
-    print('\n=== Step 3/4: build Phase 2b menu (Phase 2a + top13f) ===', flush=True)
+    print('\n=== Step 3/4: build menu + state-vec builder ===', flush=True)
     from cfr.menu import (
-        ActionMenu, EqualWeightMode, TopKMode, default_phase2a_menu,
+        ActionMenu, EqualWeightMode, TopKMode,
     )
     from cfr.modes_13f import Top13FConsensusMode
-    from cfr.state import default_infoset_builder
-    from cfr.walkforward import CFRWalkForward
+    from cfr.state_vec import StateVecBuilder
+    from cfr.deep_walkforward import DeepCFRWalkForward
 
     def build_menu() -> ActionMenu:
         modes = [
@@ -143,32 +155,34 @@ def run_walkforward_remote(
         ]
         return ActionMenu(modes=modes, gross_levels=(0.0, 0.5, 1.0, 2.0))
 
-    driver = CFRWalkForward(
+    driver = DeepCFRWalkForward(
         menu_builder=build_menu,
-        infoset_builder_factory=default_infoset_builder,
+        state_vec_builder_factory=StateVecBuilder,
         train_window_days=train_window_days,
         val_window_days=val_window_days,
         step_window_days=step_window_days,
         rebal_days=rebal_days,
         commission_bps=10.0,
-        n_training_passes=n_training_passes,
         rng_seed=seed,
+        hidden=hidden,
+        learning_rate=learning_rate,
+        batch_size=batch_size,
+        train_every=train_every,
+        n_sgd_per_batch=n_sgd_per_batch,
     )
     menu = driver.menu_builder()
-    print(f'  Phase 2b menu ({menu.n_actions} actions):', flush=True)
-    for k in menu.action_keys:
-        print(f'    {k}', flush=True)
+    print(f'  Phase 3 menu ({menu.n_actions} actions)', flush=True)
 
-    print('\n=== Step 4/4: walk-forward ===', flush=True)
+    print('\n=== Step 4/4: deep CFR walk-forward ===', flush=True)
     t1 = time.perf_counter()
-    per_window, summary = driver.run(close)
+    per_window, summary = driver.run(close, macro)
     print(f'\n  walk wall: {time.perf_counter() - t1:.1f}s '
           f'({len(per_window)} windows)', flush=True)
 
     print(f'\n{"win":>3s} {"val_dates":>23s} {"cfr_sh":>7s} {"pas_sh":>7s} '
           f'{"trl_sh":>7s} {"nai_sh":>7s} {"alpha":>7s} {"vs_trl":>7s} '
-          f'{"vs_nai":>7s}', flush=True)
-    print('-' * 110, flush=True)
+          f'{"vs_nai":>7s} {"loss":>10s}', flush=True)
+    print('-' * 122, flush=True)
     for w in per_window:
         print(f'{w.window_idx:>3d} {w.val_start}→{w.val_end} '
               f'{w.cfr_sharpe:>+7.3f} {w.passive_ew_sharpe:>+7.3f} '
@@ -176,7 +190,8 @@ def run_walkforward_remote(
               f'{w.naive_uniform_sharpe:>+7.3f} '
               f'{w.cfr_alpha:>+7.3f} '
               f'{w.cfr_sharpe - w.trailing_best_sharpe:>+7.3f} '
-              f'{w.cfr_sharpe - w.naive_uniform_sharpe:>+7.3f}',
+              f'{w.cfr_sharpe - w.naive_uniform_sharpe:>+7.3f} '
+              f'{w.final_train_loss:>10.3e}',
               flush=True)
     print(f'\nmean CFR Sharpe        = {summary["mean_cfr_sharpe"]:+.3f}',
           flush=True)
@@ -186,33 +201,30 @@ def run_walkforward_remote(
           flush=True)
     print(f'mean naive uniform     = {summary["mean_naive_sharpe"]:+.3f}',
           flush=True)
-    print(f'mean CFR vs trailing   = '
-          f'{summary["mean_cfr_minus_trailing_best"]:+.3f}', flush=True)
-    cfr_minus_naive = (summary['mean_cfr_sharpe']
-                       - summary['mean_naive_sharpe'])
-    print(f'mean CFR vs naive      = {cfr_minus_naive:+.3f}', flush=True)
-    print(f'CFR>trailing fraction  = '
-          f'{summary["cfr_beats_trailing_fraction"]:.2f}', flush=True)
+    print(f'mean CFR vs trailing   = {summary["mean_cfr_minus_trailing"]:+.3f}',
+          flush=True)
+    print(f'mean CFR vs naive      = {summary["mean_cfr_minus_naive"]:+.3f}',
+          flush=True)
     print(f'\nverdict: {summary["verdict"]}', flush=True)
 
     payload = {
         'config': {
-            'phase': '2b',
-            'menu': 'phase2a + top13f (15 funds, 13F-HR since 2013)',
+            'phase': '3',
+            'menu': 'phase2a + top13f (deep CFR replaces tabular)',
+            'state_dim': per_window[0].state_dim if per_window else 0,
             'train_window_days': train_window_days,
             'val_window_days': val_window_days,
             'step_window_days': step_window_days,
             'rebal_days': rebal_days,
             'top_k': top_k,
-            'n_training_passes': n_training_passes,
-            'filing_lag_days': filing_lag_days,
+            'hidden': hidden,
+            'learning_rate': learning_rate,
+            'batch_size': batch_size,
+            'train_every': train_every,
+            'n_sgd_per_batch': n_sgd_per_batch,
             'seed': seed,
+            'filing_lag_days': filing_lag_days,
             'universe_n': close.shape[1],
-            'consensus_n_quarters': consensus.shape[0],
-            'consensus_n_tickers_in_universe': len(
-                [c for c in consensus.columns if c in close.columns]),
-            'date_range': [str(close.index[0].date()),
-                           str(close.index[-1].date())],
         },
         'summary': summary,
         'per_window': [w.__dict__ for w in per_window],
@@ -227,38 +239,51 @@ def main(
     step_window_days:  int = 780,
     rebal_days:        int = 20,
     top_k:             int = 20,
-    n_training_passes: int = 1,
+    hidden:            int = 64,
+    learning_rate:     float = 1e-3,
+    batch_size:        int = 64,
+    train_every:       int = 5,
+    n_sgd_per_batch:   int = 5,
     seed:              int = 0,
     filing_lag_days:   int = 45,
-    output_name:       str = 'cfr-phase2b.json',
+    output_name:       str = 'cfr-phase3.json',
 ) -> None:
     LOCAL_OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
     close_path = LOCAL_OUTPUT_DIR / 'cfr_phase1_close.pkl'
     consensus_path = LOCAL_OUTPUT_DIR / 'cfr_phase2b_consensus_panel.pkl'
-    for p in (close_path, consensus_path):
+    macro_path = LOCAL_OUTPUT_DIR / 'cfr_phase3_macro.pkl'
+    for p in (close_path, consensus_path, macro_path):
         if not p.exists():
             raise SystemExit(
                 f'pickle not found at {p}. Run prep first:\n'
                 f'  uv run python apps/cfr/scripts/modal/prep_phase1_data.py\n'
-                f'  uv run python apps/cfr/scripts/modal/prep_phase2b_data.py')
+                f'  uv run python apps/cfr/scripts/modal/prep_phase2b_data.py\n'
+                f'  uv run python apps/cfr/scripts/modal/prep_phase3_data.py')
 
     close_pickle = close_path.read_bytes()
     consensus_pickle = consensus_path.read_bytes()
+    macro_pickle = macro_path.read_bytes()
     print(f'[local] close pickle:     {len(close_pickle) / 1024 / 1024:.1f} MB',
           flush=True)
     print(f'[local] consensus pickle: {len(consensus_pickle) / 1024:.1f} KB',
           flush=True)
+    print(f'[local] macro pickle:     {len(macro_pickle) / 1024:.1f} KB',
+          flush=True)
 
-    print(f'[local] launching Modal Phase 2b (CPU 8c) ...', flush=True)
+    print(f'[local] launching Modal Phase 3 (CPU 8c) ...', flush=True)
     t0 = time.perf_counter()
     artifacts = run_walkforward_remote.remote(
-        close_pickle, consensus_pickle,
+        close_pickle, consensus_pickle, macro_pickle,
         train_window_days=train_window_days,
         val_window_days=val_window_days,
         step_window_days=step_window_days,
         rebal_days=rebal_days,
         top_k=top_k,
-        n_training_passes=n_training_passes,
+        hidden=hidden,
+        learning_rate=learning_rate,
+        batch_size=batch_size,
+        train_every=train_every,
+        n_sgd_per_batch=n_sgd_per_batch,
         seed=seed,
         filing_lag_days=filing_lag_days,
         output_name=output_name,

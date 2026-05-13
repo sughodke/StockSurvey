@@ -101,10 +101,23 @@ class BaseMode(Protocol):
     price panel. Output shape is `(T, N)`; row `t` is the *intended*
     weight vector at bar `t` (summing to 1 over the chosen names, or
     to 0 if no name passes liquidity).
+
+    Optional `availability(prices) -> (T,) bool` declares which bars
+    the mode has *real signal* on (vs phantom-cash). Modes that don't
+    implement it are treated as always-available (the default for
+    deterministic price-derived modes). Modes backed by external data
+    that doesn't span the full panel (e.g., 13F panel starting in
+    2013, options surfaces with limited coverage) should report
+    `availability` so the CFR walk-forward can mask them out of
+    sampling/regret/mixing in unavailable bars — preventing the
+    Phase 2b cash-equivalent contamination bug.
     """
     name: str
 
     def precompute(self, prices: pd.DataFrame) -> np.ndarray: ...
+
+    # Optional — implementers MAY define `availability(prices) -> ndarray`.
+    # ActionMenu.precompute checks via getattr.
 
 
 @dataclass(frozen=True)
@@ -377,22 +390,45 @@ class ActionMenu:
     def action_keys(self) -> list[str]:
         return [a.key() for a in self.actions]
 
-    def precompute(self, prices: pd.DataFrame) -> np.ndarray:
-        """Build the `(T, n_actions, N)` weight tensor.
+    def precompute(self, prices: pd.DataFrame) -> tuple[np.ndarray, np.ndarray]:
+        """Build the `(T, n_actions, N)` weight tensor + `(T, n_actions)`
+        availability mask.
 
         Each mode is precomputed once over the full panel; the gross
         scalar then scales each entry. Cash actions short-circuit to
-        zeros. The result is dense and float64.
+        zeros and are always-available.
+
+        Availability of action `(mode, gross>0)` at bar t is the
+        underlying mode's availability at bar t (defaults to True if
+        the mode doesn't define `availability`). Cash is always
+        available. The walk-forward driver uses availability to mask
+        unavailable actions out of sampling, regret update, and
+        average-policy mixing — so a mode with limited temporal
+        coverage (13F since 2013, IV since 2019, etc.) doesn't
+        contaminate the regret table for bars where it's all-cash.
         """
         T, N = prices.shape
-        mode_weights = {m.name: m.precompute(prices) for m in self.modes}
+        mode_weights: dict[str, np.ndarray] = {}
+        mode_avail: dict[str, np.ndarray] = {}
+        for m in self.modes:
+            mode_weights[m.name] = m.precompute(prices)
+            avail_fn = getattr(m, 'availability', None)
+            if avail_fn is None:
+                mode_avail[m.name] = np.ones(T, dtype=bool)
+            else:
+                a = avail_fn(prices)
+                mode_avail[m.name] = (np.ones(T, dtype=bool) if a is None
+                                       else np.asarray(a, dtype=bool))
+
         out = np.zeros((T, self.n_actions, N), dtype=np.float64)
+        avail_out = np.ones((T, self.n_actions), dtype=bool)
         for i, a in enumerate(self.actions):
             if a.gross == 0.0:
-                continue  # already zeros
+                continue  # cash: zero weights, always available (default True)
             base = mode_weights[a.mode_name]
             out[:, i, :] = base * a.gross
-        return out
+            avail_out[:, i] = mode_avail[a.mode_name]
+        return out, avail_out
 
 
 def default_phase1_menu(*, top_k: int = 20) -> ActionMenu:

@@ -78,5 +78,26 @@ class Top13FConsensusMode:
             out[t, col_indices[picks]] = w_per_pick
         return out
 
+    def availability(self, prices: pd.DataFrame) -> np.ndarray:
+        """Per-bar bool mask: True iff at least one 13F quarter is
+        within the lagged-coverage window at this bar.
+
+        Bars before the first lagged 13F quarter (typically pre-2013)
+        report as unavailable so the CFR walk-forward driver can mask
+        the mode out of sampling/regret/mixing for those bars —
+        preventing the cash-equivalent contamination bug observed in
+        Phase 2b w0 (alpha drag −0.16 from CFR routing policy mass to
+        phantom-cash 13F actions in pre-coverage windows).
+        """
+        T = len(prices)
+        if self.consensus_panel.empty:
+            return np.zeros(T, dtype=bool)
+        bar_dates = prices.index
+        lagged_dates = bar_dates - pd.Timedelta(days=self.filing_lag_days)
+        panel_periods = self.consensus_panel.index
+        idx = np.searchsorted(
+            panel_periods.values, lagged_dates.values, side='right') - 1
+        return idx >= 0
+
 
 __all__ = ['Top13FConsensusMode']

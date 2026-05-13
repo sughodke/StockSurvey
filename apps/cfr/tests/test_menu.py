@@ -57,11 +57,45 @@ def test_menu_dedups_cash():
 def test_menu_precompute_shape():
     menu = default_phase1_menu(top_k=5)
     p = _make_panel(n_bars=300, n_tickers=15)
-    w = menu.precompute(p)
+    w, avail = menu.precompute(p)
     assert w.shape == (300, menu.n_actions, 15)
+    assert avail.shape == (300, menu.n_actions)
     # Cash row is all zeros
     cash_idx = next(i for i, a in enumerate(menu.actions) if a.gross == 0)
     assert np.allclose(w[:, cash_idx, :], 0.0)
+    # Cash always available; default modes always available
+    assert avail[:, cash_idx].all()
+    assert avail.all()
+
+
+class _LimitedMode:
+    """Test fixture mode with per-bar availability."""
+    name = 'lim'
+
+    def precompute(self, prices):
+        return np.ones((len(prices), prices.shape[1])) / prices.shape[1]
+
+    def availability(self, prices):
+        T = len(prices)
+        avail = np.zeros(T, dtype=bool)
+        avail[T // 2:] = True   # only second half
+        return avail
+
+
+def test_menu_availability_propagates_from_mode():
+    """A mode that defines `availability` masks its actions across all
+    gross levels; cash stays always-available."""
+    menu = ActionMenu(modes=[_LimitedMode()], gross_levels=(0.0, 0.5, 1.0))
+    p = _make_panel(n_bars=200, n_tickers=8)
+    w, avail = menu.precompute(p)
+    cash_idx = next(i for i, a in enumerate(menu.actions) if a.gross == 0)
+    lim_idx = next(i for i, a in enumerate(menu.actions)
+                   if a.gross > 0 and a.mode_name == 'lim')
+    # Cash always available
+    assert avail[:, cash_idx].all()
+    # Limited mode unavailable in first half, available in second
+    assert not avail[:100, lim_idx].any()
+    assert avail[100:, lim_idx].all()
 
 
 def test_menu_action_keys_are_unique():

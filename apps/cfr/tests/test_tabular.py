@@ -34,7 +34,7 @@ def test_tabular_cfr_prefers_winning_action():
         modes=[EqualWeightMode(min_lookback=10), CashMode(name='cash_mode')],
         gross_levels=(0.0, 1.0),
     )
-    action_weights = menu.precompute(p)
+    action_weights, _avail = menu.precompute(p)
     # Find the EW@g1 action index
     ew_idx = next(i for i, a in enumerate(menu.actions)
                   if a.mode_name == 'ew' and a.gross == 1.0)

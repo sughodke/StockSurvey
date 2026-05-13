@@ -1,24 +1,28 @@
 # `apps/cfr` — Deep CFR meta-allocator across existing scorers
 
 **Status (2026-05-12):** Phase 0 scaffold + **Phase 1 + Phase 2
-all shipped same day.** Tabular CFR cleared the Phase 1 PASS cut
-against trailing-best-greedy (+0.609 Sharpe lift in 6/6 windows
-on canonical stooq_us_long 6-window walk-forward) but ties naive
-uniform mix and undershoots passive EW. Phase 2a (4 documented-
-alpha modes added → 28 actions total) and Phase 2b (real SEC 13F-HR
-consensus mode added → 31 actions, 14 curated funds since 2013)
-both **failed the menu-enrichment hypothesis**: CFR Sharpe slightly
-*worse* than Phase 1 in both, naive uniform improved more than
-CFR did with each enrichment. **Verdict: `confirmed-null` on
-tabular menu enrichment as the lever.** The Cover universal-
-portfolio diagnosis from Phase 1 is now confirmed at the menu axis
-— the binding constraint is the tabular regret-table sample
-density, not menu content. **Phase 3 must use deep CFR**
-(`regret_net(state, action_emb) → R` MLP that shares statistical
-strength across actions) over a learned multi-modal encoder, not
-a richer tabular table. See
-[`cfr-phase1`](../findings/cfr-phase1.md) and
-[`cfr-phase2`](../findings/cfr-phase2.md) for analysis.
++ Phase 3 all shipped same day** — five phase variants on Modal.
+Tabular CFR (Phase 1) cleared the Phase 1 PASS cut against
+trailing-best-greedy by +0.609 Sharpe (6/6 windows) but ties
+naive uniform mix. Phase 2a / 2b confirmed-null on tabular menu
+enrichment. **Phase 3 (Deep CFR with tinygrad regret_net + 10-
+feature continuous state vector incl. 4 FRED macro features):
+MARGINAL** — mean CFR +0.614 (best of all phases), CFR alpha vs
+EW −0.071 (32% reduction vs Phase 1's −0.093), window 2 alpha
+flips −0.111 → +0.127 (cleanest deep-architecture win). But
+**cumulative Phase 1 → 3 lift is only +0.021** — far short of
+the +0.15 PASS floor. **Architecture is no longer the binding
+constraint at this universe + horizon.** Across 5 phase variants
+the architecture-side variance is bounded at ~±0.02, the same
+magnitude as the Cesa-Bianchi-Lugosi O(√(log n)/√T) bound at our
+T=6,000 / n=31. Cover universal-portfolio guarantees no-regret
+vs the best fixed-mix-in-hindsight (which on 25-year US equity
+*is* passive EW); we cannot beat it without regime-switching
+alpha that exists in some regime AND a state representation that
+isolates that regime. **Phase 4 must change the prediction
+problem**, not the meta-allocator's representation. See
+[`cfr-phase3`](../findings/cfr-phase3.md) for the load-bearing
+analysis with the full Phase 1-2-3 progression table.
 
 **Verdict → next-experiment chain.** The
 [prediction-problem-pivot arc](../findings/prediction-problem-pivot-arc.md)
@@ -479,28 +483,78 @@ The three core papers if anyone picks this up cold:
 
 ## What kicks this off
 
-If/when this becomes top-priority:
+~~If/when this becomes top-priority:~~ — **All Phase 0 / 1 / 2 /
+3 work shipped 2026-05-12.** See cumulative result in
+[`cfr-phase3`](../findings/cfr-phase3.md). Phase 4 candidates
+below; choose one.
 
-1. ~~Build the **13F loader** first (longest lead time, useful even
-   standalone for diagnostic work like "does following Berkshire
-   beat EW?").~~ — *Deferred to Phase 2 prep; Phase 0 used
-   universe-agnostic deterministic modes that don't require an
-   expert prior.*
-2. ~~Build **Phase 0 scaffold** (action menu, replay buffer, encoder
-   + heads, walk-forward driver) in parallel.~~ — **Shipped
-   2026-05-12.** `apps/cfr/src/cfr/{menu,state,regret,tabular,
-   buffer,baselines,walkforward,persist,cli}.py` +
-   `apps/cfr/tests/` (23 unit tests green) +
-   `apps/cfr/scripts/{smoke,run_walkforward}.py`. Tabular instead
-   of deep at Phase 1 — 9 infosets × 16 actions = 144 table
-   entries, dense enough to validate on 25y of data.
-3. **Next: Run Phase 1** — canonical 6-window walk-forward on full
-   StooqData/ with `stooq_us_long` manifest. Command:
-   `uv run python apps/cfr/scripts/run_walkforward.py
-   --output Output/cfr-phase1.json`. Pre-registered cuts above
-   gate the Phase 2 decision.
-4. Decide on Phase 2 (13F imitation pretrain + deep CFR) based on
-   Phase 1 result.
+### Phase 4 candidates (all change the prediction problem, not the architecture)
+
+The Phase 3 finding establishes that the meta-allocator's
+representation is not the binding constraint at this universe +
+horizon. The +0.02 Phase 1 → 3 architectural progression is
+bounded by the no-regret theoretical floor for our T/n. To break
+the ceiling, change the prediction problem:
+
+#### Phase 4a — Hybrid: Phase 3 deep CFR + macro v1b VIX gate
+
+**Hypothesis:** the [macro v1b VIX-above-1y-rolling-median gate](
+../findings/macro-regime-diagnostic.md) lifted pivot-arc apps by
++0.215 z (pooled per-app-z-scored). Combined with Phase 3 deep
+CFR, the gate suspends deployment in the calm-VIX regimes that
+have produced 4/6 negative-alpha windows across all 5 CFR phase
+variants. Pre-reg cut: **gated-CFR mean Sharpe ≥ Phase 3 + 0.15
+mean** AND **alpha vs passive EW (gated-EW baseline) ≥ +0.10**.
+**Implementation: ~50 LoC.** `apps/cfr/scripts/modal/run_phase4a.py`
+that calls Phase 3 walkforward but post-processes per-bar val
+weights × VIX-above-median mask. No retraining needed.
+
+#### Phase 4b — Universe pivot: sector ETFs
+
+**Hypothesis:** sector rotation alpha is documented; sector ETFs
+(XLK, XLF, XLE, XLV, XLI, XLP, XLY, XLU, XLB, XLRE) have
+~10× larger per-action variance than mega-cap stocks. Even with
+the same Phase 3 architecture, the action-level regret signal
+should be O(10×) larger and the no-regret bound at the same T
+becomes 10× tighter relative to per-action edge. Pre-reg cut:
+**mean CFR Sharpe ≥ Phase 3 + 0.20** AND **alpha vs EW-of-
+sectors ≥ +0.15**. **Implementation: ~1 day.** New `prep_sectors_
+data.py` (load 11 ETFs from Stooq), parameterize Phase 3
+walkforward to take a different price panel.
+
+#### Phase 4c — Horizon pivot: daily rebal
+
+**Hypothesis:** 20-day rebal eats marginal alpha at 10 bps each
+direction. Daily rebal cuts the per-rebal threshold by 4× while
+quadrupling the n samples for SGD. Pre-reg cut: **mean CFR
+Sharpe ≥ Phase 3 + 0.10** AND **alpha vs daily-EW ≥ +0.05**.
+Caveat: the Phase 3 modes are 21-day momentum-style, may need
+re-tuning at daily cadence. **Implementation: ~1 day.**
+
+#### Phase 4d — Composite-regime action menu
+
+**Hypothesis:** replace the current 31 actions (cash + EW + 5
+short-window factor modes + 4 long-window documented-alpha modes
++ 13F consensus) with sector × style × cap-tilt composites that
+have known regime-conditional alpha (e.g., `tech_overweight_
+rising_rates`, `small_cap_underweight_recession`, etc.). Even if
+each composite is alpha-positive only ~30% of the time, regret
+matching can concentrate on the active set when the deep encoder
+recognizes the regime. Pre-reg cut: **mean CFR Sharpe ≥ Phase 3
++ 0.20**. **Implementation: ~1 week** (need to build composite
+mode definitions and a way to label "active regime" per
+composite).
+
+### What we're NOT doing
+
+- More iteration on the Phase 3 architecture itself (bigger
+  hidden, action embeddings, transformer encoders). The variance
+  ceiling is the diagnostic that says these don't help.
+- Adding more deterministic factor modes to the menu. Phase 2a
+  already showed this hurts.
+- More 13F funds beyond the 14 curated ones. Phase 2b's per-
+  window pattern says coverage span (only 1.5 windows) is the
+  bottleneck, not fund breadth at the per-window level.
 
 Estimated remaining to a Phase 3 verdict: 6-10 weeks of focused
 work, mostly in 13F loader + encoder pretraining + walk-forward
