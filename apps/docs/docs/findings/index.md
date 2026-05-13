@@ -52,6 +52,7 @@ Default eval window unless otherwise stated: 2013-01-29 → 2025-12-11,
 ## Pairs app
 
 - [Pairs classical v0 — confirmed-null per pre-reg, regime-conditional partial signal](pairs-classical-v0.md)
+- [Pairs EG-gate falsified — audit-followup; pre-registered EG-passing-rate gate at three thresholds fails to lift +0.099 → +0.5; w0 sits in "working" EG band yet posts worst val Sharpe](pairs-eg-gate-falsified.md)
 
 ## Vol app
 

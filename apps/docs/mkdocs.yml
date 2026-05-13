@@ -130,6 +130,7 @@ nav:
       - CFR vs DCA realistic-friction re-eval — raw alpha collapses to +0.015 net; DCA is the canonical live strategy: findings/cfr-vs-dca-realistic.md
       - CFR + window-level VIX gate final close-out — bot is fully dead; memory-heavy regime gates fight regime transitions: findings/cfr-macro-gate-final.md
       - CFR Phase 4d sensitivity follow-up — friction × gate stress-test; audit-driven diagnostic that refines the prior closure (alpha is real and positive at every friction level, below +0.10 threshold): findings/cfr-sensitivity-followup.md
+      - Pairs EG-gate falsified — audit-followup test of EG-passing-rate regime gate; falsified at all three pre-registered thresholds; w0 sits in "working" EG band by count yet posts worst val Sharpe: findings/pairs-eg-gate-falsified.md
   - Workflows: workflows.md
   - TODO:
       - TODO/index.md

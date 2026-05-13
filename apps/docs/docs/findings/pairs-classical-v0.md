@@ -6,6 +6,32 @@ tags:
 
 # Pairs classical v0 — `confirmed-null` per pre-registration, regime-conditional partial signal
 
+!!! note "Update 2026-05-14 — EG-passing-rate gate falsified, but operational framing softened"
+
+    The "EG-passing-rate per window is itself a regime indicator"
+    hypothesis was tested directly in
+    [`pairs-eg-gate-falsified`](pairs-eg-gate-falsified.md) and
+    **falsified at all three pre-registered thresholds**: best-case
+    gated alpha is +0.104 full-panel (+0.156 fired-only), 3-5×
+    short of the audit's predicted +0.5 lift. The deeper finding:
+    w0 (worst val Sharpe at −1.233) has train EG-pass = 3918, the
+    **third-highest** of the 6 windows, sitting cleanly in the
+    "working" band by EG-pass count yet failing badly OOS. Train-
+    side regime indicators inherit the regime that produced the
+    training data, not the regime that will receive the val
+    deployment.
+
+    The `confirmed-null` verdict label below is unchanged
+    (technically correct by the +0.20 alpha pre-reg cut), but the
+    operational claim "pair-spread mean reversion is not an alpha
+    source on this universe at this horizon" is **overstated**: 4/6
+    windows post positive val Sharpe; the mean is dragged below the
+    threshold by one large negative window (w0, dot-com-trained).
+    A more honest description is "alpha exists in 4/6 windows,
+    mean below the +0.20 marginal floor". Pair trading stays parked,
+    but the audit-flagged "missed deployment lever" (EG-passing-rate
+    gate) is now confirmed to not be one.
+
 Second test of the
 [different-prediction-problem](../TODO/different-prediction-problem.md)
 pivot. Engle-Granger cointegration screening on per-window train
