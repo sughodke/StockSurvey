@@ -45,7 +45,7 @@ falsifiable-experiment ladder and pre-registered cuts.
 
 from cfr.menu import (
     ActionMenu, BaseMode, CashMode, EqualWeightMode, TopKMode,
-    default_phase1_menu,
+    default_phase1_menu, default_phase2a_menu,
 )
 from cfr.state import InfosetBuilder, default_infoset_builder
 from cfr.regret import compute_block_regrets, regret_matching
@@ -58,7 +58,7 @@ from cfr.walkforward import CFRWalkForward, WindowResult
 
 __all__ = [
     'ActionMenu', 'BaseMode', 'CashMode', 'EqualWeightMode', 'TopKMode',
-    'default_phase1_menu',
+    'default_phase1_menu', 'default_phase2a_menu',
     'InfosetBuilder', 'default_infoset_builder',
     'compute_block_regrets', 'regret_matching',
     'ReplayBuffer',

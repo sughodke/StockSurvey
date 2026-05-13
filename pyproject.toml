@@ -47,6 +47,7 @@ ss-stream = { workspace = true }
 ss-features = { workspace = true }
 ss-iv = { workspace = true }
 ss-macro = { workspace = true }
+ss-edgar = { workspace = true }
 ss-tg-ops = { workspace = true }
 ss-cli = { workspace = true }
 regime = { workspace = true }
@@ -83,5 +84,6 @@ testpaths = [
     "apps/v1/tests",
     "apps/factor/tests",
     "apps/cfr/tests",
+    "packages/edgar/tests",
 ]
 addopts = "-q --import-mode=importlib"

@@ -143,6 +143,102 @@ def _trailing_log_return(prices: pd.DataFrame, window: int) -> np.ndarray:
     return out
 
 
+def _trailing_log_return_skip(
+    prices: pd.DataFrame, window: int, skip: int,
+) -> np.ndarray:
+    """`log(p_{t-skip} / p_{t-window-skip})` per bar — trailing return
+    over `window` bars ending `skip` bars ago.
+
+    Used for **12-1 momentum** (Jegadeesh & Titman 1993): the trailing
+    12-month return *excluding* the most recent 1 month, which avoids
+    short-term reversal contamination of the medium-term momentum
+    signal. With `window=231, skip=21` this is the canonical 12-1
+    formulation.
+    """
+    p = prices.values
+    out = np.full_like(p, np.nan, dtype=np.float64)
+    log_p = np.log(p, where=(p > 0), out=np.full_like(p, np.nan, dtype=np.float64))
+    if window <= 0 or skip < 0:
+        return out
+    end = log_p.shape[0]
+    if window + skip >= end:
+        return out
+    out[window + skip:] = log_p[skip:end - window] - log_p[: end - window - skip]
+    # ^ at row t (>= window+skip), value = log_p[t-skip] - log_p[t-window-skip]
+    return out
+
+
+def _trailing_sharpe(prices: pd.DataFrame, window: int) -> np.ndarray:
+    """Per-bar trailing daily-return Sharpe over `window` bars (no
+    annualization — pure mean / std). `(T, N)`. NaN where < `window+1`
+    history.
+
+    Looped because `window` is small (~252) and the panel is
+    `(T, N)` ≈ `(6500, 312)`; total cost ~6 seconds. Acceptable for
+    one-shot precompute.
+    """
+    p = prices.values
+    T, N = p.shape
+    log_p = np.log(p, where=(p > 0), out=np.full_like(p, np.nan, dtype=np.float64))
+    log_ret = np.diff(log_p, axis=0, prepend=np.nan)
+    out = np.full((T, N), np.nan, dtype=np.float64)
+    for t in range(window, T):
+        sample = log_ret[t - window + 1:t + 1]
+        valid_count = (~np.isnan(sample)).sum(axis=0)
+        valid_cols = valid_count >= max(20, window // 4)
+        if not valid_cols.any():
+            continue
+        mu = np.full(N, np.nan, dtype=np.float64)
+        sd = np.full(N, np.nan, dtype=np.float64)
+        with np.errstate(invalid='ignore'):
+            mu[valid_cols] = np.nanmean(sample[:, valid_cols], axis=0)
+            sd[valid_cols] = np.nanstd(sample[:, valid_cols], axis=0, ddof=1)
+        with np.errstate(invalid='ignore', divide='ignore'):
+            out[t] = np.where(sd > 1e-10, mu / sd, np.nan)
+    return out
+
+
+def _trailing_trend_strength(prices: pd.DataFrame, window: int) -> np.ndarray:
+    """Per-bar trailing `(cumulative log return) / (max drawdown)` over
+    `window` bars. `(T, N)`. NaN for non-positive denominators (any
+    name that didn't drop in the trailing window has effectively
+    infinite trend strength — we mask those to NaN so they don't
+    dominate ranking on a single-bar artifact).
+
+    Captures **smooth uptrends** — names with consistent gains and
+    small drawdowns score higher than equally-returning names with
+    larger intra-period dips. The classic "calmar ratio at window
+    granularity."
+    """
+    p = prices.values
+    T, N = p.shape
+    log_p = np.log(p, where=(p > 0), out=np.full_like(p, np.nan, dtype=np.float64))
+    out = np.full((T, N), np.nan, dtype=np.float64)
+    for t in range(window, T):
+        sample = log_p[t - window + 1:t + 1]
+        valid_cols = (~np.isnan(sample)).sum(axis=0) >= max(20, window // 4)
+        if not valid_cols.any():
+            continue
+        # Cumulative log return = sample[-1] - sample[0] (per column)
+        cum_ret = sample[-1] - sample[0]
+        # Max drawdown in log space = max running peak - current.
+        # Restrict to valid columns to avoid `nanmax` on all-NaN slices.
+        sample_valid = sample[:, valid_cols]
+        running_peak = np.maximum.accumulate(
+            np.where(np.isnan(sample_valid), -np.inf, sample_valid), axis=0)
+        dd = running_peak - sample_valid
+        with np.errstate(invalid='ignore'):
+            max_dd_valid = np.nanmax(dd, axis=0)
+        max_dd = np.full(N, np.nan, dtype=np.float64)
+        max_dd[valid_cols] = max_dd_valid
+        score = np.full(N, np.nan, dtype=np.float64)
+        # Mask: needs valid history AND a positive max_dd (otherwise undefined)
+        ok = valid_cols & (max_dd > 1e-6) & np.isfinite(cum_ret)
+        score[ok] = cum_ret[ok] / max_dd[ok]
+        out[t] = score
+    return out
+
+
 def _trailing_vol(prices: pd.DataFrame, window: int) -> np.ndarray:
     """Per-bar trailing realized vol over `window` bars (stdev of log
     returns). `(T, N)`. NaN where history < `window + 1`.
@@ -177,12 +273,23 @@ class TopKMode:
     """Equal-weight top-K names by a trailing scoring function.
 
     `score_kind`:
-        - `'momentum'`  : higher trailing log return = higher score
-        - `'reversal'`  : lower trailing log return = higher score
-        - `'low_vol'`   : lower trailing vol = higher score
-        - `'high_vol'`  : higher trailing vol = higher score
+        - `'momentum'`     : higher trailing log return = higher score
+        - `'reversal'`     : lower trailing log return = higher score
+        - `'low_vol'`      : lower trailing vol = higher score
+        - `'high_vol'`     : higher trailing vol = higher score
+        - `'mom_12_1'`     : Jegadeesh-Titman 12-1 momentum (12mo return,
+                             excluding most recent 1mo); `score_window` ignored
+                             (hard-coded 231 + skip 21)
+        - `'sharpe_top'`   : trailing daily-return Sharpe (mean/std);
+                             `score_window` is the trailing window (default 252)
+        - `'trend_str'`    : trailing (cumulative log return) / (max DD);
+                             `score_window` is the trailing window (default 252)
 
     `top_k` is capped at the count of liquid names if it exceeds.
+    For long-window scorers (`mom_12_1`, `sharpe_top`, `trend_str`),
+    `min_lookback` should be set to at least the score's window so
+    the liquidity filter doesn't admit names that are NaN on the
+    score axis.
     """
     name: str
     score_kind: str
@@ -199,6 +306,12 @@ class TopKMode:
         elif self.score_kind in ('low_vol', 'high_vol'):
             vol = _trailing_vol(prices, self.score_window)
             scores = -vol if self.score_kind == 'low_vol' else vol
+        elif self.score_kind == 'mom_12_1':
+            scores = _trailing_log_return_skip(prices, window=231, skip=21)
+        elif self.score_kind == 'sharpe_top':
+            scores = _trailing_sharpe(prices, self.score_window)
+        elif self.score_kind == 'trend_str':
+            scores = _trailing_trend_strength(prices, self.score_window)
         else:
             raise ValueError(f'unknown score_kind {self.score_kind!r}')
         mask = _liquid_mask(prices, min_lookback=self.min_lookback)
@@ -283,23 +396,17 @@ class ActionMenu:
 
 
 def default_phase1_menu(*, top_k: int = 20) -> ActionMenu:
-    """The minimal universe-agnostic Phase 1 menu.
+    """The minimal universe-agnostic Phase 1 menu (16 actions).
 
-    Six modes × two non-zero gross levels + one canonical cash → 13
-    actions:
+    5 modes × {0, 0.5, 1.0, 2.0} gross, deduped to a single canonical
+    cash → 16 actions: cash + ew/mom/rev/lowv/highv × {0.5, 1.0, 2.0}.
 
-      cash, ew@g0.5, ew@g1, ew@g2,
-      mom@g0.5, mom@g1, mom@g2,
-      rev@g0.5, rev@g1,
-      low_vol@g1, high_vol@g1
-
-    (Where `mom` is top-`top_k` 21d momentum, `rev` is top-`top_k`
-    5d reversal, etc.)
-
-    Gross levels are asymmetric across modes intentionally — extreme
-    gross 2.0 only makes sense for the diversified EW / momentum
-    arms; piling 2× into a high-vol bet is rarely something a sane
-    meta-allocator should pick.
+    The Phase 1 finding ([cfr-phase1](../findings/cfr-phase1.md))
+    showed CFR over this menu ties naive uniform mix because the
+    short-window factor exposures (5-21d) are individually too close
+    to alpha-zero to reward concentration. Phase 2a swaps in
+    documented-alpha modes (12-1 momentum, 12-month low-vol, etc.)
+    via `default_phase2a_menu`.
     """
     # No explicit CashMode — gross=0.0 across any of the other modes
     # already produces canonical cash, and `ActionMenu.__post_init__`
@@ -317,7 +424,67 @@ def default_phase1_menu(*, top_k: int = 20) -> ActionMenu:
     )
 
 
+def default_phase2a_menu(*, top_k: int = 20) -> ActionMenu:
+    """Phase 2a menu — Phase 1 + documented-alpha modes.
+
+    Adds four medium-horizon modes with academically-documented alpha
+    on US equities:
+
+    - **`mom121`** — Jegadeesh-Titman 12-1 momentum (top-K by 12-month
+      return excluding most recent month). Multi-decade documented
+      alpha; the canonical "medium-term momentum" effect.
+    - **`lowv252`** — 12-month low-vol (top-K by *lowest* trailing
+      252d realized vol). The "low-vol anomaly" — multi-decade
+      documented alpha.
+    - **`shtop`** — top-K by trailing 252d Sharpe (mean / std of
+      daily log returns). Combines momentum and risk-aware ranking.
+    - **`trend`** — top-K by trailing 252d (cumulative log return) /
+      (max drawdown). Smooth-uptrend filter; the classical
+      window-Calmar ranking.
+
+    Total: 9 modes × 4 gross levels deduped = **28 actions** (cash +
+    9 modes × 3 nonzero gross). Tabular CFR over 9 infosets × 28
+    actions = 252 table entries; still well within converging on
+    ~6,000 train rebals.
+
+    These modes are *individually expected to be alpha-positive* in
+    some regimes (otherwise the academic literature on them would not
+    exist). The Phase 1 finding's binding-constraint hypothesis says
+    CFR's regret matching should be able to concentrate on whichever
+    of these is regime-active, lifting it materially over the
+    Phase 1 menu's uniform-mix limit.
+
+    The pre-registered Phase 2a cut: **CFR with this menu ≥ Phase 1
+    CFR + 0.10 mean Sharpe** AND **CFR > naive uniform mix of this
+    menu by ≥ +0.10 mean Sharpe** → confirms menu enrichment is the
+    right lever; proceed to Phase 2b (real 13F integration).
+    """
+    modes = [
+        EqualWeightMode(name='ew'),
+        TopKMode(name='mom', score_kind='momentum', score_window=21, top_k=top_k),
+        TopKMode(name='rev', score_kind='reversal', score_window=5, top_k=top_k),
+        TopKMode(name='lowv', score_kind='low_vol', score_window=21, top_k=top_k),
+        TopKMode(name='highv', score_kind='high_vol', score_window=21, top_k=top_k),
+        # New documented-alpha modes — long-window scorers, so the
+        # liquidity filter has to admit names with ≥252 history (the
+        # Phase 1 default min_lookback=21 would let names with < 252d
+        # of history score NaN and be ranked at the bottom).
+        TopKMode(name='mom121', score_kind='mom_12_1',
+                 score_window=252, top_k=top_k, min_lookback=252),
+        TopKMode(name='lowv252', score_kind='low_vol',
+                 score_window=252, top_k=top_k, min_lookback=252),
+        TopKMode(name='shtop', score_kind='sharpe_top',
+                 score_window=252, top_k=top_k, min_lookback=252),
+        TopKMode(name='trend', score_kind='trend_str',
+                 score_window=252, top_k=top_k, min_lookback=252),
+    ]
+    return ActionMenu(
+        modes=modes,
+        gross_levels=(0.0, 0.5, 1.0, 2.0),
+    )
+
+
 __all__ = [
     'Action', 'ActionMenu', 'BaseMode', 'CashMode', 'EqualWeightMode',
-    'TopKMode', 'default_phase1_menu',
+    'TopKMode', 'default_phase1_menu', 'default_phase2a_menu',
 ]

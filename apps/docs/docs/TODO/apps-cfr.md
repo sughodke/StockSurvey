@@ -1,21 +1,24 @@
 # `apps/cfr` — Deep CFR meta-allocator across existing scorers
 
-**Status (2026-05-12):** Phase 0 scaffold + **Phase 1 result shipped
-same day.** Tabular CFR cleared the pre-registered PASS cut against
-trailing-best-greedy on the canonical 6-window stooq_us_long walk-
-forward (mean +0.609 Sharpe lift, 6/6 windows positive vs +0.10
-threshold) but **ties naive uniform mix within noise** (Δ +0.002)
-and undershoots passive EW (alpha −0.093, only 1/6 positive).
-Verdict: [`partial-OOS`](../leaderboard.md#verdict-labels) — PASS
-on the pre-registered cut but the practically-useful comparisons
-(vs naive uniform, vs passive) don't separate. Architectural read:
-the algorithm works (Cover universal-portfolio uniform-mix limit
-when no infoset has positive cumulative regret) but the action
-menu's universe-agnostic top-K factor exposures are too close to
-alpha-zero to reward concentration. **Phase 2 priority shift:
-build alpha-positive modes (13F imitation) FIRST, then deep CFR
-on top.** See [`cfr-phase1`](../findings/cfr-phase1.md) for the
-load-bearing analysis.
+**Status (2026-05-12):** Phase 0 scaffold + **Phase 1 + Phase 2
+all shipped same day.** Tabular CFR cleared the Phase 1 PASS cut
+against trailing-best-greedy (+0.609 Sharpe lift in 6/6 windows
+on canonical stooq_us_long 6-window walk-forward) but ties naive
+uniform mix and undershoots passive EW. Phase 2a (4 documented-
+alpha modes added → 28 actions total) and Phase 2b (real SEC 13F-HR
+consensus mode added → 31 actions, 14 curated funds since 2013)
+both **failed the menu-enrichment hypothesis**: CFR Sharpe slightly
+*worse* than Phase 1 in both, naive uniform improved more than
+CFR did with each enrichment. **Verdict: `confirmed-null` on
+tabular menu enrichment as the lever.** The Cover universal-
+portfolio diagnosis from Phase 1 is now confirmed at the menu axis
+— the binding constraint is the tabular regret-table sample
+density, not menu content. **Phase 3 must use deep CFR**
+(`regret_net(state, action_emb) → R` MLP that shares statistical
+strength across actions) over a learned multi-modal encoder, not
+a richer tabular table. See
+[`cfr-phase1`](../findings/cfr-phase1.md) and
+[`cfr-phase2`](../findings/cfr-phase2.md) for analysis.
 
 **Verdict → next-experiment chain.** The
 [prediction-problem-pivot arc](../findings/prediction-problem-pivot-arc.md)

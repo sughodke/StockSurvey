@@ -60,6 +60,7 @@ Default eval window unless otherwise stated: 2013-01-29 → 2025-12-11,
 ## CFR app
 
 - [CFR Phase 1 — tabular CFR clears trailing-best-greedy by +0.609 (6/6 wins) but ties naive uniform mix; menu is the binding constraint](cfr-phase1.md)
+- [CFR Phase 2 — menu enrichment (Phase 2a + Phase 2b real-SEC-13F) confirmed-null; binding constraint is tabular sample density, not menu content; window 5 13F lift +0.277 validates signal-where-data exists](cfr-phase2.md)
 
 ## Arc syntheses
 

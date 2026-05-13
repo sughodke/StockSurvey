@@ -21,12 +21,18 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
-from cfr.menu import default_phase1_menu
+from cfr.menu import default_phase1_menu, default_phase2a_menu
 from cfr.state import default_infoset_builder
 from cfr.walkforward import CFRWalkForward
 
 
 REPO_ROOT = Path(__file__).resolve().parents[4]
+
+
+MENU_BUILDERS = {
+    'phase1':  default_phase1_menu,
+    'phase2a': default_phase2a_menu,
+}
 
 
 def run_walkforward(
@@ -41,6 +47,7 @@ def run_walkforward(
     val_window_days:   int = 780,
     step_window_days:  int = 780,
     n_training_passes: int = 1,
+    menu: str = 'phase1',
     output: Path = Path('Output/cfr-walkforward-summary.json'),
     seed: int = 0,
 ) -> int:
@@ -63,8 +70,14 @@ def run_walkforward(
           f'{prices.index[0].date()} → {prices.index[-1].date()} '
           f'in {time.time() - t0:.1f}s')
 
+    if menu not in MENU_BUILDERS:
+        raise SystemExit(
+            f'unknown menu={menu!r}; choices: {list(MENU_BUILDERS)}')
+    menu_builder = MENU_BUILDERS[menu]
+    print(f'  using menu builder: {menu}')
+
     driver = CFRWalkForward(
-        menu_builder=lambda: default_phase1_menu(top_k=top_k),
+        menu_builder=lambda: menu_builder(top_k=top_k),
         infoset_builder_factory=default_infoset_builder,
         train_window_days=train_window_days,
         val_window_days=val_window_days,
@@ -120,6 +133,7 @@ def run_walkforward(
             'val_window_days': val_window_days,
             'step_window_days': step_window_days,
             'n_training_passes': n_training_passes,
+            'menu': menu,
             'seed': seed,
         },
         'summary': summary,

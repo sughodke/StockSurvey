@@ -6,13 +6,20 @@ tags:
 
 # `apps/cfr` — Deep CFR meta-allocator across the existing strategy menu
 
-Status: **Phase 1 partial-OOS (2026-05-12)** — tabular CFR cleared
-the pre-registered Phase 1 PASS cut against trailing-best-greedy
-(+0.609 Sharpe in 6/6 windows) but ties naive uniform mix (+0.002)
-and undershoots passive EW (alpha −0.093). See
-[`cfr-phase1`](../findings/cfr-phase1.md) for full analysis. Phase
-2 (13F imitation pretrain + deep CFR) is the architectural
-correction.
+Status: **Phase 2 confirmed-null (2026-05-12)** — three Modal walk-
+forwards landed same day. Phase 1 (16-action universe-agnostic menu)
+ties naive uniform; Phase 2a (28 actions, +4 documented-alpha modes)
+and Phase 2b (31 actions, +real SEC 13F-HR consensus mode from new
+`packages/edgar`) both failed the menu-enrichment cut. The Cover
+universal-portfolio diagnosis from Phase 1 is now confirmed at the
+menu axis: **the binding constraint is tabular regret-table sample
+density, not menu content**. Full per-window analysis of all three
+phases in [`cfr-phase2`](../findings/cfr-phase2.md). Notable nuance:
+Phase 2b's late window (2020-2023, full 13F coverage) posts CFR
+alpha +0.277 vs Phase 1 — the 13F signal IS real where data exists,
+but tabular-CFR can't extract it cleanly. Phase 3 (deep CFR with
+`regret_net(state, action_emb) → R` MLP + learned multi-modal
+encoder) is the architectural correction.
 
 The architectural premise — *predictions with regime-conditional
 deployment performance need a regime filter, not a richer
@@ -136,45 +143,58 @@ The price-taker assumption means we update regret for *every*
 action at every visit, not just the sampled one — so the regret
 estimator has zero sampling variance from the played-action axis.
 
-## Phase 1 result (2026-05-12, Modal CPU 8c, 23s wall)
+## Phase 1 / 2a / 2b result (2026-05-12, Modal CPU 8c)
 
-6 walk-forward windows on the canonical `stooq_us_long` (312
-tickers, 2000-2025, 5y train / 3y val / 3y step, 1 training pass):
+Three walk-forwards on the canonical `stooq_us_long` (312
+tickers, 2000-2025, 5y train / 3y val / 3y step). Same algorithm,
+infoset, friction, windowing — only the action menu changes.
 
-| win | val_dates | CFR Sh | Passive EW | Trailing-best | Naive uniform | α vs EW | CFR vs trailing |
-|---:|---|---:|---:|---:|---:|---:|---:|
-| 0 | 2005-01 → 2008-02 | +0.279 | +0.529 | −0.727 | +0.321 | −0.251 | **+1.006** |
-| 1 | 2008-02 → 2011-03 | **+0.596** | +0.331 | −0.312 | +0.416 | **+0.265** | **+0.908** |
-| 2 | 2011-03 → 2014-04 | +0.817 | +0.928 | +0.174 | +0.711 | −0.111 | +0.643 |
-| 3 | 2014-04 → 2017-05 | +0.727 | +0.916 | +0.256 | +0.637 | −0.189 | +0.471 |
-| 4 | 2017-05 → 2020-07 | +0.440 | +0.440 | +0.060 | +0.288 | +0.000 | +0.380 |
-| 5 | 2020-07 → 2023-08 | +0.697 | +0.968 | +0.452 | +1.172 | −0.271 | +0.245 |
-| **mean** | | **+0.593** | **+0.685** | **−0.016** | **+0.591** | **−0.093** | **+0.609** |
+| Metric | Phase 1 (16 act) | Phase 2a (28 act) | Phase 2b (31 act) |
+|---|---:|---:|---:|
+| mean CFR Sharpe | **+0.593** | +0.573 | +0.583 |
+| mean passive EW | +0.685 | +0.685 | +0.685 |
+| mean trailing-best | −0.016 | +0.044 | +0.064 |
+| mean naive uniform | +0.591 | +0.632 | **+0.652** |
+| **CFR vs trailing-best** | **+0.609** | +0.529 | +0.520 |
+| **CFR vs naive uniform** | **+0.002** | −0.059 | **−0.069** |
+| **CFR alpha vs EW** | −0.093 | −0.112 | −0.103 |
+| Verdict | partial-OOS | confirmed-null | confirmed-null |
 
-**Headline reads** (full mechanism in
-[cfr-phase1](../findings/cfr-phase1.md)):
+**Read across the row** (full mechanism in
+[cfr-phase2](../findings/cfr-phase2.md)):
 
-1. **PASS vs trailing-best-greedy** by +0.609 Sharpe (threshold
-   was +0.10), in 6/6 windows. The algorithm reliably refuses to
-   follow the regime-mismatched "switch into whatever just won"
-   heuristic.
-2. **Tied with naive uniform mix** within noise (+0.593 vs
-   +0.591). CFR doesn't add information over 1/16 uniform mixing
-   on this menu × universe.
-3. **−0.093 alpha vs passive EW**, within ±0.10 noise band, 1/6
-   positive windows (window 1 = GFC, the same outlier window
-   carrying alpha across the pivot arc).
+1. **CFR Sharpe is essentially flat** across phases — adding
+   documented-alpha modes (2a) or real 13F data (2b) doesn't lift
+   CFR's mean Sharpe.
+2. **Naive uniform mix Sharpe rises monotonically** with each
+   enrichment (+0.591 → +0.632 → +0.652) — the 1/N benefits from
+   each new diversifying action regardless of alpha content.
+3. **CFR's lift over naive uniform turns negative** (+0.002 → −0.069):
+   the richer menus help the baseline more than the algorithm.
+4. **Per-window subtlety in Phase 2b:** window 5 (val 2020-2023,
+   the only window with full 13F coverage in train + val) posts
+   CFR alpha **+0.006 vs Phase 1's −0.271 — a +0.277 lift from
+   the 13F mode** in the regime where it has data. The 13F signal
+   IS real where coverage exists; the binding constraint that
+   washes it out at the mean is tabular-CFR's sample density, not
+   menu content.
 
-**Architectural read:** the algorithm works correctly — regret
-matching converges to the Cover universal-portfolio uniform-mix
-limit when no infoset has clearly positive cumulative regret,
-which is the right behavior. The binding constraint is the
-**action menu**: universe-agnostic top-K factor exposures
-(momentum / reversal / vol-rank) on a 312-name universe are too
-close to alpha-zero to reward concentration. Phase 2's natural
-move is to add alpha-positive modes (13F-imitation-pretrained
-scorers, sector-restricted variants) so regret matching has
-something to discover beyond uniform.
+**Architectural read across all three phases:** the algorithm
+works correctly — regret matching converges to the Cover universal-
+portfolio uniform-mix limit when no infoset has clearly positive
+cumulative regret, which is the right behavior. Adding more actions
+to a tabular table where most cells already lack signal **makes
+naive uniform stronger** (more diversification) **and CFR weaker**
+(more noise dimensions in the regret table). The Cesa-Bianchi &
+Lugosi O(√(log n)/√T) bound predicts this. **Phase 3 must move from
+tabular CFR to deep CFR** (`regret_net(state_vec, action_emb) → R`
+MLP that shares statistical strength across actions) over a
+learned multi-modal encoder — not a richer table.
+
+The Phase 1 per-window detail and the deeper Phase 1 analysis
+([cfr-phase1](../findings/cfr-phase1.md)) explain how the algorithm
+behaves window-by-window. Phase 2's per-window deltas are in
+[cfr-phase2](../findings/cfr-phase2.md).
 
 ## Running
 
@@ -182,45 +202,58 @@ something to discover beyond uniform.
 # Local sanity smoke (~10s + load)
 uv run python apps/cfr/scripts/smoke.py --data-dir apps/notebook/data/stooq_us_long
 
-# Phase 1 canonical 6-window on full StooqData/ (local, slow load)
+# Phase 1 canonical 6-window — local
 uv run python apps/cfr/scripts/run_walkforward.py \
-    --data-dir ./StooqData \
-    --output Output/cfr-phase1.json
+    --menu phase1 --data-dir ./StooqData --output Output/cfr-phase1.json
 
 # Phase 1 on Modal CPU (recommended; 23s total wall after image cache)
 uv run python apps/cfr/scripts/modal/prep_phase1_data.py
 uvx modal run apps/cfr/scripts/modal/run_phase1.py
 
-# Tests (23 unit tests)
-uv run pytest apps/cfr/tests/
+# Phase 2a — Phase 1 + 4 documented-alpha modes (no extra data)
+uv run python apps/cfr/scripts/modal/prep_phase1_data.py     # if not already
+uvx modal run apps/cfr/scripts/modal/run_phase2a.py
+
+# Phase 2b — Phase 2a + real SEC 13F-HR consensus mode
+uv run python apps/cfr/scripts/modal/prep_phase1_data.py     # if not already
+uv run python apps/cfr/scripts/modal/prep_phase2b_data.py    # ~4 min cold cache
+uvx modal run apps/cfr/scripts/modal/run_phase2b.py
+
+# Tests (33 unit tests, cfr + ss-edgar)
+uv run pytest apps/cfr/tests/ packages/edgar/tests/
 ```
 
-## Next — Phase 2 (13F imitation pretrain + deep CFR)
+## Next — Phase 3 (deep CFR with learned encoder)
 
-The Phase 1 result reframes the Phase 2 priorities. The TODO had
-the order as Phase 0 scaffold → Phase 1 baseline → Phase 2 = add
-imitation. The "tied with naive uniform" caveat from Phase 1 says
-**add alpha-positive modes first**, *then* worry about deep CFR.
-The pre-registered Phase 2 cut becomes: **CFR with 13F-imitation
-modes > Phase 1 CFR by ≥ +0.10 mean Sharpe**.
+Phase 2 demonstrated that tabular menu enrichment is the wrong
+lever — Phase 3's pre-registered cut is tightened accordingly:
 
-Concrete next steps:
+> **PASS** — deep CFR mean Sharpe ≥ Phase 1 CFR + 0.15 (i.e.,
+> ≥ +0.74 absolute) AND CFR > naive uniform mix on Phase 2b menu
+> by ≥ +0.10. The +0.15 floor (vs +0.10 in Phase 2) reflects that
+> Phase 3 is a more ambitious architectural change.
 
-1. **Build the 13F loader** (`packages/edgar` or
-   `apps/cfr/data/`). SEC EDGAR XML, per-quarter / per-fund /
-   per-ticker aggregation. ~1 week build estimate.
-2. **Add `mode_long_13f_consensus` (top-N fund consensus by
-   trailing Sharpe) to the action menu.** Wraps the 13F
-   aggregation as an action that gives target weights at any
-   bar. Should be alpha-positive in some regimes by construction
-   (it's an imitation of presumed-skilled traders).
-3. **Re-run Phase 1 eval with the expanded menu.** If CFR's
-   regret matching now concentrates on `mode_long_13f_consensus`
-   in some infosets (and we see CFR > naive uniform by
-   ≥ +0.10 Sharpe in ≥ 4/6 windows), the algorithm has been
-   validated against a more meaningful baseline.
-4. **Then** deep CFR + multi-modal encoder per the [original
-   Phase 3 design](../TODO/apps-cfr.md).
+Concrete deltas vs Phase 2:
 
-The current Phase 1 numbers are a real baseline against which
-every Phase 2+ variant will be measured.
+1. **Replace `(infoset, action) → cumulative regret` table with a
+   `regret_net(state_vec, action_emb) → R` MLP.** Tinygrad,
+   ~50K-200K params. Shares statistical strength across (state,
+   action) pairs that have similar structure — solving the
+   sample-density problem Phase 2 hit.
+2. **Replace 9-cell discrete infoset with a learned encoder** over
+   the multi-modal state vector: per-ticker price CWT + macro
+   panel (FRED) + cross-sectional dispersion + 13F-overlap
+   indicator + portfolio-state. The discrete cuts in Phase 1-2
+   throw away continuous regime information.
+3. **Keep the closed-form counterfactual regret signal** (it's
+   the load-bearing reason CFR is tractable here) but train via
+   SGD over the deep regret-net rather than accumulating into a
+   sparse table.
+4. **Fix the Phase 2b cash-equivalent-no-dedup issue** — era-
+   dependent menu (drop `top13f` pre-2013) or explicit menu-time
+   mask in `ActionMenu` for actions with no data.
+
+Estimated: 2-4 weeks of focused work for the encoder + regret-net
++ training-loop wiring, then one Modal walk-forward for the
+verdict. The Phase 1/2 results are the baseline against which
+Phase 3 will be measured.

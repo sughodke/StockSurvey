@@ -29,6 +29,7 @@ members = [
     "replay",
     "ss-cli",
     "ss-docs",
+    "ss-edgar",
     "ss-features",
     "ss-indicators",
     "ss-iv",
@@ -4834,6 +4835,23 @@ dependencies = [
 
 [package.metadata]
 requires-dist = [{ name = "mkdocs-material", specifier = ">=9.5" }]
+
+[[package]]
+name = "ss-edgar"
+version = "0.1.0"
+source = { editable = "packages/edgar" }
+dependencies = [
+    { name = "numpy" },
+    { name = "pandas" },
+    { name = "requests" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "numpy" },
+    { name = "pandas" },
+    { name = "requests" },
+]
 
 [[package]]
 name = "ss-features"

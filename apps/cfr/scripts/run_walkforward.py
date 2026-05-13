@@ -22,6 +22,7 @@ def main() -> int:
     p.add_argument('--val-window-days',   type=int, default=780)
     p.add_argument('--step-window-days',  type=int, default=780)
     p.add_argument('--n-training-passes', type=int, default=1)
+    p.add_argument('--menu', default='phase1', choices=['phase1', 'phase2a'])
     p.add_argument('--output', default='Output/cfr-walkforward-summary.json')
     p.add_argument('--seed', type=int, default=0)
     args = p.parse_args()
@@ -36,6 +37,7 @@ def main() -> int:
         val_window_days=args.val_window_days,
         step_window_days=args.step_window_days,
         n_training_passes=args.n_training_passes,
+        menu=args.menu,
         output=Path(args.output),
         seed=args.seed,
     )
