@@ -9,6 +9,27 @@ tags:
 
 # CFR Phase 4d + window-level VIX meta-gate — final close-out (confirmed-null)
 
+!!! note "Update 2026-05-14 — denominator artifact + alternative gates falsified"
+
+    The 2026-05-14 sensitivity follow-up
+    ([`cfr-sensitivity-followup`](cfr-sensitivity-followup.md)) shows
+    that this row's "positive in 1/5 windows → FAIL" finding was a
+    **denominator artifact**: the 4 closed-gate windows contributed
+    alpha=0 by construction, so they should never have been counted
+    in the positive-window denominator. Under always-deploy CFR
+    (no gate), positive-α-windows is **3/5** across the entire
+    friction grid {10,15,25,35,50} × {2,5,10} bps. The
+    underlying CFR alpha is closer to `partial-OOS` than
+    `confirmed-null` (alpha real, signed positive, below +0.10
+    threshold at every parameterization). The two audit-proposed
+    alternative gates were also tested and both falsified: 60d /
+    126d VIX gates never fire; 90d VIX worsens alpha; in-universe
+    pairwise-correlation dispersion fires anti-correlated to CFR's
+    alpha pattern (−0.115). The deployment decision (use DCA)
+    is **unchanged**, but the "bot is fully dead" framing was
+    overstated. See the sensitivity follow-up for the bracketed
+    description.
+
 **Operational rule (extracted):** *Memory-heavy regime gates (rolling
 multi-quarter medians) fight you across regime boundaries.* The 1-year
 rolling-median VIX gate stays "closed" for ~3 years after a stress

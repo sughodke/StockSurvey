@@ -129,6 +129,7 @@ nav:
       - CFR Phase 4 — universe shift to 13-asset multi-asset PASSES (alpha vs EW +0.056); first deployable CFR result: findings/cfr-phase4.md
       - CFR vs DCA realistic-friction re-eval — raw alpha collapses to +0.015 net; DCA is the canonical live strategy: findings/cfr-vs-dca-realistic.md
       - CFR + window-level VIX gate final close-out — bot is fully dead; memory-heavy regime gates fight regime transitions: findings/cfr-macro-gate-final.md
+      - CFR Phase 4d sensitivity follow-up — friction × gate stress-test; audit-driven diagnostic that refines the prior closure (alpha is real and positive at every friction level, below +0.10 threshold): findings/cfr-sensitivity-followup.md
   - Workflows: workflows.md
   - TODO:
       - TODO/index.md

@@ -65,6 +65,7 @@ Default eval window unless otherwise stated: 2013-01-29 → 2025-12-11,
 - [CFR Phase 4 — universe shift to 13-asset multi-asset PASSES (mean alpha vs EW +0.056, CFR vs naive +0.101); meta-allocator is prediction-problem bound, not representation bound](cfr-phase4.md)
 - [CFR vs multi-asset EW DCA — realistic-friction re-eval (raw +0.056 alpha collapses to net +0.015; DCA wins on worst-window Sharpe and operational simplicity; canonical live strategy is now `apps/dca`)](cfr-vs-dca-realistic.md)
 - [CFR + window-level VIX gate — final close-out (gate fires only 1/5 windows, throws away w0's +0.422 raw alpha because 1y rolling median is inflated by GFC memory; bot is fully dead)](cfr-macro-gate-final.md)
+- [CFR Phase 4d sensitivity follow-up — friction × gate stress-test (audit-driven; alpha is +0.015 to +0.056 across friction grid, never clears +0.10; positive-window count is 3/5 not 1/5; both audit-proposed gate alternatives falsified; `diagnostic` revision of prior closure)](cfr-sensitivity-followup.md)
 
 ## Arc syntheses
 

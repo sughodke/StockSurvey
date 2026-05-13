@@ -9,6 +9,22 @@ tags:
 
 # CFR Phase 4d (active) vs multi-asset EW DCA (passive) — realistic-friction head-to-head
 
+!!! note "Update 2026-05-14 — friction bracketing (audit-driven sensitivity check)"
+
+    The +0.015 net alpha headline below is the **worst-case corner**
+    of the friction grid, not a best estimate. The 2026-05-14
+    sensitivity follow-up
+    ([`cfr-sensitivity-followup`](cfr-sensitivity-followup.md))
+    swept CFR friction over {10, 15, 25, 35, 50} bps/yr × DCA
+    friction over {2, 5, 10} bps/yr and observed **mean alpha swings
+    5× across the grid: +0.015 → +0.056**. No friction combination
+    crosses the +0.10 deployment threshold, so the deployment
+    decision (use DCA) is unchanged. But the honest description is
+    "alpha is real and positive at every friction level, below
+    deployment threshold at every parameterization" rather than the
+    single-point "+0.015 ≈ noise" framing below. See the sensitivity
+    follow-up for the per-grid-cell breakdown.
+
 **Operational rule (extracted):** *Apply realistic deployment friction
 before declaring a backtest-positive strategy deployable.* Phase 4d's
 backtest alpha of **+0.056 Sharpe** vs passive EW collapses to a net
