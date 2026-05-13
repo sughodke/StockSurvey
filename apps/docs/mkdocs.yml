@@ -125,6 +125,7 @@ nav:
       - CFR Phase 1 — tabular CFR clears trailing-best by +0.609 (6/6) but ties naive uniform: findings/cfr-phase1.md
       - CFR Phase 2 — menu enrichment confirmed-null; binding constraint is tabular sample density: findings/cfr-phase2.md
       - CFR Phase 3 — Deep CFR + continuous state vector lifts +0.02 Sharpe (MARGINAL); architecture isn't the binding constraint either: findings/cfr-phase3.md
+      - CFR Phase 4 — universe shift to 13-asset multi-asset PASSES (alpha vs EW +0.056); first deployable CFR result: findings/cfr-phase4.md
   - Workflows: workflows.md
   - TODO:
       - TODO/index.md

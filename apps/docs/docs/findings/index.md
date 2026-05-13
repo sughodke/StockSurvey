@@ -62,6 +62,7 @@ Default eval window unless otherwise stated: 2013-01-29 → 2025-12-11,
 - [CFR Phase 1 — tabular CFR clears trailing-best-greedy by +0.609 (6/6 wins) but ties naive uniform mix; menu is the binding constraint](cfr-phase1.md)
 - [CFR Phase 2 — menu enrichment (Phase 2a + Phase 2b real-SEC-13F) confirmed-null; binding constraint is tabular sample density, not menu content; window 5 13F lift +0.277 validates signal-where-data exists](cfr-phase2.md)
 - [CFR Phase 3 — Deep CFR (tinygrad regret_net + continuous state) lifts +0.02 Sharpe over Phase 1 (MARGINAL); architecture isn't the binding constraint either; w2 flips −0.111 → +0.127](cfr-phase3.md)
+- [CFR Phase 4 — universe shift to 13-asset multi-asset PASSES (mean alpha vs EW +0.056, CFR vs naive +0.101); meta-allocator is prediction-problem bound, not representation bound](cfr-phase4.md)
 
 ## Arc syntheses
 

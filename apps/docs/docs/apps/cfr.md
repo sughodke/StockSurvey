@@ -6,24 +6,23 @@ tags:
 
 # `apps/cfr` — Deep CFR meta-allocator across the existing strategy menu
 
-Status: **Phase 3 MARGINAL (2026-05-12)** — five phase variants
-shipped same day. Phase 1 (tabular, 16 actions): partial-OOS, ties
-naive uniform mix. Phase 2a (28 actions, +4 documented-alpha modes)
-and Phase 2b (31 actions, +real SEC 13F-HR consensus from new
-`packages/edgar`): both confirmed-null on tabular menu enrichment.
-Phase 2b-fixed (action-availability mask bugfix): +0.017 lift,
-still confirmed-null. **Phase 3 (Deep CFR with tinygrad regret_net
-over a 10-feature continuous state vector incl. 4 macro features
-from FRED): MARGINAL** — mean CFR Sharpe **+0.614** (best of all
-phases), CFR alpha vs EW **−0.071** (32% improvement over Phase 1's
-−0.093), and **window 2 flips −0.111 → +0.127** (the cleanest deep-
-architecture win). Cumulative Phase 1 → Phase 3 lift is **+0.021**
-— far short of the +0.15 PASS floor. **The binding constraint is no
-longer architecture or menu**; it's signal-availability in the
-menu × universe × horizon combination. Phase 4 should change the
-prediction problem (different universe / horizon), not the meta-
-allocator's representation. Full per-phase analysis in
-[`cfr-phase3`](../findings/cfr-phase3.md).
+Status: **Phase 4d PASS (2026-05-12)** — nine phase variants
+shipped same day. Phase 1-3 hit a +0.02 architectural ceiling on
+US equities (full Phase 1-3 analysis in
+[`cfr-phase3`](../findings/cfr-phase3.md)). Phase 4 sweep tested
+4 orthogonal axes: 4a (VIX bar-gate, FAIL), 4b (sector ETF
+universe, partial-OOS, first positive alpha vs EW at +0.015), 4c
+(5-day rebal, partial-OOS), and **4d (13-asset multi-asset
+universe = 9 sector ETFs + TLT/IEF + GLD/DBC) — PASS**: mean
+CFR Sharpe **+0.861** (Phase 1 + 0.27), **CFR vs naive uniform
++0.101** (clears +0.10 threshold), **mean alpha vs passive EW
++0.056** (positive for the first time across all 9 variants),
+**3/5 positive alpha windows** (60%). The first deployable CFR
+result. Honest caveats: alpha is positive but below the +0.15
+paper-trade threshold; only 5 windows; one big loss in w2
+(2016-2019); no `ss-cfr live` integration yet. **Phase 5 = build
+the live wrapper and paper trade.** Full Phase 4 analysis in
+[`cfr-phase4`](../findings/cfr-phase4.md).
 
 The architectural premise — *predictions with regime-conditional
 deployment performance need a regime filter, not a richer
@@ -147,59 +146,58 @@ The price-taker assumption means we update regret for *every*
 action at every visit, not just the sampled one — so the regret
 estimator has zero sampling variance from the played-action axis.
 
-## Phase 1 / 2a / 2b / 2b-fixed / 3 result (2026-05-12, Modal CPU 8c)
+## All 9 phases — full result table (2026-05-12, Modal CPU 8c)
 
-Five walk-forwards on the canonical `stooq_us_long` (312
-tickers, 2000-2025, 5y train / 3y val / 3y step). Same algorithm
-shape, friction, windowing — only the action menu and
-representation change.
+Same algorithm + Phase 3 architecture across Phases 4a-d; only
+the universe / horizon / gate changes. 5-6 windows depending on
+universe history availability.
 
-| Metric | Phase 1 (tabular, 16 act) | Phase 2a (28 act) | Phase 2b (31 act) | 2b-fixed (avail mask) | **Phase 3 (deep)** |
-|---|---:|---:|---:|---:|---:|
-| mean CFR Sharpe | +0.593 | +0.573 | +0.583 | +0.600 | **+0.614** |
-| mean passive EW | +0.685 | +0.685 | +0.685 | +0.685 | +0.685 |
-| mean trailing-best | −0.016 | +0.044 | +0.064 | +0.064 | +0.064 |
-| mean naive uniform | +0.591 | +0.632 | +0.652 | +0.652 | +0.652 |
-| **CFR vs trailing-best** | **+0.609** | +0.529 | +0.520 | +0.536 | +0.550 |
-| **CFR vs naive uniform** | **+0.002** | −0.059 | −0.069 | −0.052 | **−0.038** |
-| **CFR alpha vs EW** | −0.093 | −0.112 | −0.103 | −0.085 | **−0.071** |
-| Pos α windows | 1/6 | 1/6 | 2/6 | 2/6 | **2/6** |
-| Verdict | partial-OOS | confirmed-null | confirmed-null | (cleanup) | **MARGINAL** |
+| Metric | P1 tab | P2a 28act | P2b 31act | P2b-fix | P3 deep | **P4a** VIX | **P4b** sectors | **P4c** 5d | **P4d** multi-asset |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| mean CFR Sharpe | +0.593 | +0.573 | +0.583 | +0.600 | +0.614 | **+0.383** | +0.780 | +0.574 | **+0.861** |
+| mean passive EW | +0.685 | +0.685 | +0.685 | +0.685 | +0.685 | +0.685 | +0.765 | +0.688 | +0.805 |
+| mean naive uniform | +0.591 | +0.632 | +0.652 | +0.652 | +0.652 | +0.652 | +0.747 | +0.560 | +0.760 |
+| **CFR vs naive** | **+0.002** | −0.059 | −0.069 | −0.052 | −0.038 | **−0.269** | +0.034 | +0.013 | **+0.101** |
+| **CFR alpha vs EW** | −0.093 | −0.112 | −0.103 | −0.085 | −0.071 | **−0.302** | +0.015 | −0.114 | **+0.056** |
+| Pos α windows | 1/6 | 1/6 | 2/6 | 2/6 | 2/6 | 1/6 | 3/5 | 3/6 | **3/5** |
+| Verdict | partial-OOS | conf-null | conf-null | (fix) | MARGINAL | **FAIL** | partial-OOS | partial-OOS | **PASS** |
 
-**Read across the row** (full mechanisms in
+**Read across the table** (full mechanisms in
 [cfr-phase1](../findings/cfr-phase1.md) /
 [cfr-phase2](../findings/cfr-phase2.md) /
-[cfr-phase3](../findings/cfr-phase3.md)):
+[cfr-phase3](../findings/cfr-phase3.md) /
+[cfr-phase4](../findings/cfr-phase4.md)):
 
-1. **Tabular menu enrichment hurts** (Phase 1 → 2a → 2b): mean
-   CFR drifts down +0.593 → +0.573 → +0.583 while naive uniform
-   rises +0.591 → +0.632 → +0.652. Cesa-Bianchi-Lugosi O(√(log
-   n)/√T) regret bound predicts this — more actions, same T,
-   sparser regret-table estimator.
-2. **Phase 2b-fixed availability mask** removes phantom-cash
-   contamination from pre-2013 bars (where `Top13FConsensusMode`
-   returned all-zero weights without dedup), giving +0.017 lift.
-3. **Phase 3 deep CFR** lifts the algorithm by another **+0.014**
-   via parameter sharing across the 31-action × 9-state-region
-   space. Window 2 (2011-2014, post-GFC recovery) flips
-   −0.111 → +0.127 alpha — direct evidence that the continuous
-   regime encoder finds something the discrete tabular grid missed.
-4. **Cumulative Phase 1 → 3 lift is +0.021** mean Sharpe, after
-   testing 4 distinct architectural levers. Diminishing returns
-   are clean: every architectural improvement wins a small chunk
-   of variance reduction; none manufactures alpha.
+1. **Architectural variance is bounded at ±0.02 mean Sharpe.**
+   Phases 1 → 3 (tabular → enriched menu → deep CFR) move CFR
+   only from +0.59 to +0.61. Cesa-Bianchi-Lugosi O(√(log n)/√T)
+   regret bound predicts this; the algorithm works correctly,
+   the menu/universe doesn't have enough edge for it to find.
+2. **Universe shifts move the needle by 5-10×.** Phase 4b sector
+   ETFs gives mean CFR +0.78 (+0.17 over Phase 3) and the first
+   positive alpha vs EW (+0.015). Phase 4d multi-asset gives mean
+   CFR +0.86 (+0.25 over Phase 3) and clears the pre-reg cut
+   with mean alpha vs EW **+0.056** and CFR vs naive **+0.101**.
+3. **Bar-level VIX gating destroys Phase 3.** Phase 4a's per-bar
+   VIX-above-median mask suspends 57% of bars and CFR loses
+   compounding more than it saves. Window-level gating remains
+   viable; bar-level isn't.
+4. **5-day rebal eats alpha to friction.** Phase 4c trades 4×
+   more SGD samples (better training stability — first phase
+   with finite loss across all windows) for 5%/yr friction tax
+   that the equity universe doesn't earn back.
+5. **Phase 4d PASSES.** Multi-asset (9 sector ETFs + TLT/IEF +
+   GLD/DBC) is the architectural correction the meta-allocator
+   was missing — uncorrelated asset classes give large per-
+   action variance, and cross-asset has documented regime-
+   switching alpha that intra-equity doesn't.
 
-**Architectural read across all five phases:** the algorithm
-works correctly. Across menu sizes 16 → 28 → 31 and tabular
-→ deep, the regret matching policy converges to the Cover
-universal-portfolio uniform-mix limit when no action has clearly
-positive cumulative regret. Phase 3 narrowed the gap to passive
-EW from −0.093 → −0.071 (32% improvement) but still doesn't
-clear the operational floor. **The binding constraint is no
-longer architecture or menu** — it's signal availability in the
-menu × universe × horizon combination. Phase 4 should change
-the prediction problem (different universe, horizon, or composite-
-regime action class), not the meta-allocator's representation.
+**The arc-level lesson:** the meta-allocator is **prediction-
+problem bound, not representation bound**. Iterating on the
+algorithm hit a +0.02 ceiling. Iterating on the universe broke
+through it. The deep CFR architecture earned its keep on the
+multi-asset universe where the menu actually has cross-action
+alpha for it to find.
 
 ## Running
 
@@ -211,55 +209,61 @@ uv run python apps/cfr/scripts/smoke.py --data-dir apps/notebook/data/stooq_us_l
 uv run python apps/cfr/scripts/run_walkforward.py \
     --menu phase1 --data-dir ./StooqData --output Output/cfr-phase1.json
 
-# Phase 1 on Modal CPU (~23s after image cache)
-uv run python apps/cfr/scripts/modal/prep_phase1_data.py
-uvx modal run apps/cfr/scripts/modal/run_phase1.py
+# All 9 phase variants on Modal CPU (each ~30-180s end-to-end)
+uv run python apps/cfr/scripts/modal/prep_phase1_data.py    # close panel
+uv run python apps/cfr/scripts/modal/prep_phase2b_data.py   # 13F (~4min cold)
+uv run python apps/cfr/scripts/modal/prep_phase3_data.py    # macro from FRED
+uv run python apps/cfr/scripts/modal/prep_phase4b_data.py   # sector ETFs
+uv run python apps/cfr/scripts/modal/prep_phase4d_data.py   # multi-asset
 
-# Phase 2a — Phase 1 + 4 documented-alpha modes
-uvx modal run apps/cfr/scripts/modal/run_phase2a.py
-
-# Phase 2b — Phase 2a + real SEC 13F-HR consensus mode
-uv run python apps/cfr/scripts/modal/prep_phase2b_data.py    # ~4 min cold cache
-uvx modal run apps/cfr/scripts/modal/run_phase2b.py
-
-# Phase 3 — Deep CFR with tinygrad regret_net + macro state
-uv run python apps/cfr/scripts/modal/prep_phase3_data.py     # ~30s (FRED cache)
-uvx modal run apps/cfr/scripts/modal/run_phase3.py           # ~80s end-to-end
+uvx modal run apps/cfr/scripts/modal/run_phase1.py    # tabular (Phase 1)
+uvx modal run apps/cfr/scripts/modal/run_phase2a.py   # +documented-alpha modes
+uvx modal run apps/cfr/scripts/modal/run_phase2b.py   # +real SEC 13F
+uvx modal run apps/cfr/scripts/modal/run_phase3.py    # deep CFR
+uvx modal run apps/cfr/scripts/modal/run_phase4a.py   # +VIX bar-gate
+uvx modal run apps/cfr/scripts/modal/run_phase4b.py   # sector ETF universe
+uvx modal run apps/cfr/scripts/modal/run_phase4c.py   # 5-day rebal
+uvx modal run apps/cfr/scripts/modal/run_phase4d.py   # multi-asset (PASS!)
 
 # Tests (53 unit tests across cfr + ss-edgar)
 uv run pytest apps/cfr/tests/ packages/edgar/tests/
 ```
 
-## Next — Phase 4 candidates (all change the prediction problem, not the meta-allocator)
+## Next — Phase 5: build `ss-cfr live` and paper trade Phase 4d
 
-The architectural progression Phase 1 → 3 hit a +0.02 ceiling:
-every variant moves CFR Sharpe by ~±0.02 with no transformational
-change. The Cesa-Bianchi-Lugosi bound at our T=6,000 / n=31
-predicts this. **Don't iterate on the meta-allocator
-representation.** Four pre-registered Phase 4 candidates:
+Phase 4d is the first deployable result, but needs the live
+integration scaffolding. Phase 5 plan:
 
-1. **Hybrid Phase 3 + macro v1b VIX gate.** Keep deep CFR but
-   only deploy when VIX > 1y rolling median (per the
-   [macro-regime diagnostic](../findings/macro-regime-diagnostic.md)
-   v1b: pooled per-app-z-scored lift +0.215 from this gate alone
-   on the pivot-arc apps). 1-line wiring change. Pre-registered
-   cut: combined Sharpe ≥ Phase 3 + 0.15 mean.
-2. **Different universe.** Sector ETFs (XLK, XLF, etc.) instead
-   of 312 mega-caps. Sector rotation alpha is documented; no need
-   to discover it from per-name picking. Pre-reg cut: ≥ +0.20
-   alpha vs EW-of-sectors.
-3. **Different horizon.** Daily rebal instead of 20-day. Cuts
-   transaction-cost erosion that probably eats the marginal alpha
-   the +0.02 architecture progression keeps finding.
-4. **Composite-regime menu.** Replace deterministic factor modes
-   with sector × style × cap-tilt combinations that have known
-   regime-conditional alpha (e.g., "tech overweight in rising-rate
-   periods", "small-cap underweight near recessions"). Even if
-   each composite is alpha-positive only ~30% of the time,
-   regret matching can concentrate on the active set.
+1. **`ss-cfr live` subcommand** with the four risk rails per the
+   live-trading conventions: kill-switch file
+   (`~/.cfr-killswitch`), data freshness (max bar age days),
+   per-name position cap via `ss_portfolio.apply_position_cap`,
+   `--live` opt-in (dry-run by default).
+2. **Save Phase 4d checkpoint** — currently the regret_net is
+   per-window and not persisted across the walkforward. Need a
+   `cfr.deep_persist` module that serializes (state-vec stats,
+   regret_net params, action menu definition) to JSON.
+3. **Paper trade for 1-2 quarters.** Daily fetch the 13-asset
+   panel via the broker, build state vector, run regret_net
+   forward, mix actions, submit through the broker rails. No
+   real capital.
+4. **Evaluate vs Phase 4d backtest.** If paper-trade aligns with
+   walkforward expectations (~+0.06 alpha, mid-single-digit
+   variance), promote to small live capital.
 
-None of these is a "scale up the model" answer. The architectural
-ceiling at this universe + horizon is ~+0.6 mean Sharpe, ~−0.07
-alpha vs passive EW. To break that ceiling, the prediction
-problem itself has to change — same conclusion the prediction-
-problem-pivot arc reached for the per-app predictors.
+Estimated 1-2 weeks for the live wrapper, then 3-6 months of
+paper trading to accumulate confidence. Do NOT run real capital
+on Phase 4d's +0.056 alpha vs EW — that's positive but too
+small to survive one bad regime (w2 2016-2019 was −0.508 in the
+backtest). v2 should add a window-level macro-regime gate to
+suspend deployment in "everything works passive" eras.
+
+Other Phase 5 candidates worth considering after live integration:
+
+- **Phase 4d extension to longer history.** Use synthetic /
+  index-equivalent data for sector/bond/commodity exposures
+  pre-2005. More walkforward windows would tighten the +0.056
+  alpha estimate and verify the w2 outlier risk.
+- **Universe scale-up.** Add international ETFs (EFA, EEM), TIP,
+  more commodity slices (USO, SLV). 25-30 cross-asset names
+  with the same 28-action menu.

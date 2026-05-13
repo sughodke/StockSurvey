@@ -97,6 +97,11 @@ class DeepCFRWalkForward:
     # is still drawn from the policy for the cumulative-strategy
     # tracking, but the regret estimator uses the expectation.
     expected_baseline: bool = True
+    # Optional per-rebal gate function: `(bar_date: pd.Timestamp) -> bool`.
+    # When False at a val rebal, the target portfolio is set to cash
+    # (zeros). When None, no gating. Used by Phase 4a to suspend
+    # deployment in low-VIX regimes per the macro v1b finding.
+    pre_rebal_gate:    callable = None
 
     def windows(self, n: int) -> list[tuple[int, int, int]]:
         out = []
@@ -201,6 +206,14 @@ class DeepCFRWalkForward:
                 target_per_rebal[k] = 0.0
                 gross_per_rebal[k] = 0.0
                 continue
+            # Optional pre-rebal gate (e.g., VIX-above-median). If gate
+            # returns False, set target to cash and skip CFR.
+            if self.pre_rebal_gate is not None:
+                bar_date = val_prices.index[t]
+                if not self.pre_rebal_gate(bar_date):
+                    target_per_rebal[k] = 0.0
+                    gross_per_rebal[k] = 0.0
+                    continue
             R_pred = net.predict(state_val[t])
             pi = policy_from_predicted_regret(R_pred, avail_t)
             mixed_w = (pi[:, None] * action_weights_val[t]).sum(axis=0)

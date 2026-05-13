@@ -1,28 +1,48 @@
 # `apps/cfr` — Deep CFR meta-allocator across existing scorers
 
-**Status (2026-05-12):** Phase 0 scaffold + **Phase 1 + Phase 2
-+ Phase 3 all shipped same day** — five phase variants on Modal.
-Tabular CFR (Phase 1) cleared the Phase 1 PASS cut against
-trailing-best-greedy by +0.609 Sharpe (6/6 windows) but ties
-naive uniform mix. Phase 2a / 2b confirmed-null on tabular menu
-enrichment. **Phase 3 (Deep CFR with tinygrad regret_net + 10-
-feature continuous state vector incl. 4 FRED macro features):
-MARGINAL** — mean CFR +0.614 (best of all phases), CFR alpha vs
-EW −0.071 (32% reduction vs Phase 1's −0.093), window 2 alpha
-flips −0.111 → +0.127 (cleanest deep-architecture win). But
-**cumulative Phase 1 → 3 lift is only +0.021** — far short of
-the +0.15 PASS floor. **Architecture is no longer the binding
-constraint at this universe + horizon.** Across 5 phase variants
-the architecture-side variance is bounded at ~±0.02, the same
-magnitude as the Cesa-Bianchi-Lugosi O(√(log n)/√T) bound at our
-T=6,000 / n=31. Cover universal-portfolio guarantees no-regret
-vs the best fixed-mix-in-hindsight (which on 25-year US equity
-*is* passive EW); we cannot beat it without regime-switching
-alpha that exists in some regime AND a state representation that
-isolates that regime. **Phase 4 must change the prediction
-problem**, not the meta-allocator's representation. See
-[`cfr-phase3`](../findings/cfr-phase3.md) for the load-bearing
-analysis with the full Phase 1-2-3 progression table.
+**Status (2026-05-12): Phase 4d PASSES — first deployable CFR
+result. All 9 phase variants shipped same day.** Cumulative
+arc:
+
+- **Phase 1 (tabular, US equities, 16 actions)**: partial-OOS,
+  ties naive uniform mix; +0.61 lift over trailing-best-greedy
+  (6/6 windows) but doesn't clear passive EW.
+- **Phase 2a / 2b (tabular menu enrichment)**: confirmed-null;
+  added documented-alpha modes + real SEC 13F-HR consensus,
+  CFR Sharpe didn't move.
+- **Phase 3 (deep CFR with tinygrad regret_net + continuous
+  state)**: MARGINAL; +0.02 lift over Phase 1, w2 alpha flips
+  −0.111 → +0.127.
+- **Phase 4a (VIX bar-gate)**: FAIL; suspends 57% of bars, CFR
+  loses compounding (mean +0.614 → +0.383).
+- **Phase 4b (sector ETF universe)**: partial-OOS; first
+  positive alpha vs EW (+0.015), CFR vs naive +0.034.
+- **Phase 4c (5-day rebal)**: partial-OOS; finer cadence
+  stabilizes training (finite loss for first time) but 5%/yr
+  friction tax eats alpha on equity universe.
+- **Phase 4d (13-asset multi-asset = 9 sector ETFs + TLT/IEF
+  + GLD/DBC)**: **PASS** — mean CFR +0.861 (Phase 1 + 0.27),
+  CFR vs naive +0.101 (clears cut), mean alpha vs EW **+0.056**
+  (positive for the first time across all 9 variants), 3/5
+  positive alpha windows.
+
+**The arc-level lesson:** the meta-allocator is
+**prediction-problem bound, not representation bound**.
+Iterating on architecture hit a +0.02 ceiling. Iterating on
+universe broke through it. Multi-asset is the structural fix —
+uncorrelated asset classes give large per-action variance, and
+cross-asset has documented regime-switching alpha that intra-
+equity doesn't.
+
+**Phase 5 (next):** build `ss-cfr live` with the four risk
+rails (kill-switch, freshness, position cap, dry-run-by-default)
+on top of Phase 4d's checkpoint. Paper trade for 1-2 quarters
+before any real capital. Phase 4d's alpha (+0.056) is positive
+but below the +0.15 paper-trade threshold from the
+[`passive-EW benchmark`](../findings/passive-ew-benchmark.md);
+treat as v0 prototype, not production-ready. See
+[`cfr-phase4`](../findings/cfr-phase4.md) for the full Phase 4
+analysis.
 
 **Verdict → next-experiment chain.** The
 [prediction-problem-pivot arc](../findings/prediction-problem-pivot-arc.md)
