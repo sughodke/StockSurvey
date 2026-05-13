@@ -1,0 +1,20 @@
+[project]
+name = "dca"
+version = "0.1.0"
+requires-python = ">=3.10"
+description = "Multi-asset dollar-cost-averaging on the 13-ETF Phase 4d basket. Canonical live strategy after the cfr-vs-dca-realistic close-out (2026-05-13)."
+dependencies = [
+    "ss-portfolio[alpaca]",
+    "numpy",
+    "pandas",
+]
+
+[project.scripts]
+ss-dca = "dca.cli:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/dca"]

@@ -6,23 +6,30 @@ tags:
 
 # `apps/cfr` — Deep CFR meta-allocator across the existing strategy menu
 
-Status: **Phase 4d PASS (2026-05-12)** — nine phase variants
-shipped same day. Phase 1-3 hit a +0.02 architectural ceiling on
-US equities (full Phase 1-3 analysis in
+Status: **Confirmed-null on realistic-alpha basis (2026-05-13)** —
+Phase 4d's raw +0.056 alpha vs EW collapsed to **+0.015 net** once
+realistic deployment friction was applied (50 bps/yr for the bot vs
+5 bps/yr for DCA; CFR's high turnover incurs short-term tax + ETF
+spread slippage; DCA's quarterly rebal does not). DCA wins on
+worst-window Sharpe (+0.642 vs +0.434) and operational simplicity.
+**Canonical live strategy is now [`apps/dca`](dca.md)** — the same
+13-asset basket Phase 4d trades, held passively at 1/13 weights with
+a quarterly rebal. The CFR research stays as a documented body of
+work in case a future regime shift breaks EW dominance. See the
+closing finding [`cfr-vs-dca-realistic`](../findings/cfr-vs-dca-realistic.md).
+
+Prior status (2026-05-12) — **Phase 4d PASS** on raw-Sharpe basis,
+nine phase variants shipped same day. Phase 1-3 hit a +0.02
+architectural ceiling on US equities (full Phase 1-3 analysis in
 [`cfr-phase3`](../findings/cfr-phase3.md)). Phase 4 sweep tested
 4 orthogonal axes: 4a (VIX bar-gate, FAIL), 4b (sector ETF
 universe, partial-OOS, first positive alpha vs EW at +0.015), 4c
 (5-day rebal, partial-OOS), and **4d (13-asset multi-asset
-universe = 9 sector ETFs + TLT/IEF + GLD/DBC) — PASS**: mean
-CFR Sharpe **+0.861** (Phase 1 + 0.27), **CFR vs naive uniform
-+0.101** (clears +0.10 threshold), **mean alpha vs passive EW
-+0.056** (positive for the first time across all 9 variants),
-**3/5 positive alpha windows** (60%). The first deployable CFR
-result. Honest caveats: alpha is positive but below the +0.15
-paper-trade threshold; only 5 windows; one big loss in w2
-(2016-2019); no `ss-cfr live` integration yet. **Phase 5 = build
-the live wrapper and paper trade.** Full Phase 4 analysis in
-[`cfr-phase4`](../findings/cfr-phase4.md).
+universe = 9 sector ETFs + TLT/IEF + GLD/DBC)** posted mean CFR
+Sharpe +0.861, CFR vs naive uniform +0.101, mean alpha vs EW
++0.056, 3/5 positive alpha windows. The PASS verdict was correct
+on raw-Sharpe basis but did not survive realistic friction. Full
+Phase 4 analysis in [`cfr-phase4`](../findings/cfr-phase4.md).
 
 The architectural premise — *predictions with regime-conditional
 deployment performance need a regime filter, not a richer

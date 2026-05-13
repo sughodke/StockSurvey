@@ -61,6 +61,7 @@ gate = { workspace = true }
 pairs = { workspace = true }
 vol = { workspace = true }
 cfr = { workspace = true }
+dca = { workspace = true }
 ss-docs = { workspace = true }
 
 [dependency-groups]
@@ -84,6 +85,7 @@ testpaths = [
     "apps/v1/tests",
     "apps/factor/tests",
     "apps/cfr/tests",
+    "apps/dca/tests",
     "packages/edgar/tests",
 ]
 addopts = "-q --import-mode=importlib"
