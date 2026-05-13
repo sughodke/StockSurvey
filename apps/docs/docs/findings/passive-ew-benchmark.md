@@ -10,6 +10,22 @@ tags:
 
 # Passive equal-weight benchmark — every "shippable" relational row was alpha-zero or alpha-negative
 
+!!! note "Update 2026-05-14 — delisting-bias caveat empirically falsified"
+
+    The "~0.05-0.15 Sharpe optimistic for passive" caveat below
+    (factor-wide section, also flagged by the 2026-05-14 research-
+    directions audit) was **tested directly** and is empirically
+    **≤ 0.0002 Sharpe** on every universe in this page. See
+    [`delisting-aware-ew-falsified`](delisting-aware-ew-falsified.md)
+    for the three-arm replication. The Stooq archive contains no
+    permanently-delisted names in any of the four universes
+    (`stooq_us_long`'s manifest is hand-curated to survivors; the
+    archive itself silently reuses ticker symbols for replacement
+    entities like BBBY). All alpha verdicts on this page stand as
+    written; the conservative `0.05-0.15` bound was based on what
+    the bias *could* be if delistings were present, not what it
+    *is* on this data.
+
 **Operational rule (added 2026-05-10 to
 [`CLAUDE.md`](https://github.com/sughodke/StockSurvey/blob/master/CLAUDE.md#operational-rules-extracted-from-findings)):**
 any portfolio-level "win" must clear the passive equal-weight
