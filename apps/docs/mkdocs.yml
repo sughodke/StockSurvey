@@ -128,6 +128,7 @@ nav:
       - CFR Phase 3 — Deep CFR + continuous state vector lifts +0.02 Sharpe (MARGINAL); architecture isn't the binding constraint either: findings/cfr-phase3.md
       - CFR Phase 4 — universe shift to 13-asset multi-asset PASSES (alpha vs EW +0.056); first deployable CFR result: findings/cfr-phase4.md
       - CFR vs DCA realistic-friction re-eval — raw alpha collapses to +0.015 net; DCA is the canonical live strategy: findings/cfr-vs-dca-realistic.md
+      - CFR + window-level VIX gate final close-out — bot is fully dead; memory-heavy regime gates fight regime transitions: findings/cfr-macro-gate-final.md
   - Workflows: workflows.md
   - TODO:
       - TODO/index.md

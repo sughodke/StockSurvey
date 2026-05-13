@@ -6,17 +6,23 @@ tags:
 
 # `apps/cfr` — Deep CFR meta-allocator across the existing strategy menu
 
-Status: **Confirmed-null on realistic-alpha basis (2026-05-13)** —
-Phase 4d's raw +0.056 alpha vs EW collapsed to **+0.015 net** once
-realistic deployment friction was applied (50 bps/yr for the bot vs
-5 bps/yr for DCA; CFR's high turnover incurs short-term tax + ETF
-spread slippage; DCA's quarterly rebal does not). DCA wins on
-worst-window Sharpe (+0.642 vs +0.434) and operational simplicity.
-**Canonical live strategy is now [`apps/dca`](dca.md)** — the same
-13-asset basket Phase 4d trades, held passively at 1/13 weights with
-a quarterly rebal. The CFR research stays as a documented body of
-work in case a future regime shift breaks EW dominance. See the
-closing finding [`cfr-vs-dca-realistic`](../findings/cfr-vs-dca-realistic.md).
+Status: **Arc fully closed (2026-05-13)** — confirmed-null on
+realistic-alpha basis AND on the window-level macro-gated
+composition. Phase 4d's raw +0.056 alpha vs EW collapsed to
+**+0.015 net** once realistic deployment friction was applied
+([`cfr-vs-dca-realistic`](../findings/cfr-vs-dca-realistic.md)).
+The final-swing experiment composing Phase 4d with a
+window-level VIX-above-1y-rolling-median gate
+([`cfr-macro-gate-final`](../findings/cfr-macro-gate-final.md))
+recovered only +0.053 net alpha and was positive in only **1/5
+windows** — failed both pre-registered cuts. **Three independent
+arcs converge:** raw friction collapse, Phase 4a bar-level gate
+failure, and the window-level gate's memory-heavy mis-classification
+of w0 (post-GFC recovery, CFR's best window, threw away +0.422
+because the 1y median was inflated by GFC). **Canonical live
+strategy is [`apps/dca`](dca.md)**. CFR research preserved as
+documented body of work for future regime-shift re-deployment;
+no further pivots planned.
 
 Prior status (2026-05-12) — **Phase 4d PASS** on raw-Sharpe basis,
 nine phase variants shipped same day. Phase 1-3 hit a +0.02
