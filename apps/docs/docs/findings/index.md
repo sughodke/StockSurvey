@@ -58,6 +58,7 @@ Default eval window unless otherwise stated: 2013-01-29 → 2025-12-11,
 ## Vol app
 
 - [Vol surface v0 — multivariate prediction works (val r +0.12), per-cell alpha +0.089 just below threshold (inconclusive, 5/5 positive)](vol-surface-v0.md)
+- [Vol surface v1 — per-rebal portfolio aggregator + costs in loop confirms v0's signal (PASS, audit-validated; pooled alpha Sharpe +5.86, 5/5 positive, real-to-shuffle 25×)](vol-surface-v1.md)
 
 ## CFR app
 

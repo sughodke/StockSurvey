@@ -70,15 +70,20 @@ from vol.predictor import (
 from vol.backtest import (
     GatedShortVolResult, evaluate_gated_short_vol,
 )
+from vol.portfolio import (
+    PortfolioShortVolResult, evaluate_portfolio_short_vol,
+)
 
 
 __all__ = [
     'FEATURE_NAMES',
     'Gauss314Panel',
     'GatedShortVolResult',
+    'PortfolioShortVolResult',
     'PredictorResult',
     'build_vol_features',
     'evaluate_gated_short_vol',
+    'evaluate_portfolio_short_vol',
     'evaluate_r2',
     'forward_iv_rv_gap',
     'load_gauss314_full',

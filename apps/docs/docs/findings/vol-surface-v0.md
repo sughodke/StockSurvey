@@ -6,6 +6,24 @@ tags:
 
 # Vol surface v0 — multivariate prediction works (mean val r +0.12), per-cell alpha just below threshold
 
+!!! note "Update 2026-05-14 — v0 verdict superseded on deployment-metric basis"
+
+    v1 ([`vol-surface-v1`](vol-surface-v1.md)) ran the per-rebal
+    portfolio aggregator + costs-in-loop sub-item from the
+    "v1 follow-ups" list below and **PASSES** the pre-registered
+    cuts: pooled alpha Sharpe **+5.86** (annualized), 5/5 positive
+    windows, real-to-shuffle alpha-PnL ratio **25×**. v0's per-cell
+    Sharpe of +0.089 had the right sign but understated the signal
+    by an order of magnitude — pooling ~3.1M cells without temporal
+    aggregation washed out the temporal consistency that the
+    per-rebal aggregator captures. v0's `inconclusive` label remains
+    correct *under v0's per-cell-Sharpe metric*; v1 demonstrates
+    that metric was the bottleneck, not the signal. The
+    2026-05-14 audit (`.audit-research-directions.md` at repo root)'s call that
+    this was "the strongest signal in the repo, benched without
+    v1 work" is now empirically validated. See `vol-surface-v1.md`
+    for v1's full result + caveats.
+
 Third app in the prediction-problem pivot off cross-sectional return
 forecasting, picking up after
 [`gate-drawdown-v0`](gate-drawdown-v0.md) (`partial-OOS`) and
