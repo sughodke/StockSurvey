@@ -76,13 +76,13 @@ image = (
 app = modal.App('factor-horizon-mixture', image=image)
 
 
-@app.function(gpu='T4', cpu=4, memory=8192, timeout=60 * 60)
+@app.function(gpu='T4', cpu=4, memory=8192, timeout=2 * 60 * 60)
 def train_horizon_walkforward_remote(
     horizons_csv: str,
     n_steps: int,
     learning_rate: float,
     weight_decay: float,
-    entropy_weight: float,
+    entropy_weights_csv: str,
     mlp_hidden: int,
     mlp_layers: int,
     commission_bps: float,
@@ -97,8 +97,10 @@ def train_horizon_walkforward_remote(
     max_tickers: int,
     min_history_bars: int,
 ) -> dict[str, bytes]:
-    """Remote: build features once on the universe, run horizon-mixture
-    walk-forward, bundle per-window metrics + summary into artifacts."""
+    """Remote: build features once on the universe, then sweep
+    `entropy_weights_csv` (one or more α values), running a fresh
+    walk-forward per α. Bundle one npz + one plot per α plus a
+    cross-α sweep summary."""
     import os
     import subprocess
     os.makedirs(f'{REMOTE_REPO}/Output', exist_ok=True)
@@ -165,146 +167,203 @@ def train_horizon_walkforward_remote(
         raise RuntimeError(
             f'only {len(ticker_data)} tickers built — too few for IC training')
 
-    print('\n=== Step 3/4: horizon-mixture walk-forward ===', flush=True)
+    print('\n=== Step 3/4: horizon-mixture walk-forward (sweep) ===',
+          flush=True)
     backbone = make_indicator_backbone(ticker_data, cfg)
-    t1 = time.perf_counter()
-    res = train_scorer_horizon_walkforward(
-        ticker_data, backbone,
-        horizons=horizons,
-        train_window_blocks=train_window_blocks,
-        val_window_blocks=val_window_blocks,
-        step_window_blocks=step_window_blocks,
-        mlp_hidden=mlp_hidden,
-        mlp_layers=mlp_layers,
-        n_steps=n_steps,
-        learning_rate=learning_rate,
-        weight_decay=weight_decay,
-        entropy_weight=entropy_weight,
-        commission_bps=commission_bps,
-        temperature=temperature,
-        seed=seed,
-        verbose=True,
-    )
-    wall = time.perf_counter() - t1
-    print(f'  walk-forward wall: {wall:.1f}s', flush=True)
+    entropy_weights = [float(a) for a in entropy_weights_csv.split(',') if a]
+    print(f'  sweeping entropy_weight ∈ {entropy_weights}', flush=True)
 
-    # Aggregates + null-rejection.
-    endog_mean = res.mean_val_endog_sharpe
-    random_mean = res.mean_val_random_sharpe
-    h_best, best_fixed_mean = res.best_fixed_horizon
-    delta_best = endog_mean - best_fixed_mean
-    delta_rand = endog_mean - random_mean
-
-    print('\n=== summary ===', flush=True)
-    print(f'  mean endog Sharpe       = {endog_mean:+.3f}', flush=True)
-    for h in horizons:
-        marker = '  <-- best fixed' if h == h_best else ''
-        print(f'  mean fixed-h={h:<3} Sharpe = {res.mean_fixed_sharpe(h):+.3f}{marker}',
-              flush=True)
-    print(f'  mean random-π Sharpe    = {random_mean:+.3f}', flush=True)
-    print(f'  delta vs best fixed     = {delta_best:+.3f}   '
-          f'(success threshold >= +0.10)', flush=True)
-    print(f'  delta vs random-π       = {delta_rand:+.3f}   '
-          f'(success threshold >= 0)', flush=True)
-
-    # Argmax bin shares across all windows.
     import numpy as np
-    all_counts = np.zeros(len(horizons), dtype=np.int64)
-    total_bars = 0
-    for w in res.windows:
-        for k, h in enumerate(horizons):
-            all_counts[k] += w.val_pi_argmax_counts[h]
-        total_bars += sum(w.val_pi_argmax_counts.values())
-    pi_global = all_counts / max(total_bars, 1)
-    print(f'  argmax bin shares       = '
-          f'{ {h: f"{pi_global[k]:.2f}" for k, h in enumerate(horizons)} }',
-          flush=True)
-    collapse_max = float(np.max(pi_global))
-    verdict_n1 = collapse_max <= 0.90
-    verdict_n2 = endog_mean > res.mean_fixed_sharpe(max(horizons))
-    verdict_n3 = delta_best >= 0.10
-    verdict_n4 = delta_rand > 0.0
-    verdict_pass = verdict_n1 and verdict_n2 and verdict_n3 and verdict_n4
-    print('\n=== null-rejection checks ===', flush=True)
-    print(f'  N1 (no π collapse, worst share={collapse_max:.2f}): '
-          f'{"PASS" if verdict_n1 else "FAIL"}', flush=True)
-    print(f'  N2 (beats fixed h_max={max(horizons)}): '
-          f'{"PASS" if verdict_n2 else "FAIL"}', flush=True)
-    print(f'  N3 (beats best fixed by >=0.10): '
-          f'{"PASS" if verdict_n3 else "FAIL"} (delta {delta_best:+.3f})',
-          flush=True)
-    print(f'  N4 (beats random-π): '
-          f'{"PASS" if verdict_n4 else "FAIL"} (delta {delta_rand:+.3f})',
-          flush=True)
-    print(f'  Overall verdict: '
-          f'{"confirmed-OOS" if verdict_pass else "partial-OOS/null"}',
-          flush=True)
+    sweep_summary: list[dict] = []
 
-    # ---------- Step 4: pack artifacts ----------
-    print('\n=== Step 4/4: pack artifacts ===', flush=True)
-    blob: dict[str, np.ndarray] = {
-        'window_idx':           np.array([w.window_idx for w in res.windows], dtype=np.int32),
-        'train_block_start':    np.array([w.train_block_start for w in res.windows], dtype=np.int32),
-        'train_block_end':      np.array([w.train_block_end for w in res.windows], dtype=np.int32),
-        'val_block_start':      np.array([w.val_block_start for w in res.windows], dtype=np.int32),
-        'val_block_end':        np.array([w.val_block_end for w in res.windows], dtype=np.int32),
-        'val_daily_start':      np.array([w.val_daily_start for w in res.windows], dtype=np.int32),
-        'val_daily_end':        np.array([w.val_daily_end for w in res.windows], dtype=np.int32),
-        'train_loss':           np.array([w.train_loss for w in res.windows], dtype=np.float32),
-        'val_endog_sharpe':     np.array([w.val_endog_sharpe for w in res.windows], dtype=np.float32),
-        'val_random_sharpe':    np.array([w.val_random_sharpe for w in res.windows], dtype=np.float32),
-        'val_endog_mean_holding': np.array([w.val_endog_mean_holding for w in res.windows], dtype=np.float32),
-        'val_endog_n_rebals':   np.array([w.val_endog_n_rebals for w in res.windows], dtype=np.int32),
-        'val_endog_avg_turnover': np.array([w.val_endog_avg_turnover for w in res.windows], dtype=np.float32),
-        'val_pi_entropy_mean':  np.array([w.val_pi_entropy_mean for w in res.windows], dtype=np.float32),
-        'val_start_date':       np.array([w.val_start_date for w in res.windows]),
-    }
-    for h in horizons:
-        blob[f'val_fixed_sharpe_h{h}'] = np.array(
-            [w.val_fixed_sharpes[h] for w in res.windows], dtype=np.float32)
-        blob[f'val_argmax_count_h{h}'] = np.array(
-            [w.val_pi_argmax_counts[h] for w in res.windows], dtype=np.int32)
-    blob['_summary'] = np.array(json.dumps({
-        'horizons':             list(horizons),
-        'mean_endog_sharpe':    endog_mean,
-        'mean_random_sharpe':   random_mean,
-        'best_fixed_horizon':   h_best,
-        'best_fixed_sharpe':    best_fixed_mean,
-        'delta_vs_best_fixed':  delta_best,
-        'delta_vs_random':      delta_rand,
-        'pi_argmax_global_shares': {
-            int(h): float(pi_global[k]) for k, h in enumerate(horizons)},
-        'verdict_n1':           verdict_n1,
-        'verdict_n2':           verdict_n2,
-        'verdict_n3':           verdict_n3,
-        'verdict_n4':           verdict_n4,
-        'verdict_pass':         verdict_pass,
-        'verdict_label':        'confirmed-OOS' if verdict_pass else (
+    def _alpha_tag(a: float) -> str:
+        """File-name-safe tag (e.g. 0.05 → 'a0p05', 0.0 → 'a0')."""
+        s = f'{a:g}'.replace('.', 'p').replace('-', 'n')
+        return f'a{s}'
+
+    for alpha in entropy_weights:
+        tag = _alpha_tag(alpha)
+        print(f'\n  --- α={alpha} ({tag}) ---', flush=True)
+        t1 = time.perf_counter()
+        res = train_scorer_horizon_walkforward(
+            ticker_data, backbone,
+            horizons=horizons,
+            train_window_blocks=train_window_blocks,
+            val_window_blocks=val_window_blocks,
+            step_window_blocks=step_window_blocks,
+            mlp_hidden=mlp_hidden,
+            mlp_layers=mlp_layers,
+            n_steps=n_steps,
+            learning_rate=learning_rate,
+            weight_decay=weight_decay,
+            entropy_weight=alpha,
+            commission_bps=commission_bps,
+            temperature=temperature,
+            seed=seed,
+            verbose=True,
+        )
+        wall = time.perf_counter() - t1
+        print(f'    walk-forward wall: {wall:.1f}s', flush=True)
+
+        endog_mean = res.mean_val_endog_sharpe
+        random_mean = res.mean_val_random_sharpe
+        h_best, best_fixed_mean = res.best_fixed_horizon
+        delta_best = endog_mean - best_fixed_mean
+        delta_rand = endog_mean - random_mean
+
+        all_counts = np.zeros(len(horizons), dtype=np.int64)
+        total_bars = 0
+        for w in res.windows:
+            for k, h in enumerate(horizons):
+                all_counts[k] += w.val_pi_argmax_counts[h]
+            total_bars += sum(w.val_pi_argmax_counts.values())
+        pi_global = all_counts / max(total_bars, 1)
+        collapse_max = float(np.max(pi_global))
+        verdict_n1 = collapse_max <= 0.90
+        verdict_n2 = endog_mean > res.mean_fixed_sharpe(max(horizons))
+        verdict_n3 = delta_best >= 0.10
+        verdict_n4 = delta_rand > 0.0
+        verdict_pass = verdict_n1 and verdict_n2 and verdict_n3 and verdict_n4
+        verdict_label = (
+            'confirmed-OOS' if verdict_pass else
             'partial-OOS' if (verdict_n1 and verdict_n2 and verdict_n4) else
-            'confirmed-null'),
-        'n_windows':            res.n_windows,
-        'universe_size':        len(ticker_data),
-        'feature_width':        F,
-        'mlp_hidden':           mlp_hidden,
-        'mlp_layers':           mlp_layers,
-        'n_steps':              n_steps,
-        'learning_rate':        learning_rate,
-        'weight_decay':         weight_decay,
-        'entropy_weight':       entropy_weight,
-        'commission_bps':       commission_bps,
-        'temperature':          temperature,
-        'train_window_blocks':  train_window_blocks,
-        'val_window_blocks':    val_window_blocks,
-        'step_window_blocks':   step_window_blocks,
-        'wall_seconds':         round(wall, 1),
-    }, indent=2))
-    npz_path = output / 'horizon-mixture-windows.npz'
-    np.savez(npz_path, **blob)
-    print(f'  -> {npz_path.name} ({npz_path.stat().st_size // 1024}KB)')
+            'confirmed-null')
 
-    # Per-window comparison plot.
-    plot_path = output / 'horizon-mixture-comparison.png'
-    _plot_horizon_mixture(res, horizons, plot_path)
+        # Mean per-window entropy across windows (sanity for whether α is
+        # actually pulling π off the one-hot attractor).
+        mean_entropy = float(np.mean(
+            [w.val_pi_entropy_mean for w in res.windows]))
+
+        print(f'    endog={endog_mean:+.3f}  best-fix h={h_best} '
+              f'={best_fixed_mean:+.3f}  Δ={delta_best:+.3f}  '
+              f'random={random_mean:+.3f}  Δr={delta_rand:+.3f}',
+              flush=True)
+        print(f'    argmax shares={ {h: round(float(pi_global[k]), 2) for k, h in enumerate(horizons)} }  '
+              f'mean H(π)={mean_entropy:.2f}', flush=True)
+        print(f'    N1={"P" if verdict_n1 else "F"} '
+              f'N2={"P" if verdict_n2 else "F"} '
+              f'N3={"P" if verdict_n3 else "F"} '
+              f'N4={"P" if verdict_n4 else "F"} → {verdict_label}',
+              flush=True)
+
+        # Per-α npz.
+        blob: dict[str, np.ndarray] = {
+            'window_idx':           np.array([w.window_idx for w in res.windows], dtype=np.int32),
+            'train_block_start':    np.array([w.train_block_start for w in res.windows], dtype=np.int32),
+            'train_block_end':      np.array([w.train_block_end for w in res.windows], dtype=np.int32),
+            'val_block_start':      np.array([w.val_block_start for w in res.windows], dtype=np.int32),
+            'val_block_end':        np.array([w.val_block_end for w in res.windows], dtype=np.int32),
+            'val_daily_start':      np.array([w.val_daily_start for w in res.windows], dtype=np.int32),
+            'val_daily_end':        np.array([w.val_daily_end for w in res.windows], dtype=np.int32),
+            'train_loss':           np.array([w.train_loss for w in res.windows], dtype=np.float32),
+            'val_endog_sharpe':     np.array([w.val_endog_sharpe for w in res.windows], dtype=np.float32),
+            'val_random_sharpe':    np.array([w.val_random_sharpe for w in res.windows], dtype=np.float32),
+            'val_endog_mean_holding': np.array([w.val_endog_mean_holding for w in res.windows], dtype=np.float32),
+            'val_endog_n_rebals':   np.array([w.val_endog_n_rebals for w in res.windows], dtype=np.int32),
+            'val_endog_avg_turnover': np.array([w.val_endog_avg_turnover for w in res.windows], dtype=np.float32),
+            'val_pi_entropy_mean':  np.array([w.val_pi_entropy_mean for w in res.windows], dtype=np.float32),
+            'val_start_date':       np.array([w.val_start_date for w in res.windows]),
+        }
+        for h in horizons:
+            blob[f'val_fixed_sharpe_h{h}'] = np.array(
+                [w.val_fixed_sharpes[h] for w in res.windows], dtype=np.float32)
+            blob[f'val_argmax_count_h{h}'] = np.array(
+                [w.val_pi_argmax_counts[h] for w in res.windows], dtype=np.int32)
+        blob['_summary'] = np.array(json.dumps({
+            'horizons':             list(horizons),
+            'entropy_weight':       alpha,
+            'mean_endog_sharpe':    endog_mean,
+            'mean_random_sharpe':   random_mean,
+            'best_fixed_horizon':   h_best,
+            'best_fixed_sharpe':    best_fixed_mean,
+            'delta_vs_best_fixed':  delta_best,
+            'delta_vs_random':      delta_rand,
+            'pi_argmax_global_shares': {
+                int(h): float(pi_global[k]) for k, h in enumerate(horizons)},
+            'mean_pi_entropy':      mean_entropy,
+            'verdict_n1':           verdict_n1,
+            'verdict_n2':           verdict_n2,
+            'verdict_n3':           verdict_n3,
+            'verdict_n4':           verdict_n4,
+            'verdict_pass':         verdict_pass,
+            'verdict_label':        verdict_label,
+            'n_windows':            res.n_windows,
+            'universe_size':        len(ticker_data),
+            'feature_width':        F,
+            'mlp_hidden':           mlp_hidden,
+            'mlp_layers':           mlp_layers,
+            'n_steps':              n_steps,
+            'learning_rate':        learning_rate,
+            'weight_decay':         weight_decay,
+            'commission_bps':       commission_bps,
+            'temperature':          temperature,
+            'train_window_blocks':  train_window_blocks,
+            'val_window_blocks':    val_window_blocks,
+            'step_window_blocks':   step_window_blocks,
+            'wall_seconds':         round(wall, 1),
+        }, indent=2))
+        npz_path = output / f'horizon-mixture-{tag}-windows.npz'
+        np.savez(npz_path, **blob)
+        plot_path = output / f'horizon-mixture-{tag}-comparison.png'
+        _plot_horizon_mixture(res, horizons, plot_path)
+        print(f'    -> {npz_path.name}, {plot_path.name}', flush=True)
+
+        sweep_summary.append({
+            'entropy_weight':    alpha,
+            'mean_endog_sharpe': endog_mean,
+            'mean_random_sharpe': random_mean,
+            'best_fixed_horizon': h_best,
+            'best_fixed_sharpe': best_fixed_mean,
+            'delta_vs_best_fixed': delta_best,
+            'delta_vs_random':   delta_rand,
+            'pi_argmax_global_shares': {
+                int(h): float(pi_global[k]) for k, h in enumerate(horizons)},
+            'mean_pi_entropy':   mean_entropy,
+            'collapse_max':      collapse_max,
+            'verdict_n1':        verdict_n1,
+            'verdict_n2':        verdict_n2,
+            'verdict_n3':        verdict_n3,
+            'verdict_n4':        verdict_n4,
+            'verdict_pass':      verdict_pass,
+            'verdict_label':     verdict_label,
+            'per_window_endog_sharpe': [w.val_endog_sharpe for w in res.windows],
+            'per_window_best_fixed_sharpe': [
+                max(w.val_fixed_sharpes.values()) for w in res.windows],
+            'per_window_entropy': [w.val_pi_entropy_mean for w in res.windows],
+            'wall_seconds':      round(wall, 1),
+        })
+
+    # ---------- Step 4: cross-α sweep summary ----------
+    print('\n=== Step 4/4: cross-α sweep summary ===', flush=True)
+    print(f'{"α":>6}  {"endog":>7}  {"best-fix":>9}  {"Δ-fix":>6}  '
+          f'{"Δ-rand":>7}  {"H(π)":>5}  {"verdict":>15}', flush=True)
+    for s in sweep_summary:
+        print(f'{s["entropy_weight"]:>6.3g}  '
+              f'{s["mean_endog_sharpe"]:>+7.3f}  '
+              f'{s["best_fixed_sharpe"]:>+9.3f}  '
+              f'{s["delta_vs_best_fixed"]:>+6.3f}  '
+              f'{s["delta_vs_random"]:>+7.3f}  '
+              f'{s["mean_pi_entropy"]:>5.2f}  '
+              f'{s["verdict_label"]:>15}', flush=True)
+
+    # Best-α heuristic: highest delta_vs_best_fixed among those passing N1+N2+N4.
+    eligible = [s for s in sweep_summary
+                if s['verdict_n1'] and s['verdict_n2'] and s['verdict_n4']]
+    if eligible:
+        best = max(eligible, key=lambda s: s['delta_vs_best_fixed'])
+        print(f'\n  best α (passes N1/N2/N4, max Δ-fix): '
+              f'α={best["entropy_weight"]}  Δ-fix={best["delta_vs_best_fixed"]:+.3f}  '
+              f'verdict={best["verdict_label"]}', flush=True)
+    else:
+        print('\n  no α passes N1+N2+N4 — architecture confirmed-null under '
+              'discrete mixture-of-horizons-IC.', flush=True)
+
+    sweep_path = output / 'horizon-mixture-sweep-summary.json'
+    sweep_path.write_text(json.dumps({
+        'sweep_alphas': entropy_weights,
+        'arms': sweep_summary,
+    }, indent=2))
+    print(f'  -> {sweep_path.name}')
 
     artifacts: dict[str, bytes] = {}
     for p in sorted(output.iterdir()):
@@ -433,7 +492,7 @@ def main(
     n_steps: int = 200,
     learning_rate: float = 1e-3,
     weight_decay: float = 1e-3,
-    entropy_weight: float = 0.0,
+    entropy_weights: str = '0.0',
     mlp_hidden: int = 32,
     mlp_layers: int = 1,
     commission_bps: float = 10.0,
@@ -448,11 +507,17 @@ def main(
     max_tickers: int = 0,
     min_history_bars: int = 6500,
 ) -> None:
-    """Local entrypoint: kicks off remote walk-forward and downloads artifacts."""
+    """Local entrypoint: kicks off remote walk-forward sweep and downloads
+    artifacts. Pass a comma-separated `entropy_weights` to sweep multiple
+    α values in one remote invocation (shared cold start + feature build,
+    one walk-forward per α). Example:
+
+        --entropy-weights '0.0,0.05,0.1,0.2,0.3'
+    """
     LOCAL_OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
-    print(f'launching factor horizon-mixture on Modal '
+    print(f'launching factor horizon-mixture sweep on Modal '
           f'(horizons={horizons}, n_steps={n_steps}, lr={learning_rate}, '
-          f'wd={weight_decay}, ent_w={entropy_weight}, '
+          f'wd={weight_decay}, entropy_weights={entropy_weights}, '
           f'train/val/step blocks={train_window_blocks}/{val_window_blocks}/'
           f'{step_window_blocks}, max_tickers={max_tickers}, '
           f'min_history_bars={min_history_bars})')
@@ -461,7 +526,7 @@ def main(
         n_steps=n_steps,
         learning_rate=learning_rate,
         weight_decay=weight_decay,
-        entropy_weight=entropy_weight,
+        entropy_weights_csv=entropy_weights,
         mlp_hidden=mlp_hidden,
         mlp_layers=mlp_layers,
         commission_bps=commission_bps,
