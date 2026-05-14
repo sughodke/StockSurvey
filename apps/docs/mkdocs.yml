@@ -117,6 +117,7 @@ nav:
       - Loss-pivot — Sharpe/IR losses underperform rank-IC: findings/factor-loss-pivot.md
       - Sizing-input v0 — MSE-on-alpha calibrates but adds no information for rank-based emission: findings/factor-sizing-input-v0.md
       - Sizing-input v1 — factor signal-quality at 6-window resolution is too lagged to clear VIX gate: findings/factor-sizing-input-v1.md
+      - Endogenous-horizon mixture — state-conditional rebal cadence beats random-π but not best fixed (π collapses to h=60 without entropy regularization): findings/factor-endogenous-horizon-mixture.md
       - Gate drawdown v0 (partial-OOS): findings/gate-drawdown-v0.md
       - Pairs classical v0 (confirmed-null): findings/pairs-classical-v0.md
       - Vol surface v0 (inconclusive, 5/5 pos): findings/vol-surface-v0.md
@@ -143,6 +144,7 @@ nav:
       - TODO/index.md
       - apps/cfr — Deep CFR meta-allocator: TODO/apps-cfr.md
       - Factor sizing-input reframe: TODO/factor-sizing-input-reframe.md
+      - Factor endogenous-horizon entropy-weight sweep: TODO/factor-horizon-entropy-reg.md
       - Polar Morlet migration: TODO/polar-morlet-migration.md
       - Review follow-ups: TODO/review-followups.md
       - RSI long-period ablation: TODO/rsi-long-period-ablation.md

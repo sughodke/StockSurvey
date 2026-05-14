@@ -26,6 +26,7 @@ Default eval window unless otherwise stated: 2013-01-29 → 2025-12-11,
 - [Loss-pivot eval — Sharpe and IR-vs-EW losses underperform rank-IC by 0.37 Sharpe (rank-IC's spread-thin behavior was inadvertent risk control)](factor-loss-pivot.md)
 - [Sizing-input v0 — MSE-on-alpha calibrates score magnitude but adds zero information for the rank-invariant signal-quality emission](factor-sizing-input-v0.md)
 - [Sizing-input v1 — factor signal-quality at 6-window resolution is too lagged to clear the VIX meta-gate](factor-sizing-input-v1.md)
+- [Endogenous-horizon mixture — state-conditional rebal cadence beats random-π but not best fixed (π collapses to h=60 without entropy regularization)](factor-endogenous-horizon-mixture.md)
 
 ## Replay app
 
