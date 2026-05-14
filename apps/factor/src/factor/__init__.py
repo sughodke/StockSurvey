@@ -52,8 +52,13 @@ from factor.backbone import (
 )
 from factor.data import (
     AlignedTickers, align_tickers, align_tickers_at_rebal,
-    forward_log_returns, forward_robust_z, forward_sign_demeaned,
-    forward_vol_innovation,
+    forward_log_returns, forward_log_returns_multi,
+    forward_robust_z, forward_sign_demeaned, forward_vol_innovation,
+)
+from factor.horizon import (
+    IrregularRunResult,
+    simulate_fixed_horizon_daily_pnl,
+    simulate_irregular_daily_pnl,
 )
 from factor.indicator_features import (
     IndicatorGridConfig, build_indicator_features, load_ticker_indicators,
@@ -62,14 +67,19 @@ from factor.indicator_features import (
 )
 from factor.objectives import (
     block_ir_vs_ew, block_sharpe, block_sharpe_long_short,
-    long_short_weights, masked_mse, pearson_rank_ic,
+    horizon_mixture_loss, long_short_weights, masked_mse,
+    pearson_rank_ic, per_bar_pearson_ic,
 )
 from factor.scorers import (
-    SCORERS, apply_linear, apply_mlp, apply_mlp_multitask, get_scorer,
-    init_linear, init_mlp, init_mlp_multitask,
+    SCORERS, apply_linear, apply_mlp, apply_mlp_horizon, apply_mlp_multitask,
+    get_scorer, init_linear, init_mlp, init_mlp_horizon, init_mlp_multitask,
 )
 from factor.train import (
     TrainResult, precompute_inputs, predict, train_scorer,
+)
+from factor.train_horizon_walkforward import (
+    HorizonWalkForwardResult, HorizonWindow,
+    train_scorer_horizon_walkforward,
 )
 from factor.train_walkforward import (
     WalkForwardResult, WalkForwardWindow, train_scorer_walkforward,
@@ -78,7 +88,10 @@ from factor.train_walkforward import (
 __all__ = [
     'AlignedTickers',
     'Backbone',
+    'HorizonWalkForwardResult',
+    'HorizonWindow',
     'IndicatorGridConfig',
+    'IrregularRunResult',
     'SCORERS',
     'TrainResult',
     'WalkForwardResult',
@@ -89,6 +102,7 @@ __all__ = [
     'apply_backbone_pytree',
     'apply_linear',
     'apply_mlp',
+    'apply_mlp_horizon',
     'apply_mlp_multitask',
     'backbone_to_pytree',
     'block_ir_vs_ew',
@@ -97,13 +111,16 @@ __all__ = [
     'build_indicator_features',
     'compute_input_stats',
     'forward_log_returns',
+    'forward_log_returns_multi',
     'forward_robust_z',
     'forward_sign_demeaned',
     'forward_vol_innovation',
     'get_scorer',
+    'horizon_mixture_loss',
     'identity_backbone',
     'init_linear',
     'init_mlp',
+    'init_mlp_horizon',
     'init_mlp_multitask',
     'load_backbone',
     'load_ticker_indicators',
@@ -111,9 +128,13 @@ __all__ = [
     'make_indicator_backbone',
     'masked_mse',
     'pearson_rank_ic',
+    'per_bar_pearson_ic',
     'precompute_inputs',
     'predict',
+    'simulate_fixed_horizon_daily_pnl',
+    'simulate_irregular_daily_pnl',
     'train_scorer',
+    'train_scorer_horizon_walkforward',
     'train_scorer_indicators',
     'train_scorer_indicators_walkforward',
     'train_scorer_walkforward',

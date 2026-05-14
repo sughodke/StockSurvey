@@ -219,6 +219,42 @@ def forward_log_returns(
     return fwd
 
 
+def forward_log_returns_multi(
+    prices: np.ndarray, *, horizons: tuple[int, ...],
+) -> np.ndarray:
+    """`(K, D, N)` of forward log returns at each horizon in `horizons`.
+
+    `out[k, i, j] = sum(log(p[i+m+1] / p[i+m]) for m in range(h_k))` — the
+    log return realized by holding ticker j from close-of-i to close-of-
+    (i + h_k). Trailing `h_k` rows of slice `k` are NaN (no future
+    window).
+
+    Used by the endogenous-horizon trainer: the score head learns
+    rank-IC against whichever horizon the per-bar π_t weights, and the
+    horizon head learns which horizon's IC is sharpest at each state.
+    Each horizon's edge cells (`>=D-h_k`) get masked by the caller via
+    `np.isfinite` on the per-horizon slice — the loss already skips
+    bars where the target is NaN.
+
+    f64 throughout for the same reason as `forward_log_returns` (Pearson
+    covariance cancellation at small val IC); caller demotes to f32 at
+    the Tensor boundary.
+    """
+    if not horizons:
+        raise ValueError('horizons must be non-empty')
+    for h in horizons:
+        if h < 1:
+            raise ValueError(f'horizon {h} must be >= 1')
+    log_p = np.log(np.maximum(prices, 1e-12))
+    D, N = prices.shape
+    K = len(horizons)
+    out = np.full((K, D, N), np.nan, dtype=np.float64)
+    for k, h in enumerate(horizons):
+        if D > h:
+            out[k, :D - h] = log_p[h:] - log_p[:D - h]
+    return out
+
+
 def forward_sign_demeaned(
     prices: np.ndarray, *, rebal_days: int,
     valid: np.ndarray | None = None,

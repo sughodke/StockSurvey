@@ -61,6 +61,116 @@ def pearson_rank_ic(
     return (per_bar_ic * bar_valid).sum() / bar_valid.sum().maximum(1.0)
 
 
+def per_bar_pearson_ic(
+    scores: Tensor, fwd_returns: Tensor, mask: Tensor,
+) -> tuple[Tensor, Tensor]:
+    """Per-bar Pearson IC + validity mask. Inputs `(n_bars, n_tickers)`.
+
+    Returns `(ic_per_bar, bar_valid)` both shape `(n_bars,)`:
+      - `ic_per_bar[t]` is Pearson(scores[t], fwd_returns[t]) on the
+        masked liquid universe at that bar. Zero when fewer than 2
+        valid tickers OR when either var is degenerate.
+      - `bar_valid[t]` is 1.0 for bars with >=2 valid tickers and
+        non-degenerate score/return variance, else 0.0.
+
+    Same NaN/Inf sanitization as `pearson_rank_ic`. Used by
+    `horizon_mixture_loss` — the mixture loss weights per-bar IC by the
+    horizon head's per-bar π_t, so the gradient that flows back into π_t
+    sees state-conditional IC contributions rather than the aggregate.
+    """
+    scores = _isfinite(scores).where(scores, 0.0)
+    fwd_returns = _isfinite(fwd_returns).where(fwd_returns, 0.0)
+    counts = mask.sum(axis=1)
+    safe_counts = counts.maximum(1.0)
+    s_mean = (scores * mask).sum(axis=1) / safe_counts
+    r_mean = (fwd_returns * mask).sum(axis=1) / safe_counts
+    s_dev = (scores - s_mean.reshape(-1, 1)) * mask
+    r_dev = (fwd_returns - r_mean.reshape(-1, 1)) * mask
+    cov = (s_dev * r_dev).sum(axis=1)
+    s_var = (s_dev * s_dev).sum(axis=1)
+    r_var = (r_dev * r_dev).sum(axis=1)
+    denom = (s_var * r_var).maximum(1e-18).sqrt()
+    ic = cov / denom
+    # Bars with <2 valid tickers OR degenerate variance produce 0 IC.
+    # `(counts >= 2)` gates the first; `s_var * r_var > 1e-18` gates the
+    # second. Combined as float so the multiply zeroes out invalid bars.
+    bar_valid = (counts >= 2).cast(scores.dtype) * (
+        (s_var * r_var) > 1e-18).cast(scores.dtype)
+    return ic * bar_valid, bar_valid
+
+
+def horizon_mixture_loss(
+    scores: Tensor,
+    fwd_multi: Tensor,
+    mask: Tensor,
+    pi: Tensor,
+    *,
+    entropy_weight: float = 0.0,
+) -> Tensor:
+    """State-conditional mixture-of-horizons IC loss (negate for minimization).
+
+    Shapes:
+      - `scores`     : `(n_bars, n_tickers)` — score head output at the
+                       fine rebal grid.
+      - `fwd_multi`  : `(K, n_bars, n_tickers)` — forward log returns at
+                       each of K horizons. Edge cells (where the horizon
+                       runs past the data) should already be 0-masked by
+                       the caller (precompute fills with 0 + tightens
+                       `mask`).
+      - `mask`       : `(K, n_bars, n_tickers)` — per-horizon liquidity
+                       mask. Per-horizon because the trailing edge
+                       differs across horizons (h=5 has 5 trailing rows
+                       masked; h=60 has 60).
+      - `pi`         : `(n_bars, K)` — horizon distribution at each bar
+                       (rows sum to 1).
+      - `entropy_weight` : optional regularization pushing `pi` away
+                       from one-hot. `loss = base_loss - entropy_weight
+                       * H(pi)`. Default 0 (no regularization).
+                       Negative loss term because higher entropy is
+                       preferred, but the *returned* loss is what we
+                       minimize, so we subtract entropy.
+    The returned scalar is `-mean_t Σ_k π_t[k] · IC_k_t` (plus optional
+    entropy reg). Negative to make minimization correspond to maximizing
+    state-weighted IC. Mean-over-bars uses only bars with at least one
+    horizon contributing a valid per-bar IC.
+    """
+    K = int(fwd_multi.shape[0])
+    # Per-horizon per-bar IC: stack into `(K, n_bars)`.
+    ic_per_horizon = []
+    valid_per_horizon = []
+    for k in range(K):
+        ic_k, v_k = per_bar_pearson_ic(scores, fwd_multi[k], mask[k])
+        ic_per_horizon.append(ic_k.reshape(1, -1))
+        valid_per_horizon.append(v_k.reshape(1, -1))
+    ic_kt = ic_per_horizon[0].cat(*ic_per_horizon[1:], dim=0)
+    valid_kt = valid_per_horizon[0].cat(*valid_per_horizon[1:], dim=0)
+
+    # `(K, n_bars)` × `(K, n_bars)` (transpose of pi) → mixture-weighted
+    # per-bar IC: `mix_t = Σ_k π_t[k] · IC_k_t · valid_k_t`. The valid
+    # mask absorbs per-horizon edge bars (e.g. last 60 bars are invalid
+    # for h=60 but fine for h=5). pi rows still sum to 1 even when some
+    # horizons are masked — that's the correct economic semantics ("if
+    # I'd picked horizon h here, the IC would have been undefined") but
+    # the *loss* contribution from those (k, t) cells is correctly zero.
+    pi_kt = pi.transpose(0, 1)            # `(K, n_bars)`
+    mix_per_bar = (pi_kt * ic_kt * valid_kt).sum(axis=0)   # `(n_bars,)`
+
+    # Bar is "loss-contributing" if any horizon is valid at that bar.
+    any_valid = (valid_kt.sum(axis=0) > 0).cast(scores.dtype)
+    n_valid_bars = any_valid.sum().maximum(1.0)
+    mean_mix_ic = (mix_per_bar * any_valid).sum() / n_valid_bars
+
+    loss = -mean_mix_ic
+    if entropy_weight > 0.0:
+        # H(pi_t) = -Σ_k π_t[k] log π_t[k]. Reduce over bars by mean.
+        # 1e-12 floor for numerical stability (matches softmax-eps used
+        # elsewhere in this file).
+        log_pi = (pi + 1e-12).log()
+        H = -(pi * log_pi).sum(axis=1).mean()
+        loss = loss - Tensor(entropy_weight) * H
+    return loss
+
+
 def masked_mse(
     scores: Tensor, targets: Tensor, mask: Tensor,
 ) -> Tensor:
@@ -255,6 +365,6 @@ def block_ir_vs_ew(
 
 __all__ = [
     'TRADING_DAYS', 'block_sharpe', 'block_sharpe_long_short',
-    'block_ir_vs_ew', 'long_short_weights', 'masked_mse',
-    'pearson_rank_ic',
+    'block_ir_vs_ew', 'horizon_mixture_loss', 'long_short_weights',
+    'masked_mse', 'pearson_rank_ic', 'per_bar_pearson_ic',
 ]

@@ -128,6 +128,98 @@ def apply_mlp_multitask(
     return p, a
 
 
+def init_mlp_horizon(
+    rng: np.random.Generator, hidden_flat: int, *,
+    n_horizons: int, hidden: int = 64, n_layers: int = 1,
+) -> dict[str, Tensor]:
+    """Shared trunk + per-ticker score head + per-bar horizon-distribution head.
+
+    Trunk: `n_layers` ReLU blocks of width `hidden`
+    (`W{i}/b{i}` keys for `i in [0, n_layers)`).
+    Score head: `(hidden, 1)` (`Ws/bs`) — produces a scalar per ticker
+    just like `init_mlp`'s final layer.
+    Horizon head: `(hidden, n_horizons)` (`Wh/bh`) — consumes the
+    per-bar **cross-sectional mean** of the trunk's hidden activations
+    (computed in `apply_mlp_horizon`, restricted to the masked liquid
+    universe) and emits K logits which `apply_mlp_horizon` softmaxes to
+    π_t.
+
+    Why a cross-sectional mean: the horizon decision is a per-bar
+    *market-state* output, not per-ticker. Pooling over the liquid
+    universe builds an aggregate representation of "what does the
+    market look like right now" before the K-way logit. This is the
+    only way the horizon head's output dimension matches the trainer's
+    per-bar π_t expectation.
+
+    Why a separate registry slot is *not* used: the scorer apply
+    contract elsewhere is `apply(params, X) -> scalar_scores`. The
+    horizon head needs a mask to mean over the liquid set, so its
+    apply signature is different — kept out of `SCORERS` and called
+    directly by the horizon trainer.
+    """
+    if n_layers < 1:
+        raise ValueError(f'n_layers must be >= 1, got {n_layers}')
+    if n_horizons < 2:
+        raise ValueError(
+            f'n_horizons must be >= 2, got {n_horizons} '
+            '(degenerate single-horizon model — just use train_scorer)')
+    sizes = [hidden_flat] + [hidden] * n_layers
+    params: dict[str, Tensor] = {}
+    for i, (fan_in, fan_out) in enumerate(zip(sizes[:-1], sizes[1:])):
+        params[f'W{i}'] = _he_normal(rng, (fan_in, fan_out), fan_in)
+        params[f'b{i}'] = Tensor(np.zeros(fan_out, dtype=np.float32),
+                                 requires_grad=True)
+    # Score head — per-ticker scalar.
+    params['Ws'] = _he_normal(rng, (hidden, 1), hidden)
+    params['bs'] = Tensor(np.zeros(1, dtype=np.float32), requires_grad=True)
+    # Horizon head — per-bar K-way logits.
+    params['Wh'] = _he_normal(rng, (hidden, n_horizons), hidden)
+    params['bh'] = Tensor(np.zeros(n_horizons, dtype=np.float32),
+                          requires_grad=True)
+    return params
+
+
+def apply_mlp_horizon(
+    params: dict[str, Tensor], X: Tensor, mask: Tensor,
+) -> tuple[Tensor, Tensor]:
+    """`X` shape `(B, N, hidden_flat)`, `mask` shape `(B, N)`
+    → `(scores: (B, N), pi: (B, K))`.
+
+    Trunk runs over every `(bar, ticker)` cell. Score head projects to
+    one scalar per ticker. Horizon head pools across the *liquid*
+    cross-section per bar (masked mean of trunk hidden) and projects to
+    K logits, softmaxed.
+
+    Masked tickers contribute 0 to the cross-sectional sum and are
+    excluded from the count. Bars with no liquid tickers fall back to a
+    uniform-pi (loss handles via `bar_valid` zeroing; this just keeps
+    softmax well-defined).
+
+    Trunk depth is inferred from `W{i}` keys excluding `Ws`/`Wh` (the
+    two output projections).
+    """
+    n_trunk = sum(1 for k in params
+                  if k.startswith('W') and k not in ('Ws', 'Wh'))
+    h = X
+    for i in range(n_trunk):
+        h = (h @ params[f'W{i}'] + params[f'b{i}']).relu()
+    # h: (B, N, hidden)
+    scores = (h @ params['Ws'] + params['bs']).squeeze(-1)   # (B, N)
+
+    # Masked cross-sectional mean → (B, hidden). Reshape mask to (B, N, 1)
+    # so multiply broadcasts over hidden dim.
+    mask_b = mask.reshape(*mask.shape, 1)
+    counts = mask.sum(axis=1, keepdim=True).maximum(1.0)     # (B, 1)
+    pooled = (h * mask_b).sum(axis=1) / counts               # (B, hidden)
+
+    logits = pooled @ params['Wh'] + params['bh']            # (B, K)
+    # Softmax with row-max subtraction for stability.
+    logits = logits - logits.max(axis=1, keepdim=True)
+    exp_l = logits.exp()
+    pi = exp_l / (exp_l.sum(axis=1, keepdim=True) + 1e-12)
+    return scores, pi
+
+
 SCORERS: dict[str, tuple] = {
     'linear': (init_linear, apply_linear),
     'mlp': (init_mlp, apply_mlp),
