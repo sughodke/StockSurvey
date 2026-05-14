@@ -62,7 +62,8 @@ Default eval window unless otherwise stated: 2013-01-29 → 2025-12-11,
 - [Vol surface v2 #1 — dollar-PnL conversion under 3 sizing conventions (confirmed-OOS; $-vega Sharpe +4.60, share-count +1.95, both clear PASS)](vol-surface-v2-dollar-pnl.md)
 - [Vol surface v2 #2 — OI restriction collapses alpha monotonically (reversed-OOS on deployability; alpha −0.48 at top-200 OI)](vol-surface-v2-oi-restriction.md)
 - [Vol surface v2 #3 — DoltHub OOS extension to 2026-04 confirms signal continuity (confirmed-OOS; 11/11 positive OOS quarters)](vol-surface-v2-dolthub-oos.md)
-- [Vol surface arc synthesis — partial-OOS arc closure; liquidity is binding, regime-gated-liquid v3 is the rescue path](vol-arc-synthesis.md)
+- [Vol surface v3 — regime-gated liquid universe composition (126d-VIX gate rescues v2 #2 FAIL: fired-α Sh +2.01, MARGINAL)](vol-surface-v3-regime-gated.md)
+- [Vol surface arc synthesis — partial-OOS arc closure; v3 regime-gated-liquid is the deployment recipe](vol-arc-synthesis.md)
 
 ## CFR app
 

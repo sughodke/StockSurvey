@@ -5,16 +5,30 @@ tags:
   - partial-OOS
 ---
 
-# Vol surface arc — v0 → v1 → v2 synthesis (partial-OOS; liquidity is the binding constraint)
+# Vol surface arc — v0 → v1 → v2 → v3 synthesis (partial-OOS; deployable with 126d-VIX regime gate + top-200 OI restriction)
 
 **Arc state as of 2026-05-14:** the vol surface signal is **real, OOS-
 stable, and dollar-Sharpe-substantial on the unrestricted universe**,
 but the deployable subset (top-200-OI tradable options) doesn't carry
-it. The arc closes as `partial-OOS`: signal exists but isn't
-broadly deployable without further conditioning (regime gate +
-narrower universe). The audit's framing of "the strongest signal in
-the repo, benched without v1 work" is empirically validated for the
-signal-existence claim; the deployability claim requires v3.
+it unconditionally. The v3 regime-gated composition (126d-VIX rolling-
+median per-rebal gate on the OI-200 universe) **partially rescues
+deployability**: fired-alpha Sharpe +2.01 on 37% of rebals (vs v2 #2's
+unconditional −0.48). The arc closes as `partial-OOS` with the v3
+regime-gated architecture as the deployment recipe.
+
+!!! note "Update 2026-05-14 — v3 regime-gated test complete"
+
+    The v3 architecture proposed in this synthesis page was tested
+    in [`vol-surface-v3-regime-gated`](vol-surface-v3-regime-gated.md).
+    Headline result: 126d-VIX-rolling-median per-rebal gate lifts the
+    fired-alpha Sharpe to **+2.01** (vs v2 #2's unconditional −0.48
+    on top-200 OI), fire rate 37%, 3/5 fired-positive windows. Strict
+    pre-reg verdict is MARGINAL (3/5 < 4/5 PASS bar) but materially
+    rescues deployability. The 126d gate correctly held closed in
+    w0 (calm-bull 2021) — avoiding v2 #2's α=−2.57 disaster — and
+    fired in w3 (post-Fed-pivot 2022, captured α=+0.036). The
+    60d-headline-ex-ante gate FAILED (too reactive, fires in calm-
+    bull); 252d gate too slow. **126d is the operational best.**
 
 ## Arc trajectory
 
@@ -155,9 +169,23 @@ verdict: arc-level `partial-OOS` (signal real and OOS-stable,
 deployability blocked by liquidity, regime-gate composition not
 yet tested).
 
-## Recommended next experiment
+## Recommended next experiment — v3 complete; live-deployment track now unblocked
 
-`TODO/vol-v3-regime-gated-liquid.md` (to be written): pre-register
-the regime-gated-liquid v3 test and run as the final research check
-before either (a) deploying with the documented regime constraint
-or (b) parking the arc as `confirmed-null` on broad-deployment.
+v3 ([`vol-surface-v3-regime-gated`](vol-surface-v3-regime-gated.md))
+confirmed the regime-gated-liquid architecture as the deployment
+recipe. Remaining open questions, in EV order:
+
+1. **Friction sensitivity on fired-only PnL** — fired alpha PnL of
+   +0.014 vol pts is ~14× the 100 bps friction threshold. At 500 bps
+   it's ~3× — still positive but tighter. ~1h.
+2. **MLP head on the regime-gated liquid universe** — modest expected
+   lift; linear is the right baseline. ~2h.
+3. **`ss-vol live` infrastructure** — port from `ss-relational live`
+   pattern; gate-aware live loop. ~6h.
+4. **Options broker adapter (IBKR or Tradier)** — Alpaca lacks
+   multi-leg options support. ~6h.
+5. **Composite regime gate** — VIX + cross-sectional IV dispersion.
+   The arc's signal is conceptually cross-sectional; pure VIX may
+   not be optimal. ~3h.
+6. **Paper trade on real broker** — 1-2 fired rebals over 4-8 weeks
+   elapsed.
