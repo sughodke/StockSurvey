@@ -144,7 +144,7 @@ nav:
       - TODO/index.md
       - apps/cfr — Deep CFR meta-allocator: TODO/apps-cfr.md
       - Factor sizing-input reframe: TODO/factor-sizing-input-reframe.md
-      - Factor endogenous-horizon entropy-weight sweep: TODO/factor-horizon-entropy-reg.md
+      - Done — factor endogenous-horizon entropy-weight sweep (confirmed-null on rescue hypothesis): TODO/factor-horizon-entropy-reg.md
       - Polar Morlet migration: TODO/polar-morlet-migration.md
       - Review follow-ups: TODO/review-followups.md
       - RSI long-period ablation: TODO/rsi-long-period-ablation.md

@@ -172,9 +172,118 @@ direction. The mechanism (random-π loses by costs alone; mixture beats
 best-fixed when it fires) is consistent with the hypothesis having
 real content underneath the collapse.
 
+## Entropy-weight sweep (2026-05-14, followup)
+
+Pre-registered in
+[`TODO/factor-horizon-entropy-reg`](../TODO/factor-horizon-entropy-reg.md):
+sweep `entropy_weight α ∈ {0.0, 0.05, 0.1, 0.2, 0.3}` to test whether
+regularization rescues the partial-OOS verdict. Hypothesis was that
+π collapse was the binding constraint and an α that keeps the mixture
+alive would unlock the architecture.
+
+**The hypothesis is falsified.** Entropy reg works exactly as
+designed on π (mean H(π) climbs from 0.11 → 1.55 across the sweep —
+the model uses all 5 horizons at α≥0.1), but the deployment Sharpe
+does **not** improve at any α. The best result remains the
+unregularized α=0 arm.
+
+| α | mean endog | best-fixed | Δ-fix | Δ-rand | H(π) | argmax h=60 share |
+|---:|---:|---:|---:|---:|---:|---:|
+| **0.00** | **+0.448** | +0.401 | **+0.048** | +0.119 | 0.11 | **0.80** |
+| 0.05     | +0.408 | +0.397 | +0.011 | +0.121 | 1.10 | 0.78 |
+| 0.10     | +0.422 | +0.395 | +0.028 | +0.135 | 1.40 | 0.71 |
+| 0.20     | +0.420 | +0.397 | +0.023 | +0.136 | 1.52 | 0.66 |
+| 0.30     | +0.401 | +0.392 | +0.009 | +0.119 | 1.55 | 0.60 |
+
+Every arm lands `partial-OOS` (N1+N2+N4 pass, N3 fails). N3 delta
+peaks at α=0 (+0.048) and falls toward +0.009 as α rises. **Δ-rand
+stays roughly constant** at +0.12–0.14 across the sweep — endog
+always beats random-π by a stable ~cost-savings margin, regardless
+of π entropy.
+
+### Per-window stratification across α
+
+| Win | Val start | α=0 endog | α=0.05 | α=0.1 | α=0.2 | α=0.3 | α=0 best-fix |
+|---|---|---:|---:|---:|---:|---:|---:|
+| w0 | 2005-11 | **−0.27** | −0.27 | −0.25 | −0.25 | **−0.30** | +0.10 |
+| w1 | 2008-12 | +0.57 | +0.52 | +0.56 | +0.56 | +0.56 | +0.57 |
+| w2 | 2012-03 | +0.82 | +0.80 | +0.78 | +0.79 | +0.80 | +0.88 |
+| w3 | 2015-06 | **+0.84** | +0.68 | +0.71 | +0.67 | +0.70 | +0.82 |
+| w4 | 2018-08 | +0.45 | +0.45 | +0.50 | +0.49 | +0.42 | +0.46 |
+| w5 | 2021-09 | +0.28 | +0.27 | +0.23 | +0.26 | +0.23 | +0.26 |
+
+Two windows tell the whole story:
+
+1. **w0 stays catastrophic regardless of α** (−0.25 to −0.30 across
+   the sweep, vs best-fixed +0.07 to +0.10). Forcing the model to
+   mix horizons does not rescue the 2005-11 pre-GFC window — none
+   of the K horizons are correctly placed for that regime.
+2. **w3 was the α=0 win and entropy reg breaks it** (+0.84 at α=0
+   drops to +0.66–0.71 at α≥0.05). The unregularized model had
+   already found a useful state-conditional mixture (30 bars at
+   h=40 + 126 at h=60) at this window; forcing higher entropy
+   replaces good selections with worse ones.
+
+Entropy reg is doing what it's supposed to do mathematically —
+preventing collapse — but the architecture is **not** bottlenecked
+on collapse. It's bottlenecked on the fact that the score head's
+information at horizon h=40 (or any other horizon) does not vary
+meaningfully with market state in this universe + feature stack.
+
+![α=0.1 sweep arm — per-window Sharpes, argmax bin stack, π entropy](images/factor-endogenous-horizon-mixture-alpha0p1.png)
+![α=0.3 sweep arm — same panels at maximum regularization](images/factor-endogenous-horizon-mixture-alpha0p3.png)
+
+### What the sweep rules out
+
+| Hypothesis from prior partial-OOS verdict | Sweep verdict |
+|---|---|
+| π collapse is the binding constraint | **Falsified** — π expands at α≥0.05, endog Sharpe doesn't improve |
+| The α=0 +0.05 lift is state-conditional skill on h=60 | **Reframed** — it's cost concentration; the lift disappears as the model uses h=60 less |
+| An α exists that clears N3 by ≥ +0.10 | **Falsified within the swept range** — best Δ-fix is +0.048 at α=0 |
+| Discrete mixture-of-horizons-IC has untapped state-conditional content | **Falsified** at this architecture / universe / feature stack |
+
+### Verdict on the entropy-reg hypothesis
+
+[`confirmed-null`](../leaderboard.md#verdict-labels) on entropy
+regularization as a rescue for the architecture. The original
+2026-05-14 partial-OOS row for the unregularized run stands; the
+entropy-weight sweep does **not** supersede it.
+
+### Operational rule
+
+Where state-conditional behavior exists in a per-bar softmax model,
+the collapse-to-cheapest-attractor is *also* the local optimum.
+**Forcing higher entropy doesn't surface new content — it just
+trades cost-concentration for noise.** Before adding entropy reg to
+a softmax decision head, verify there's evidence of useful
+state-conditional content underneath the collapse (e.g., a
+held-out arm with manually-set state-dependent π that beats the
+collapsed baseline). Without that evidence, the architecture is
+already at its ceiling.
+
+### What this leaves open
+
+The architecture's ceiling on factor-narrow + 74-channel
+IndicatorGridConfig is at the +0.05-Sharpe partial-OOS level. To
+move further requires an **orthogonal** lever — different feature
+stack (the CWT bundle or polar-Morlet), or a fundamentally different
+horizon-emission (continuous head with REINFORCE rather than
+discrete soft-attention, or explicit regime-classifier → horizon
+mapping). The next-experiment chain for this workstream is
+inherited by
+[`TODO/factor-horizon-entropy-reg`](../TODO/factor-horizon-entropy-reg.md)
+in its closed-out state — see the "Sweep outcome" section at the
+top of that page for the redirect.
+
 ## Master walk-forward log
 
-See [Leaderboard](../leaderboard.md) row dated 2026-05-14 — verdict
-[`partial-OOS`](../leaderboard.md#verdict-labels). Artifacts:
-`Output/horizon-mixture-{windows.npz, comparison.png}`. Reproduce via
-`uvx --from modal modal run apps/factor/scripts/modal/horizon_mixture.py`.
+See [Leaderboard](../leaderboard.md) rows dated 2026-05-14 — the
+unregularized run (verdict
+[`partial-OOS`](../leaderboard.md#verdict-labels)) and the
+entropy-weight sweep (verdict
+[`confirmed-null`](../leaderboard.md#verdict-labels) on the
+regularization hypothesis). Artifacts:
+`Output/horizon-mixture-{a0,a0p05,a0p1,a0p2,a0p3}-{windows.npz, comparison.png}`,
+`Output/horizon-mixture-sweep-summary.json`. Reproduce via
+`uvx --from modal modal run apps/factor/scripts/modal/horizon_mixture.py
+--entropy-weights '0.0,0.05,0.1,0.2,0.3'`.

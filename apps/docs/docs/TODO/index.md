@@ -12,7 +12,6 @@ Active backlog for the StockSurvey monorepo. Each section from the original
 
 - [`apps/cfr` — Deep CFR meta-allocator over existing scorers](apps-cfr.md)
 - [Factor sizing-input reframe — re-purpose apps/factor as a meta-gate input](factor-sizing-input-reframe.md)
-- [Factor endogenous-horizon entropy-weight sweep — does regularization rescue the `partial-OOS` mixture verdict?](factor-horizon-entropy-reg.md)
 - [Ablation — disentangle why long-period RSI underperforms](rsi-long-period-ablation.md)
 - [Diagnose why w=1 row underperforms in the FiLM (w, n) head](film-w1-diagnostic.md)
 - [Backbone architecture — broader window/indicator coverage](backbone-architecture.md)
@@ -34,6 +33,7 @@ Active backlog for the StockSurvey monorepo. Each section from the original
 - [Different prediction problem — resolved 2026-05-10, three v0 partial-OOS rows; superseded by [`prediction-problem-pivot-arc`](../findings/prediction-problem-pivot-arc.md)](different-prediction-problem.md)
 - [`apps/pairs` v0 — resolved 2026-05-10, `confirmed-null` per pre-reg](apps-pairs.md)
 - [`apps/vol` v0 — resolved 2026-05-10, `inconclusive` (5/5 pos)](apps-vol.md)
+- [Factor endogenous-horizon entropy-weight sweep — resolved 2026-05-14, `confirmed-null` on rescue hypothesis; see extended [`factor-endogenous-horizon-mixture`](../findings/factor-endogenous-horizon-mixture.md)](factor-horizon-entropy-reg.md)
 
 ## Superseded
 

@@ -1,5 +1,42 @@
 # Endogenous-horizon mixture — entropy-weight sweep (verdict gate)
 
+## Sweep outcome (2026-05-14, closed)
+
+[`confirmed-null`](../leaderboard.md#verdict-labels) on the
+entropy-regularization rescue hypothesis. Full 5-α sweep
+(`α ∈ {0.0, 0.05, 0.1, 0.2, 0.3}`) ran on Modal T4 (~50 min wall,
+~$0.30). All five arms land `partial-OOS` (N1/N2/N4 pass, N3 fails);
+best Δ-fix is +0.048 at α=0 (the unregularized baseline) and
+monotone-decreases as α rises.
+
+**What was falsified**: π collapse as the binding constraint. The
+horizon head expands cleanly with entropy reg (mean H(π) climbs
+from 0.11 → 1.55, h=60 argmax share drops from 0.80 → 0.60), but
+the deployment Sharpe does not lift. The 2005-11 w0 catastrophe
+remains regardless of α; w3 (where the unregularized model already
+found a state-conditional mixture) DROPS as α rises because forced
+exploration replaces good selections with noise.
+
+**What this leaves open**: not entropy reg — orthogonal levers
+(different feature stack, continuous horizon head + REINFORCE,
+explicit regime-classifier → horizon mapping). None pre-registered
+as next experiments. Workstream paused pending a separate
+hypothesis.
+
+See the [extended findings page](../findings/factor-endogenous-horizon-mixture.md)
+("Entropy-weight sweep" section) for the full per-α table,
+per-window stratification, and the operational rule extracted
+("forcing higher entropy doesn't surface new content — it just
+trades cost-concentration for noise").
+
+Leaderboard rows: 2026-05-14 unregularized (`partial-OOS`) +
+2026-05-14 entropy-weight sweep (`confirmed-null` on rescue
+hypothesis).
+
+---
+
+## Original pre-registration (preserved for the record)
+
 Follow-up to
 [`factor-endogenous-horizon-mixture`](../findings/factor-endogenous-horizon-mixture.md)
 ([`partial-OOS`](../leaderboard.md#verdict-labels), 2026-05-14): the
