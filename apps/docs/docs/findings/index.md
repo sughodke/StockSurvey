@@ -59,6 +59,10 @@ Default eval window unless otherwise stated: 2013-01-29 → 2025-12-11,
 
 - [Vol surface v0 — multivariate prediction works (val r +0.12), per-cell alpha +0.089 just below threshold (inconclusive, 5/5 positive)](vol-surface-v0.md)
 - [Vol surface v1 — per-rebal portfolio aggregator + costs in loop confirms v0's signal (PASS, audit-validated; pooled alpha Sharpe +5.86, 5/5 positive, real-to-shuffle 25×)](vol-surface-v1.md)
+- [Vol surface v2 #1 — dollar-PnL conversion under 3 sizing conventions (confirmed-OOS; $-vega Sharpe +4.60, share-count +1.95, both clear PASS)](vol-surface-v2-dollar-pnl.md)
+- [Vol surface v2 #2 — OI restriction collapses alpha monotonically (reversed-OOS on deployability; alpha −0.48 at top-200 OI)](vol-surface-v2-oi-restriction.md)
+- [Vol surface v2 #3 — DoltHub OOS extension to 2026-04 confirms signal continuity (confirmed-OOS; 11/11 positive OOS quarters)](vol-surface-v2-dolthub-oos.md)
+- [Vol surface arc synthesis — partial-OOS arc closure; liquidity is binding, regime-gated-liquid v3 is the rescue path](vol-arc-synthesis.md)
 
 ## CFR app
 
