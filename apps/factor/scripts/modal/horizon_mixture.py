@@ -53,9 +53,16 @@ image = (
         ignore=[
             '.git/**',
             '.venv/**',
+            # `.claude/` carries the scheduled-tasks lock + agent transcripts;
+            # Modal aborts the build with "modified during build process" if
+            # the harness writes a wakeup mid-upload.
+            '.claude/**',
+            '.modal_metadata/**',
             'Output/**',
             'StooqData/**',
             'Nasdaq3347/**',
+            '.edgar-cache/**',
+            '.macro-cache/**',
             'apps/relational/src/**',
             'apps/regime/src/**',
             'apps/v1/src/**',
