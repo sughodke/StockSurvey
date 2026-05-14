@@ -12,3 +12,4 @@ StooqData/
 !.env.example
 
 .macro-cache/
+.edgar-cache/
