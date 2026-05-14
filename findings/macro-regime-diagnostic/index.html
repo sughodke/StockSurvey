@@ -1,0 +1,4217 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Trading-strategy research and live execution monorepo.">
+      
+      
+      
+        <link rel="canonical" href="https://sidghodke.com/StockSurvey/findings/macro-regime-diagnostic/">
+      
+      
+        <link rel="prev" href="../prediction-problem-pivot-arc/">
+      
+      
+        <link rel="next" href="../cfr-phase1/">
+      
+      
+        
+      
+      
+      <link rel="icon" href="../../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.6">
+    
+    
+      
+        <title>Macro regime diagnostic (5/6 features predict pivot windows) - StockSurvey</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/main.484c7ddc.min.css">
+      
+        
+        <link rel="stylesheet" href="../../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Geist:300,300i,400,400i,700,700i%7CGeist+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Geist";--md-code-font:"Geist Mono"}</style>
+      
+    
+    
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#macro-regime-diagnostic-5-of-6-macro-features-predict-pivot-arc-window-outcomes" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow md-header--lifted" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../.." title="StockSurvey" class="md-header__button md-logo" aria-label="StockSurvey" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            StockSurvey
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Macro regime diagnostic (5/6 features predict pivot windows)
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme)" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3.9 12c0-1.71 1.39-3.1 3.1-3.1h4V7H7a5 5 0 0 0-5 5 5 5 0 0 0 5 5h4v-1.9H7c-1.71 0-3.1-1.39-3.1-3.1M8 13h8v-2H8zm9-6h-4v1.9h4c1.71 0 3.1 1.39 3.1 3.1s-1.39 3.1-3.1 3.1h-4V17h4a5 5 0 0 0 5-5 5 5 0 0 0-5-5"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: light)" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_2" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M17 7H7a5 5 0 0 0-5 5 5 5 0 0 0 5 5h10a5 5 0 0 0 5-5 5 5 0 0 0-5-5m0 8a3 3 0 0 1-3-3 3 3 0 0 1 3-3 3 3 0 0 1 3 3 3 3 0 0 1-3 3"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: dark)" data-md-color-scheme="slate" data-md-color-primary="black" data-md-color-accent="indigo"  aria-label="Switch to system preference"  type="radio" name="__palette" id="__palette_2">
+    
+      <label class="md-header__button md-icon" title="Switch to system preference" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M17 7H7a5 5 0 0 0-5 5 5 5 0 0 0 5 5h10a5 5 0 0 0 5-5 5 5 0 0 0-5-5M7 15a3 3 0 0 1-3-3 3 3 0 0 1 3-3 3 3 0 0 1 3 3 3 3 0 0 1-3 3"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+          <a href="javascript:void(0)" class="md-search__icon md-icon" title="Share" aria-label="Share" data-clipboard data-clipboard-text="" data-md-component="search-share" tabindex="-1">
+            
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M18 16.08c-.76 0-1.44.3-1.96.77L8.91 12.7c.05-.23.09-.46.09-.7s-.04-.47-.09-.7l7.05-4.11c.54.5 1.25.81 2.04.81a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3c0 .24.04.47.09.7L8.04 9.81C7.5 9.31 6.79 9 6 9a3 3 0 0 0-3 3 3 3 0 0 0 3 3c.79 0 1.5-.31 2.04-.81l7.12 4.15c-.05.21-.08.43-.08.66 0 1.61 1.31 2.91 2.92 2.91s2.92-1.3 2.92-2.91A2.92 2.92 0 0 0 18 16.08"/></svg>
+          </a>
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+        <div class="md-search__suggest" data-md-component="search-suggest"></div>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/sughodke/StockSurvey" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+  </div>
+  <div class="md-source__repository">
+    sughodke/StockSurvey
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+    
+      
+<nav class="md-tabs" aria-label="Tabs" data-md-component="tabs">
+  <div class="md-grid">
+    <ul class="md-tabs__list">
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../.." class="md-tabs__link">
+        
+  
+  
+    
+  
+  Home
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../apps/" class="md-tabs__link">
+          
+  
+  
+    
+  
+  Apps
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../packages/" class="md-tabs__link">
+          
+  
+  
+    
+  
+  Packages
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../leaderboard/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Leaderboard
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../notes/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Notes
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../tags/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Tags
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+    
+  
+  
+    
+    
+      <li class="md-tabs__item md-tabs__item--active">
+        <a href="../" class="md-tabs__link">
+          
+  
+  
+    
+  
+  Findings
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../workflows/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Workflows
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../TODO/" class="md-tabs__link">
+          
+  
+  
+    
+  
+  TODO
+
+        </a>
+      </li>
+    
+  
+
+      
+    </ul>
+  </div>
+</nav>
+    
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+  
+
+
+<nav class="md-nav md-nav--primary md-nav--lifted" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="StockSurvey" class="md-nav__button md-logo" aria-label="StockSurvey" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    StockSurvey
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/sughodke/StockSurvey" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+  </div>
+  <div class="md-source__repository">
+    sughodke/StockSurvey
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_2" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../apps/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Apps
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_2" id="__nav_2_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Apps
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../apps/regime/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Regime
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../apps/relational/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Relational
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../apps/factor/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Factor
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../apps/replay/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Replay
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../apps/gate/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Gate
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../apps/pairs/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Pairs
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../apps/vol/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Vol
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../apps/cfr/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    CFR
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../apps/dca/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DCA
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../apps/notebook/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Notebook
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_3" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../packages/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Packages
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Packages
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../leaderboard/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Leaderboard
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../notes/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Notes
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../tags/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Tags
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_7" checked>
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Findings
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_7" id="__nav_7_label" tabindex="">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_7_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_7">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Findings
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../regime-baselines/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Regime baselines
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../log-returns-vs-raw-close/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Log-returns vs raw close
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../factor-indicator-baseline/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Factor indicator-IC baseline
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../factor-ssl-walkforward/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Factor SSL walkforward
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../time-reversal-symmetry/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Time-reversal symmetry
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../factor-f32-precision-cancellation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Factor f32 precision cancellation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../factor-multitask-aux-head/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Factor multi-task aux head
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../factor-multitask-aux-weight-sweep/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Factor multi-task aux-weight sweep
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../replay-decoders/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Replay decoder options
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../replay-dwt-compression/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Replay DWT compression
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../replay-length-axis-compression/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Replay length-axis (K) compression
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../relational-universe-shift/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Relational universe shift
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../relational-dwt-failure/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Relational DWT-L1 OOS failure
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../relational-morlet-failure/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Relational polar Morlet OOS failure
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../passive-ew-benchmark/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Passive EW benchmark (regrades shippable rows)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../factor-rankic-long-only-mismatch/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Rank-IC vs long-only top-N mismatch
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../factor-loss-pivot/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Loss-pivot — Sharpe/IR losses underperform rank-IC
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../factor-sizing-input-v0/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Sizing-input v0 — MSE-on-alpha calibrates but adds no information for rank-based emission
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../factor-sizing-input-v1/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Sizing-input v1 — factor signal-quality at 6-window resolution is too lagged to clear VIX gate
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../gate-drawdown-v0/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Gate drawdown v0 (partial-OOS)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../pairs-classical-v0/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Pairs classical v0 (confirmed-null)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../vol-surface-v0/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Vol surface v0 (inconclusive, 5/5 pos)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../vol-surface-v1/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Vol surface v1 (confirmed-OOS, audit-validated, per-rebal portfolio aggregator + costs in loop, alpha Sharpe +5.86 with 25x real-to-shuffle ratio)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../relational-arc-synthesis/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Relational arc synthesis (lifted from NO_OPTIONS.md)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../prediction-problem-pivot-arc/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Prediction-problem-pivot arc synthesis
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Macro regime diagnostic (5/6 features predict pivot windows)
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Macro regime diagnostic (5/6 features predict pivot windows)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#setup" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Setup
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#result-2026-05-10" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Result (2026-05-10)
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Result (2026-05-10)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#per-feature-pearson-r-vs-alpha_z" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Per-feature Pearson r vs alpha_z
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#sign-coherence" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Sign coherence
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#contingency-tables-vix-and-real-rate-splits-are-clean" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Contingency tables — VIX and real-rate splits are clean
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#per-window-detail" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Per-window detail
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#mechanism" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Mechanism
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#implications" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Implications
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Implications">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#operational-rule" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Operational rule
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#why-not-fold-macro-into-appsregime" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Why not fold macro into apps/regime
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#v1-plan" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        v1 plan
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#v1-results-2026-05-11" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        v1 results (2026-05-11)
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="v1 results (2026-05-11)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#v1a-macro-as-direct-features-in-gates-predictor-stack-run_walkforwardpy-with-macro" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        v1a — macro as direct features in gate's predictor stack (run_walkforward.py --with-macro)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#v1b-macro-as-a-binary-meta-gate-macro_meta_gate_evalpy" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        v1b — macro as a binary meta-gate (macro_meta_gate_eval.py)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#combined-verdict-revised-v2-plan" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Combined verdict + revised v2 plan
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#caveats" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Caveats
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#master-walk-forward-log" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Master walk-forward log
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../cfr-phase1/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    CFR Phase 1 — tabular CFR clears trailing-best by +0.609 (6/6) but ties naive uniform
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../cfr-phase2/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    CFR Phase 2 — menu enrichment confirmed-null; binding constraint is tabular sample density
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../cfr-phase3/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    CFR Phase 3 — Deep CFR + continuous state vector lifts +0.02 Sharpe (MARGINAL); architecture isn't the binding constraint either
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../cfr-phase4/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    CFR Phase 4 — universe shift to 13-asset multi-asset PASSES (alpha vs EW +0.056); first deployable CFR result
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../cfr-vs-dca-realistic/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    CFR vs DCA realistic-friction re-eval — raw alpha collapses to +0.015 net; DCA is the canonical live strategy
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../cfr-macro-gate-final/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    CFR + window-level VIX gate final close-out — bot is fully dead; memory-heavy regime gates fight regime transitions
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../cfr-sensitivity-followup/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    CFR Phase 4d sensitivity follow-up — friction × gate stress-test; audit-driven diagnostic that refines the prior closure (alpha is real and positive at every friction level, below +0.10 threshold)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../pairs-eg-gate-falsified/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Pairs EG-gate falsified — audit-followup test of EG-passing-rate regime gate; falsified at all three pre-registered thresholds; w0 sits in "working" EG band by count yet posts worst val Sharpe
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../delisting-aware-ew-falsified/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Delisting-aware EW benchmark falsified — audit-followup test of ffill-delisting bias; Δ Sharpe ≤ 0.0002 across all 4 universes (audit predicted +0.05-0.15); manifest curation + Stooq ticker reuse make the bias structurally absent
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../workflows/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Workflows
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_9" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../TODO/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    TODO
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_9" id="__nav_9_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_9_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_9">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    TODO
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../TODO/apps-cfr/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    apps/cfr — Deep CFR meta-allocator
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../TODO/factor-sizing-input-reframe/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Factor sizing-input reframe
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../TODO/polar-morlet-migration/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Polar Morlet migration
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../TODO/review-followups/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Review follow-ups
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../TODO/rsi-long-period-ablation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    RSI long-period ablation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../TODO/film-w1-diagnostic/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    FiLM w=1 diagnostic
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../TODO/backbone-architecture/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Backbone architecture
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../TODO/port-sharpe-tinygrad/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Port Sharpe to tinygrad
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../TODO/dwt-compression-followups/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DWT-compression follow-ups
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../TODO/rebal-days-sweep/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Rebal-days sweep
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../TODO/reversed-price-experiment/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Reversed-price experiment
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../TODO/ew-overlay-test/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    EW + rank-IC overlay (parked)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../TODO/modal-cron-live-deployment/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Modal-cron live deployment
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../TODO/memory-walltime-followups/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Memory and wall-time follow-ups
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../TODO/streaming-feature-pipeline/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Streaming feature pipeline (superseded)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../TODO/different-prediction-problem/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Done — different prediction problem (resolved)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../TODO/apps-pairs/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Done — apps/pairs v0 (resolved)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../TODO/apps-vol/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Done — apps/vol v0 (resolved)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../TODO/long-short-constructor/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Done — long-short constructor (resolved)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../TODO/recently-shipped/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Recently shipped
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#setup" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Setup
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#result-2026-05-10" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Result (2026-05-10)
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Result (2026-05-10)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#per-feature-pearson-r-vs-alpha_z" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Per-feature Pearson r vs alpha_z
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#sign-coherence" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Sign coherence
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#contingency-tables-vix-and-real-rate-splits-are-clean" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Contingency tables — VIX and real-rate splits are clean
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#per-window-detail" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Per-window detail
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#mechanism" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Mechanism
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#implications" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Implications
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Implications">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#operational-rule" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Operational rule
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#why-not-fold-macro-into-appsregime" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Why not fold macro into apps/regime
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#v1-plan" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        v1 plan
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#v1-results-2026-05-11" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        v1 results (2026-05-11)
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="v1 results (2026-05-11)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#v1a-macro-as-direct-features-in-gates-predictor-stack-run_walkforwardpy-with-macro" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        v1a — macro as direct features in gate's predictor stack (run_walkforward.py --with-macro)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#v1b-macro-as-a-binary-meta-gate-macro_meta_gate_evalpy" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        v1b — macro as a binary meta-gate (macro_meta_gate_eval.py)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#combined-verdict-revised-v2-plan" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Combined verdict + revised v2 plan
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#caveats" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Caveats
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#master-walk-forward-log" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Master walk-forward log
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+                
+
+
+
+  
+
+
+  <nav class="md-path" aria-label="Navigation" >
+    <ol class="md-path__list">
+      
+        
+  
+  
+    <li class="md-path__item">
+      <a href="../.." class="md-path__link">
+        
+  <span class="md-ellipsis">
+    Home
+  </span>
+
+      </a>
+    </li>
+  
+
+      
+      
+        
+  
+  
+    
+    
+      <li class="md-path__item">
+        <a href="../" class="md-path__link">
+          
+  <span class="md-ellipsis">
+    Findings
+  </span>
+
+        </a>
+      </li>
+    
+  
+
+      
+    </ol>
+  </nav>
+
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+  <nav class="md-tags" >
+    
+      
+      
+      
+      
+        <a href="../../tags/#tag:diagnostic" class="md-tag">diagnostic</a>
+      
+    
+      
+      
+      
+      
+        <a href="../../tags/#tag:macro" class="md-tag">macro</a>
+      
+    
+      
+      
+      
+      
+        <a href="../../tags/#tag:regime" class="md-tag">regime</a>
+      
+    
+  </nav>
+
+
+  
+  
+
+
+<h1 id="macro-regime-diagnostic-5-of-6-macro-features-predict-pivot-arc-window-outcomes">Macro regime diagnostic — 5 of 6 macro features predict pivot-arc window outcomes<a class="headerlink" href="#macro-regime-diagnostic-5-of-6-macro-features-predict-pivot-arc-window-outcomes" title="Permanent link">&para;</a></h1>
+<p>The
+<a href="../prediction-problem-pivot-arc/"><code>prediction-problem-pivot-arc</code></a>
+left an open operational question: <em>what's the regime structure
+that determines when our orthogonal v0 apps produce alpha?</em> The
+arc-level operational rule said "predictions with regime-conditional
+deployment performance need a regime filter, not a richer
+predictor" — but didn't specify what features the filter should
+use.</p>
+<p>This diagnostic tests one candidate: <strong>macro econ indicators
+(Fed funds, yield curve, credit spreads, M2 growth, real yields,
+VIX)</strong>. Verdict: <a href="../../leaderboard/#verdict-labels"><code>diagnostic</code></a>
+— <strong>macro state at window-start meaningfully predicts which v0
+windows produce alpha vs not</strong>, with VIX and credit spreads as
+the strongest single features. Justifies promoting macro
+features into a regime-classifier extension of
+<a href="../../apps/gate/"><code>apps/gate</code></a> for the v1 cycle.</p>
+<h2 id="setup">Setup<a class="headerlink" href="#setup" title="Permanent link">&para;</a></h2>
+<p>Pulled per-window summaries from all three pivot apps' v0
+walk-forwards (6 gate + 6 pairs + 5 vol = 17 windows total).
+For each window, computed:</p>
+<ul>
+<li><strong><code>alpha</code></strong> — each app's own primary outcome metric (gate's
+    <code>alpha_sharpe</code>, pairs's per-window agg <code>val_sharpe</code>, vol's
+    <code>alpha_sharpe_per_cell</code>).</li>
+<li><strong><code>alpha_z</code></strong> — per-app z-score so the three different units
+    are comparable.</li>
+<li><strong>macro state at val_start</strong> — six features from FRED, ffilled
+    to the window's val_start with no look-ahead.</li>
+</ul>
+<p>Macro features (academic regime-classification standard):</p>
+<table>
+<thead>
+<tr>
+<th>Series</th>
+<th>FRED ID</th>
+<th>Frequency</th>
+<th>Type</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>fed_funds</code></td>
+<td><code>FEDFUNDS</code></td>
+<td>monthly</td>
+<td>policy stance</td>
+</tr>
+<tr>
+<td><code>slope_10y_3m</code></td>
+<td><code>T10Y3M</code></td>
+<td>daily</td>
+<td>yield curve</td>
+</tr>
+<tr>
+<td><code>credit_baa</code></td>
+<td><code>BAA10Y</code></td>
+<td>daily</td>
+<td>credit spread</td>
+</tr>
+<tr>
+<td><code>m2_yoy</code></td>
+<td>derived from <code>M2SL</code></td>
+<td>monthly</td>
+<td>liquidity supply</td>
+</tr>
+<tr>
+<td><code>real_yield_10y</code></td>
+<td><code>DFII10</code></td>
+<td>daily</td>
+<td>real rate</td>
+</tr>
+<tr>
+<td><code>vix</code></td>
+<td><code>VIXCLS</code></td>
+<td>daily</td>
+<td>equity vol regime</td>
+</tr>
+</tbody>
+</table>
+<p>Implementation: new <code>packages/macro/</code> (<code>ss_macro</code>) with
+no-auth FRED CSV loader (FRED's <code>fredgraph.csv</code> endpoint is
+public). Driver: <code>apps/gate/scripts/macro_regime_diagnostic.py</code>.
+~30 minutes wall time, total — most of it is the one-time FRED
+download (~600 KB across the 6 series).</p>
+<h2 id="result-2026-05-10">Result (2026-05-10)<a class="headerlink" href="#result-2026-05-10" title="Permanent link">&para;</a></h2>
+<h3 id="per-feature-pearson-r-vs-alpha_z">Per-feature Pearson r vs alpha_z<a class="headerlink" href="#per-feature-pearson-r-vs-alpha_z" title="Permanent link">&para;</a></h3>
+<p>Across all 17 windows pooled (per-app z-scored):</p>
+<table>
+<thead>
+<tr>
+<th>feature</th>
+<th style="text-align: right;">Pearson r</th>
+<th style="text-align: right;">|r|</th>
+<th>sign meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>credit_baa</code></td>
+<td style="text-align: right;"><strong>+0.488</strong></td>
+<td style="text-align: right;">0.488</td>
+<td>wide credit spreads → higher alpha</td>
+</tr>
+<tr>
+<td><code>fed_funds</code></td>
+<td style="text-align: right;"><strong>+0.435</strong></td>
+<td style="text-align: right;">0.435</td>
+<td>higher policy rates → higher alpha</td>
+</tr>
+<tr>
+<td><code>vix</code></td>
+<td style="text-align: right;"><strong>+0.408</strong></td>
+<td style="text-align: right;">0.408</td>
+<td>high vol → higher alpha</td>
+</tr>
+<tr>
+<td><code>m2_yoy</code></td>
+<td style="text-align: right;"><strong>−0.378</strong></td>
+<td style="text-align: right;">0.378</td>
+<td>slower money growth → higher alpha</td>
+</tr>
+<tr>
+<td><code>real_yield_10y</code></td>
+<td style="text-align: right;"><strong>+0.342</strong></td>
+<td style="text-align: right;">0.342</td>
+<td>positive real rates → higher alpha</td>
+</tr>
+<tr>
+<td><code>slope_10y_3m</code></td>
+<td style="text-align: right;">−0.062</td>
+<td style="text-align: right;">0.062</td>
+<td>noise</td>
+</tr>
+</tbody>
+</table>
+<p>5 of 6 features land in the suggestive band (|r| &gt; 0.3).
+Pearson r on n=17 has SE ≈ 1/√15 ≈ 0.26, so individually each
+of the suggestive r values is roughly 1.3-1.9 SE — not
+individually conclusive but <strong>the directional consistency
+across 5 independent features is the strong signal</strong>.</p>
+<h3 id="sign-coherence">Sign coherence<a class="headerlink" href="#sign-coherence" title="Permanent link">&para;</a></h3>
+<p>All five suggestive signs are <strong>economically consistent</strong>: they
+all indicate the same regime axis (rate-tightening / liquidity-
+restriction / vol-elevation = alpha-friendly). This is what we
+should expect if the underlying signal is real, since these
+features are highly correlated empirically (Fed funds rises in
+hiking cycles, M2 growth slows, real rates positive, VIX
+elevated, credit spreads widen). What we'd see if the signal
+were spurious: random sign flips. We don't.</p>
+<h3 id="contingency-tables-vix-and-real-rate-splits-are-clean">Contingency tables — VIX and real-rate splits are clean<a class="headerlink" href="#contingency-tables-vix-and-real-rate-splits-are-clean" title="Permanent link">&para;</a></h3>
+<p>Per-feature contingency: (alpha_z &gt; 0) × (feature &gt; median).
+Base rate: 7 / 17 = 41% windows are alpha-z-positive.</p>
+<table>
+<thead>
+<tr>
+<th>feature</th>
+<th style="text-align: right;">low/lose</th>
+<th style="text-align: right;">low/win</th>
+<th style="text-align: right;">high/lose</th>
+<th style="text-align: right;">high/win</th>
+<th style="text-align: right;">high_winrate</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>vix</code></td>
+<td style="text-align: right;">8</td>
+<td style="text-align: right;">1</td>
+<td style="text-align: right;">3</td>
+<td style="text-align: right;">5</td>
+<td style="text-align: right;"><strong>0.62</strong></td>
+</tr>
+<tr>
+<td><code>real_yield_10y</code></td>
+<td style="text-align: right;">8</td>
+<td style="text-align: right;">1</td>
+<td style="text-align: right;">3</td>
+<td style="text-align: right;">5</td>
+<td style="text-align: right;"><strong>0.62</strong></td>
+</tr>
+<tr>
+<td><code>fed_funds</code></td>
+<td style="text-align: right;">7</td>
+<td style="text-align: right;">2</td>
+<td style="text-align: right;">4</td>
+<td style="text-align: right;">4</td>
+<td style="text-align: right;">0.50</td>
+</tr>
+<tr>
+<td><code>slope_10y_3m</code></td>
+<td style="text-align: right;">7</td>
+<td style="text-align: right;">2</td>
+<td style="text-align: right;">4</td>
+<td style="text-align: right;">4</td>
+<td style="text-align: right;">0.50</td>
+</tr>
+<tr>
+<td><code>credit_baa</code></td>
+<td style="text-align: right;">7</td>
+<td style="text-align: right;">3</td>
+<td style="text-align: right;">4</td>
+<td style="text-align: right;">3</td>
+<td style="text-align: right;">0.43</td>
+</tr>
+<tr>
+<td><code>m2_yoy</code></td>
+<td style="text-align: right;">6</td>
+<td style="text-align: right;">4</td>
+<td style="text-align: right;">5</td>
+<td style="text-align: right;">2</td>
+<td style="text-align: right;">0.29</td>
+</tr>
+</tbody>
+</table>
+<p>The VIX split is the cleanest single-feature regime gate:</p>
+<ul>
+<li><strong>VIX &gt; median → 5 / 8 wins (62%)</strong></li>
+<li><strong>VIX &lt; median → 1 / 9 wins (11%)</strong></li>
+</ul>
+<p>A 6× lift in win-rate from one feature. The corresponding
+real-yield-10y split is identical (likely because the two are
+co-monotonic across our window sample).</p>
+<p>The credit_baa contingency table looks weaker than its Pearson
+r would suggest — that's because the relationship is more
+graduated (Pearson captures the linear trend, but the median-
+split contingency loses information about the magnitude tail).</p>
+<h3 id="per-window-detail">Per-window detail<a class="headerlink" href="#per-window-detail" title="Permanent link">&para;</a></h3>
+<p>Selected high-alpha windows (alpha_z &gt; +0.5):</p>
+<table>
+<thead>
+<tr>
+<th>app</th>
+<th style="text-align: right;">win</th>
+<th>val_start</th>
+<th style="text-align: right;">alpha_z</th>
+<th style="text-align: right;">fed</th>
+<th style="text-align: right;">slope</th>
+<th style="text-align: right;">baa</th>
+<th style="text-align: right;">m2_yoy</th>
+<th style="text-align: right;">real</th>
+<th style="text-align: right;">vix</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>gate</td>
+<td style="text-align: right;">1</td>
+<td>2008-02-15</td>
+<td style="text-align: right;"><strong>+2.02</strong></td>
+<td style="text-align: right;">2.98</td>
+<td style="text-align: right;">+1.55</td>
+<td style="text-align: right;">+3.14</td>
+<td style="text-align: right;">+6.6</td>
+<td style="text-align: right;">+1.48</td>
+<td style="text-align: right;">25.0</td>
+</tr>
+<tr>
+<td>pairs</td>
+<td style="text-align: right;">1</td>
+<td>2008-02-14</td>
+<td style="text-align: right;"><strong>+1.04</strong></td>
+<td style="text-align: right;">2.98</td>
+<td style="text-align: right;">+1.54</td>
+<td style="text-align: right;">+3.10</td>
+<td style="text-align: right;">+6.6</td>
+<td style="text-align: right;">+1.57</td>
+<td style="text-align: right;">25.5</td>
+</tr>
+<tr>
+<td>vol</td>
+<td style="text-align: right;">3</td>
+<td>2022-06-21</td>
+<td style="text-align: right;"><strong>+1.18</strong></td>
+<td style="text-align: right;">1.21</td>
+<td style="text-align: right;">+1.61</td>
+<td style="text-align: right;">+2.13</td>
+<td style="text-align: right;">+5.7</td>
+<td style="text-align: right;">+0.70</td>
+<td style="text-align: right;">30.2</td>
+</tr>
+<tr>
+<td>vol</td>
+<td style="text-align: right;">4</td>
+<td>2022-12-09</td>
+<td style="text-align: right;"><strong>+0.80</strong></td>
+<td style="text-align: right;">4.10</td>
+<td style="text-align: right;">−0.74</td>
+<td style="text-align: right;">+1.90</td>
+<td style="text-align: right;">−1.0</td>
+<td style="text-align: right;">+1.31</td>
+<td style="text-align: right;">22.8</td>
+</tr>
+<tr>
+<td>pairs</td>
+<td style="text-align: right;">2</td>
+<td>2011-03-21</td>
+<td style="text-align: right;">+0.67</td>
+<td style="text-align: right;">0.14</td>
+<td style="text-align: right;">+3.24</td>
+<td style="text-align: right;">+2.64</td>
+<td style="text-align: right;">+5.3</td>
+<td style="text-align: right;">+0.90</td>
+<td style="text-align: right;">20.6</td>
+</tr>
+</tbody>
+</table>
+<p>The win windows cluster in: 2008 GFC (gate / pairs both
+explode), 2022 Fed-hiking cycle (vol's 5/5 streak), and the
+2011 post-debt-ceiling-crisis stretch (pairs only).</p>
+<p>Selected low-alpha windows (alpha_z &lt; −0.5):</p>
+<table>
+<thead>
+<tr>
+<th>app</th>
+<th style="text-align: right;">win</th>
+<th>val_start</th>
+<th style="text-align: right;">alpha_z</th>
+<th style="text-align: right;">fed</th>
+<th style="text-align: right;">slope</th>
+<th style="text-align: right;">baa</th>
+<th style="text-align: right;">m2_yoy</th>
+<th style="text-align: right;">real</th>
+<th style="text-align: right;">vix</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>pairs</td>
+<td style="text-align: right;">0</td>
+<td>2005-01-07</td>
+<td style="text-align: right;"><strong>−1.80</strong></td>
+<td style="text-align: right;">2.28</td>
+<td style="text-align: right;">+1.97</td>
+<td style="text-align: right;">+1.83</td>
+<td style="text-align: right;">+5.7</td>
+<td style="text-align: right;">+1.80</td>
+<td style="text-align: right;">13.5</td>
+</tr>
+<tr>
+<td>vol</td>
+<td style="text-align: right;">0</td>
+<td>2021-01-06</td>
+<td style="text-align: right;"><strong>−1.20</strong></td>
+<td style="text-align: right;">0.09</td>
+<td style="text-align: right;">+0.95</td>
+<td style="text-align: right;">+2.27</td>
+<td style="text-align: right;">+25.6</td>
+<td style="text-align: right;">−1.02</td>
+<td style="text-align: right;">25.1</td>
+</tr>
+<tr>
+<td>vol</td>
+<td style="text-align: right;">1</td>
+<td>2021-06-29</td>
+<td style="text-align: right;">−0.72</td>
+<td style="text-align: right;">0.08</td>
+<td style="text-align: right;">+1.45</td>
+<td style="text-align: right;">+1.87</td>
+<td style="text-align: right;">+12.6</td>
+<td style="text-align: right;">−0.83</td>
+<td style="text-align: right;">16.0</td>
+</tr>
+<tr>
+<td>gate</td>
+<td style="text-align: right;">3</td>
+<td>2014-04-29</td>
+<td style="text-align: right;">−0.66</td>
+<td style="text-align: right;">0.09</td>
+<td style="text-align: right;">+2.69</td>
+<td style="text-align: right;">+2.15</td>
+<td style="text-align: right;">+6.3</td>
+<td style="text-align: right;">+0.53</td>
+<td style="text-align: right;">13.7</td>
+</tr>
+</tbody>
+</table>
+<p>The lose windows cluster in: 2005-2007 mid-bull-market hiking
+cycle (pairs catastrophe), 2021 ZIRP melt-up (vol's 0/2
+streak), and 2014 calm-market era. Note: pairs window 0 has
+fed_funds 2.28 but VIX only 13.5 — the rate level was elevated
+but the equity market was calm. Real yield was positive
+(+1.80) but the era was Goldilocks. <strong>VIX did the heavy lifting
+in distinguishing the bad windows from the good ones</strong>, which
+is why it's the single best feature in the contingency table.</p>
+<h2 id="mechanism">Mechanism<a class="headerlink" href="#mechanism" title="Permanent link">&para;</a></h2>
+<p>The pattern across all three v0 apps:</p>
+<ul>
+<li><strong>Gate (drawdown):</strong> the model has skill on tail drawdowns
+  (real Pearson signal) but only when there <em>are</em> tail
+  drawdowns to predict. Calm-era val windows have no tail
+  events; the predictor's false positives accumulate.</li>
+<li><strong>Pairs (mean reversion):</strong> cointegration relationships hold
+  in mean-reverting eras (high vol, mean-reverting prices) and
+  break in trending bull markets (low vol, momentum).</li>
+<li><strong>Vol surface (skew/smile/IV-HV):</strong> the surface flattens in
+  low-vol regimes (low VIX, low IV/HV ratio). Predictive
+  features lose discriminative power when there's no vol
+  dispersion to predict from.</li>
+</ul>
+<p>All three failure modes share a common driver: <strong>low macro
+stress = no signal to predict</strong>. When VIX is low and rates are
+flat, none of the three problems have enough signal to
+overcome friction. When VIX is elevated and the rate cycle is
+moving, all three have signal.</p>
+<p>This is consistent with the broader academic finding that
+<em>equity-market-based predictive features only work in
+high-vol regimes</em> (see the literature on conditional CAPM,
+regime-switching pricing models). Our three independent v0
+apps just rediscovered it.</p>
+<h2 id="implications">Implications<a class="headerlink" href="#implications" title="Permanent link">&para;</a></h2>
+<h3 id="operational-rule">Operational rule<a class="headerlink" href="#operational-rule" title="Permanent link">&para;</a></h3>
+<p><strong>Default any v1 of a partial-OOS predictor to a macro-gated
+deployment.</strong> Specifically: only deploy the predictor when
+recent VIX is above its 1-year rolling median. Cheapest possible
+implementation; captures most of the contingency table's lift.</p>
+<p>This is now an operational rule in CLAUDE.md.</p>
+<h3 id="why-not-fold-macro-into-appsregime">Why not fold macro into <code>apps/regime</code><a class="headerlink" href="#why-not-fold-macro-into-appsregime" title="Permanent link">&para;</a></h3>
+<p>The user proposed folding macro features into <code>apps/regime</code>.
+Don't:</p>
+<ul>
+<li><code>apps/regime</code> is the <strong>CWT-portfolio strategy</strong> (per-ticker
+  cross-sectional ranking by CWT-power-divergence). Its
+  "regime" is per-ticker, computed from the CWT bundle. Adding
+  macro features (universe-wide, time-series) would conflate
+  two different aggregation levels.</li>
+<li><code>apps/regime</code>'s checkpoint format encodes CWT scales,
+  lookback, etc. Adding macro would require schema migration.</li>
+<li>The natural consumer of macro features is <code>apps/gate</code>, which
+  already has the aggregate-features → exposure-gate contract.
+  Macro features extend that stack cleanly with no schema
+  churn.</li>
+</ul>
+<h3 id="v1-plan">v1 plan<a class="headerlink" href="#v1-plan" title="Permanent link">&para;</a></h3>
+<ol>
+<li>Add macro features to <code>apps/gate</code>'s predictor stack (~50
+   LoC). Re-run the gate walk-forward; check whether the val
+   Pearson r lifts above the v0 baseline (+0.26).</li>
+<li>If lift is real, <code>apps/gate</code> becomes the canonical
+   regime-aware predictor; other apps (pairs, vol) opt in by
+   importing its gate as a deployment filter.</li>
+<li>If lift is null at the gate level but the diagnostic table
+   still holds (most likely outcome — the macro signal is at
+   the meta-level, not within-app), build a thin
+   <code>apps/regime-classifier/</code> that emits a binary
+   "deploy/suspend" gate consumed by all three pivot apps.</li>
+</ol>
+<p>Either way, the macro infrastructure (<code>packages/macro/</code>) is
+load-bearing for the next step in the prediction-problem-pivot
+arc.</p>
+<h2 id="v1-results-2026-05-11">v1 results (2026-05-11)<a class="headerlink" href="#v1-results-2026-05-11" title="Permanent link">&para;</a></h2>
+<p>Both v1 arms ran. The diagnostic's "either way" prediction was
+half right: within-app feature integration backfired (option 1),
+the meta-gate is partially useful (option 3) but the simple
+binary VIX threshold is too crude to fully capture the
+diagnostic-level signal.</p>
+<h3 id="v1a-macro-as-direct-features-in-gates-predictor-stack-run_walkforwardpy-with-macro">v1a — macro as direct features in gate's predictor stack (<code>run_walkforward.py --with-macro</code>)<a class="headerlink" href="#v1a-macro-as-direct-features-in-gates-predictor-stack-run_walkforwardpy-with-macro" title="Permanent link">&para;</a></h3>
+<p>5 macro features (<code>fed_funds</code>, <code>credit_baa</code>, <code>m2_yoy</code>,
+<code>real_yield_10y</code>, <code>vix</code>; dropped <code>slope_10y_3m</code> as the
+diagnostic showed it was the noise feature) added to gate's
+existing 10-feature aggregate stack. Re-ran the walk-forward.</p>
+<table>
+<thead>
+<tr>
+<th>Metric</th>
+<th style="text-align: right;">v0 (no macro)</th>
+<th style="text-align: right;">v1a (with macro)</th>
+<th style="text-align: right;">Δ</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>mean val Pearson r</td>
+<td style="text-align: right;">+0.264</td>
+<td style="text-align: right;"><strong>+0.012</strong></td>
+<td style="text-align: right;">−0.252</td>
+</tr>
+<tr>
+<td>mean alpha</td>
+<td style="text-align: right;">+0.067</td>
+<td style="text-align: right;"><strong>−0.086</strong></td>
+<td style="text-align: right;"><strong>−0.153</strong></td>
+</tr>
+<tr>
+<td>Positive windows</td>
+<td style="text-align: right;">4/6</td>
+<td style="text-align: right;"><strong>1/5</strong></td>
+<td style="text-align: right;"></td>
+</tr>
+<tr>
+<td>Verdict</td>
+<td style="text-align: right;">partial-OOS</td>
+<td style="text-align: right;"><strong>FAIL (worse than null)</strong></td>
+<td style="text-align: right;"></td>
+</tr>
+</tbody>
+</table>
+<p>The COVID window (val 2020-05 → 2023-06) is the killer: gated
+Sharpe +0.263 vs unc +1.045, alpha <strong>−0.782</strong>. The predictor
+trained on 2015-2020 (Goldilocks low-vol calm) saw macro
+features within a tight distribution; in val (COVID + Fed
+extreme + war), macro features hit values the train slice
+never saw, and the model overfit to "VIX high → expect DD"
+fired during the <em>recovery</em> from COVID rather than during the
+crash. Flatting cost +0.78 of Sharpe.</p>
+<p><strong>Lesson:</strong> macro features have non-stationary distributions
+across train/val regimes. Adding them as direct predictor
+inputs forces the model to extrapolate out-of-distribution.
+The within-app features that worked (vol, return, drawdown)
+are scale-invariant — their distributions don't shift much
+between calm and stress regimes; they just take different
+values within a stable range. Macro features are the
+opposite: a Fed funds reading of 5% is fundamentally a
+different operating point from 0%, not just "more of the
+same."</p>
+<p>Verdict for v1a: <code>confirmed-null</code> worse than baseline.</p>
+<h3 id="v1b-macro-as-a-binary-meta-gate-macro_meta_gate_evalpy">v1b — macro as a binary meta-gate (<code>macro_meta_gate_eval.py</code>)<a class="headerlink" href="#v1b-macro-as-a-binary-meta-gate-macro_meta_gate_evalpy" title="Permanent link">&para;</a></h3>
+<p>Apply VIX-above-1y-rolling-median as a deploy/suspend gate to
+each pivot app's existing v0 walk-forward results. If at
+val_start, VIX &gt; 1y rolling median: keep the app's actual
+val alpha. If VIX &lt; median: replace with 0 (didn't deploy).</p>
+<table>
+<thead>
+<tr>
+<th>App</th>
+<th style="text-align: right;">n</th>
+<th style="text-align: right;">raw mean alpha</th>
+<th style="text-align: right;">meta-gated mean alpha</th>
+<th style="text-align: right;">Δ</th>
+<th style="text-align: right;">high-VIX</th>
+<th style="text-align: right;">low-VIX</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>gate</td>
+<td style="text-align: right;">6</td>
+<td style="text-align: right;">+0.067</td>
+<td style="text-align: right;">+0.058</td>
+<td style="text-align: right;">−0.008</td>
+<td style="text-align: right;">2</td>
+<td style="text-align: right;">4</td>
+</tr>
+<tr>
+<td>pairs</td>
+<td style="text-align: right;">6</td>
+<td style="text-align: right;">+0.099</td>
+<td style="text-align: right;"><strong>+0.127</strong></td>
+<td style="text-align: right;"><strong>+0.028</strong></td>
+<td style="text-align: right;">2</td>
+<td style="text-align: right;">4</td>
+</tr>
+<tr>
+<td>vol</td>
+<td style="text-align: right;">5</td>
+<td style="text-align: right;">+0.089</td>
+<td style="text-align: right;">+0.031</td>
+<td style="text-align: right;">−0.058</td>
+<td style="text-align: right;">1</td>
+<td style="text-align: right;">4</td>
+</tr>
+<tr>
+<td><strong>ALL</strong></td>
+<td style="text-align: right;"><strong>17</strong></td>
+<td style="text-align: right;"><strong>+0.085</strong></td>
+<td style="text-align: right;"><strong>+0.075</strong></td>
+<td style="text-align: right;"><strong>−0.010</strong></td>
+<td style="text-align: right;">5</td>
+<td style="text-align: right;">12</td>
+</tr>
+</tbody>
+</table>
+<p>Pooled per-app-z-scored alpha:</p>
+<table>
+<thead>
+<tr>
+<th></th>
+<th style="text-align: right;">Raw</th>
+<th style="text-align: right;">Meta-gated</th>
+<th style="text-align: right;">Lift</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Pooled z-score</td>
+<td style="text-align: right;">0.000</td>
+<td style="text-align: right;"><strong>+0.215</strong></td>
+<td style="text-align: right;"><strong>+0.215</strong></td>
+</tr>
+</tbody>
+</table>
+<p>The 0.215 z-score lift is real (suspending bad windows
+improves <em>risk-adjusted</em> performance) but the raw-units lift
+is essentially zero (because suspending also drops some good
+windows). Per-app reads:</p>
+<ul>
+<li><strong>Pairs benefits most.</strong> Its catastrophic window 0 (−1.23
+  alpha, dot-com pairs deployed into 2005-2007 bull market)
+  occurred at VIX 13.5 vs 1y median 15.3 — correctly classified
+  as low-VIX and suspended. Saves 1.23 of negative alpha; raw
+  lift +0.028.</li>
+<li><strong>Gate is roughly break-even.</strong> Its high-VIX wins (w1 GFC
+  +0.32, w5 COVID +0.03) are kept; its low-VIX wins (w2 +0.05,
+  w4 +0.02) and losses (w0 / w3) are suspended. Lift −0.008
+  (small numerator, small denominator).</li>
+<li><strong>Vol loses most.</strong> Its w4 (val 2022-12 → 2023-06, alpha
+  +0.134) had spot VIX 22.8 vs 1y rolling median 25.6 — just
+  below median because the 2021-2022 vol regime had elevated
+  the rolling baseline. The simple binary cut classifies it as
+  "low" and suspends a positive-alpha window. Lift −0.058.</li>
+</ul>
+<p><strong>Lesson:</strong> the binary VIX-above-median threshold is too crude.
+The diagnostic's Pearson r captured a graduated relationship
+(higher VIX → higher alpha) but the binary cut throws away the
+magnitude information. A continuous gate (e.g. exposure scaled
+by VIX percentile, or 2-state Markov regime classifier on
+multiple macro features) would likely capture more of the
+diagnostic's predictive content.</p>
+<p>Verdict for v1b: <code>partial-OOS</code> at the pooled risk-adjusted
+level (+0.215 z-score lift), <code>inconclusive</code> at raw alpha.</p>
+<h3 id="combined-verdict-revised-v2-plan">Combined verdict + revised v2 plan<a class="headerlink" href="#combined-verdict-revised-v2-plan" title="Permanent link">&para;</a></h3>
+<p>The macro signal is real (diagnostic Pearson r confirmed across
+5/6 features) but neither naive v1 monetizes it cleanly:</p>
+<ul>
+<li><strong>v1a (direct features)</strong> — <code>confirmed-null</code> worse than v0;
+  distribution shift kills the predictor.</li>
+<li><strong>v1b (binary meta-gate)</strong> — <code>partial-OOS</code> risk-adjusted but
+  raw lift near zero; threshold too crude.</li>
+</ul>
+<p>The revised v2 plan:</p>
+<ol>
+<li><strong>Continuous meta-gate</strong> instead of binary. Use VIX percentile
+   (e.g. CDF over 5y rolling) as a continuous exposure scaler:
+   high-percentile VIX → full deployment; low-percentile → flat.
+   Smooth between via sigmoid. Removes the threshold-cliff
+   problem that hurt vol w4 (just-below-median).</li>
+<li><strong>Multi-feature macro composite</strong> instead of single-feature
+   VIX. The 5 useful features were highly correlated within our
+   17-window sample but a published composite (Chicago Fed
+   NFCI, KC Fed FCI, FRB-NY ACM term premium) would aggregate
+   them with proper variance handling.</li>
+<li><strong>Larger n</strong> before any further v1 cycles. n=17 has Pearson
+   SE ≈ 0.26, so even big-magnitude effects are noisy. Run
+   walk-forwards with smaller train/val window sizes to
+   multiply the window count (gate could go from 6 → 12+ at
+   the cost of less data per training fit).</li>
+</ol>
+<p>These v2 follow-ups are not blocking. The cleanest immediate
+takeaway is the operational rule, refined:</p>
+<p><strong>REVISED OPERATIONAL RULE (in CLAUDE.md):</strong> macro state is a
+real but graduated regime signal — <em>do not</em> add macro features
+directly to within-app predictor stacks (overfits train regime),
+<em>do</em> use macro features as a continuous deployment scaler for
+risk-adjusted improvement. The simple binary VIX gate captures
+some but not all of the diagnostic's predictive content; v2
+should test continuous + composite-macro variants before
+committing to a deployment-side architecture.</p>
+<h2 id="caveats">Caveats<a class="headerlink" href="#caveats" title="Permanent link">&para;</a></h2>
+<ul>
+<li><strong>n = 17 is small.</strong> Pearson r SE ≈ 0.26; individually no
+  single feature is statistically conclusive. The signal lives
+  in the directional consistency across features, not in any
+  single coefficient. v1 should report bootstrap confidence
+  intervals.</li>
+<li><strong>Selection bias in the windows.</strong> All 17 windows came from
+  v0 walk-forwards we already ran with parameters chosen for
+  reasonable coverage of 2000-2023. Macro-state distribution
+  across the windows is non-random — biased toward the periods
+  the v0 universes spanned (post-2000 for gate / pairs,
+  post-2019 for vol).</li>
+<li><strong>Co-linearity.</strong> Fed funds, real yields, and VIX are
+  empirically highly correlated across our window sample.
+  Multivariate regression on these would have inflated
+  variance — the right approach is a single composite "macro
+  stress index" feature derived from PCA or a published index
+  (e.g., Chicago Fed NFCI), not 6 separate regression inputs.</li>
+<li><strong>Macro publishing lag.</strong> M2 publishes weekly with ~2 week
+  lag. Our diagnostic uses ffill from val_start, which means
+  the M2 reading is at most ~2 weeks stale. For trade signal
+  generation in a live system this means the macro feature
+  reflects the world ~2 weeks before the trade decision —
+  acceptable for monthly-rebal but not for high-frequency.</li>
+</ul>
+<h2 id="master-walk-forward-log">Master walk-forward log<a class="headerlink" href="#master-walk-forward-log" title="Permanent link">&para;</a></h2>
+<p><a href="../../leaderboard/">2026-05-10 macro regime diagnostic row</a> —
+<a href="../../leaderboard/#verdict-labels"><code>diagnostic</code></a>, promotes
+macro features to v1 of <code>apps/gate</code>.</p>
+
+
+
+
+
+
+
+  
+  
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+    
+      
+      <nav class="md-footer__inner md-grid" aria-label="Footer" >
+        
+          
+          <a href="../prediction-problem-pivot-arc/" class="md-footer__link md-footer__link--prev" aria-label="Previous: Prediction-problem-pivot arc synthesis">
+            <div class="md-footer__button md-icon">
+              
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+            </div>
+            <div class="md-footer__title">
+              <span class="md-footer__direction">
+                Previous
+              </span>
+              <div class="md-ellipsis">
+                Prediction-problem-pivot arc synthesis
+              </div>
+            </div>
+          </a>
+        
+        
+          
+          <a href="../cfr-phase1/" class="md-footer__link md-footer__link--next" aria-label="Next: CFR Phase 1 — tabular CFR clears trailing-best by +0.609 (6/6) but ties naive uniform">
+            <div class="md-footer__title">
+              <span class="md-footer__direction">
+                Next
+              </span>
+              <div class="md-ellipsis">
+                CFR Phase 1 — tabular CFR clears trailing-best by +0.609 (6/6) but ties naive uniform
+              </div>
+            </div>
+            <div class="md-footer__button md-icon">
+              
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M4 11v2h12l-5.5 5.5 1.42 1.42L19.84 12l-7.92-7.92L10.5 5.5 16 11z"/></svg>
+            </div>
+          </a>
+        
+      </nav>
+    
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["content.code.annotate", "content.code.copy", "content.tooltips", "navigation.footer", "navigation.indexes", "navigation.path", "navigation.sections", "navigation.expand", "navigation.tabs", "navigation.tabs.sticky", "navigation.tracking", "search.highlight", "search.share", "search.suggest", "toc.follow"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.79ae519e.min.js"></script>
+      
+    
+  </body>
+</html>

@@ -1,0 +1,4262 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Trading-strategy research and live execution monorepo.">
+      
+      
+      
+        <link rel="canonical" href="https://sidghodke.com/StockSurvey/TODO/apps-cfr/">
+      
+      
+        <link rel="prev" href="../">
+      
+      
+        <link rel="next" href="../factor-sizing-input-reframe/">
+      
+      
+        
+      
+      
+      <link rel="icon" href="../../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.6">
+    
+    
+      
+        <title>apps/cfr — Deep CFR meta-allocator - StockSurvey</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/main.484c7ddc.min.css">
+      
+        
+        <link rel="stylesheet" href="../../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Geist:300,300i,400,400i,700,700i%7CGeist+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Geist";--md-code-font:"Geist Mono"}</style>
+      
+    
+    
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#appscfr-deep-cfr-meta-allocator-across-existing-scorers" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow md-header--lifted" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../.." title="StockSurvey" class="md-header__button md-logo" aria-label="StockSurvey" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            StockSurvey
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              apps/cfr — Deep CFR meta-allocator
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme)" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3.9 12c0-1.71 1.39-3.1 3.1-3.1h4V7H7a5 5 0 0 0-5 5 5 5 0 0 0 5 5h4v-1.9H7c-1.71 0-3.1-1.39-3.1-3.1M8 13h8v-2H8zm9-6h-4v1.9h4c1.71 0 3.1 1.39 3.1 3.1s-1.39 3.1-3.1 3.1h-4V17h4a5 5 0 0 0 5-5 5 5 0 0 0-5-5"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: light)" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_2" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M17 7H7a5 5 0 0 0-5 5 5 5 0 0 0 5 5h10a5 5 0 0 0 5-5 5 5 0 0 0-5-5m0 8a3 3 0 0 1-3-3 3 3 0 0 1 3-3 3 3 0 0 1 3 3 3 3 0 0 1-3 3"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: dark)" data-md-color-scheme="slate" data-md-color-primary="black" data-md-color-accent="indigo"  aria-label="Switch to system preference"  type="radio" name="__palette" id="__palette_2">
+    
+      <label class="md-header__button md-icon" title="Switch to system preference" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M17 7H7a5 5 0 0 0-5 5 5 5 0 0 0 5 5h10a5 5 0 0 0 5-5 5 5 0 0 0-5-5M7 15a3 3 0 0 1-3-3 3 3 0 0 1 3-3 3 3 0 0 1 3 3 3 3 0 0 1-3 3"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+          <a href="javascript:void(0)" class="md-search__icon md-icon" title="Share" aria-label="Share" data-clipboard data-clipboard-text="" data-md-component="search-share" tabindex="-1">
+            
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M18 16.08c-.76 0-1.44.3-1.96.77L8.91 12.7c.05-.23.09-.46.09-.7s-.04-.47-.09-.7l7.05-4.11c.54.5 1.25.81 2.04.81a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3c0 .24.04.47.09.7L8.04 9.81C7.5 9.31 6.79 9 6 9a3 3 0 0 0-3 3 3 3 0 0 0 3 3c.79 0 1.5-.31 2.04-.81l7.12 4.15c-.05.21-.08.43-.08.66 0 1.61 1.31 2.91 2.92 2.91s2.92-1.3 2.92-2.91A2.92 2.92 0 0 0 18 16.08"/></svg>
+          </a>
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+        <div class="md-search__suggest" data-md-component="search-suggest"></div>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/sughodke/StockSurvey" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+  </div>
+  <div class="md-source__repository">
+    sughodke/StockSurvey
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+    
+      
+<nav class="md-tabs" aria-label="Tabs" data-md-component="tabs">
+  <div class="md-grid">
+    <ul class="md-tabs__list">
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../.." class="md-tabs__link">
+        
+  
+  
+    
+  
+  Home
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../apps/" class="md-tabs__link">
+          
+  
+  
+    
+  
+  Apps
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../packages/" class="md-tabs__link">
+          
+  
+  
+    
+  
+  Packages
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../leaderboard/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Leaderboard
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../notes/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Notes
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../tags/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Tags
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../findings/" class="md-tabs__link">
+          
+  
+  
+    
+  
+  Findings
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../workflows/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Workflows
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+    
+  
+  
+    
+    
+      <li class="md-tabs__item md-tabs__item--active">
+        <a href="../" class="md-tabs__link">
+          
+  
+  
+    
+  
+  TODO
+
+        </a>
+      </li>
+    
+  
+
+      
+    </ul>
+  </div>
+</nav>
+    
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+  
+
+
+<nav class="md-nav md-nav--primary md-nav--lifted" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="StockSurvey" class="md-nav__button md-logo" aria-label="StockSurvey" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    StockSurvey
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/sughodke/StockSurvey" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+  </div>
+  <div class="md-source__repository">
+    sughodke/StockSurvey
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_2" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../apps/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Apps
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_2" id="__nav_2_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Apps
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../apps/regime/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Regime
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../apps/relational/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Relational
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../apps/factor/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Factor
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../apps/replay/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Replay
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../apps/gate/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Gate
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../apps/pairs/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Pairs
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../apps/vol/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Vol
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../apps/cfr/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    CFR
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../apps/dca/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DCA
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../apps/notebook/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Notebook
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_3" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../packages/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Packages
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Packages
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../leaderboard/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Leaderboard
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../notes/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Notes
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../tags/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Tags
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_7" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../findings/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Findings
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_7" id="__nav_7_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_7_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_7">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Findings
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../findings/regime-baselines/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Regime baselines
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../findings/log-returns-vs-raw-close/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Log-returns vs raw close
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../findings/factor-indicator-baseline/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Factor indicator-IC baseline
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../findings/factor-ssl-walkforward/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Factor SSL walkforward
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../findings/time-reversal-symmetry/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Time-reversal symmetry
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../findings/factor-f32-precision-cancellation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Factor f32 precision cancellation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../findings/factor-multitask-aux-head/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Factor multi-task aux head
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../findings/factor-multitask-aux-weight-sweep/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Factor multi-task aux-weight sweep
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../findings/replay-decoders/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Replay decoder options
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../findings/replay-dwt-compression/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Replay DWT compression
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../findings/replay-length-axis-compression/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Replay length-axis (K) compression
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../findings/relational-universe-shift/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Relational universe shift
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../findings/relational-dwt-failure/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Relational DWT-L1 OOS failure
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../findings/relational-morlet-failure/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Relational polar Morlet OOS failure
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../findings/passive-ew-benchmark/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Passive EW benchmark (regrades shippable rows)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../findings/factor-rankic-long-only-mismatch/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Rank-IC vs long-only top-N mismatch
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../findings/factor-loss-pivot/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Loss-pivot — Sharpe/IR losses underperform rank-IC
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../findings/factor-sizing-input-v0/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Sizing-input v0 — MSE-on-alpha calibrates but adds no information for rank-based emission
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../findings/factor-sizing-input-v1/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Sizing-input v1 — factor signal-quality at 6-window resolution is too lagged to clear VIX gate
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../findings/gate-drawdown-v0/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Gate drawdown v0 (partial-OOS)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../findings/pairs-classical-v0/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Pairs classical v0 (confirmed-null)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../findings/vol-surface-v0/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Vol surface v0 (inconclusive, 5/5 pos)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../findings/vol-surface-v1/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Vol surface v1 (confirmed-OOS, audit-validated, per-rebal portfolio aggregator + costs in loop, alpha Sharpe +5.86 with 25x real-to-shuffle ratio)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../findings/relational-arc-synthesis/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Relational arc synthesis (lifted from NO_OPTIONS.md)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../findings/prediction-problem-pivot-arc/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Prediction-problem-pivot arc synthesis
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../findings/macro-regime-diagnostic/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Macro regime diagnostic (5/6 features predict pivot windows)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../findings/cfr-phase1/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    CFR Phase 1 — tabular CFR clears trailing-best by +0.609 (6/6) but ties naive uniform
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../findings/cfr-phase2/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    CFR Phase 2 — menu enrichment confirmed-null; binding constraint is tabular sample density
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../findings/cfr-phase3/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    CFR Phase 3 — Deep CFR + continuous state vector lifts +0.02 Sharpe (MARGINAL); architecture isn't the binding constraint either
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../findings/cfr-phase4/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    CFR Phase 4 — universe shift to 13-asset multi-asset PASSES (alpha vs EW +0.056); first deployable CFR result
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../findings/cfr-vs-dca-realistic/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    CFR vs DCA realistic-friction re-eval — raw alpha collapses to +0.015 net; DCA is the canonical live strategy
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../findings/cfr-macro-gate-final/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    CFR + window-level VIX gate final close-out — bot is fully dead; memory-heavy regime gates fight regime transitions
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../findings/cfr-sensitivity-followup/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    CFR Phase 4d sensitivity follow-up — friction × gate stress-test; audit-driven diagnostic that refines the prior closure (alpha is real and positive at every friction level, below +0.10 threshold)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../findings/pairs-eg-gate-falsified/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Pairs EG-gate falsified — audit-followup test of EG-passing-rate regime gate; falsified at all three pre-registered thresholds; w0 sits in "working" EG band by count yet posts worst val Sharpe
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../findings/delisting-aware-ew-falsified/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Delisting-aware EW benchmark falsified — audit-followup test of ffill-delisting bias; Δ Sharpe ≤ 0.0002 across all 4 universes (audit predicted +0.05-0.15); manifest curation + Stooq ticker reuse make the bias structurally absent
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../workflows/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Workflows
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_9" checked>
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    TODO
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_9" id="__nav_9_label" tabindex="">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_9_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_9">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    TODO
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    apps/cfr — Deep CFR meta-allocator
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    apps/cfr — Deep CFR meta-allocator
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#why-cfr-over-the-alternatives-weve-considered" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Why CFR over the alternatives we've considered
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#runtime-architecture" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Runtime architecture
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#action-menu-design-the-single-most-load-bearing-piece" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Action menu design (the single most load-bearing piece)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#end-of-day-regret-signal-why-this-works-for-trading" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        End-of-day regret signal — why this works for trading
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#training-curriculum-phased" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Training curriculum — phased
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#phased-falsifiable-experiments" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Phased falsifiable experiments
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Phased falsifiable experiments">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#phase-0-scaffold-infrastructure-no-eval-no-leaderboard-row" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Phase 0 — scaffold infrastructure (no eval, no leaderboard row)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#phase-1-naive-cfr-no-pretraining-no-expert-imitation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Phase 1 — naive CFR (no pretraining, no expert imitation)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#phase-2-add-13f-consensus-imitation-pretrain" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Phase 2 — add 13F-consensus imitation pretrain
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#phase-3-add-soft-oracle-aux-heads-13d-events" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Phase 3 — add soft-oracle aux heads + 13D events
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#phase-4-optional-population-based-search-mcts-over-portfolio-trajectories" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Phase 4 (optional) — population-based search + MCTS over portfolio trajectories
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#data-dependencies-longest-lead-time-build-first" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Data dependencies (longest lead time, build first)
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Data dependencies (longest lead time, build first)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#13f-loader-packagesedgar-or-appscfrdata" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        13F loader (packages/edgar or apps/cfr/data/)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#13d-loader-same-package" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        13D loader (same package)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#action-menu-adapter-appscfrmenupy" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Action-menu adapter (apps/cfr/menu.py)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#open-design-questions" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Open design questions
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#reference-architectures-reading-list" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Reference architectures + reading list
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#what-kicks-this-off" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        What kicks this off
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="What kicks this off">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#phase-4-candidates-all-change-the-prediction-problem-not-the-architecture" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Phase 4 candidates (all change the prediction problem, not the architecture)
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Phase 4 candidates (all change the prediction problem, not the architecture)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#phase-4a-hybrid-phase-3-deep-cfr-macro-v1b-vix-gate" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Phase 4a — Hybrid: Phase 3 deep CFR + macro v1b VIX gate
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#phase-4b-universe-pivot-sector-etfs" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Phase 4b — Universe pivot: sector ETFs
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#phase-4c-horizon-pivot-daily-rebal" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Phase 4c — Horizon pivot: daily rebal
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#phase-4d-composite-regime-action-menu" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Phase 4d — Composite-regime action menu
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#what-were-not-doing" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        What we're NOT doing
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#phase-0-scaffold-design-decisions" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Phase 0 scaffold — design decisions
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../factor-sizing-input-reframe/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Factor sizing-input reframe
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../polar-morlet-migration/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Polar Morlet migration
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../review-followups/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Review follow-ups
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../rsi-long-period-ablation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    RSI long-period ablation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../film-w1-diagnostic/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    FiLM w=1 diagnostic
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../backbone-architecture/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Backbone architecture
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../port-sharpe-tinygrad/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Port Sharpe to tinygrad
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../dwt-compression-followups/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DWT-compression follow-ups
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../rebal-days-sweep/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Rebal-days sweep
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../reversed-price-experiment/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Reversed-price experiment
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../ew-overlay-test/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    EW + rank-IC overlay (parked)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../modal-cron-live-deployment/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Modal-cron live deployment
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../memory-walltime-followups/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Memory and wall-time follow-ups
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../streaming-feature-pipeline/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Streaming feature pipeline (superseded)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../different-prediction-problem/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Done — different prediction problem (resolved)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../apps-pairs/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Done — apps/pairs v0 (resolved)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../apps-vol/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Done — apps/vol v0 (resolved)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../long-short-constructor/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Done — long-short constructor (resolved)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../recently-shipped/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Recently shipped
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#why-cfr-over-the-alternatives-weve-considered" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Why CFR over the alternatives we've considered
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#runtime-architecture" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Runtime architecture
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#action-menu-design-the-single-most-load-bearing-piece" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Action menu design (the single most load-bearing piece)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#end-of-day-regret-signal-why-this-works-for-trading" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        End-of-day regret signal — why this works for trading
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#training-curriculum-phased" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Training curriculum — phased
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#phased-falsifiable-experiments" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Phased falsifiable experiments
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Phased falsifiable experiments">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#phase-0-scaffold-infrastructure-no-eval-no-leaderboard-row" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Phase 0 — scaffold infrastructure (no eval, no leaderboard row)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#phase-1-naive-cfr-no-pretraining-no-expert-imitation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Phase 1 — naive CFR (no pretraining, no expert imitation)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#phase-2-add-13f-consensus-imitation-pretrain" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Phase 2 — add 13F-consensus imitation pretrain
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#phase-3-add-soft-oracle-aux-heads-13d-events" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Phase 3 — add soft-oracle aux heads + 13D events
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#phase-4-optional-population-based-search-mcts-over-portfolio-trajectories" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Phase 4 (optional) — population-based search + MCTS over portfolio trajectories
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#data-dependencies-longest-lead-time-build-first" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Data dependencies (longest lead time, build first)
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Data dependencies (longest lead time, build first)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#13f-loader-packagesedgar-or-appscfrdata" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        13F loader (packages/edgar or apps/cfr/data/)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#13d-loader-same-package" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        13D loader (same package)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#action-menu-adapter-appscfrmenupy" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Action-menu adapter (apps/cfr/menu.py)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#open-design-questions" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Open design questions
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#reference-architectures-reading-list" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Reference architectures + reading list
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#what-kicks-this-off" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        What kicks this off
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="What kicks this off">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#phase-4-candidates-all-change-the-prediction-problem-not-the-architecture" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Phase 4 candidates (all change the prediction problem, not the architecture)
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Phase 4 candidates (all change the prediction problem, not the architecture)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#phase-4a-hybrid-phase-3-deep-cfr-macro-v1b-vix-gate" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Phase 4a — Hybrid: Phase 3 deep CFR + macro v1b VIX gate
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#phase-4b-universe-pivot-sector-etfs" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Phase 4b — Universe pivot: sector ETFs
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#phase-4c-horizon-pivot-daily-rebal" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Phase 4c — Horizon pivot: daily rebal
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#phase-4d-composite-regime-action-menu" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Phase 4d — Composite-regime action menu
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#what-were-not-doing" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        What we're NOT doing
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#phase-0-scaffold-design-decisions" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Phase 0 scaffold — design decisions
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+                
+
+
+
+  
+
+
+  <nav class="md-path" aria-label="Navigation" >
+    <ol class="md-path__list">
+      
+        
+  
+  
+    <li class="md-path__item">
+      <a href="../.." class="md-path__link">
+        
+  <span class="md-ellipsis">
+    Home
+  </span>
+
+      </a>
+    </li>
+  
+
+      
+      
+        
+  
+  
+    
+    
+      <li class="md-path__item">
+        <a href="../" class="md-path__link">
+          
+  <span class="md-ellipsis">
+    TODO
+  </span>
+
+        </a>
+      </li>
+    
+  
+
+      
+    </ol>
+  </nav>
+
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+  
+  
+
+
+<h1 id="appscfr-deep-cfr-meta-allocator-across-existing-scorers"><code>apps/cfr</code> — Deep CFR meta-allocator across existing scorers<a class="headerlink" href="#appscfr-deep-cfr-meta-allocator-across-existing-scorers" title="Permanent link">&para;</a></h1>
+<p><strong>Status (2026-05-12): Phase 4d PASSES — first deployable CFR
+result. All 9 phase variants shipped same day.</strong> Cumulative
+arc:</p>
+<ul>
+<li><strong>Phase 1 (tabular, US equities, 16 actions)</strong>: partial-OOS,
+  ties naive uniform mix; +0.61 lift over trailing-best-greedy
+  (6/6 windows) but doesn't clear passive EW.</li>
+<li><strong>Phase 2a / 2b (tabular menu enrichment)</strong>: confirmed-null;
+  added documented-alpha modes + real SEC 13F-HR consensus,
+  CFR Sharpe didn't move.</li>
+<li><strong>Phase 3 (deep CFR with tinygrad regret_net + continuous
+  state)</strong>: MARGINAL; +0.02 lift over Phase 1, w2 alpha flips
+  −0.111 → +0.127.</li>
+<li><strong>Phase 4a (VIX bar-gate)</strong>: FAIL; suspends 57% of bars, CFR
+  loses compounding (mean +0.614 → +0.383).</li>
+<li><strong>Phase 4b (sector ETF universe)</strong>: partial-OOS; first
+  positive alpha vs EW (+0.015), CFR vs naive +0.034.</li>
+<li><strong>Phase 4c (5-day rebal)</strong>: partial-OOS; finer cadence
+  stabilizes training (finite loss for first time) but 5%/yr
+  friction tax eats alpha on equity universe.</li>
+<li>**Phase 4d (13-asset multi-asset = 9 sector ETFs + TLT/IEF</li>
+<li>GLD/DBC)<strong>: </strong>PASS<strong> — mean CFR +0.861 (Phase 1 + 0.27),
+  CFR vs naive +0.101 (clears cut), mean alpha vs EW </strong>+0.056**
+  (positive for the first time across all 9 variants), 3/5
+  positive alpha windows.</li>
+</ul>
+<p><strong>The arc-level lesson:</strong> the meta-allocator is
+<strong>prediction-problem bound, not representation bound</strong>.
+Iterating on architecture hit a +0.02 ceiling. Iterating on
+universe broke through it. Multi-asset is the structural fix —
+uncorrelated asset classes give large per-action variance, and
+cross-asset has documented regime-switching alpha that intra-
+equity doesn't.</p>
+<p><strong>Phase 5 (next):</strong> build <code>ss-cfr live</code> with the four risk
+rails (kill-switch, freshness, position cap, dry-run-by-default)
+on top of Phase 4d's checkpoint. Paper trade for 1-2 quarters
+before any real capital. Phase 4d's alpha (+0.056) is positive
+but below the +0.15 paper-trade threshold from the
+<a href="../../findings/passive-ew-benchmark/"><code>passive-EW benchmark</code></a>;
+treat as v0 prototype, not production-ready. See
+<a href="../../findings/cfr-phase4/"><code>cfr-phase4</code></a> for the full Phase 4
+analysis.</p>
+<p><strong>Verdict → next-experiment chain.</strong> The
+<a href="../../findings/prediction-problem-pivot-arc/">prediction-problem-pivot arc</a>
+landed three independent partial-OOS results (<code>gate</code>, <code>pairs</code>, <code>vol</code>)
+at consistent magnitude (mean alpha +0.07 to +0.10, regime-conditional)
+with the operational rule <em>"predictions with non-zero multivariate
+signal but regime-conditional deployment performance need a regime
+filter, not a richer predictor."</em> The
+<a href="../../findings/macro-regime-diagnostic/">macro-regime diagnostic</a> v1
+arc then refined this: <em>"macro is a real but graduated regime signal —
+use as a continuous deployment scaler at the meta-level, NOT as direct
+predictor inputs."</em> Both rules point in the same direction:
+<strong>the next architectural move is a meta-allocator that decides which
+existing scorer to deploy when</strong>, not a richer single predictor.</p>
+<p><code>apps/cfr</code> is that meta-allocator, framed as Deep Counterfactual
+Regret Minimization over a discrete action menu of existing strategy
+modes. CFR is the right algorithmic family because trading shares
+three rare attributes with multiplayer no-limit poker — imperfect
+information, multi-agent, and <strong>post-hoc counterfactual
+observability</strong> (price-takers can compute exactly what every action
+would have returned at every historical bar). The first two attributes
+make MCTS-style perfect-information planning the wrong family;
+the third is what makes CFR <em>unusually</em> tractable here — the
+counterfactual regret signal that's the central bottleneck for poker
+CFR is directly computable from price-history for trading.</p>
+<p>This is not an immediate v0. The data dependencies (13F loader, 13D
+loader, action-menu plumbing) are non-trivial, the algorithm is novel
+to this stack, and the failure modes are different from any prior
+experiment — so the work is staged into four phases with pre-registered
+cuts at each. Each phase is independently falsifiable; if any phase
+fails, the next phase is skipped.</p>
+<h2 id="why-cfr-over-the-alternatives-weve-considered">Why CFR over the alternatives we've considered<a class="headerlink" href="#why-cfr-over-the-alternatives-weve-considered" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Algorithm family</th>
+<th>Game class</th>
+<th>Match for trading</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>AlphaZero / MuZero (MCTS + NN)</td>
+<td>Perfect information</td>
+<td><strong>Wrong</strong> — markets are imperfect-info; planning forks future states by action choice, but at price-taker scale our actions don't move markets, so MCTS branching collapses</td>
+</tr>
+<tr>
+<td>Standard supervised return-prediction</td>
+<td>Regression</td>
+<td>What we already have; ceilings at +0.005 to +0.012 IC at our universe / horizon</td>
+</tr>
+<tr>
+<td>Standard RL (PPO, DQN)</td>
+<td>Sequential decision</td>
+<td>Reward is dominated by exogenous noise; credit assignment over a recurrent core through 60-day holding periods is a hard RL problem</td>
+</tr>
+<tr>
+<td><strong>Deep CFR</strong></td>
+<td>Imperfect-information</td>
+<td>Native fit. Counterfactual regret signal is exactly computable from history. Mixed strategies emerge naturally in low-edge regimes (correct behavior). 30-year track record in adjacent finance literature (Cover's universal portfolios as the formal ancestor).</td>
+</tr>
+<tr>
+<td>ReBeL / Player of Games</td>
+<td>Imperfect-info + neural search</td>
+<td>Where the field is going; AlphaZero-shape architecture but with CFR-style updates. The "right" reference if compute allows.</td>
+</tr>
+</tbody>
+</table>
+<h2 id="runtime-architecture">Runtime architecture<a class="headerlink" href="#runtime-architecture" title="Permanent link">&para;</a></h2>
+<p>Inputs (assembled per trading day at pre-market, ~7-8 AM ET):</p>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>markets:           overnight bars + intraday VWAP estimates
+</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>macro:             FRED daily series (VIX, yields, gold-VIX, real-yield) +
+</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>                   weekly / monthly releases as they hit
+</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>expert_positions:  13F filings landed in last 24h (lagged 45d) +
+</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>                   13D filings landed in last 24h (lagged 10d, activist)
+</span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>news_features:     placeholder for future news pipeline (not v1)
+</span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>calendar:          day-of-week, FOMC week, OpEx, earnings calendar
+</span><span id="__span-0-8"><a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a>portfolio_state:   current weights, cash, gross, net, drawdown,
+</span><span id="__span-0-9"><a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a>                   days-since-last-rebal
+</span></code></pre></div>
+<p>Multi-modal encoder (shape borrowed from the AlphaStar / MuZero
+architecture family — per-modality encoders fused into a recurrent
+core, then auto-regressive heads):</p>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>per_ticker_cwt    [N, T_lookback, scales, channels] → CNN encoder      → [N, d_emb]
+</span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>per_ticker_inds   [N, T_lookback, ind_features]     → CNN encoder      → [N, d_emb]
+</span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>cross_sectional   stack                              → Transformer      → [N, d_ctx]
+</span><span id="__span-1-4"><a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a>macro             [T_lookback, 9 macro features]    → MLP encoder      → [d_macro]
+</span><span id="__span-1-5"><a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a>market_agg        [T_lookback, ew/breadth/vol/dd]   → MLP encoder      → [d_mkt]
+</span><span id="__span-1-6"><a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a>portfolio_state   current weights / gross / net /dd → MLP encoder      → [d_port]
+</span><span id="__span-1-7"><a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a>expert_positions  per-ticker 13F-consensus weight   → MLP encoder      → [N, d_exp]
+</span><span id="__span-1-8"><a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a>calendar          day/month/event embeddings        → embedding        → [d_cal]
+</span><span id="__span-1-9"><a id="__codelineno-1-9" name="__codelineno-1-9" href="#__codelineno-1-9"></a>fuse              concat → linear projection                            → state vector s_t
+</span></code></pre></div>
+<p>Two heads (the CFR-specific machinery):</p>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>regret_net    R_θ(s_t) → vector [num_actions]   cumulative regret per discrete action
+</span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>policy_net    π_φ(s_t) → vector [num_actions]   time-averaged strategy (no-regret limit)
+</span></code></pre></div>
+<p>Action selection at runtime uses <strong>regret matching</strong> on the regret
+net's output:</p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="n">positive_regret</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">maximum</span><span class="p">(</span><span class="n">R_θ</span><span class="p">(</span><span class="n">s_t</span><span class="p">),</span> <span class="mi">0</span><span class="p">)</span>
+</span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="k">if</span> <span class="n">positive_regret</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+</span><span id="__span-3-3"><a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a>    <span class="n">π</span> <span class="o">=</span> <span class="n">positive_regret</span> <span class="o">/</span> <span class="n">positive_regret</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span>
+</span><span id="__span-3-4"><a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a><span class="k">else</span><span class="p">:</span>
+</span><span id="__span-3-5"><a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a>    <span class="n">π</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">(</span><span class="n">num_actions</span><span class="p">)</span> <span class="o">/</span> <span class="n">num_actions</span>  <span class="c1"># uniform when no action stands out</span>
+</span><span id="__span-3-6"><a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a>
+</span><span id="__span-3-7"><a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a><span class="c1"># Either sample or take expectation:</span>
+</span><span id="__span-3-8"><a id="__codelineno-3-8" name="__codelineno-3-8" href="#__codelineno-3-8"></a><span class="n">target_weights</span> <span class="o">=</span> <span class="nb">sum</span><span class="p">(</span><span class="n">π</span><span class="p">[</span><span class="n">a</span><span class="p">]</span> <span class="o">*</span> <span class="n">action_to_weights</span><span class="p">[</span><span class="n">a</span><span class="p">]</span> <span class="k">for</span> <span class="n">a</span> <span class="ow">in</span> <span class="n">actions</span><span class="p">)</span>
+</span></code></pre></div>
+<p>Submit through existing broker rails (<code>ss_portfolio.broker</code>) — kill
+switch, freshness check, position cap, dry-run-by-default. CFR slots
+in <em>before</em> the rails; weight construction is unchanged downstream.</p>
+<h2 id="action-menu-design-the-single-most-load-bearing-piece">Action menu design (the single most load-bearing piece)<a class="headerlink" href="#action-menu-design-the-single-most-load-bearing-piece" title="Permanent link">&para;</a></h2>
+<p>CFR is intractable on raw continuous portfolio weights and impractical
+on a fully-flat per-ticker discretization (10⁴⁰ possible portfolios).
+The right framing is <strong>action = "which existing scorer + at what gross
+level"</strong>, taking advantage of the fact that we already have 6+ trained
+scorers. Sketch (numbers indicative, final menu requires sweeping):</p>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>strategy mode:
+</span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>  mode_long_factor_indicator     factor.train_scorer_indicators top-K
+</span><span id="__span-4-3"><a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a>  mode_long_relational_empirical relational empirical scorer top-K
+</span><span id="__span-4-4"><a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a>  mode_long_relational_velocity  regime-velocity scorer top-K
+</span><span id="__span-4-5"><a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a>  mode_long_short_relational     empirical scorer LS construction
+</span><span id="__span-4-6"><a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a>  mode_pairs_active              pairs-classical pairs (when EG-passing-rate high)
+</span><span id="__span-4-7"><a id="__codelineno-4-7" name="__codelineno-4-7" href="#__codelineno-4-7"></a>  mode_vol_short                 vol-surface short-vol picks
+</span><span id="__span-4-8"><a id="__codelineno-4-8" name="__codelineno-4-8" href="#__codelineno-4-8"></a>  mode_gate_flat                 gate-suspended (cash)
+</span><span id="__span-4-9"><a id="__codelineno-4-9" name="__codelineno-4-9" href="#__codelineno-4-9"></a>  mode_ew_passive                equal-weight benchmark
+</span><span id="__span-4-10"><a id="__codelineno-4-10" name="__codelineno-4-10" href="#__codelineno-4-10"></a>  mode_cash                      all cash
+</span><span id="__span-4-11"><a id="__codelineno-4-11" name="__codelineno-4-11" href="#__codelineno-4-11"></a>  ... ~20-50 modes total
+</span><span id="__span-4-12"><a id="__codelineno-4-12" name="__codelineno-4-12" href="#__codelineno-4-12"></a>
+</span><span id="__span-4-13"><a id="__codelineno-4-13" name="__codelineno-4-13" href="#__codelineno-4-13"></a>gross level:
+</span><span id="__span-4-14"><a id="__codelineno-4-14" name="__codelineno-4-14" href="#__codelineno-4-14"></a>  0.0, 0.5, 1.0, 1.5, 2.0          5 buckets
+</span><span id="__span-4-15"><a id="__codelineno-4-15" name="__codelineno-4-15" href="#__codelineno-4-15"></a>
+</span><span id="__span-4-16"><a id="__codelineno-4-16" name="__codelineno-4-16" href="#__codelineno-4-16"></a>total action space: ~100-250 discrete (mode, gross) tuples
+</span></code></pre></div>
+<p>The continuous portfolio-construction work is delegated to the
+existing scorers. CFR is the meta-layer that decides which scorer to
+listen to and how loud — exactly the
+<a href="../../findings/macro-regime-diagnostic/">regime-filter rule</a> made
+algorithmic.</p>
+<p><strong>Key design questions for the action menu</strong> (need to be locked
+before phase 1):</p>
+<ol>
+<li>How many modes to include — too few = brittle, too many = slow
+   convergence and overfitting to specific historical realizations.</li>
+<li>Whether to include short-only modes (currently underrepresented;
+   <code>mode_long_short_*</code> covers it but a pure short bucket might help
+   the regret net learn when to lean short).</li>
+<li>Whether to include sector-restricted variants of each scorer
+   (e.g. <code>mode_long_factor_tech_only</code>) or keep the menu universe-wide.</li>
+<li>Whether <code>mode_cash</code> and <code>mode_ew_passive</code> are redundant with
+   <code>gross=0</code> — they likely are for cash but EW-at-gross-1.0 is a
+   distinct action (it's the passive baseline that nothing has cleared
+   per the <a href="../../findings/passive-ew-benchmark/">passive-EW benchmark</a>).</li>
+</ol>
+<h2 id="end-of-day-regret-signal-why-this-works-for-trading">End-of-day regret signal — why this works for trading<a class="headerlink" href="#end-of-day-regret-signal-why-this-works-for-trading" title="Permanent link">&para;</a></h2>
+<p>In poker, computing counterfactual regret requires either explicit
+search (CFR variants traverse the game tree) or sampling
+(Monte-Carlo CFR). In trading, <strong>counterfactual regret is directly
+computable from price history</strong>:</p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="n">realized_return_today</span><span class="p">[</span><span class="n">a</span><span class="p">]</span> <span class="o">=</span> <span class="n">portfolio</span><span class="p">(</span><span class="n">a</span><span class="p">)</span> <span class="err">·</span> <span class="n">returns_today</span>  <span class="c1"># for ALL a in menu</span>
+</span><span id="__span-5-2"><a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a><span class="n">played_action_return</span>     <span class="o">=</span> <span class="n">realized_return_today</span><span class="p">[</span><span class="n">σ_played</span><span class="p">]</span>
+</span><span id="__span-5-3"><a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a><span class="n">instantaneous_regret</span><span class="p">[</span><span class="n">a</span><span class="p">]</span>  <span class="o">=</span> <span class="n">realized_return_today</span><span class="p">[</span><span class="n">a</span><span class="p">]</span> <span class="o">-</span> <span class="n">played_action_return</span>
+</span></code></pre></div>
+<p>This is the bootstrapping property that makes CFR exceptionally
+tractable here — the price-taker assumption (our trade doesn't move
+the market) means future state is action-independent, so we can
+replay every counterfactual without simulation. Append
+<code>(s_t, a, instantaneous_regret[a])</code> tuples to a replay buffer for
+every action — buffer grows by <code>num_actions</code> rows per day.</p>
+<h2 id="training-curriculum-phased">Training curriculum — phased<a class="headerlink" href="#training-curriculum-phased" title="Permanent link">&para;</a></h2>
+<p>Mirror of the AlphaStar / Cicero curriculum (supervised → imitation →
+RL fine-tune), adapted for CFR:</p>
+<p><strong>Phase 1 — supervised auxiliary heads.</strong> Pretrain encoders on
+auxiliary targets that aren't the regret signal:
+forward 20d realized vol per ticker, forward 20d return rank, forward
+20d max DD, regime classification on NBER + custom market-state
+labels. Same shape as the existing replay backbone's multi-task
+training. Goal: get encoders to a useful starting point before
+exposing them to the noisy regret signal.</p>
+<p><strong>Phase 2 — imitation pretrain.</strong> Initialize the policy net with
+behavioral cloning on 13F-consensus targets — at each quarter-end,
+the consensus long portfolio of the top-N funds by trailing Sharpe
+becomes the imitation target for the policy head. KL regularizer
+during phase 3 keeps RL fine-tune from drifting away from this
+prior. 13D event predictions as an auxiliary "did experts just buy
+high-conviction?" head.</p>
+<p><strong>Phase 3 — CFR fine-tune.</strong> Walk the historical bars in
+chronological order; at each bar compute regret updates for all
+actions using the closed-form counterfactual; update the regret net
+via MSE against cumulative regrets in the replay buffer; update the
+average-policy net to track the regret-matching action distribution.</p>
+<p><strong>Phase 4 (optional) — population-based search.</strong> Train N=8-32
+policies with diverse reward weightings (Sharpe vs Calmar vs hit-rate
+vs return). Periodically replace worst with mutations of best.
+Mitigates single-loss overfit.</p>
+<h2 id="phased-falsifiable-experiments">Phased falsifiable experiments<a class="headerlink" href="#phased-falsifiable-experiments" title="Permanent link">&para;</a></h2>
+<p>Each phase has pre-registered cuts. If a phase fails (FAIL), the
+arc is closed as <code>confirmed-null</code> and <code>apps/cfr</code> is parked. If it
+passes (PASS), we proceed to the next phase. If marginal, additional
+diagnostics decide.</p>
+<h3 id="phase-0-scaffold-infrastructure-no-eval-no-leaderboard-row">Phase 0 — scaffold infrastructure (no eval, no leaderboard row)<a class="headerlink" href="#phase-0-scaffold-infrastructure-no-eval-no-leaderboard-row" title="Permanent link">&para;</a></h3>
+<p>Just the plumbing:</p>
+<ul>
+<li>Action menu enumerator + <code>action_to_weights(a, prices, scorers)</code> adapter</li>
+<li>Replay buffer (in-memory + disk-flush, like SSL pretrain)</li>
+<li>Regret net + policy net (tinygrad, small — ~1M params; encoder reuses replay backbone)</li>
+<li><code>compute_counterfactual_regret(state, prices_today)</code> end-of-day routine</li>
+<li>Walk-forward driver (<code>apps/cfr/scripts/run_walkforward.py</code>)</li>
+<li>Smoke test: 30-ticker universe, 50 training bars, verify regret signal is non-zero
+  and the policy distribution evolves</li>
+</ul>
+<p>This is engineering, not experiment. No leaderboard row.</p>
+<h3 id="phase-1-naive-cfr-no-pretraining-no-expert-imitation">Phase 1 — naive CFR (no pretraining, no expert imitation)<a class="headerlink" href="#phase-1-naive-cfr-no-pretraining-no-expert-imitation" title="Permanent link">&para;</a></h3>
+<p><strong>Hypothesis.</strong> Even without any pretraining, CFR over the existing
+scorer menu should beat trailing-best-greedy ensemble (pick whichever
+scorer had the highest Sharpe in the last <code>T_trail</code> days), because
+CFR's regret signal naturally diffuses across multiple modes when
+edge is unclear, while trailing-best concentrates on a single mode
+that may be regime-mismatched.</p>
+<p><strong>Test design.</strong></p>
+<ul>
+<li><strong>Universe</strong>: <code>stooq_us_long</code> (existing canonical for action-menu
+  scorers, see <a href="../../leaderboard/#operating-conditions">operating conditions</a>)</li>
+<li><strong>Windowing</strong>: 6 walk-forward windows matching the
+  <a href="../../findings/pairs-classical-v0/">pairs</a> /
+  <a href="../../findings/vol-surface-v0/">vol</a> protocol — 5y train, 3y val, 3y step</li>
+<li><strong>Action menu</strong>: minimal — top-3 long-only modes
+  (factor-indicator, relational-empirical, EW passive) × 3 gross
+  buckets (0, 1.0, 2.0) = 9 actions</li>
+<li><strong>Pretraining</strong>: none. Random init.</li>
+<li><strong>Reward</strong>: per-period log return on portfolio (not Sharpe — Sharpe
+  is downstream evaluation metric)</li>
+</ul>
+<p><strong>Baselines.</strong></p>
+<ol>
+<li>Passive EW (the operational floor)</li>
+<li>Best single scorer's val Sharpe per window (oracle baseline)</li>
+<li>Trailing-best-greedy (pick scorer with highest Sharpe over last
+   <code>T_trail=63</code> days, gross=1.0)</li>
+<li>Naive uniform-mix (1/N across all modes, gross=1.0)</li>
+</ol>
+<p><strong>Pre-registered cuts.</strong></p>
+<ul>
+<li><strong>PASS</strong> — mean val Sharpe ≥ trailing-best-greedy + 0.10 AND
+  positive-window count ≥ 4/6 → CFR has signal beyond naive ensemble;
+  proceed to Phase 2.</li>
+<li><strong>MARGINAL</strong> — mean val Sharpe within ±0.10 of trailing-best-greedy
+  → diagnose where the policies diverge; decide based on
+  per-window stratification whether the signal is regime-conditional
+  (and worth Phase 2 with proper pretrain) or genuinely null.</li>
+<li><strong>FAIL</strong> — mean val Sharpe &lt; trailing-best-greedy − 0.10 OR
+  positive-window count &lt; 3/6 → confirmed-null. Either the action menu
+  is wrong (doesn't span the regime variation) or CFR's no-pretrain
+  bootstrap is too noisy at the 6,250-bar dataset size. Park the arc.</li>
+</ul>
+<h3 id="phase-2-add-13f-consensus-imitation-pretrain">Phase 2 — add 13F-consensus imitation pretrain<a class="headerlink" href="#phase-2-add-13f-consensus-imitation-pretrain" title="Permanent link">&para;</a></h3>
+<p><strong>Hypothesis.</strong> Bootstrapping the policy net with 13F-consensus
+imitation should lift mean val Sharpe materially over Phase 1 by
+giving CFR a non-random prior to fine-tune from. Same lesson as the
+AlphaStar imitation phase.</p>
+<p><strong>Test design.</strong> Same universe / windowing / action menu / baselines
+as Phase 1. Add: 13F loader (data dependency below), behavioral
+cloning loss on policy net using top-N-by-trailing-Sharpe consensus,
+KL regularizer in CFR fine-tune.</p>
+<p><strong>Pre-registered cuts.</strong></p>
+<ul>
+<li><strong>PASS</strong> — mean val Sharpe ≥ Phase 1 mean + 0.10 (additional lift
+  from imitation pretrain) AND ≥ trailing-best-greedy + 0.20 → expert
+  prior helps; proceed to Phase 3.</li>
+<li><strong>MARGINAL</strong> — Phase 2 mean within ±0.10 of Phase 1 → 13F pretrain
+  doesn't help at this resolution / lag; diagnose if the imitation
+  data has structure but the algorithm isn't using it.</li>
+<li><strong>FAIL</strong> — Phase 2 mean &lt; Phase 1 mean → 13F prior actively misleads
+  (e.g. 45-day-lagged expert positions are worse than uniform). Park
+  the imitation channel; decide on Phase 3 separately.</li>
+</ul>
+<h3 id="phase-3-add-soft-oracle-aux-heads-13d-events">Phase 3 — add soft-oracle aux heads + 13D events<a class="headerlink" href="#phase-3-add-soft-oracle-aux-heads-13d-events" title="Permanent link">&para;</a></h3>
+<p><strong>Hypothesis.</strong> Adding the
+<a href="../../findings/relational-arc-synthesis/">soft oracle</a> on aggregate
+properties (optimal sector tilt, optimal gross, optimal long-short
+balance) as auxiliary supervised heads, plus 13D activist filings
+as an event-prediction head, should sharpen the regret net's
+state-encoding without inducing the noise-fitting failure mode of
+naive hindsight-oracle on per-name picks.</p>
+<p><strong>Test design.</strong> Same universe / windowing / action menu. Add aux
+heads to the regret net, weighted at 0.1 of the regret loss
+(following the <a href="../../findings/factor-multitask-aux-weight-sweep/">aux-weight sweep</a>
+default).</p>
+<p><strong>Pre-registered cuts.</strong></p>
+<ul>
+<li><strong>PASS</strong> — mean val Sharpe ≥ Phase 2 mean + 0.05 AND no degradation
+  on any per-window → soft oracle is a useful regularizer; this is
+  the v1 shipper.</li>
+<li><strong>MARGINAL</strong> — within ±0.05 → aux heads neither help nor hurt; ship
+  Phase 2 as v1; consider Phase 4.</li>
+<li><strong>FAIL</strong> — mean val Sharpe &lt; Phase 2 mean − 0.05 → aux signals are
+  actively noisy at the meta-allocator level (despite working at the
+  per-app level); strip them. Ship Phase 2 as v1.</li>
+</ul>
+<h3 id="phase-4-optional-population-based-search-mcts-over-portfolio-trajectories">Phase 4 (optional) — population-based search + MCTS over portfolio trajectories<a class="headerlink" href="#phase-4-optional-population-based-search-mcts-over-portfolio-trajectories" title="Permanent link">&para;</a></h3>
+<p><strong>Hypothesis.</strong> Population-based search over reward weightings
+(Sharpe / Calmar / hit-rate / return) hedges against single-loss
+overfit; MCTS over portfolio-state trajectories (using a learned
+forward-DD predictor as the dynamics model) adds risk-aware planning
+that scalar regret can't capture.</p>
+<p><strong>Test design.</strong> Independent against the Phase 2 or Phase 3 v1
+shipper. Same universe / windowing.</p>
+<p><strong>Pre-registered cuts.</strong></p>
+<ul>
+<li><strong>PASS</strong> — mean val Calmar ≥ Phase 3 + 0.20 (using risk-adjusted
+  metric, not Sharpe, since the population objective is risk-shape
+  diversity) → population helps. Promote.</li>
+<li><strong>MARGINAL</strong> — within ±0.20 Calmar → not worth the complexity;
+  ship Phase 3.</li>
+<li><strong>FAIL</strong> → confirmed-null on the population-search angle; Phase 3
+  is the terminal architecture.</li>
+</ul>
+<h2 id="data-dependencies-longest-lead-time-build-first">Data dependencies (longest lead time, build first)<a class="headerlink" href="#data-dependencies-longest-lead-time-build-first" title="Permanent link">&para;</a></h2>
+<h3 id="13f-loader-packagesedgar-or-appscfrdata">13F loader (<code>packages/edgar</code> or <code>apps/cfr/data/</code>)<a class="headerlink" href="#13f-loader-packagesedgar-or-appscfrdata" title="Permanent link">&para;</a></h3>
+<p>EDGAR exposes 13F filings as quarterly XML (Form 13F-HR). Free, no
+API key, but rate-limited (10 req/s SEC etiquette).</p>
+<ul>
+<li><strong>Coverage</strong>: ~5K+ filers, US-listed equity longs ≥$100M AUM</li>
+<li><strong>Lag</strong>: 45 days from quarter-end (filings dribble in for 45 days)</li>
+<li><strong>Aggregation</strong>: per-quarter, per-fund, per-ticker <code>(shares, market_value)</code></li>
+<li><strong>Derived</strong>: top-N-by-trailing-Sharpe consensus weights (the
+  imitation target)</li>
+<li><strong>Cache</strong>: on-disk <code>.edgar-cache/</code> mirroring the <code>.macro-cache/</code> and
+  <code>.iv-cache/</code> patterns</li>
+<li><strong>Tests</strong>: golden-file test on a known fund-quarter (e.g. Berkshire
+  Q3 2023, 13F-HR filed 2023-11-14) to catch upstream schema drift</li>
+<li><strong>Estimated build</strong>: 1 week</li>
+</ul>
+<h3 id="13d-loader-same-package">13D loader (same package)<a class="headerlink" href="#13d-loader-same-package" title="Permanent link">&para;</a></h3>
+<p>Schedule 13D filings for activist 5%+ stakes. Filed within 10 days,
+much fresher signal but narrower coverage.</p>
+<ul>
+<li><strong>Coverage</strong>: per-event, not periodic</li>
+<li><strong>Lag</strong>: 10 days from event</li>
+<li><strong>Use</strong>: per-name "expert just made a high-conviction bet" feature
+  fed into the per-ticker encoder</li>
+<li><strong>Estimated build</strong>: 3 days (after 13F infra exists)</li>
+</ul>
+<h3 id="action-menu-adapter-appscfrmenupy">Action-menu adapter (<code>apps/cfr/menu.py</code>)<a class="headerlink" href="#action-menu-adapter-appscfrmenupy" title="Permanent link">&para;</a></h3>
+<p>Translates <code>(mode, gross_bucket)</code> action tuples into target portfolio
+weights at a given bar by calling the right scorer's <code>target_weights</code>
+function:</p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="k">def</span><span class="w"> </span><span class="nf">action_to_weights</span><span class="p">(</span><span class="n">action</span><span class="p">:</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">float</span><span class="p">],</span>
+</span><span id="__span-6-2"><a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a>                      <span class="n">prices</span><span class="p">,</span> <span class="n">highs</span><span class="p">,</span> <span class="n">lows</span><span class="p">,</span>
+</span><span id="__span-6-3"><a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a>                      <span class="n">checkpoints</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Checkpoint</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
+</span><span id="__span-6-4"><a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a>    <span class="n">mode</span><span class="p">,</span> <span class="n">gross</span> <span class="o">=</span> <span class="n">action</span>
+</span><span id="__span-6-5"><a id="__codelineno-6-5" name="__codelineno-6-5" href="#__codelineno-6-5"></a>    <span class="k">if</span> <span class="n">mode</span> <span class="o">==</span> <span class="s1">&#39;mode_long_relational_empirical&#39;</span><span class="p">:</span>
+</span><span id="__span-6-6"><a id="__codelineno-6-6" name="__codelineno-6-6" href="#__codelineno-6-6"></a>        <span class="n">w</span> <span class="o">=</span> <span class="n">relational</span><span class="o">.</span><span class="n">inference</span><span class="o">.</span><span class="n">target_weights</span><span class="p">(</span>
+</span><span id="__span-6-7"><a id="__codelineno-6-7" name="__codelineno-6-7" href="#__codelineno-6-7"></a>            <span class="n">prices</span><span class="p">,</span> <span class="n">highs</span><span class="p">,</span> <span class="n">lows</span><span class="p">,</span> <span class="n">checkpoints</span><span class="p">[</span><span class="s1">&#39;empirical&#39;</span><span class="p">])</span>
+</span><span id="__span-6-8"><a id="__codelineno-6-8" name="__codelineno-6-8" href="#__codelineno-6-8"></a>    <span class="k">elif</span> <span class="n">mode</span> <span class="o">==</span> <span class="o">...</span>
+</span><span id="__span-6-9"><a id="__codelineno-6-9" name="__codelineno-6-9" href="#__codelineno-6-9"></a>    <span class="k">return</span> <span class="n">w</span> <span class="o">*</span> <span class="n">gross</span>
+</span></code></pre></div>
+<p>Need: canonical checkpoints for every mode in the menu. Most exist
+(<code>Output/relational-*.json</code>); a few may need building
+(e.g. <code>mode_long_factor_indicator</code> needs a saved walk-forward
+artifact).</p>
+<h2 id="open-design-questions">Open design questions<a class="headerlink" href="#open-design-questions" title="Permanent link">&para;</a></h2>
+<ul>
+<li><strong>State representation drift / non-stationarity.</strong> Macro
+  distributions are non-stationary across train/val
+  (<a href="../../findings/macro-regime-diagnostic/">macro v1a finding</a>); the
+  regret net trained on pre-2008 states may misfire on post-2020
+  states. Mitigations: (a) include macro features in state encoder so
+  net learns regime-conditional regret; (b) z-score state features
+  against trailing 5-year window rather than full-sample stats;
+  (c) periodically re-evaluate and re-train.</li>
+<li><strong>Convergence rate.</strong> CFR's O(1/√T) bound at T ≈ 6,250 bars (25
+  years × 250) is ~1.3% — meaningful but not negligible. Pre-training
+  shifts the starting point; the bound applies only to the regret
+  net's improvement from there. The honest ceiling is whatever the
+  pretrain achieves; CFR fine-tune adds incremental improvement on
+  top.</li>
+<li><strong>The "no Nash" reality.</strong> Markets aren't strategic opponents —
+  there's no Nash equilibrium to converge to. The guarantee we get
+  is "no-regret vs the action menu in hindsight" (the Cover
+  universal-portfolio analog), which is weaker than poker CFR's
+  Nash convergence. Need to be honest about this when claiming
+  theoretical grounding.</li>
+<li><strong>Action menu validation.</strong> No way to know upfront if the menu spans
+  the strategy variation that markets reward. If Phase 1 fails, the
+  diagnostic question is: was it the algorithm, the menu, or the
+  pretraining? Need per-mode regret diagnostics in the eval (which
+  modes accumulated positive vs negative regret per window) to
+  distinguish.</li>
+<li><strong>Compute budget.</strong> Each phase's walk-forward at 6 windows × 25y
+  data × ~250 actions × ~250 bars/year = ~9M regret tuples per phase.
+  Tinygrad on Modal T4 should handle this, but inference per bar
+  has to stay &lt;1s for a daily live deployment. Budget the encoder
+  size accordingly.</li>
+<li><strong>Imitation target construction.</strong> Which "top-N by trailing Sharpe"
+  funds? Universe selection introduces survivorship bias (today's
+  top funds aren't 1995's top funds). One option: re-select top-N
+  per-window from data available at val_start. Mitigates bias at the
+  cost of more bookkeeping.</li>
+<li><strong>Continuous-action extension.</strong> If the discrete-menu version works,
+  natural follow-up is a hybrid where the discrete head picks the
+  mode and a continuous head fine-tunes weights within the mode's
+  basket. Punted to Phase 5+ if Phase 3 ships.</li>
+</ul>
+<h2 id="reference-architectures-reading-list">Reference architectures + reading list<a class="headerlink" href="#reference-architectures-reading-list" title="Permanent link">&para;</a></h2>
+<p>The three core papers if anyone picks this up cold:</p>
+<ul>
+<li><strong>Pluribus</strong> (Brown &amp; Sandholm, 2019, <em>Science</em>) — multiplayer NLHE
+  AI using CFR + abstractions. Core algorithm we're adapting.</li>
+<li><strong>Deep CFR</strong> (Brown et al., 2019, ICML) — replaces tabular regret
+  tables with neural networks; the version of CFR that scales to
+  large state spaces.</li>
+<li><strong>ReBeL</strong> (Brown, Bakhtin, Lerer, Gong, 2020, NeurIPS) — combines
+  self-play RL with depth-limited search and CFR; the field's
+  attempt to unify AlphaZero and CFR. Most directly applicable to
+  trading.</li>
+<li><strong>Cicero</strong> (Meta, 2022, <em>Science</em>) — non-zero-sum multi-agent
+  Diplomacy; relevant for the persistent-state + multi-agent
+  inference pieces.</li>
+<li><strong>Cover's Universal Portfolio</strong> (Cover, 1991, <em>Mathematical
+  Finance</em>) — the formal trading-as-no-regret-learning ancestor.
+  Establishes the no-regret-vs-best-fixed-mix-in-hindsight
+  guarantee that's the real theoretical claim we'd be making.</li>
+<li><strong>Player of Games</strong> (DeepMind, 2021) — unified algorithm handling
+  perfect + imperfect-info games using growing-tree CFR + neural
+  function approximation. The cleanest "AlphaZero of imperfect-info"
+  reference.</li>
+</ul>
+<h2 id="what-kicks-this-off">What kicks this off<a class="headerlink" href="#what-kicks-this-off" title="Permanent link">&para;</a></h2>
+<p>~~If/when this becomes top-priority:~~ — <strong>All Phase 0 / 1 / 2 /
+3 work shipped 2026-05-12.</strong> See cumulative result in
+<a href="../../findings/cfr-phase3/"><code>cfr-phase3</code></a>. Phase 4 candidates
+below; choose one.</p>
+<h3 id="phase-4-candidates-all-change-the-prediction-problem-not-the-architecture">Phase 4 candidates (all change the prediction problem, not the architecture)<a class="headerlink" href="#phase-4-candidates-all-change-the-prediction-problem-not-the-architecture" title="Permanent link">&para;</a></h3>
+<p>The Phase 3 finding establishes that the meta-allocator's
+representation is not the binding constraint at this universe +
+horizon. The +0.02 Phase 1 → 3 architectural progression is
+bounded by the no-regret theoretical floor for our T/n. To break
+the ceiling, change the prediction problem:</p>
+<h4 id="phase-4a-hybrid-phase-3-deep-cfr-macro-v1b-vix-gate">Phase 4a — Hybrid: Phase 3 deep CFR + macro v1b VIX gate<a class="headerlink" href="#phase-4a-hybrid-phase-3-deep-cfr-macro-v1b-vix-gate" title="Permanent link">&para;</a></h4>
+<p><strong>Hypothesis:</strong> the <a href="../../findings/macro-regime-diagnostic/">macro v1b VIX-above-1y-rolling-median gate</a> lifted pivot-arc apps by
++0.215 z (pooled per-app-z-scored). Combined with Phase 3 deep
+CFR, the gate suspends deployment in the calm-VIX regimes that
+have produced 4/6 negative-alpha windows across all 5 CFR phase
+variants. Pre-reg cut: <strong>gated-CFR mean Sharpe ≥ Phase 3 + 0.15
+mean</strong> AND <strong>alpha vs passive EW (gated-EW baseline) ≥ +0.10</strong>.
+<strong>Implementation: ~50 LoC.</strong> <code>apps/cfr/scripts/modal/run_phase4a.py</code>
+that calls Phase 3 walkforward but post-processes per-bar val
+weights × VIX-above-median mask. No retraining needed.</p>
+<h4 id="phase-4b-universe-pivot-sector-etfs">Phase 4b — Universe pivot: sector ETFs<a class="headerlink" href="#phase-4b-universe-pivot-sector-etfs" title="Permanent link">&para;</a></h4>
+<p><strong>Hypothesis:</strong> sector rotation alpha is documented; sector ETFs
+(XLK, XLF, XLE, XLV, XLI, XLP, XLY, XLU, XLB, XLRE) have
+~10× larger per-action variance than mega-cap stocks. Even with
+the same Phase 3 architecture, the action-level regret signal
+should be O(10×) larger and the no-regret bound at the same T
+becomes 10× tighter relative to per-action edge. Pre-reg cut:
+<strong>mean CFR Sharpe ≥ Phase 3 + 0.20</strong> AND <strong>alpha vs EW-of-
+sectors ≥ +0.15</strong>. <strong>Implementation: ~1 day.</strong> New <code>prep_sectors_
+data.py</code> (load 11 ETFs from Stooq), parameterize Phase 3
+walkforward to take a different price panel.</p>
+<h4 id="phase-4c-horizon-pivot-daily-rebal">Phase 4c — Horizon pivot: daily rebal<a class="headerlink" href="#phase-4c-horizon-pivot-daily-rebal" title="Permanent link">&para;</a></h4>
+<p><strong>Hypothesis:</strong> 20-day rebal eats marginal alpha at 10 bps each
+direction. Daily rebal cuts the per-rebal threshold by 4× while
+quadrupling the n samples for SGD. Pre-reg cut: <strong>mean CFR
+Sharpe ≥ Phase 3 + 0.10</strong> AND <strong>alpha vs daily-EW ≥ +0.05</strong>.
+Caveat: the Phase 3 modes are 21-day momentum-style, may need
+re-tuning at daily cadence. <strong>Implementation: ~1 day.</strong></p>
+<h4 id="phase-4d-composite-regime-action-menu">Phase 4d — Composite-regime action menu<a class="headerlink" href="#phase-4d-composite-regime-action-menu" title="Permanent link">&para;</a></h4>
+<p><strong>Hypothesis:</strong> replace the current 31 actions (cash + EW + 5
+short-window factor modes + 4 long-window documented-alpha modes
++ 13F consensus) with sector × style × cap-tilt composites that
+have known regime-conditional alpha (e.g., <code>tech_overweight_
+rising_rates</code>, <code>small_cap_underweight_recession</code>, etc.). Even if
+each composite is alpha-positive only ~30% of the time, regret
+matching can concentrate on the active set when the deep encoder
+recognizes the regime. Pre-reg cut: <strong>mean CFR Sharpe ≥ Phase 3
++ 0.20</strong>. <strong>Implementation: ~1 week</strong> (need to build composite
+mode definitions and a way to label "active regime" per
+composite).</p>
+<h3 id="what-were-not-doing">What we're NOT doing<a class="headerlink" href="#what-were-not-doing" title="Permanent link">&para;</a></h3>
+<ul>
+<li>More iteration on the Phase 3 architecture itself (bigger
+  hidden, action embeddings, transformer encoders). The variance
+  ceiling is the diagnostic that says these don't help.</li>
+<li>Adding more deterministic factor modes to the menu. Phase 2a
+  already showed this hurts.</li>
+<li>More 13F funds beyond the 14 curated ones. Phase 2b's per-
+  window pattern says coverage span (only 1.5 windows) is the
+  bottleneck, not fund breadth at the per-window level.</li>
+</ul>
+<p>Estimated remaining to a Phase 3 verdict: 6-10 weeks of focused
+work, mostly in 13F loader + encoder pretraining + walk-forward
+debugging. The algorithm itself is now in place; the failure modes
+are in data quality and action-menu design.</p>
+<h2 id="phase-0-scaffold-design-decisions">Phase 0 scaffold — design decisions<a class="headerlink" href="#phase-0-scaffold-design-decisions" title="Permanent link">&para;</a></h2>
+<p>A few choices worth noting for future contributors:</p>
+<ul>
+<li><strong>Tabular at Phase 1, deep at Phase 2+.</strong> Tabular CFR is well-
+  understood, easier to validate (regret matching is one np.maximum
+  call), and the 144-entry table converges within the available
+  ~6,000 train rebals. Deep CFR replaces the table with a regret_net</li>
+<li>policy_net at Phase 2+ once 13F imitation pretraining can
+  initialize the policy net non-randomly.</li>
+<li><strong>Universe-agnostic modes, no checkpoints.</strong> Phase 0 ships with
+  EW / top-K momentum / reversal / low-vol / high-vol modes that
+  are pure-numpy heuristics over the price panel. Sidesteps the
+  dependency on saved factor/relational checkpoints (which are
+  Phase-2-mega-cap-specific per
+  <a href="../../findings/relational-universe-shift/">relational-universe-shift</a>).
+  Phase 2 adds modes wrapping existing scorers as part of the
+  imitation prior.</li>
+<li><strong>Infoset = (vol bucket × dispersion bucket), train-only fit.</strong>
+  3×3 = 9 cells encodes the macro-regime-diagnostic's two strongest
+  feature axes (VIX-proxy + dispersion) universe-internally. Bucket
+  cutoffs frozen on train sidesteps the distribution-shift problem
+  that killed
+  <a href="../../findings/macro-regime-diagnostic/">macro v1a's direct-feature arm</a>.</li>
+<li><strong>Closed-form counterfactual regret.</strong> <code>compute_block_regrets</code>
+  uses <code>log(weights @ exp(per_ticker_logret))</code> which is exact for
+  arbitrary block sizes. Approximate first-order form (<code>weights @
+  logret</code>) is also correct within ~1bp at 20-day blocks but
+  diverges at longer horizons; keeping the exact form means
+  rebal_days is a free hyperparameter without correctness risk.</li>
+<li><strong>Action mixing at eval, not sampling.</strong> <code>CFRWalkForward._eval_cfr</code>
+  uses the expectation of action weights under the average policy
+  rather than sampling. Removes Monte Carlo variance from val
+  Sharpe measurement (the policy is what we want to evaluate, not
+  one realization of it).</li>
+</ul>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+    
+      
+      <nav class="md-footer__inner md-grid" aria-label="Footer" >
+        
+          
+          <a href="../" class="md-footer__link md-footer__link--prev" aria-label="Previous: TODO">
+            <div class="md-footer__button md-icon">
+              
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+            </div>
+            <div class="md-footer__title">
+              <span class="md-footer__direction">
+                Previous
+              </span>
+              <div class="md-ellipsis">
+                TODO
+              </div>
+            </div>
+          </a>
+        
+        
+          
+          <a href="../factor-sizing-input-reframe/" class="md-footer__link md-footer__link--next" aria-label="Next: Factor sizing-input reframe">
+            <div class="md-footer__title">
+              <span class="md-footer__direction">
+                Next
+              </span>
+              <div class="md-ellipsis">
+                Factor sizing-input reframe
+              </div>
+            </div>
+            <div class="md-footer__button md-icon">
+              
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M4 11v2h12l-5.5 5.5 1.42 1.42L19.84 12l-7.92-7.92L10.5 5.5 16 11z"/></svg>
+            </div>
+          </a>
+        
+      </nav>
+    
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["content.code.annotate", "content.code.copy", "content.tooltips", "navigation.footer", "navigation.indexes", "navigation.path", "navigation.sections", "navigation.expand", "navigation.tabs", "navigation.tabs.sticky", "navigation.tracking", "search.highlight", "search.share", "search.suggest", "toc.follow"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.79ae519e.min.js"></script>
+      
+    
+  </body>
+</html>
