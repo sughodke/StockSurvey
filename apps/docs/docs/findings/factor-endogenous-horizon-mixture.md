@@ -261,29 +261,174 @@ held-out arm with manually-set state-dependent π that beats the
 collapsed baseline). Without that evidence, the architecture is
 already at its ceiling.
 
-### What this leaves open
+### What this leaves open (resolved by the regime-gated follow-up below)
 
-The architecture's ceiling on factor-narrow + 74-channel
-IndicatorGridConfig is at the +0.05-Sharpe partial-OOS level. To
-move further requires an **orthogonal** lever — different feature
-stack (the CWT bundle or polar-Morlet), or a fundamentally different
-horizon-emission (continuous head with REINFORCE rather than
-discrete soft-attention, or explicit regime-classifier → horizon
-mapping). The next-experiment chain for this workstream is
-inherited by
-[`TODO/factor-horizon-entropy-reg`](../TODO/factor-horizon-entropy-reg.md)
-in its closed-out state — see the "Sweep outcome" section at the
-top of that page for the redirect.
+After the entropy sweep, two threads remained: (1) was the +0.05 lift
+state-conditional skill or cost-concentration? (2) would a different
+*kind* of horizon-emission — specifically a hand-engineered macro
+regime gate (VIX state) — work where the learned mixture didn't?
+Both are answered by the regime-gated experiment in the next section.
+
+## Regime-gated horizon selection (2026-05-14, closure)
+
+Pre-registered as Option D in the design discussion: apply the
+workspace's strongest operational rule —
+**"regime filter > richer predictor"** from
+[`prediction-problem-pivot-arc`](prediction-problem-pivot-arc.md) and
+[`vol-surface-v3-regime-gated`](vol-surface-v3-regime-gated.md) — to
+horizon choice instead of learning it. Use VIX vs 126d rolling
+median as the regime variable. Two mapping arms test opposite
+direction priors:
+
+- **`inverted-vol`**: VIX high → h=5 (responsive); VIX low → h=60
+  (low-turnover). "Stress = signal moves faster" prior.
+- **`same-vol`**: opposite mapping (null-direction check).
+
+Plus baselines: `fixed-h5`, `fixed-h60`, `random-h` (uniform random
+horizon per bar). All arms eval on the same daily-PnL irregular-
+cadence Sharpe; same universe, windowing, friction as the rest of
+the arc. Score head: vanilla `train_scorer_indicators_walkforward`
+linear rank-IC at `rebal_days=5`. Local-only, ~2 min wall.
+
+### Result — confirmed-null on every pre-registered cut
+
+| Arm | Mean val Sharpe | Mean holding days |
+|---|---:|---:|
+| **learned mixture α=0** | **+0.448** | (variable; argmax π) |
+| fixed-h60 | +0.221 | 60.0 |
+| same-vol (high→60, low→5) | +0.196 | 17.1 |
+| random-h | +0.116 | 28.2 |
+| fixed-h5 | −0.061 | 5.0 |
+| **inverted-vol (high→5, low→60)** | **−0.123** | 20.0 |
+
+| Null | Threshold | Observed | Verdict |
+|---|---|---|---|
+| N1: inverted-vol beats fixed-h60 by ≥ +0.10 | ≥ +0.10 | **−0.344** | **FAIL** |
+| N2: inverted-vol beats same-vol by ≥ +0.05 | ≥ +0.05 | **−0.319** | **FAIL** |
+| N3: inverted-vol beats learned mixture by ≥ +0.05 | ≥ +0.05 | **−0.572** | **FAIL** |
+| N4: inverted-vol beats random-h sanity floor | > 0.00 | **−0.239** | **FAIL** |
+
+All four nulls fail. The direction prior reverses (`same-vol` beats
+`inverted-vol` by +0.32 — holding *longer* in stress is better than
+shortening), but more decisive: every regime-gated arm loses to
+plain `fixed-h60`. Even `random-h` beats `inverted-vol` by +0.24.
+[`confirmed-null`](../leaderboard.md#verdict-labels) on the regime-
+gating hypothesis at this universe and feature stack.
+
+### Per-window detail
+
+| Win | Val start | VIX-hi% | fixed-h5 | fixed-h60 | inverted-vol | same-vol | random-h |
+|---|---|---:|---:|---:|---:|---:|---:|
+| w0 | 2005-11-15 | 66% | −0.343 | −0.855 | −0.571 | −0.213 | −1.026 |
+| w1 | 2008-12-24 | 44% | −0.488 | +0.517 | −0.439 | +0.468 | −0.007 |
+| w2 | 2012-03-22 | 19% | +0.229 | +0.678 | −0.358 | +0.305 | +0.914 |
+| w3 | 2015-06-22 | 40% | +0.084 | +0.448 | +0.211 | +0.203 | +0.307 |
+| w4 | 2018-08-20 | 76% | +0.186 | +0.365 | +0.233 | +0.296 | +0.319 |
+| w5 | 2021-09-28 | 32% | −0.032 | +0.173 | +0.183 | +0.115 | +0.187 |
+
+`inverted-vol` loses in 5/6 windows. `same-vol` ties `fixed-h60` on
+average but with materially higher variance window-to-window.
+`random-h` is competitive — which mostly says that on this
+universe and feature stack, the deployment Sharpe is approximately
+*independent of horizon choice* given a reasonable mean holding.
+
+### The reframe — what the regime-gated null tells us about the
+mixture's +0.05 lift
+
+Compare two equivalent quantities:
+
+| | Score-head training | Deployment | Sharpe |
+|---|---|---|---|
+| vanilla rank-IC (this run) | per-bar IC at h=5 only | fixed h=60 | **+0.221** |
+| learned mixture α=0 | per-bar IC × π (collapsed to ~80% h=60) | fixed h=60 (from prior row) | **+0.401** |
+
+Same architecture (linear head on 74-channel
+`IndicatorGridConfig`), same universe, same windowing, same
+deployment cadence — different *score-head training horizon*.
+The mixture's α=0 score head is implicitly trained at h≈60 (where
+π puts its mass), and **scores +0.18 higher on the same
+fixed-h60 deployment** than a vanilla h=5-trained head.
+
+That ~+0.18 gap is the **score-head specialization effect**. It
+recovers what was previously attributed to "the mixture chose
+horizons cleverly". The mixture's +0.05 lift over its own
+best-fixed baseline in the original
+[partial-OOS row](../leaderboard.md#master-table) sits inside the
++0.18 specialization gap. Most of the architecture's value comes
+from *training the score head for the deployment horizon*, not from
+*picking horizons at deployment time*.
+
+In other words: the endogenous-horizon arc was solving the wrong
+problem. The right operational rule is "train the score head at
+the horizon you intend to deploy at" — which is just the
+existing factor convention (`rebal_days=20` baseline at val
+Sharpe +0.44 in
+[`factor-indicator-baseline`](factor-indicator-baseline.md)), with
+the added datum that h=60 specialization beats h=20 on this
+specific eval setup.
+
+### Arc closure
+
+The endogenous-horizon mixture-of-IC architecture is fully
+explored on `factor-narrow`:
+
+| Sub-hypothesis | Test | Verdict |
+|---|---|---|
+| State-conditional horizon selection unlocks a +0.10 Sharpe lift | Mixture trainer α=0 (2026-05-14, this page top) | `partial-OOS` (+0.048, under threshold) |
+| Entropy regularization rescues the partial-OOS | α-sweep `{0.05, 0.1, 0.2, 0.3}` | `confirmed-null` — π expands cleanly but Sharpe doesn't follow |
+| Hand-engineered VIX regime gate beats learned mixture | This section | `confirmed-null` — regime-gating loses to even random-h |
+| Mixture's +0.05 lift is state-conditional horizon skill | Compared to vanilla rank-IC at h=5 → h=60 (this section's reframe) | **Falsified** — the lift is score-head specialization, not horizon choice |
+
+The full arc closes
+[`confirmed-null`](../leaderboard.md#verdict-labels) on the
+"rebal cadence as model output" thesis at this universe and
+feature stack. The orthogonal levers that remain (different
+feature stack, continuous horizon head + REINFORCE, learned
+value-function metric) are not pre-registered as next experiments
+— the falsification of the score-head-specialization confound
+makes the higher-priority next move "train factor at
+`rebal_days=60` and re-evaluate" rather than continue the
+horizon-emission research thread.
+
+### Operational rule (closed-out)
+
+**Before treating horizon as an output of the model, train the
+score head at the deployment horizon and check whether the
+single-horizon baseline is already at the architecture's ceiling.**
+If specializing the score head explains the gap a "state-conditional
+horizon" head was supposed to produce, the horizon-emission line of
+inquiry is unwarranted. This is a corollary of the workspace's
+"regime filter > richer predictor" rule applied at a different
+granularity: the predictor's *training target* matters more than
+the predictor's *output structure*.
+
+Driver: `apps/factor/scripts/horizon_regime_gated.py` (local CPU,
+~2 min wall). Artifacts:
+`Output/horizon-regime-gated-windows.npz`. Reuses the existing
+`packages/macro` FRED loader for VIX (cached at `.macro-cache/`).
 
 ## Master walk-forward log
 
-See [Leaderboard](../leaderboard.md) rows dated 2026-05-14 — the
-unregularized run (verdict
-[`partial-OOS`](../leaderboard.md#verdict-labels)) and the
-entropy-weight sweep (verdict
+See [Leaderboard](../leaderboard.md) rows dated 2026-05-14 — three
+in the arc: the unregularized mixture (verdict
+[`partial-OOS`](../leaderboard.md#verdict-labels)); the entropy-
+weight sweep (verdict
 [`confirmed-null`](../leaderboard.md#verdict-labels) on the
-regularization hypothesis). Artifacts:
+regularization rescue); and the regime-gated horizon closure
+(verdict
+[`confirmed-null`](../leaderboard.md#verdict-labels) on
+hand-engineered VIX-state horizon selection, plus the
+score-head-specialization reframe that closes the full arc).
+Artifacts:
 `Output/horizon-mixture-{a0,a0p05,a0p1,a0p2,a0p3}-{windows.npz, comparison.png}`,
-`Output/horizon-mixture-sweep-summary.json`. Reproduce via
-`uvx --from modal modal run apps/factor/scripts/modal/horizon_mixture.py
---entropy-weights '0.0,0.05,0.1,0.2,0.3'`.
+`Output/horizon-mixture-sweep-summary.json`,
+`Output/horizon-regime-gated-windows.npz`. Reproduce:
+
+```bash
+# Mixture + entropy sweep (Modal T4)
+uvx --from modal modal run apps/factor/scripts/modal/horizon_mixture.py \\
+    --entropy-weights '0.0,0.05,0.1,0.2,0.3'
+
+# Regime-gated horizon (local CPU)
+uv run python apps/factor/scripts/horizon_regime_gated.py
+```
