@@ -15,6 +15,7 @@ matching the JAX `ss_portfolio.block_sharpe_with_costs` definition).
 """
 from __future__ import annotations
 
+import numpy as np
 from tinygrad.tensor import Tensor
 
 
@@ -273,6 +274,140 @@ def horizon_mixture_loss_bilevel(
     return loss
 
 
+def horizon_mixture_loss_target(
+    scores: Tensor,
+    fwd_multi: Tensor,
+    mask: Tensor,
+    pi: Tensor,
+    *,
+    horizons: tuple[int, ...],
+    logits: Tensor | None = None,
+    rng: np.random.Generator | None = None,
+    commission_frac: float = 0.001,
+    entropy_weight: float = 0.0,
+    reinforce_weight: float = 0.0,
+) -> Tensor:
+    """Target-side REINFORCE loss: rank-IC for score head + per-bar
+    Sharpe-residual REINFORCE on π's training signal.
+
+    Loss structure:
+
+        L = -mean_t Σ_k π_t[k] · IC_k_t / std_detached(IC)            ← score head + π
+            +β · -mean_t [log π_t[a_t] · advantage_t]                   ← π only (scores detached)
+
+    where `advantage_t = (ret_at_sampled_t.detach() − m) / s`, with
+    `ret_at_sampled_t = (centered_scores_detached · fwd_log_return_{a_t})_t / count_t / horizon_{a_t} − commission_frac/horizon_{a_t}`
+    and `(m, s)` are the trajectory's mean and std of `ret_at_sampled`.
+
+    The sampling step `a_t ~ Categorical(π_t)` is performed INSIDE this
+    function via `pi.numpy()` — bringing pi into numpy land for the
+    categorical draw. Doing this outside (in the trainer) breaks the
+    upstream autograd graph in tinygrad: calling `pi.detach().numpy()`
+    on the same lazy buffer that feeds the loss appears to prune the
+    gradient path back to the horizon head's Wh/bh parameters even
+    when the loss is computed from the original (non-detached) `pi`
+    tensor. Keeping the materialization local to this function (and
+    creating a fresh sampling rng per call) avoids the issue.
+
+    Score-head gradient comes ONLY from the IC term (scores.detach()
+    inside the REINFORCE term). π head sees both signals.
+    """
+    if rng is None:
+        rng = np.random.default_rng()
+    K = int(fwd_multi.shape[0])
+
+    # --- IC term (same as horizon_mixture_loss_bilevel) ---
+    ic_per_horizon = []
+    valid_per_horizon = []
+    for k in range(K):
+        ic_k, v_k = per_bar_pearson_ic(scores, fwd_multi[k], mask[k])
+        ic_per_horizon.append(ic_k.reshape(1, -1))
+        valid_per_horizon.append(v_k.reshape(1, -1))
+    ic_kt = ic_per_horizon[0].cat(*ic_per_horizon[1:], dim=0)
+    valid_kt = valid_per_horizon[0].cat(*valid_per_horizon[1:], dim=0)
+
+    pi_kt = pi.transpose(0, 1)
+    mix_ic_per_bar = (pi_kt * ic_kt * valid_kt).sum(axis=0)
+    any_valid = (valid_kt.sum(axis=0) > 0).cast(scores.dtype)
+    n_valid_bars = any_valid.sum().maximum(1.0)
+    mean_mix_ic = (mix_ic_per_bar * any_valid).sum() / n_valid_bars
+
+    ic_for_std = (ic_kt * valid_kt).detach()
+    ic_std = (ic_for_std.std() + 1e-8)
+    L_IC = -mean_mix_ic / ic_std
+
+    if reinforce_weight > 0.0:
+        # --- Per-bar reward at sampled action (using detached scores) ---
+        scores_d = scores.detach()
+        n_bars = int(pi.shape[0])
+
+        # Sample one horizon per bar INSIDE the loss using the
+        # caller-provided logits (NOT pi). Materializing pi truncates
+        # autograd back to Wh/bh in tinygrad; materializing logits is
+        # safe (linear-only chain to Wh/bh).
+        if logits is None:
+            raise ValueError(
+                "horizon_mixture_loss_target requires `logits` when "
+                "reinforce_weight > 0 — call apply_mlp_horizon_full to "
+                "get them.")
+        logits_np = logits.detach().numpy().astype(np.float64)
+        # Numerically stable softmax in numpy for sampling
+        logits_np = logits_np - logits_np.max(axis=1, keepdims=True)
+        pi_np_for_sampling = np.exp(logits_np)
+        pi_np_for_sampling = pi_np_for_sampling / pi_np_for_sampling.sum(axis=1, keepdims=True)
+        u = rng.random(n_bars)
+        cum = np.cumsum(pi_np_for_sampling, axis=1)
+        sampled_actions = (cum > u[:, None]).argmax(axis=1).astype(np.int32)
+
+        # Build one-hot for sampled actions: shape (K, n_bars)
+        one_hot = np.zeros((K, n_bars), dtype=np.float32)
+        for t in range(n_bars):
+            one_hot[int(sampled_actions[t]), t] = 1.0
+        one_hot_t = Tensor(one_hot)  # (K, n_bars)
+
+        # Per-bar per-horizon return signal (same as bilevel ret_kt)
+        ret_per_horizon = []
+        for k in range(K):
+            h = horizons[k]
+            fwd_k = fwd_multi[k]
+            mask_k = mask[k]
+            counts = mask_k.sum(axis=1)
+            safe_counts = counts.maximum(1.0)
+            s_mean = (scores_d * mask_k).sum(axis=1) / safe_counts
+            s_dev = (scores_d - s_mean.reshape(-1, 1)) * mask_k
+            cov_k = (s_dev * fwd_k * mask_k).sum(axis=1) / safe_counts
+            per_day_ret_k = cov_k / float(h) - commission_frac / float(h)
+            ret_per_horizon.append(per_day_ret_k.reshape(1, -1))
+        ret_kt = ret_per_horizon[0].cat(*ret_per_horizon[1:], dim=0)
+
+        # Reward at sampled action per bar — (one_hot * ret_kt).sum(axis=0) gives (n_bars,)
+        ret_at_sampled = (one_hot_t * ret_kt).sum(axis=0)  # (n_bars,)
+
+        # Per-bar Sharpe-residual advantage: (ret_t - mean) / std, all detached
+        ret_d = ret_at_sampled.detach()
+        m_d = ret_d.mean()
+        s_d = ret_d.std() + 1e-8
+        advantage = (ret_d - m_d) / s_d  # (n_bars,) zero-mean unit-std
+
+        # log π at sampled action — gradient flows through pi
+        log_pi = (pi + 1e-12).log()                          # (n_bars, K)
+        log_pi_at_a = (one_hot_t.transpose(0, 1) * log_pi).sum(axis=1)  # (n_bars,)
+
+        # Score-function REINFORCE loss; mask invalid bars (where neither
+        # horizon contributed any IC, the reward signal is also degenerate).
+        L_REINFORCE = -((log_pi_at_a * advantage) * any_valid).sum() / n_valid_bars
+
+        loss = L_IC + L_REINFORCE * reinforce_weight
+    else:
+        loss = L_IC
+
+    if entropy_weight > 0.0:
+        log_pi = (pi + 1e-12).log()
+        H = -(pi * log_pi).sum(axis=1).mean()
+        loss = loss - Tensor(entropy_weight) * H
+    return loss
+
+
 def masked_mse(
     scores: Tensor, targets: Tensor, mask: Tensor,
 ) -> Tensor:
@@ -468,6 +603,6 @@ def block_ir_vs_ew(
 __all__ = [
     'TRADING_DAYS', 'block_sharpe', 'block_sharpe_long_short',
     'block_ir_vs_ew', 'horizon_mixture_loss', 'horizon_mixture_loss_bilevel',
-    'long_short_weights',
+    'horizon_mixture_loss_target', 'long_short_weights',
     'masked_mse', 'pearson_rank_ic', 'per_bar_pearson_ic',
 ]

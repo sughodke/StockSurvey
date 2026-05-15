@@ -84,6 +84,7 @@ def train_horizon_walkforward_remote(
     weight_decay: float,
     entropy_weights_csv: str,
     deployment_reward_weights_csv: str,
+    reinforce_weights_csv: str,
     config_variant: str,
     mlp_hidden: int,
     mlp_layers: int,
@@ -196,13 +197,17 @@ def train_horizon_walkforward_remote(
     deployment_reward_weights = [
         float(x) for x in deployment_reward_weights_csv.split(',') if x.strip()
     ]
-    # Sweep is the cross-product (α, λ). For the canonical bilevel sweep
-    # you pass α='0.0' so we only sweep λ; for legacy entropy-only sweeps
-    # you pass deployment_reward_weights='0.0' so we only sweep α. Either
-    # way, the smaller sweep stays len-1 and the inner loop just runs the
-    # outer's full set.
+    reinforce_weights = [
+        float(x) for x in reinforce_weights_csv.split(',') if x.strip()
+    ]
+    # Sweep is the cross-product (α, λ, β). The canonical sweeps keep
+    # the others fixed at 0:
+    #   - entropy-only sweep:    α varies; λ=β=0  (legacy `horizon-mixture-*`)
+    #   - bilevel sweep:         λ varies; α=β=0  (2026-05-15 `horizon-bilevel-*`)
+    #   - REINFORCE sweep:       β varies; α=λ=0  (2026-05-15 `horizon-target-*`)
     print(f'  sweeping entropy_weight ∈ {entropy_weights}', flush=True)
     print(f'  sweeping deployment_reward_weight ∈ {deployment_reward_weights}', flush=True)
+    print(f'  sweeping reinforce_weight ∈ {reinforce_weights}', flush=True)
 
     import numpy as np
     sweep_summary: list[dict] = []
@@ -217,18 +222,30 @@ def train_horizon_walkforward_remote(
         s = f'{lam:g}'.replace('.', 'p').replace('-', 'n')
         return f'lam{s}'
 
+    def _beta_tag(b: float) -> str:
+        """File-name-safe tag for REINFORCE weight."""
+        s = f'{b:g}'.replace('.', 'p').replace('-', 'n')
+        return f'beta{s}'
+
     for alpha in entropy_weights:
       for lam in deployment_reward_weights:
-        # Single-arm runs (the default canonical sweep is α=0 fixed
-        # while λ varies) use a clean tag. Cross-product runs get a
-        # compound tag.
-        if len(entropy_weights) == 1 and len(deployment_reward_weights) > 1:
-            tag = _lambda_tag(lam)
-        elif len(deployment_reward_weights) == 1 and len(entropy_weights) > 1:
-            tag = _alpha_tag(alpha)
-        else:
-            tag = f'{_alpha_tag(alpha)}-{_lambda_tag(lam)}'
-        print(f'\n  --- α={alpha} λ={lam} ({tag}) ---', flush=True)
+        for beta in reinforce_weights:
+          # Single-axis sweeps use a clean tag; multi-axis use compound.
+          n_var = (
+              int(len(entropy_weights) > 1) +
+              int(len(deployment_reward_weights) > 1) +
+              int(len(reinforce_weights) > 1)
+          )
+          if n_var <= 1:
+              if len(reinforce_weights) > 1:
+                  tag = _beta_tag(beta)
+              elif len(deployment_reward_weights) > 1:
+                  tag = _lambda_tag(lam)
+              else:
+                  tag = _alpha_tag(alpha)
+          else:
+              tag = f'{_alpha_tag(alpha)}-{_lambda_tag(lam)}-{_beta_tag(beta)}'
+          print(f'\n  --- α={alpha} λ={lam} β={beta} ({tag}) ---', flush=True)
         t1 = time.perf_counter()
         res = train_scorer_horizon_walkforward(
             ticker_data, backbone,
@@ -243,6 +260,7 @@ def train_horizon_walkforward_remote(
             weight_decay=weight_decay,
             entropy_weight=alpha,
             deployment_reward_weight=lam,
+            reinforce_weight=beta,
             commission_bps=commission_bps,
             temperature=temperature,
             seed=seed,
@@ -321,6 +339,7 @@ def train_horizon_walkforward_remote(
             'feature_width':        F,
             'entropy_weight':       alpha,
             'deployment_reward_weight': lam,
+            'reinforce_weight':     beta,
             'mean_endog_sharpe':    endog_mean,
             'mean_random_sharpe':   random_mean,
             'best_fixed_horizon':   h_best,
@@ -354,10 +373,13 @@ def train_horizon_walkforward_remote(
         # File-name prefix:
         #   - `horizon-align` for the 2026-05-15 horizon-aligned config sweep
         #     (regardless of λ/α dims, the config-variant is the load-bearing axis).
+        #   - `horizon-target` for the 2026-05-15 REINFORCE β sweep.
         #   - `horizon-bilevel` for the 2026-05-15 default-config λ sweep.
         #   - `horizon-mixture` for legacy default-config α-only sweeps.
         if config_variant == 'horizon-aligned':
             prefix = 'horizon-align'
+        elif len(reinforce_weights) > 1:
+            prefix = 'horizon-target'
         elif len(deployment_reward_weights) > 1:
             prefix = 'horizon-bilevel'
         else:
@@ -373,6 +395,7 @@ def train_horizon_walkforward_remote(
             'feature_width':     F,
             'entropy_weight':    alpha,
             'deployment_reward_weight': lam,
+            'reinforce_weight':  beta,
             'mean_endog_sharpe': endog_mean,
             'mean_random_sharpe': random_mean,
             'best_fixed_horizon': h_best,
@@ -398,11 +421,12 @@ def train_horizon_walkforward_remote(
 
     # ---------- Step 4: cross-arm sweep summary ----------
     print('\n=== Step 4/4: cross-arm sweep summary ===', flush=True)
-    print(f'{"α":>6}  {"λ":>6}  {"endog":>7}  {"best-fix":>9}  {"Δ-fix":>6}  '
+    print(f'{"α":>6}  {"λ":>6}  {"β":>6}  {"endog":>7}  {"best-fix":>9}  {"Δ-fix":>6}  '
           f'{"Δ-rand":>7}  {"H(π)":>5}  {"verdict":>15}', flush=True)
     for s in sweep_summary:
         print(f'{s["entropy_weight"]:>6.3g}  '
               f'{s["deployment_reward_weight"]:>6.3g}  '
+              f'{s["reinforce_weight"]:>6.3g}  '
               f'{s["mean_endog_sharpe"]:>+7.3f}  '
               f'{s["best_fixed_sharpe"]:>+9.3f}  '
               f'{s["delta_vs_best_fixed"]:>+6.3f}  '
@@ -416,29 +440,30 @@ def train_horizon_walkforward_remote(
     if eligible:
         best = max(eligible, key=lambda s: s['delta_vs_best_fixed'])
         print(f'\n  best arm (passes N1/N2/N4, max Δ-fix): '
-              f'α={best["entropy_weight"]} λ={best["deployment_reward_weight"]}  '
+              f'α={best["entropy_weight"]} λ={best["deployment_reward_weight"]} '
+              f'β={best["reinforce_weight"]}  '
               f'Δ-fix={best["delta_vs_best_fixed"]:+.3f}  '
               f'verdict={best["verdict_label"]}', flush=True)
     else:
-        print('\n  no arm passes N1+N2+N4 — architecture confirmed-null '
-              'under the discrete mixture-of-horizons-IC + deployment-reward '
-              'objective.', flush=True)
+        print('\n  no arm passes N1+N2+N4 — architecture confirmed-null.',
+              flush=True)
 
-    # Sweep summary path keyed by config_variant — horizon-aligned
-    # writes to its own summary so it doesn't overwrite the prior
-    # default-config sweeps' files.
+    # Sweep summary path keyed by sweep variant.
     if config_variant == 'horizon-aligned':
         sweep_path = output / 'horizon-align-sweep-summary.json'
+    elif len(reinforce_weights) > 1:
+        sweep_path = output / 'horizon-target-sweep-summary.json'
     elif len(deployment_reward_weights) > 1:
         sweep_path = output / 'horizon-bilevel-sweep-summary.json'
     else:
         sweep_path = output / 'horizon-mixture-sweep-summary.json'
     sweep_path.write_text(json.dumps({
-        'config_variant': config_variant,
-        'feature_width':  F,
-        'sweep_alphas':   entropy_weights,
-        'sweep_lambdas':  deployment_reward_weights,
-        'arms':           sweep_summary,
+        'config_variant':  config_variant,
+        'feature_width':   F,
+        'sweep_alphas':    entropy_weights,
+        'sweep_lambdas':   deployment_reward_weights,
+        'sweep_betas':     reinforce_weights,
+        'arms':            sweep_summary,
     }, indent=2))
     print(f'  -> {sweep_path.name}')
 
@@ -446,7 +471,8 @@ def train_horizon_walkforward_remote(
     for p in sorted(output.iterdir()):
         if p.is_file() and (p.name.startswith('horizon-mixture')
                             or p.name.startswith('horizon-bilevel')
-                            or p.name.startswith('horizon-align')):
+                            or p.name.startswith('horizon-align')
+                            or p.name.startswith('horizon-target')):
             artifacts[p.name] = p.read_bytes()
     print(f'\nbundling {len(artifacts)} artifacts')
     return artifacts
@@ -573,6 +599,7 @@ def main(
     weight_decay: float = 1e-3,
     entropy_weights: str = '0.0',
     deployment_reward_weights: str = '0.0',
+    reinforce_weights: str = '0.0',
     config_variant: str = 'default',
     mlp_hidden: int = 32,
     mlp_layers: int = 1,
@@ -606,6 +633,7 @@ def main(
           f'(horizons={horizons}, n_steps={n_steps}, lr={learning_rate}, '
           f'wd={weight_decay}, entropy_weights={entropy_weights}, '
           f'deployment_reward_weights={deployment_reward_weights}, '
+          f'reinforce_weights={reinforce_weights}, '
           f'config_variant={config_variant!r}, '
           f'train/val/step blocks={train_window_blocks}/{val_window_blocks}/'
           f'{step_window_blocks}, max_tickers={max_tickers}, '
@@ -617,6 +645,7 @@ def main(
         weight_decay=weight_decay,
         entropy_weights_csv=entropy_weights,
         deployment_reward_weights_csv=deployment_reward_weights,
+        reinforce_weights_csv=reinforce_weights,
         config_variant=config_variant,
         mlp_hidden=mlp_hidden,
         mlp_layers=mlp_layers,

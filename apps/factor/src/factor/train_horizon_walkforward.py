@@ -44,8 +44,12 @@ from factor.horizon import (
     IrregularRunResult, simulate_fixed_horizon_daily_pnl,
     simulate_irregular_daily_pnl,
 )
-from factor.objectives import horizon_mixture_loss, horizon_mixture_loss_bilevel
-from factor.scorers import apply_mlp_horizon, init_mlp_horizon
+from factor.objectives import (
+    horizon_mixture_loss,
+    horizon_mixture_loss_bilevel,
+    horizon_mixture_loss_target,
+)
+from factor.scorers import apply_mlp_horizon, apply_mlp_horizon_full, init_mlp_horizon
 
 
 @dataclass(frozen=True)
@@ -221,6 +225,7 @@ def train_scorer_horizon_walkforward(
     weight_decay:  float = 0.0,
     entropy_weight: float = 0.0,
     deployment_reward_weight: float = 0.0,
+    reinforce_weight: float = 0.0,
     seed:          int = 0,
     commission_bps: float = 10.0,
     temperature: float = 1.0,
@@ -274,7 +279,8 @@ def train_scorer_horizon_walkforward(
               f'train={train_window_blocks}, val={val_window_blocks}, '
               f'step={step_window_blocks}. n_steps={n_steps} lr={learning_rate} '
               f'wd={weight_decay} ent_w={entropy_weight} '
-              f'dep_rw={deployment_reward_weight}')
+              f'dep_rw={deployment_reward_weight} '
+              f'reinforce_w={reinforce_weight}')
 
     result = HorizonWalkForwardResult(
         n_steps=n_steps, learning_rate=learning_rate,
@@ -303,12 +309,28 @@ def train_scorer_horizon_walkforward(
 
         final_loss = float('nan')
         commission_frac = commission_bps / 10_000.0
+        reinforce_rng = np.random.default_rng(seed + w_idx + 50_000)
         for _ in range(n_steps):
             Tensor.training = True
             opt.zero_grad()
-            scores, pi = apply_mlp_horizon(
-                head_params, repr_train, base_mask_train)
-            if deployment_reward_weight > 0.0:
+            if reinforce_weight > 0.0:
+                # Need logits for sampling — materializing pi.numpy()
+                # truncates autograd back to Wh/bh; materializing
+                # logits.numpy() is safe (see apply_mlp_horizon_full).
+                scores, pi, logits_t = apply_mlp_horizon_full(
+                    head_params, repr_train, base_mask_train)
+                loss = horizon_mixture_loss_target(
+                    scores, fwd_train, mask_train, pi,
+                    horizons=tuple(horizons),
+                    logits=logits_t,
+                    rng=reinforce_rng,
+                    commission_frac=commission_frac,
+                    entropy_weight=entropy_weight,
+                    reinforce_weight=reinforce_weight,
+                )
+            elif deployment_reward_weight > 0.0:
+                scores, pi = apply_mlp_horizon(
+                    head_params, repr_train, base_mask_train)
                 loss = horizon_mixture_loss_bilevel(
                     scores, fwd_train, mask_train, pi,
                     horizons=tuple(horizons),
@@ -317,6 +339,8 @@ def train_scorer_horizon_walkforward(
                     deployment_reward_weight=deployment_reward_weight,
                 )
             else:
+                scores, pi = apply_mlp_horizon(
+                    head_params, repr_train, base_mask_train)
                 loss = horizon_mixture_loss(
                     scores, fwd_train, mask_train, pi,
                     entropy_weight=entropy_weight)

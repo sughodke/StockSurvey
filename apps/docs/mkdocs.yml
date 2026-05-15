@@ -146,6 +146,7 @@ nav:
       - Done — apps/critic Φ value function (confirmed-null v0 + v0.1 rescue): TODO/critic-phi-value-function.md
       - Done — apps/factor bilevel horizon objective (confirmed-null on deployment-return rescue): TODO/factor-bilevel-horizon-objective.md
       - Done — apps/factor horizon-aligned IndicatorGridConfig (confirmed-null on input-side rescue): TODO/factor-horizon-aligned-grid.md
+      - apps/factor target-side REINFORCE for π (pre-registered): TODO/factor-reinforce-target-side.md
       - apps/cfr — Deep CFR meta-allocator: TODO/apps-cfr.md
       - Factor sizing-input reframe: TODO/factor-sizing-input-reframe.md
       - Done — factor endogenous-horizon entropy-weight sweep (confirmed-null on rescue hypothesis): TODO/factor-horizon-entropy-reg.md

@@ -10,6 +10,7 @@ Active backlog for the StockSurvey monorepo. Each section from the original
 
 ## Research threads
 
+- [`apps/factor` — target-side REINFORCE for π (Sharpe-residual, not rank-IC) — pre-registered 2026-05-15](factor-reinforce-target-side.md)
 - [`apps/cfr` — Deep CFR meta-allocator over existing scorers](apps-cfr.md)
 - [Factor sizing-input reframe — re-purpose apps/factor as a meta-gate input](factor-sizing-input-reframe.md)
 - [Ablation — disentangle why long-period RSI underperforms](rsi-long-period-ablation.md)

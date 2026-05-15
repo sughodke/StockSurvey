@@ -179,6 +179,40 @@ def init_mlp_horizon(
     return params
 
 
+def apply_mlp_horizon_full(
+    params: dict[str, Tensor], X: Tensor, mask: Tensor,
+) -> tuple[Tensor, Tensor, Tensor]:
+    """Variant of `apply_mlp_horizon` that ALSO returns the horizon-head
+    logits (pre-softmax).
+
+    Why: in tinygrad, calling `.numpy()` on the softmax output (`pi`)
+    truncates the autograd graph back to the horizon-head params
+    (`Wh`/`bh`) even when the `.numpy()` call is on a `.detach()`ed
+    copy. The REINFORCE training path needs to materialize the policy
+    probabilities to do categorical sampling — materializing the
+    pre-softmax logits is autograd-safe; the gradient still flows
+    through `pi → logits → Wh/bh` correctly in subsequent loss
+    computations. Callers can materialize `logits.numpy()` for sampling
+    and still use `pi` in the loss.
+    """
+    n_trunk = sum(1 for k in params
+                  if k.startswith('W') and k not in ('Ws', 'Wh'))
+    h = X
+    for i in range(n_trunk):
+        h = (h @ params[f'W{i}'] + params[f'b{i}']).relu()
+    scores = (h @ params['Ws'] + params['bs']).squeeze(-1)
+
+    mask_b = mask.reshape(*mask.shape, 1)
+    counts = mask.sum(axis=1, keepdim=True).maximum(1.0)
+    pooled = (h * mask_b).sum(axis=1) / counts
+
+    logits = pooled @ params['Wh'] + params['bh']
+    logits_centered = logits - logits.max(axis=1, keepdim=True)
+    exp_l = logits_centered.exp()
+    pi = exp_l / (exp_l.sum(axis=1, keepdim=True) + 1e-12)
+    return scores, pi, logits
+
+
 def apply_mlp_horizon(
     params: dict[str, Tensor], X: Tensor, mask: Tensor,
 ) -> tuple[Tensor, Tensor]:
