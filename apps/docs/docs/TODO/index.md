@@ -10,7 +10,6 @@ Active backlog for the StockSurvey monorepo. Each section from the original
 
 ## Research threads
 
-- [`apps/factor` — horizon-aligned IndicatorGridConfig (pre-registered 2026-05-15)](factor-horizon-aligned-grid.md)
 - [`apps/cfr` — Deep CFR meta-allocator over existing scorers](apps-cfr.md)
 - [Factor sizing-input reframe — re-purpose apps/factor as a meta-gate input](factor-sizing-input-reframe.md)
 - [Ablation — disentangle why long-period RSI underperforms](rsi-long-period-ablation.md)
@@ -37,6 +36,7 @@ Active backlog for the StockSurvey monorepo. Each section from the original
 - [Factor endogenous-horizon entropy-weight sweep — resolved 2026-05-14, `confirmed-null` on rescue hypothesis; see extended [`factor-endogenous-horizon-mixture`](../findings/factor-endogenous-horizon-mixture.md)](factor-horizon-entropy-reg.md)
 - [`apps/critic` Φ value function — resolved 2026-05-15, `confirmed-null` on both v0 (cross-app window-level) and v0.1 (pair-level rescue); see [`critic-phi-quality-v0`](../findings/critic-phi-quality-v0.md)](critic-phi-value-function.md)
 - [Factor bilevel horizon objective — resolved 2026-05-15, `confirmed-null` on deployment-return supervision rescue; see extended [`factor-endogenous-horizon-mixture`](../findings/factor-endogenous-horizon-mixture.md) under "Bilevel objective"](factor-bilevel-horizon-objective.md)
+- [Factor horizon-aligned IndicatorGridConfig — resolved 2026-05-15, `confirmed-null` on input-side rescue; see extended [`factor-endogenous-horizon-mixture`](../findings/factor-endogenous-horizon-mixture.md) under "Horizon-aligned feature grid"](factor-horizon-aligned-grid.md)
 
 ## Superseded
 

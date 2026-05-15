@@ -1,8 +1,68 @@
 # `apps/factor` — horizon-aligned IndicatorGridConfig variant
 
-**Status**: pre-registered 2026-05-15. Sweep not yet run.
+## Closed 2026-05-15
 
-## Hypothesis
+[`confirmed-null`](../leaderboard.md#verdict-labels) on the
+input-side rescue hypothesis. Sweep ran on Modal T4 (~12 min wall):
+
+| arm | mean endog | best-fix(h) | Δ-fix | h=60 argmax | verdict |
+|---|---:|---:|---:|---:|---|
+| (default, λ=0) baseline (cached) | +0.448 | +0.401 (h60) | **+0.048** | 80% | partial-OOS |
+| (default, λ=0.25) (cached) | +0.453 | +0.405 (h60) | +0.047 | 78% | partial-OOS |
+| (horizon-aligned, λ=0) | +0.401 | **+0.437 (h10)** | **−0.036** | **94%** | confirmed-null |
+| (horizon-aligned, λ=0.25) | +0.396 | +0.431 (h10) | −0.035 | 94% | confirmed-null |
+
+**The key diagnostic**: the score head IS using the new
+horizon-aligned channels — under the new grid, **fixed-h10 Sharpe
+lifts to +0.437** (vs default's fixed-h60 at +0.401), and the
+per-horizon Sharpe profile genuinely flattens. But π collapses
+HARDER on h=60 (94% argmax) than under default (80%) because π's
+training signal is rank-IC and per-bar IC SNR is highest at long
+horizons regardless of feature stack. The architecture has a
+fundamental misalignment: π is trained to maximize per-bar IC
+(rewards h=60); deployment metric is Sharpe (favors h=10 under
+horizon-aligned grid).
+
+**w3 canary fires for the third time**: w3 (2015-06-30) drops
+from +0.84 (default λ=0) → +0.55 (horizon-aligned λ=0), Δ −0.29.
+Same pattern as:
+
+- Entropy reg α=0.05: w3 from +0.84 → +0.66 (Δ −0.18)
+- Bilevel λ=2: w3 from +0.84 → +0.57 (Δ −0.27)
+- Horizon-aligned grid: w3 from +0.84 → +0.55 (Δ −0.29)
+
+Three independent rescue attempts. Three drops on the same window.
+The architecture's state-conditional skill at w3 is fragile to ANY
+perturbation.
+
+**Side-finding worth documenting**: `(horizon-aligned, fixed-h10)`
+deployment recipe = +0.437 Sharpe is a comparable, operationally
+simpler alternative to `(default, mixture)` = +0.448 (gap 0.011,
+within noise). Not pre-registered as a deployment but a real
+fallback if the mixture architecture is retired.
+
+**Doesn't close**: output-side restructure (per-horizon score heads,
+mixture *over* specialized heads), target-side intervention
+(REINFORCE-style π training against realized Sharpe instead of
+rank-IC). Both are genuinely new architectures, not feature swaps.
+
+See extended findings page
+[`factor-endogenous-horizon-mixture`](../findings/factor-endogenous-horizon-mixture.md)
+("Horizon-aligned feature grid" section) for the per-horizon
+fixed-Sharpe profile table, per-window w3-canary repeat, and the
+updated operational rule.
+
+Leaderboard row: 2026-05-15 horizon-aligned-grid sweep
+(`confirmed-null`).
+
+---
+
+## Original pre-registration (preserved for the record)
+
+**Status at time of writing**: pre-registered 2026-05-15. Sweep not
+yet run.
+
+### Hypothesis
 
 The 74-channel default `IndicatorGridConfig` produces score head IC
 profiles that peak at h=60 even though channels span a range of

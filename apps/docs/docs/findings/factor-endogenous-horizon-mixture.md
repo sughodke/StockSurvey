@@ -692,3 +692,139 @@ falsification is specifically about *per-day raw return as the
 deployment-aware loss on a *larger dataset* (e.g., per-rebal data
 across more years, or a different universe with more bars per
 horizon) might still pass.
+
+## Horizon-aligned feature grid (2026-05-15)
+
+After the bilevel sweep closed `confirmed-null` on the
+training-objective rescue, the next lever was changing the
+*input* — replacing the default 74-channel `IndicatorGridConfig`
+with a 104-channel "horizon-aligned" variant that adds 30 cells
+at periods matching the action-space horizons `{5, 10, 20, 40,
+60}` (RSI n_grid +{20, 40, 60}; vol +{40}; MACD +{10, 20, 40, 60};
+coherence +{5, 40, 60}; CCI unchanged because n=60 would push
+warmup past 1000 bars).
+
+Pre-registration:
+[`TODO/factor-horizon-aligned-grid`](../TODO/factor-horizon-aligned-grid.md).
+Two arms run on Modal T4 (~25 min wall): `(horizon-aligned, λ=0)`
+and `(horizon-aligned, λ=0.25)`. Cuts identical to the bilevel
+sweep: PASS Δ-fix ≥ +0.10 AND ≥ 5/6 positive; MARGINAL Δ-fix ≥
++0.07 AND ≥ 4/6 positive.
+
+### Results
+
+| config | λ | mean endog | best-fix(h) | **Δ-fix** | Δ-rand | H(π) | h=60 argmax | verdict |
+|---|---:|---:|---:|---:|---:|---:|---:|---|
+| default (cached) | 0.0 | +0.448 | +0.401 (h60) | **+0.048** | +0.119 | 0.11 | 80% | `partial-OOS` |
+| default (cached) | 0.25 | +0.453 | +0.405 (h60) | +0.047 | +0.126 | 0.12 | 78% | `partial-OOS` |
+| horizon-aligned | 0.0 | +0.401 | **+0.437 (h10)** | **−0.036** | −0.025 | 0.14 | **94%** | `confirmed-null` |
+| horizon-aligned | 0.25 | +0.396 | +0.431 (h10) | −0.035 | −0.025 | 0.14 | 94% | `confirmed-null` |
+
+**Verdict: FAIL → [`confirmed-null`](../leaderboard.md#verdict-labels)**
+per pre-reg. The horizon-aligned grid does NOT lift mixture endog
+above the +0.048 default baseline.
+
+### Per-horizon fixed-Sharpe profile under horizon-aligned grid
+
+The strongest finding in the sweep is the IC-profile shift. Under
+horizon-aligned grid, the **best fixed horizon flips from h=60 to
+h=10** with the absolute Sharpe also lifting:
+
+| horizon | default (cached 2026-05-14) mean fixed Sharpe | horizon-aligned mean fixed Sharpe |
+|---:|---:|---:|
+| h=5 | (lower, not best-fix candidate) | +0.403 |
+| h=10 | (lower, not best-fix candidate) | **+0.437** ← best |
+| h=20 | (lower, not best-fix candidate) | +0.432 |
+| h=40 | (lower, not best-fix candidate) | +0.357 |
+| h=60 | **+0.401** ← best | +0.396 |
+
+The horizon-aligned grid genuinely opens up short-horizon signal:
+fixed-h10 lifts from "not best" (default) to **+0.437 best** (with
+horizon-aligned features). This was the predicted mechanism — the
+score head IS extracting more short-horizon information from the
+new channels.
+
+### Why the mixture doesn't capitalize
+
+Despite the score head's per-horizon Sharpe profile genuinely
+flattening (short horizons competitive with long), **π collapses
+HARDER on h=60 under horizon-aligned (94% argmax) than under default
+(80%)**. The mechanism:
+
+- π's training signal is rank-IC across horizons:
+  `-mean_t Σ_k π_t[k] · IC_k_t`.
+- **Per-bar IC SNR is highest at h=60** (longer cumulative returns
+  → more signal per rank correlation evaluation), regardless of
+  whether short-horizon features are richer or sparser.
+- So the mixture loss rewards π for putting mass on h=60 even when
+  the *deployment* Sharpe is higher at h=10.
+
+The architecture has a fundamental misalignment:
+- π is trained to maximize **per-bar IC** (rank statistic).
+- The deployment metric is **Sharpe** (return aggregated over time).
+- For this universe + horizon set, the IC-maximizing horizon is
+  h=60; the Sharpe-maximizing horizon is h=10.
+- π can't bridge that gap by feature changes alone — the training
+  objective directs it elsewhere.
+
+### Per-window w3-canary repeats for the third time
+
+The same diagnostic from the entropy-reg and bilevel-reward sweeps
+fires again:
+
+| window | val_start | default λ=0 endog | horizon-aligned λ=0 endog | Δ |
+|---:|:---|---:|---:|---:|
+| 0 | 2005-11-15 | -0.27 | -0.29 | -0.02 |
+| 1 | 2008-12-24 | +0.57 | +0.53 | -0.04 |
+| 2 | 2012-03-22 | +0.82 | +0.89 | **+0.07** |
+| 3 | 2015-06-30 | **+0.84** | **+0.55** | **-0.29** |
+| 4 | 2018-10-08 | +0.45 | +0.44 | -0.01 |
+| 5 | 2022-01-13 | +0.28 | +0.30 | +0.02 |
+
+**w3 drops -0.29** with horizon-aligned grid, matching the two
+prior rescue attempts' damage pattern at the same window:
+
+- Entropy reg α=0.05: w3 from +0.84 → +0.66 (Δ -0.18)
+- Bilevel λ=2: w3 from +0.84 → +0.57 (Δ -0.27)
+- Horizon-aligned grid: w3 from +0.84 → +0.55 (Δ -0.29)
+
+**Three independent interventions, three drops on the same window.**
+The architecture's state-conditional horizon-mixing skill at w3 is
+fragile to ANY perturbation — feature space change, training
+objective change, or regularization addition all degrade it.
+
+### What this closes vs leaves open
+
+**Closes the input-side hypothesis (#1)**: at this dataset scale +
+this architecture, a horizon-aligned feature grid does NOT lift
+mixture deployment above the default. The short-horizon information
+that the new channels carry is real (fixed-h10 lift) but π's
+rank-IC training signal can't surface it for deployment.
+
+**Promotes "alternative deployment recipe"**: horizon-aligned grid
++ fixed-h10 = +0.437 Sharpe; default grid + mixture endog = +0.448
+Sharpe. Gap is **0.011, within noise**. The horizon-aligned-grid +
+fixed-h10 deployment is a comparable, simpler-to-operate
+alternative (no π head, no mixture eval; just train and trade at
+h=10). Not pre-registered as a deployment but documented for the
+next person who picks this up.
+
+**Leaves open**: output-side restructure (per-horizon score heads
+trained on per-horizon rank-IC each, with mixture *over* those
+specialized heads), and target-side intervention (e.g., train π to
+maximize realized Sharpe via REINFORCE-style policy gradient with
+the score head's fixed-h0 deployment as the reward). These are
+genuinely new architectures, not feature-stack swaps.
+
+### Operational rule (updated after horizon-aligned)
+
+**The discrete mixture-of-horizons-IC architecture's deployment
+ceiling on factor-narrow is approximately +0.448 mean endog Sharpe
+(λ=0, default grid, unregularized). Every rescue attempt (entropy
+reg, bilevel return supervision, horizon-aligned feature grid) has
+failed to lift it; all three damage the same fragile working window
+w3 (2015-06-30) in the same pattern.** The architecture is
+information-bounded at this dataset scale, and the binding
+constraint is **the mismatch between rank-IC's training signal and
+Sharpe's deployment metric**, not feature coverage or auxiliary
+regularization.
