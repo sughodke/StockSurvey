@@ -84,3 +84,7 @@ Default eval window unless otherwise stated: 2013-01-29 → 2025-12-11,
 ## Macro / regime
 
 - [Macro regime diagnostic — 5 of 6 macro features predict pivot-arc window outcomes; VIX-above-median = 6× win-rate lift](macro-regime-diagnostic.md)
+
+## Critic app
+
+- [Critic Φ-quality v0 — cross-app window-level value function (confirmed-null; oracle-detection illusion in first pass + true Spearman flips negative when oracle arms dropped)](critic-phi-quality-v0.md)

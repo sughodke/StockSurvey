@@ -468,6 +468,22 @@ def main() -> None:
     out_path.write_text(json.dumps(summary, indent=2, default=str))
     print(f'\n-> {out_path}', flush=True)
 
+    # Per-pair feature dump for downstream consumers (apps/critic v0.1
+    # value-function eval). all_pair_records is `[(w_idx, fv, bt.sharpe), …]`.
+    if all_pair_records:
+        w_idxs = np.array([r[0] for r in all_pair_records], dtype=np.int32)
+        feats = np.stack([np.asarray(r[1], dtype=np.float64)
+                          for r in all_pair_records], axis=0)
+        labels = np.array([r[2] for r in all_pair_records], dtype=np.float64)
+        npz_path = output / 'pairs-predictor-per-pair-records.npz'
+        np.savez(npz_path,
+                 window_idx=w_idxs,
+                 features=feats,
+                 realized_sharpe=labels,
+                 feature_names=np.array(FEATURE_NAMES))
+        print(f'-> {npz_path} ({len(all_pair_records)} per-pair records)',
+              flush=True)
+
 
 if __name__ == '__main__':
     main()

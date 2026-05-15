@@ -62,6 +62,7 @@ pairs = { workspace = true }
 vol = { workspace = true }
 cfr = { workspace = true }
 dca = { workspace = true }
+critic = { workspace = true }
 ss-docs = { workspace = true }
 
 [dependency-groups]

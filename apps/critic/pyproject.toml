@@ -1,0 +1,25 @@
+[project]
+name = "critic"
+version = "0.1.0"
+requires-python = ">=3.10"
+description = "Φ(state, action) → predicted-deployment-Sharpe value function learned from cross-app walk-forward triples."
+dependencies = [
+    "ss-macro",
+    "numpy",
+    "pandas",
+    "scipy",
+    "tinygrad",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/critic"]
+
+[project.scripts]
+ss-critic = "critic.cli:main"
+
+[tool.uv.sources]
+ss-macro = { workspace = true }
