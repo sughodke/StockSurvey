@@ -84,6 +84,7 @@ def train_horizon_walkforward_remote(
     weight_decay: float,
     entropy_weights_csv: str,
     deployment_reward_weights_csv: str,
+    config_variant: str,
     mlp_hidden: int,
     mlp_layers: int,
     commission_bps: float,
@@ -135,8 +136,28 @@ def train_horizon_walkforward_remote(
     )
     from ss_features import TickerData
 
-    cfg = IndicatorGridConfig()
+    # Config variants. `default` is the 2026-05-14 74-channel baseline;
+    # `horizon-aligned` is the 2026-05-15 expansion that adds 30 cells
+    # at periods matching the horizon set {5, 10, 20, 40, 60} (see
+    # TODO/factor-horizon-aligned-grid.md for rationale).
+    if config_variant == 'default':
+        cfg = IndicatorGridConfig()
+    elif config_variant == 'horizon-aligned':
+        cfg = IndicatorGridConfig(
+            rsi_n_grid=(5, 7, 10, 14, 20, 21, 30, 40, 60),
+            rsi_w_grid=(1, 5, 10, 21, 63),
+            cci_n_grid=(10, 14, 20, 40),
+            cci_w_grid=(1, 5, 10, 21),
+            vol_n_grid=(5, 10, 20, 40, 60, 120, 252),
+            macd_fast_grid=(5, 8, 10, 12, 20, 21, 34, 40, 55, 60),
+            coherence_window_grid=(5, 10, 20, 40, 60, 120),
+        )
+    else:
+        raise ValueError(
+            f"unknown config_variant={config_variant!r}; "
+            f"expected 'default' or 'horizon-aligned'")
     F = cfg.feature_width()
+    print(f'  config_variant = {config_variant!r}')
     print(f'  cfg.feature_width() = {F} channels')
 
     horizons = tuple(int(h) for h in horizons_csv.split(','))
@@ -296,6 +317,8 @@ def train_horizon_walkforward_remote(
                 [w.val_pi_argmax_counts[h] for w in res.windows], dtype=np.int32)
         blob['_summary'] = np.array(json.dumps({
             'horizons':             list(horizons),
+            'config_variant':       config_variant,
+            'feature_width':        F,
             'entropy_weight':       alpha,
             'deployment_reward_weight': lam,
             'mean_endog_sharpe':    endog_mean,
@@ -328,11 +351,14 @@ def train_horizon_walkforward_remote(
             'step_window_blocks':   step_window_blocks,
             'wall_seconds':         round(wall, 1),
         }, indent=2))
-        # File-name prefix: bilevel sweep (λ varies) uses
-        # `horizon-bilevel-` so it doesn't collide with the 2026-05-14
-        # entropy sweep's npz/png files. Legacy entropy sweep (λ=0
-        # fixed, α varies) keeps the `horizon-mixture-` prefix.
-        if len(deployment_reward_weights) > 1:
+        # File-name prefix:
+        #   - `horizon-align` for the 2026-05-15 horizon-aligned config sweep
+        #     (regardless of λ/α dims, the config-variant is the load-bearing axis).
+        #   - `horizon-bilevel` for the 2026-05-15 default-config λ sweep.
+        #   - `horizon-mixture` for legacy default-config α-only sweeps.
+        if config_variant == 'horizon-aligned':
+            prefix = 'horizon-align'
+        elif len(deployment_reward_weights) > 1:
             prefix = 'horizon-bilevel'
         else:
             prefix = 'horizon-mixture'
@@ -343,6 +369,8 @@ def train_horizon_walkforward_remote(
         print(f'    -> {npz_path.name}, {plot_path.name}', flush=True)
 
         sweep_summary.append({
+            'config_variant':    config_variant,
+            'feature_width':     F,
             'entropy_weight':    alpha,
             'deployment_reward_weight': lam,
             'mean_endog_sharpe': endog_mean,
@@ -396,23 +424,29 @@ def train_horizon_walkforward_remote(
               'under the discrete mixture-of-horizons-IC + deployment-reward '
               'objective.', flush=True)
 
-    # Bilevel sweeps land their summary at `horizon-bilevel-sweep-summary.json`;
-    # entropy-only sweeps keep the legacy `horizon-mixture-sweep-summary.json`.
-    if len(deployment_reward_weights) > 1:
+    # Sweep summary path keyed by config_variant — horizon-aligned
+    # writes to its own summary so it doesn't overwrite the prior
+    # default-config sweeps' files.
+    if config_variant == 'horizon-aligned':
+        sweep_path = output / 'horizon-align-sweep-summary.json'
+    elif len(deployment_reward_weights) > 1:
         sweep_path = output / 'horizon-bilevel-sweep-summary.json'
     else:
         sweep_path = output / 'horizon-mixture-sweep-summary.json'
     sweep_path.write_text(json.dumps({
-        'sweep_alphas': entropy_weights,
-        'sweep_lambdas': deployment_reward_weights,
-        'arms': sweep_summary,
+        'config_variant': config_variant,
+        'feature_width':  F,
+        'sweep_alphas':   entropy_weights,
+        'sweep_lambdas':  deployment_reward_weights,
+        'arms':           sweep_summary,
     }, indent=2))
     print(f'  -> {sweep_path.name}')
 
     artifacts: dict[str, bytes] = {}
     for p in sorted(output.iterdir()):
         if p.is_file() and (p.name.startswith('horizon-mixture')
-                            or p.name.startswith('horizon-bilevel')):
+                            or p.name.startswith('horizon-bilevel')
+                            or p.name.startswith('horizon-align')):
             artifacts[p.name] = p.read_bytes()
     print(f'\nbundling {len(artifacts)} artifacts')
     return artifacts
@@ -539,6 +573,7 @@ def main(
     weight_decay: float = 1e-3,
     entropy_weights: str = '0.0',
     deployment_reward_weights: str = '0.0',
+    config_variant: str = 'default',
     mlp_hidden: int = 32,
     mlp_layers: int = 1,
     commission_bps: float = 10.0,
@@ -571,6 +606,7 @@ def main(
           f'(horizons={horizons}, n_steps={n_steps}, lr={learning_rate}, '
           f'wd={weight_decay}, entropy_weights={entropy_weights}, '
           f'deployment_reward_weights={deployment_reward_weights}, '
+          f'config_variant={config_variant!r}, '
           f'train/val/step blocks={train_window_blocks}/{val_window_blocks}/'
           f'{step_window_blocks}, max_tickers={max_tickers}, '
           f'min_history_bars={min_history_bars})')
@@ -581,6 +617,7 @@ def main(
         weight_decay=weight_decay,
         entropy_weights_csv=entropy_weights,
         deployment_reward_weights_csv=deployment_reward_weights,
+        config_variant=config_variant,
         mlp_hidden=mlp_hidden,
         mlp_layers=mlp_layers,
         commission_bps=commission_bps,
