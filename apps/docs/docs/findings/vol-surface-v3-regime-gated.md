@@ -210,6 +210,138 @@ capture.
    gate captures even half the +2.86 oracle headroom, fired
    Sharpe lifts to ~+3.4 and PASS is unambiguous.
 
+## v3.1 — composite regime gate (the oracle's headroom is not in simple aggregates)
+
+Pre-registered after the oracle finding above prioritized composite
+regime gates as the highest-value follow-up. Five composite arms +
+the v3 126d baseline + the oracle, all on the same 5 walk-forward
+windows. Two rule-based composites (OR/AND of VIX-126d and
+cross-sectional `iv_over_hv20`-dispersion-126d), two single-feature
+alternatives (dispersion alone, mean-VRP alone), and one learned
+logistic-regression composite on 4 features (VIX, dispersion,
+mean-VRP, VIX-5d-change) trained on per-rebal realized-alpha-sign
+targets.
+
+### Result — `vix-or-disp` PASSES strict pre-reg but at lower Sharpe than baseline
+
+| Arm | Fired α Sh | Full α Sh | Fire rate | Fired-pos | Pre-reg verdict |
+|---|---:|---:|---:|---:|---|
+| vix-126d (v3 baseline) | **+2.01** | +1.13 | 37% | 3/5 | MARGINAL (3/5 < 4/5 strict cut) |
+| disp-126d | +0.10 | +0.07 | 47% | 2/5 | FAIL |
+| mean-vrp-126d | +0.12 | +0.09 | 53% | 3/5 | FAIL |
+| **vix-or-disp** | **+0.39** | **+0.32** | **67%** | **4/5** | **PASS (strict)** |
+| vix-and-disp | +1.21 | +0.51 | 17% | 0/5 | FAIL (out of band) |
+| lr-composite | +0.15 | +0.13 | 77% | 3/5 | FAIL |
+| oracle ceiling | +4.87 | +3.25 | 70% | 4/5 | (hindsight) |
+
+Pre-reg cuts:
+
+- **PASS**: fired-α Sh ≥ +0.30 AND fire-rate ∈ [20%, 80%] AND
+  ≥ 4/5 fired-positive. Only `vix-or-disp` clears all three.
+- **STRONG-PASS**: fired-α Sh ≥ +3.0 (captures ≥ 50% of the +2.86
+  oracle headroom). **No arm clears.**
+
+### Per-window detail
+
+| Win | Val period | vix-126d | disp-126d | vix-or-disp | vix-and-disp | lr-composite | oracle |
+|---:|---|---:|---:|---:|---:|---:|---:|
+| 0 | 2021-01 → 2021-06 | 0.00 (0) | −2.24 (2) | −2.24 (2) | 0.00 (0) | −2.48 (5) | 0.00 (1) |
+| 1 | 2021-06 → 2021-12 | +3.46 (2) | +2.20 (4) | +2.58 (5) | 0.00 (1) | +2.60 (2) | +2.58 (5) |
+| 2 | 2021-12 → 2022-06 | +0.73 (5) | −0.41 (2) | +0.73 (5) | −0.41 (2) | −0.57 (4) | +5.07 (4) |
+| 3 | 2022-06 → 2022-12 | **+6.01 (3)** | 0.00 (1) | **+6.01 (3)** | 0.00 (1) | +4.19 (6) | **+6.42 (5)** |
+| 4 | 2022-12 → 2023-06 | 0.00 (1) | +5.73 (5) | **+5.73 (5)** | 0.00 (1) | +6.50 (6) | +6.50 (6) |
+
+`(n)` = fires in that window. Key pattern:
+
+- **w0 (2021-01, calm-bull)**: `vix-126d` correctly stays out
+  (0 fires); `vix-or-disp` fires twice and loses (−2.24).
+  Dispersion-only arms are exposed to this regime.
+- **w4 (2022-12, recovery)**: `vix-126d` fires once and gets
+  shut out (Sharpe → 0 by single-sample artifact);
+  `vix-or-disp` fires 5× and captures +5.73. **This is the
+  window the OR composite recovers from the baseline.**
+- **w3 (2022-06, post-Fed-pivot)**: `vix-126d`, `vix-or-disp`,
+  and `lr-composite` all capture high alpha (+6.01 / +6.01 /
+  +4.19). The high-fired-Sharpe windows are stable across gate
+  variants.
+
+### The reframe
+
+The composite-gate hypothesis (NOW HIGHEST-VALUE per the oracle)
+was: "VIX + cross-sectional IV dispersion + ..." should capture
+the +2.86 fired-α Sharpe headroom the oracle reveals. The result
+is **mixed**:
+
+- The strict pre-reg PASS bar (4/5 fired-positive) is clearable
+  by a composite (`vix-or-disp`).
+- The STRONG-PASS bar (capture ≥ 50% of oracle headroom) is
+  **not clearable** by any arm tested. The best composite delta
+  vs baseline is `vix-and-disp` at −0.80 fired-Sharpe — every
+  composite is *worse* than `vix-126d` on per-rebal Sharpe.
+- The oracle's signal lives in a feature space that simple
+  cross-sectional aggregates + rolling-median thresholds
+  **do not span**.
+
+Two distinct operational claims emerge:
+
+| Metric | Better arm | Why |
+|---|---|---|
+| Strict pre-reg PASS (operational diversification) | `vix-or-disp` | clears 4/5 fired-positive vs 3/5 for baseline |
+| Per-rebal expected Sharpe (annualized PnL) | `vix-126d` | +2.01 × ~11 fires/yr beats +0.39 × ~20 fires/yr |
+| Capture of oracle headroom | none | architecture's +2.86 headroom remains substantially unreached |
+
+### What this tells us about the oracle
+
+The oracle's +2.86 headroom is **real but not feature-extractable
+from the aggregates tested**. Three plausible explanations
+(ordered by load-bearingness):
+
+1. **The "right" features are time-varying or higher-order**:
+   regime persistence (5-day momentum of dispersion), per-symbol
+   skew dispersion, term-structure inversions, or pre-event
+   indicators. The 4 features in the LR-composite stack are
+   stationary cross-sectional moments — too coarse.
+2. **Sample size limits learning**: 15 train rebals per window
+   is far too few for a 4-feature classifier to extract anything
+   beyond linear marginals. An expanding-window training scheme
+   or a much larger feature stack with strong priors could
+   recover more.
+3. **The oracle's signal is non-Markovian**: fire/skip might
+   depend on the trajectory leading into bar t (e.g.,
+   convergence to a quiet equilibrium → next regime is fragile)
+   that aggregate snapshots can't recover.
+
+### Re-revised arc closure
+
+The v3 partial-OOS verdict still stands. v3.1 adds a small new
+fact: `vix-or-disp` is a deployable operating point with **better
+window diversification** (4/5 fired-positive vs 3/5) at **lower
+per-rebal Sharpe** (+0.39 vs +2.01). Whether to deploy the
+composite over single-VIX depends on whether the user cares more
+about "more positive windows" or "higher mean per-rebal Sharpe".
+
+The **STRONG-PASS bar is not yet achievable** with simple feature
+engineering on the existing predictor + universe. The oracle says
+the architecture has +2.86 of unrealized headroom; closing
+materially more than ~30% of that requires either:
+
+- A **richer feature set** beyond cross-sectional moments
+  (per-symbol dispersion patterns, term-structure features,
+  options-flow indicators).
+- **More training data** (expanding-window classifier across all
+  prior walk-forward windows, or pre-walkforward warmup).
+- A **non-binary gate** (continuous sizing in proportion to
+  predicted alpha magnitude, not just on/off).
+
+None of those is pre-registered as the next experiment; the
+workstream stays at partial-OOS with two operational arms
+(single-VIX-126d and OR-composite) and the live-deployment work
+unblocked under either.
+
+Driver: `apps/vol/scripts/run_walkforward_v3_1_composite.py`
+(local CPU, ~2 min wall, no Modal). Artifacts:
+`Output/vol-walkforward-v3-1-composite-summary.json`.
+
 ## Arc-level synthesis update
 
 Updates the vol-arc-synthesis verdict from "partial-OOS pending v3"
