@@ -296,6 +296,132 @@ Driver: `apps/pairs/scripts/run_oracle_walkforward.py` (local CPU,
 ~10 min wall; reuses v0's screen + backtest, adds 4 oracle arms).
 Artifacts: `Output/pairs-oracle-walkforward-summary.json`.
 
+## v1 predictor follow-up — 7-feature LR captures 5.4% of oracle headroom (2026-05-15)
+
+Pre-registered as the #1 highest-EV pairs follow-up after the oracle
+finding above. Implements the "ML predictor for half-life" path the
+oracle re-prioritized: train a logistic regression on per-pair train-
+time features, predict `P(val Sharpe > 0)`, select pairs above
+threshold.
+
+### Setup
+
+| | |
+|---|---|
+| Features (7) | `log_train_half_life`, `abs_corr`, `log_eg_pvalue`, `abs_hedge_beta`, `train_sharpe` (in-sample v0 strategy Sharpe), `train_pct_in_trade`, `log_train_n_trades` |
+| Target | binary `val Sharpe > 0` |
+| Model | L2-regularized logistic regression (Newton-Raphson, l2=1.0) |
+| Walk-forward | expanding window — window `w` trains on per-pair `(features, label)` from windows `0..w-1` ; window 0 falls back to all-pairs baseline |
+| Selection arms | predictor-thr-0.5 (P ≥ 0.5) ; predictor-top-50 (top 50 by P, matches oracle-top-quartile size) |
+
+### Result — both predictor arms FAIL on strict pre-reg
+
+| Arm | Mean val Sharpe | Pos windows | Verdict |
+|---|---:|---:|---|
+| all-pairs (v0 baseline) | +0.006 | 3/6 | FAIL |
+| **predictor-thr-0.5** | **+0.104** | **5/6** | **FAIL** (mean below +0.50) |
+| **predictor-top-50** | **+0.023** | 4/6 | **FAIL** |
+| oracle-pos | +1.799 | 6/6 | STRONG-PASS |
+| oracle-top-quartile | +2.425 | 6/6 | STRONG-PASS |
+
+Decomposition:
+
+- predictor-thr-0.5 delta vs baseline: **+0.098** (~**5.4%** of the
+  oracle's +1.79 headroom).
+- predictor-top-50 delta vs baseline: **+0.017** (~**0.9%** of headroom).
+- PASS threshold (≥ 28% capture, mean ≥ +0.50): **missed by ~5×**.
+
+### Per-window detail
+
+| Win | Val period | v0 baseline | predictor-thr-0.5 | predictor-top-50 | oracle-pos |
+|---:|---|---:|---:|---:|---:|
+| 0 | 2005-01 → 2008-02 | −1.04 | −1.04 (no LR yet) | −1.23 | +2.17 |
+| 1 | 2008-02 → 2011-03 | +0.76 | +0.32 | +0.35 | +1.50 |
+| 2 | 2011-03 → 2014-04 | **−0.33** | **+0.30** | **+0.68** | +1.33 |
+| 3 | 2014-04 → 2017-05 | +0.56 | +0.56 | +0.31 | +1.25 |
+| 4 | 2017-06 → 2020-07 | +0.14 | +0.29 | −0.09 | +2.27 |
+| 5 | 2020-07 → 2023-08 | **−0.05** | **+0.19** | +0.13 | +2.26 |
+
+The predictor's thr-0.5 arm IS doing something — it lifts 3/6
+windows (w2, w4, w5) above their baseline, including flipping w2
+and w5 from negative to positive. But the lifts are tiny (≤ +0.6
+Sharpe) compared to the oracle's per-window gains (typically
++1.5 to +2.5). predictor-top-50 actively WORSENS w0 (−1.23 vs
+−1.04), w3 (+0.31 vs +0.56), and w4 (−0.09 vs +0.14) — when the
+LR's confidence scores aren't well-calibrated, concentration
+hurts.
+
+### LR diagnostics
+
+| Win | LR mean P | frac P≥0.5 | Notes |
+|---:|---:|---:|---|
+| 1 | 0.586 | 0.795 | trained on 200 prior |
+| 2 | (not logged) | (not logged) | trained on 400 |
+| 3 | 0.729 | **0.990** | trained on 600; over-confident |
+| 4 | 0.577 | 0.820 | trained on 800 |
+| 5 | 0.562 | 0.745 | trained on 1000 |
+
+The LR over-predicts positive: mean P at 0.56–0.73, with 75–99%
+of pairs flagged P ≥ 0.5 in every window. Class imbalance in
+training is mild (~54% positive), so the over-prediction isn't
+structural bias — it's the features simply not discriminating
+well. With most pairs flagged positive, predictor-thr-0.5 ends
+up close to all-pairs, and predictor-top-50 (taking the 50
+highest P scores) is essentially selecting based on the
+features' marginal effects, not on a clean separating boundary.
+
+### Why these 7 features don't work
+
+The features capture *train-window characteristics* of each pair
+(how well the mean-reversion strategy worked in-sample, how
+strongly cointegrated the pair is, how often it would have
+traded). They DON'T capture:
+
+- **Cross-pair relative information** — a pair's `train_sharpe`
+  in isolation tells you it worked in-sample, but says nothing
+  about whether it overfit relative to other pairs.
+- **Forward regime indicators** — a feature that captures
+  "is this pair's training period structurally similar to the
+  upcoming val period" would be more informative than
+  in-sample fit quality.
+- **Stability of the cointegrating relationship** — half-life
+  trajectory (whether half-life is shortening or lengthening
+  through train) is a richer signal than the point estimate.
+- **Beyond-OLS feature interactions** — LR can't capture
+  e.g., "high train_sharpe AND short half-life is overfit, but
+  moderate train_sharpe AND moderate half-life generalizes".
+
+### Re-revised verdict
+
+The earlier oracle finding's verdict re-prioritization stands —
+per-pair selection IS the binding lever, and the +1.79 of
+headroom IS real. But the v1 predictor design **fails** to
+capture it with simple aggregates + LR. The arc state moves to:
+
+| Sub-hypothesis | Test | Verdict |
+|---|---|---|
+| Per-pair oracle clears PASS | Oracle section above | confirmed (+1.80 Sh, 6/6 positive) |
+| 7-feature LR captures ≥ 28% of oracle headroom | This section | **confirmed-null** (captures 5.4%) |
+| The pairs architecture has substantial untapped value | Both above | confirmed at the *oracle* level; **not yet reachable** in real-time |
+
+### What's left (re-prioritized after v1 null)
+
+| Direction | Expected lift vs v1 | Rationale |
+|---|---|---|
+| **Random forest / GBM** on the same 7 features | Modest | nonlinear interactions might help but the feature ceiling is the bigger constraint |
+| **Richer features**: half-life trajectory, cross-pair rank within window, sector relation, term-structure of correlation | Larger | the features need to encode "is this train period structurally similar to val" not just "did the pair work in train" |
+| **Regression target** (val Sharpe magnitude, not sign) + top-K selection | Modest | concentrates on highest-predicted pairs, but only helps if magnitude is more predictable than sign — empirically unclear |
+| **Cross-window features**: predict using both this pair's train stats AND the same pair's val stats from prior windows | Larger | if a pair has historically generalized well, that's strong information; not in v1 |
+
+None of these are pre-registered as next experiments. The +1.79
+oracle ceiling stays on the table as a theoretical maximum but
+no real-time architecture we've tested closes more than 5% of
+it. Workstream paused.
+
+Driver: `apps/pairs/scripts/run_pair_predictor_walkforward.py`
+(local CPU, ~7 min wall). Artifacts:
+`Output/pairs-predictor-walkforward-summary.json`.
+
 ## Master walk-forward log
 
 This row is appended to [`leaderboard.md`](../leaderboard.md) as an
