@@ -139,8 +139,8 @@ def main() -> None:
     print(f'\n{"win":>3s} {"train_dates":>23s} {"val_dates":>23s} '
           f'{"train_R2":>9s} {"val_R2":>8s} {"val_r":>7s} '
           f'{"avg_exp":>7s} {"unc_sh":>7s} {"gat_sh":>7s} '
-          f'{"alpha":>7s} {"flips":>5s}')
-    print('-' * 130)
+          f'{"alpha":>7s} {"o_dd_α":>7s} {"o_day_α":>8s} {"flips":>5s}')
+    print('-' * 152)
     for w_idx, (lo, mid, hi) in enumerate(windows):
         train_X, train_y, train_dates = _slice_window(feat, targ, dates, lo, mid)
         val_X,   val_y,   val_dates   = _slice_window(feat, targ, dates, mid, hi)
@@ -167,6 +167,28 @@ def main() -> None:
             arm_label='gated')
         alpha = gated.sharpe - unc.sharpe
 
+        # --- Oracle arm 1: perfect-DD-predictor (uses realized 20-day
+        # forward DD as the "prediction"; threshold set on train-realized
+        # DDs at the same quantile as the regular arm, so the oracle
+        # answers "what if our predictor had perfect 20-day DD foresight,
+        # with the same threshold methodology?"). No look-ahead in the
+        # threshold itself; only the per-bar gate signal uses future data.
+        oracle_dd_threshold = float(np.quantile(train_y, args.threshold_quantile))
+        oracle_dd_gate = apply_gate(val_y, oracle_dd_threshold, mode=args.gate_mode)
+        oracle_dd_gate_lagged = np.concatenate([[1.0], oracle_dd_gate[:-1]])
+        oracle_dd_arm = evaluate_gated_arm(
+            val_ew, oracle_dd_gate_lagged, val_dates, arm_label='oracle_dd')
+        oracle_dd_alpha = oracle_dd_arm.sharpe - unc.sharpe
+
+        # --- Oracle arm 2: perfect-daily-direction (gate fires iff next
+        # day's EW return is negative; strict upper bound on ANY binary
+        # gate selector regardless of prediction target).
+        oracle_day_gate_effective = np.where(val_ew > 0, 1.0, 0.0)
+        oracle_day_arm = evaluate_gated_arm(
+            val_ew, oracle_day_gate_effective, val_dates,
+            arm_label='oracle_day')
+        oracle_day_alpha = oracle_day_arm.sharpe - unc.sharpe
+
         rows.append({
             'window_idx': w_idx,
             'train_start': str(train_dates[0].date()),
@@ -182,6 +204,12 @@ def main() -> None:
             'unc_sharpe': unc.sharpe,
             'gated_sharpe': gated.sharpe,
             'alpha_sharpe': alpha,
+            'oracle_dd_sharpe': oracle_dd_arm.sharpe,
+            'oracle_dd_alpha': oracle_dd_alpha,
+            'oracle_dd_avg_exposure': oracle_dd_arm.avg_exposure,
+            'oracle_day_sharpe': oracle_day_arm.sharpe,
+            'oracle_day_alpha': oracle_day_alpha,
+            'oracle_day_avg_exposure': oracle_day_arm.avg_exposure,
             'unc_max_dd_pct': unc.max_drawdown_pct,
             'gated_max_dd_pct': gated.max_drawdown_pct,
         })
@@ -191,6 +219,7 @@ def main() -> None:
               f'{pred.train_r2:>+9.4f} {val_r2:>+8.4f} {val_corr:>+7.3f} '
               f'{gated.avg_exposure:>7.3f} {unc.sharpe:>+7.3f} '
               f'{gated.sharpe:>+7.3f} {alpha:>+7.3f} '
+              f'{oracle_dd_alpha:>+7.3f} {oracle_day_alpha:>+8.3f} '
               f'{gated.transition_count:>5d}')
 
     print('\n' + '=' * 96)
@@ -207,6 +236,40 @@ def main() -> None:
     print(f'mean alpha = {mean_alpha:+.3f} Sharpe ; '
           f'positive-alpha windows = {pos_alpha_frac:.2f} '
           f'({int(round(pos_alpha_frac * len(rows)))}/{len(rows)})')
+
+    # Oracle aggregates.
+    mean_oracle_dd_alpha = float(np.mean([r['oracle_dd_alpha'] for r in rows]))
+    pos_oracle_dd_frac = float(np.mean(
+        [r['oracle_dd_alpha'] > 0 for r in rows]))
+    mean_oracle_dd_sh = float(np.mean([r['oracle_dd_sharpe'] for r in rows]))
+    mean_oracle_dd_exp = float(np.mean(
+        [r['oracle_dd_avg_exposure'] for r in rows]))
+    mean_oracle_day_alpha = float(np.mean(
+        [r['oracle_day_alpha'] for r in rows]))
+    pos_oracle_day_frac = float(np.mean(
+        [r['oracle_day_alpha'] > 0 for r in rows]))
+    mean_oracle_day_sh = float(np.mean([r['oracle_day_sharpe'] for r in rows]))
+    mean_oracle_day_exp = float(np.mean(
+        [r['oracle_day_avg_exposure'] for r in rows]))
+    print(f'\nORACLE perfect-DD-predictor (uses realized forward DD, '
+          f'train-realized-DD quantile threshold):')
+    print(f'  mean Sharpe = {mean_oracle_dd_sh:+.3f}  '
+          f'mean alpha = {mean_oracle_dd_alpha:+.3f}  '
+          f'pos-α windows = {pos_oracle_dd_frac:.2f} '
+          f'({int(round(pos_oracle_dd_frac * len(rows)))}/{len(rows)})  '
+          f'avg exposure = {mean_oracle_dd_exp:.3f}')
+    print(f'ORACLE perfect-daily-direction (gate iff next-day EW > 0, '
+          f'strict upper bound on any gate):')
+    print(f'  mean Sharpe = {mean_oracle_day_sh:+.3f}  '
+          f'mean alpha = {mean_oracle_day_alpha:+.3f}  '
+          f'pos-α windows = {pos_oracle_day_frac:.2f} '
+          f'({int(round(pos_oracle_day_frac * len(rows)))}/{len(rows)})  '
+          f'avg exposure = {mean_oracle_day_exp:.3f}')
+    print(f'\nDecomposition: heuristic captures '
+          f'{100*mean_alpha/max(mean_oracle_dd_alpha, 1e-9):.1f}% of '
+          f'perfect-DD-predictor ceiling, '
+          f'{100*mean_alpha/max(mean_oracle_day_alpha, 1e-9):.1f}% of '
+          f'perfect-daily-direction ceiling.')
 
     # Pre-registered cuts (matched to TODO/different-prediction-problem
     # convention).

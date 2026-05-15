@@ -204,6 +204,113 @@ that signal becomes a shippable strategy depends on a v1
 implementation that handles regime shifts and false-positive
 costs, which is a meaningful but not infinite amount of work.
 
+## Hindsight oracles — the predictor is the binding constraint (2026-05-14 followup)
+
+Cross-app oracle diagnostic borrowed from the
+[factor](factor-endogenous-horizon-mixture.md) and
+[vol-v3](vol-surface-v3-regime-gated.md) arcs. Two oracle arms run on
+the same 6 walk-forward windows, same threshold methodology:
+
+1. **Perfect-DD-predictor oracle**: substitute realized 20-day forward
+   drawdown for `val_pred`. Threshold from `np.quantile(train_y,
+   q=0.95)` (train-realized DDs, no peeking at val for the threshold;
+   only the per-bar gate signal uses future data). Answers: "what
+   Sharpe would the gate deliver if the OLS predictor were perfect at
+   this prediction problem?"
+2. **Perfect-daily-direction oracle**: gate fires iff next-day EW
+   return < 0. Strict upper bound on ANY binary gate selector,
+   regardless of prediction target or feature stack.
+
+### Result — DD-oracle clears PASS by +0.29 over the +0.10 cut
+
+| Arm | Mean Sharpe | Mean alpha | Pos-α windows | Avg exposure |
+|---|---:|---:|---:|---:|
+| Unconditional EW (baseline) | +0.773 | — | — | 1.000 |
+| Heuristic binary gate (q=0.95) | +0.840 | **+0.067** | 4/6 | 0.879 |
+| **Perfect-DD-predictor oracle** | **+1.160** | **+0.387** | **6/6** | 0.879 |
+| Perfect-daily-direction oracle | +9.839 | +9.066 | 6/6 | 0.548 |
+
+**The DD-oracle delivers +0.387 alpha with 6/6 positive windows** —
+clears the original pre-reg PASS bar (mean alpha ≥ +0.10 AND ≥ 4/6
+positive) by a wide margin. The heuristic captures **17.2%** of the
+DD-oracle's available alpha. The remaining +0.32 of alpha sits in the
+gap between an OLS predictor and a perfect 20-day-DD predictor.
+
+### Per-window alpha lift (heuristic → DD-oracle)
+
+| Win | Val period | Heuristic α | DD-oracle α | Heuristic capture |
+|---:|---|---:|---:|---:|
+| 0 | 2005-01 → 2008-02 | −0.002 | +0.044 | −5% (negative-capture) |
+| 1 | 2008-02 → 2011-03 (GFC) | +0.321 | +1.365 | 24% |
+| 2 | 2011-03 → 2014-04 | +0.046 | +0.007 | (oracle worse; small sample) |
+| 3 | 2014-04 → 2017-06 | −0.010 | +0.027 | negative-capture |
+| 4 | 2017-06 → 2020-07 (COVID) | +0.015 | **+0.783** | **2%** |
+| 5 | 2020-07 → 2023-08 | +0.030 | +0.097 | 31% |
+
+Window 4 is the clearest finding: the val window covered the 2020
+COVID crash, and the OLS predictor failed to flag it (heuristic alpha
+only +0.015 — barely above noise). With perfect 20-day DD foresight,
+the gate would have flatted into COVID and delivered +0.783 of alpha
+on the same window. **The OLS's failures are not random — they cluster
+at the high-alpha drawdown events the gate is supposed to catch.**
+
+Window 1 (GFC) is the heuristic's best window — yet still captures
+only 24% of the DD-oracle's alpha. Even when the OLS works, there's
+2–4× more alpha available with a better predictor.
+
+### What the DD-oracle ceiling means
+
+The v0 partial-OOS verdict (mean alpha +0.067, 4/6 positive, within
+±0.10 noise band) is **predictor-bound, not architecture-bound**. The
+gate logic (binary, q=0.95 threshold, 1-bar lag) and the prediction
+target (20-day max drawdown) are both fine — the OLS predictor is
+the choke point. Three of the original "Viable v1 directions" listed
+above are predictor-quality interventions (non-linear MLP, better
+features, two-stage classifier+sizing); these become the highest-
+value follow-ups now that the oracle has quantified the available
+headroom at +0.32 mean alpha.
+
+The "regime-conditional gate" direction listed first in the v1
+candidates is **less load-bearing than initially thought** — the
+DD-oracle already has avg_exposure 0.879 (same as heuristic), so
+regime-conditioning the gate-fire decision wouldn't materially
+change exposure dynamics; the alpha gain has to come from
+flipping the gate to OFF on the *right* bars, which is a
+predictor-quality problem.
+
+### Daily-direction-oracle as a framing bound
+
+The +9.066 alpha and 0.548 average exposure of the perfect-daily-
+direction oracle isn't an achievable target — no real predictor
+approaches daily direction with that accuracy. But it bounds the
+theoretical maximum of any binary gate: avoid every negative day,
+keep every positive day. The vast 23× gap between the DD-oracle
+ceiling (+0.387) and the daily-direction ceiling (+9.066) is the
+gap between "20-day-DD prediction with the current gate logic" and
+"any binary gate at all". A different prediction target (predict
+next-day sign, predict 5-day forward return regime, etc.) could in
+principle close some of that gap — but it's a separate research
+question from the predictor-quality lever the DD-oracle isolates.
+
+### Re-prioritized v1 candidates
+
+| Original priority | Direction | Predictor-bound? | Re-prioritized |
+|---|---|---|---|
+| #1 | Regime-conditional gate | No (gate-action lever) | **#4** |
+| #2 | Two-stage classifier + sizing | Yes | **#1** |
+| #3 | Better features | Yes | **#2** |
+| #4 | Non-linear predictor (MLP/RF) | Yes | **#3** |
+
+Pre-reg cuts for a v1 (any predictor-quality follow-up):
+- PASS if mean alpha ≥ +0.20 AND ≥ 5/6 positive windows (i.e., captures
+  ≥ 50% of the DD-oracle's +0.387 alpha)
+- STRONG-PASS if mean alpha ≥ +0.30 AND 6/6 positive (≥ 78% capture)
+
+Driver: `apps/gate/scripts/run_walkforward.py --threshold-quantile 0.95`
+(extended with two oracle arms). Artifacts:
+`Output/gate-walkforward-summary.json` now contains
+`oracle_dd_*` and `oracle_day_*` fields per window.
+
 ## Implication
 
 Per the `partial-OOS` next-move rule: stratify by regime
