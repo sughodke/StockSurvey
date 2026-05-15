@@ -198,6 +198,104 @@ marginal threshold with high prior probability — the binding constraint
 is that pairs alpha is regime-conditional at this universe, and no
 *train-side* gate tested so far identifies the right regimes OOS.
 
+## Hindsight oracle — per-pair selection has +1.79 Sharpe of unrealized headroom (2026-05-14 followup)
+
+Cross-app oracle diagnostic, fourth application after factor + vol + gate.
+The EG-gate falsification above closed `confirmed-null` on
+*train-side regime gating*; this section answers the deeper question
+the closure flagged ("is there ANY gate that lifts above +0.20, or is
+the architecture at its ceiling?"). The answer: **yes, by a huge
+margin**, and the binding constraint is **per-pair selection**, not
+per-window gating or regime classification.
+
+### Setup
+
+Same v0 pipeline (screen → backtest → 1/N aggregate) reproduced on
+six walk-forward windows. Five aggregation arms:
+
+| Arm | Pair selection rule | Decision granularity |
+|---|---|---|
+| `all-pairs` | keep all screened pairs (v0 baseline) | per-window |
+| `oracle-pos-pairs` | keep pairs with realized val Sharpe > 0 | per-pair (cheat) |
+| `oracle-top-half` | top 50% of pairs by realized val Sharpe | per-pair (cheat) |
+| `oracle-top-quartile` | top 25% of pairs | per-pair (cheat) |
+| `window-gate-oracle` | use all pairs iff v0 baseline Sharpe > 0 else 0 | per-window (cheat) |
+
+The oracle arms use realized val Sharpes to select pairs — strict
+hindsight, not deployable. They bound the maximum Sharpe achievable
+by ANY pair selector (heuristic, learned, half-life-based, etc.).
+
+### Result — per-pair oracle clears PASS by 3.6× to 4.9×
+
+| Arm | Mean val Sharpe | Pos windows | Verdict |
+|---|---:|---:|---|
+| `all-pairs` (v0 baseline) | +0.006 | 3/6 | FAIL |
+| **`oracle-pos-pairs`** | **+1.799** | **6/6** | **PASS** |
+| **`oracle-top-half`** | **+1.830** | **6/6** | **PASS** |
+| **`oracle-top-quartile`** | **+2.425** | **6/6** | **PASS** |
+| `window-gate-oracle` | +0.243 | 3/6 | MARGINAL |
+
+Per-window detail (oracle-pos-pairs):
+
+| Win | Period | v0 baseline | oracle-pos-pairs | n_kept / n_screened |
+|---:|---|---:|---:|---|
+| 0 | 2005-01 → 2008-02 (dot-com tail) | **−1.04** | **+2.17** | 116 / 200 |
+| 1 | 2008-02 → 2011-03 (GFC) | +0.76 | +1.50 | 126 / 200 |
+| 2 | 2011-03 → 2014-04 | −0.33 | +1.33 | 109 / 200 |
+| 3 | 2014-04 → 2017-05 | +0.56 | +1.25 | 131 / 200 |
+| 4 | 2017-06 → 2020-07 (COVID) | +0.14 | +2.27 | 113 / 200 |
+| 5 | 2020-07 → 2023-08 | −0.05 | +2.26 | 103 / 200 |
+
+The catastrophic w0 (v0 baseline **−1.04**) has 116/200 positive-Sharpe
+pairs in the oracle universe and posts **+2.17** Sharpe under oracle
+selection. **The pairs that mean-revert in w0 exist — the screening
+admits ~84 bad ones that drag the aggregate negative.**
+
+### What this falsifies in the earlier closure
+
+The EG-gate falsification's framing above (and `pairs-classical-v0`'s
+`confirmed-null` verdict) implicitly treated each window's aggregate
+val Sharpe as an irreducible quantity tied to that window's regime.
+The oracle decomposition shows that framing is wrong:
+
+| Earlier claim | Oracle-corrected claim |
+|---|---|
+| "w0 catastrophic because dot-com cointegration doesn't hold OOS" | **Partly correct**: bad pairs admitted by the screen DON'T hold; but ~58% of screened pairs DO mean-revert in w0 (oracle finds +2.17 Sh). The regime SHIFT is real, but the signal isn't dead — it's just diluted. |
+| "Train-side regime measures (EG-pass count, vol, etc.) can't identify the right OOS windows" | **Still correct**, but reframed: the issue isn't WINDOW-level regime identification — it's PAIR-level half-life prediction. Window-gate-oracle adds only +0.24; the real lever is per-pair filtering. |
+| "Pair-spread mean reversion is not an alpha source on this universe at this horizon" | **Falsified.** Per-pair oracle delivers +1.80 mean Sharpe across all 6 windows. The architecture's ceiling is high; the v0 implementation captures ~0% of it because EG-screening admits far too many bad pairs. |
+
+### Decomposition
+
+| Lever | Headroom available |
+|---|---:|
+| **Per-pair selection** (oracle-pos-pairs vs v0) | **+1.79 Sharpe** |
+| Pair selection refinement (top-half vs pos) | +0.03 (negligible) |
+| Aggressive concentration (top-quartile vs top-half) | +0.60 |
+| Per-window gating (window-gate vs v0) | +0.24 |
+
+**The signal is at the pair level by a factor of ~7.** Train-side
+gates (EG-pass-rate, regime classifiers) operate at the wrong
+granularity entirely.
+
+### Re-prioritized v0.x candidates (per the oracle)
+
+The original "What's left to try" section below ranked:
+
+| Original | Re-prioritized after oracle |
+|---|---|
+| #1 Stop-loss on widening spreads | #3 (low EV — caps downside but doesn't surface positive-Sharpe pairs) |
+| #2 Within-sector restriction | #2 (medium EV — could reduce spurious cross-sector pairs, raising oracle baseline) |
+| **#3 ML predictor for half-life** | **#1 (now highest-EV)** — directly addresses the +1.79 oracle headroom |
+
+Pre-reg cuts for a predictor-quality v1 (any per-pair selector):
+- PASS if mean val Sharpe ≥ +0.50 AND ≥ 4/6 positive windows
+  (captures ≥ 28% of the oracle's +1.80 ceiling).
+- STRONG-PASS if mean ≥ +1.0 AND ≥ 5/6 positive (≥ 55% capture).
+
+Driver: `apps/pairs/scripts/run_oracle_walkforward.py` (local CPU,
+~10 min wall; reuses v0's screen + backtest, adds 4 oracle arms).
+Artifacts: `Output/pairs-oracle-walkforward-summary.json`.
+
 ## Master walk-forward log
 
 This row is appended to [`leaderboard.md`](../leaderboard.md) as an
