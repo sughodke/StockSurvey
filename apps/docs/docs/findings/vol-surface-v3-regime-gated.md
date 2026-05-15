@@ -104,24 +104,111 @@ lookback (different from CFR Phase 4d where 252d was best).
   honest fired-positive count among windows where the gate fired
   ≥ 2 times is 3/4 = 75%).
 
-## What's still untested (v3.x candidates)
+## Hindsight oracle — the gate is the binding constraint (2026-05-14 followup)
 
-1. **MLP head on the regime-gated liquid universe** — v2 #4
-   originally. With 126d gate firing in ~37% of rebals, sample size
-   for MLP training is reduced. Probably modest lift; linear is
-   the right baseline.
-2. **Friction sensitivity on fired-only PnL** — the fired alpha
-   PnL of +0.014 vol pts is ~14× the 100 bps friction threshold.
-   At 500 bps round-trip (illiquid-options worst case) it becomes
-   ~3× friction — still positive but tighter. Worth a sensitivity
-   sweep.
-3. **Live infrastructure (`ss-vol live` + IBKR / Tradier broker
-   adapter)** — gated on this v3 outcome; given MARGINAL, the
-   build-cost calculation is harder to justify than it would
-   have been on PASS.
-4. **Composite regime gate** — VIX + cross-sectional IV
-   dispersion. The vol-surface alpha is conceptually about
-   cross-sectional structure; pure VIX-level may not be optimal.
+Cross-app oracle diagnostic borrowed from the
+[`factor-endogenous-horizon-mixture`](factor-endogenous-horizon-mixture.md)
+arc closure: at each rebal, the gate decision is a binary
+(fire/skip). The hindsight oracle picks fire iff realized
+alpha (gated-pnl − universe-pnl) > 0 — uses future return data;
+strict upper bound on any gate (heuristic or learned).
+
+### Result — oracle clears the PASS bar by a wide margin
+
+| Arm | Pooled fired α Sh | Pooled full α Sh | Fire rate | Fired-pos windows |
+|---|---:|---:|---:|---:|
+| 60d gate | −0.66 | −0.44 | 43% | 2/5 |
+| **126d gate (operational best)** | **+2.01** | +1.13 | 37% | 3/5 |
+| 252d gate | +1.84 | +1.00 | 33% | 2/5 |
+| **Hindsight oracle** | **+4.87** | **+3.25** | **70%** | **4/5** |
+
+The 126d gate captures **~41%** of the oracle's fired-Sharpe
+ceiling (2.01 / 4.87). On the full-panel metric, the oracle
+delivers **2.9×** more (+3.25 vs +1.13). And the oracle's
+**70% fire rate** vs 126d's 37% says the underlying alpha is
+positive on roughly *twice* as many rebals as the VIX-rolling-
+median heuristic recognizes — the heuristic is missing the
+non-VIX-correlated half of positive-alpha rebals.
+
+### Per-window oracle detail
+
+| Win | Val period | n_reb | fired | mean α | full α Sh | fired α Sh |
+|---:|---|---:|---:|---:|---:|---:|
+| 0 | 2021-01 → 2021-06 | 6 | 1 | +0.016 | +1.45 | 0.0 (1 sample) |
+| 1 | 2021-06 → 2021-12 | 6 | 5 | +0.013 | +2.28 | +2.58 |
+| 2 | 2021-12 → 2022-06 | 6 | 4 | +0.041 | +3.16 | +5.07 |
+| 3 | 2022-06 → 2022-12 | 6 | 5 | +0.040 | +4.61 | +6.42 |
+| 4 | 2022-12 → 2023-06 | 6 | 6 | +0.041 | +6.49 | +6.49 |
+
+Oracle fires in 5/5 windows (vs 126d's 4/5); 4/5 cleanly
+positive (vs 3/5). w0's "fired α Sh = 0.0" is a single-sample
+artifact (one rebal → std=0); the rebal itself had positive
+alpha (+0.016).
+
+### What this says about the gate
+
+The 126d heuristic verdict (MARGINAL, 3/5 fired-positive) reads
+very differently in light of the oracle ceiling:
+
+| Question | Answer |
+|---|---|
+| Does the architecture have headroom over 126d? | **Yes, +2.86 fired-Sharpe.** |
+| Is the heuristic the binding constraint? | **Yes** — oracle clears PASS by a wide margin while 126d misses by exactly one window. |
+| Is per-rebal alpha-sign predictable in principle? | **In hindsight yes; question is whether real-time features other than VIX can approximate this.** |
+| Should the arc close `confirmed-OOS` if a learned gate matches oracle? | Yes — clearing 4/5 fired-positive with fired-Sharpe well above +0.30 satisfies pre-reg PASS. |
+
+**Operational rule extracted:** *the v3 partial-OOS verdict
+is gate-bound, not architecture-bound.* The signal the
+predictor produces translates into positive per-rebal alpha at
+roughly 70% of rebals on the top-200 OI universe; the VIX-
+126d heuristic catches just over half of those, with the
+positive-alpha rebals it misses being the ones where alpha
+fires for reasons orthogonal to vol-of-vol (e.g.,
+cross-sectional IV dispersion, post-event drift, term-structure
+inversions).
+
+This **revises the priority** on the v3.x candidates below: the
+**composite regime gate** (item #4) becomes the highest-value
+next experiment, not the lowest. The oracle says there are
++2.86 fired-Sharpe points sitting on the table that any
+deployable gate richer than single-VIX-state could in principle
+capture.
+
+## What's still untested (v3.x candidates — re-prioritized after oracle)
+
+1. **Composite regime gate (NOW HIGHEST-VALUE per the oracle).**
+   VIX + cross-sectional IV dispersion + maybe a vol-of-vol or
+   term-structure-inversion feature. The oracle shows +2.86
+   fired-Sharpe of unrealized lift is available — at minimum
+   half of it is plausibly recoverable by a richer gate than
+   single-VIX-state. Test design: train a binary logistic-
+   regression / GBM on per-rebal features (VIX, cross-sectional
+   IV dispersion, IV skew, term-structure slope) against the
+   realized-positive-alpha-or-not target. Evaluate gate-fired
+   alpha Sharpe + fire rate + fired-positive window count
+   against 126d-baseline.
+2. **Per-rebal alpha-magnitude predictor.** Instead of binary
+   gate, predict expected alpha magnitude at each rebal and
+   size proportionally (or deploy iff predicted alpha > τ).
+   Closer to the original v0/v1 architecture but at the
+   per-rebal-deployment-decision granularity.
+3. **MLP head on the regime-gated liquid universe** — v2 #4
+   originally. With 126d gate firing in ~37% of rebals, sample
+   size for MLP training is reduced. Probably modest lift;
+   linear is the right baseline. Reprioritized below the gate
+   work above.
+4. **Friction sensitivity on fired-only PnL** — the fired
+   alpha PnL of +0.014 vol pts is ~14× the 100 bps friction
+   threshold. At 500 bps round-trip (illiquid-options worst
+   case) it becomes ~3× friction — still positive but tighter.
+   Worth a sensitivity sweep.
+5. **Live infrastructure (`ss-vol live` + IBKR / Tradier
+   broker adapter)** — gated on this v3 outcome; given
+   MARGINAL by strict pre-reg, the build-cost calculation
+   becomes worth re-evaluating now that the oracle has
+   established the architecture's true ceiling. If a composite
+   gate captures even half the +2.86 oracle headroom, fired
+   Sharpe lifts to ~+3.4 and PASS is unambiguous.
 
 ## Arc-level synthesis update
 

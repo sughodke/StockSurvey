@@ -154,9 +154,13 @@ def main() -> None:
         print(f'  lookback {lb}d: {fire_total}/{total} dates fire '
               f'({100*fire_total/total:.0f}%)', flush=True)
 
-    # Run walk-forward, gating per rebal
+    # Run walk-forward, gating per rebal. Cache per-window (g_map, u_map,
+    # common) on the first lookback's iteration so the oracle arm
+    # (hindsight; gate = realized alpha > 0) can reuse them without
+    # retraining the predictor.
+    per_window_cache: list[dict] = []
     summary_by_lookback = {}
-    for lookback in args.gate_lookback_sweep:
+    for lb_idx, lookback in enumerate(args.gate_lookback_sweep):
         gate = gates_by_lookback[lookback]
         print(f'\n{"=" * 124}\nGATE: VIX > {lookback}d rolling median\n{"=" * 124}',
               flush=True)
@@ -206,6 +210,17 @@ def main() -> None:
             u_map = dict(zip(universe_arm.per_rebal_dates,
                              universe_arm.per_rebal_pnl_vol_points))
             common = sorted(set(g_map) & set(u_map))
+            # Cache once (on the first lookback's pass) for the oracle arm.
+            if lb_idx == 0:
+                per_window_cache.append({
+                    'window_idx': w_idx,
+                    'val_start': str(ts_va_lo.date()),
+                    'val_end':   str(ts_va_hi.date()),
+                    'val_r':     val_corr,
+                    'common':    list(common),
+                    'g_pnl':     [g_map[d] for d in common],
+                    'u_pnl':     [u_map[d] for d in common],
+                })
 
             # Gate each rebal date
             fired_g, fired_u, fired_dates = [], [], []
@@ -301,6 +316,100 @@ def main() -> None:
             'total_windows': n_total,
             'per_window': per_window,
         }
+
+    # Oracle arm — gate fires iff realized alpha > 0 per rebal.
+    # Strict hindsight upper bound on any gate (heuristic or learned).
+    # Reuses per-window cache; no predictor retrain.
+    print(f'\n{"=" * 124}\nGATE: ORACLE (hindsight; fire iff realized alpha > 0)\n{"=" * 124}',
+          flush=True)
+    print(f'{"win":>3s} {"val period":>25s} {"val r":>7s} '
+          f'{"n_reb":>5s} {"fired":>5s} '
+          f'{"fired gPnL":>11s} {"fired uPnL":>11s} {"fired α":>9s} '
+          f'{"full α Sh":>10s} {"fired α Sh":>11s}', flush=True)
+    print('-' * 124, flush=True)
+    per_window_oracle: list[dict] = []
+    full_panel_alpha_oracle: list[float] = []
+    fired_only_alpha_oracle: list[float] = []
+    ann = float(np.sqrt(252.0 / args.rebal_days))
+    for w in per_window_cache:
+        common = w['common']
+        g_pnls = w['g_pnl']
+        u_pnls = w['u_pnl']
+        fired_g, fired_u, fired_dates = [], [], []
+        full_g, full_u = [], []
+        for d, g, u in zip(common, g_pnls, u_pnls):
+            alpha = g - u
+            if alpha > 0:
+                fired_g.append(g)
+                fired_u.append(u)
+                fired_dates.append(d)
+                full_g.append(g)
+                full_u.append(u)
+            else:
+                full_g.append(u)
+                full_u.append(u)
+        fired_alpha = [g - u for g, u in zip(fired_g, fired_u)]
+        full_alpha  = [g - u for g, u in zip(full_g, full_u)]
+        if len(fired_alpha) > 1:
+            a = np.asarray(fired_alpha, dtype=float)
+            sd = float(a.std(ddof=1))
+            fired_alpha_sh = (a.mean() / sd * ann) if sd > 1e-12 else 0.0
+        else:
+            fired_alpha_sh = 0.0
+        if len(full_alpha) > 1:
+            a = np.asarray(full_alpha, dtype=float)
+            sd = float(a.std(ddof=1))
+            full_alpha_sh = (a.mean() / sd * ann) if sd > 1e-12 else 0.0
+        else:
+            full_alpha_sh = 0.0
+        per_window_oracle.append({
+            'window_idx': w['window_idx'],
+            'val_start':  w['val_start'],
+            'val_end':    w['val_end'],
+            'val_r':      w['val_r'],
+            'n_rebals_total': len(common),
+            'n_rebals_fired': len(fired_dates),
+            'fire_rate':      (len(fired_dates) / len(common)) if common else 0.0,
+            'fired_mean_alpha_pnl': float(np.mean(fired_alpha)) if fired_alpha else 0.0,
+            'full_mean_alpha_pnl':  float(np.mean(full_alpha))  if full_alpha  else 0.0,
+            'fired_alpha_sharpe':   fired_alpha_sh,
+            'full_alpha_sharpe':    full_alpha_sh,
+            'fired_dates':          fired_dates,
+        })
+        full_panel_alpha_oracle.extend(full_alpha)
+        fired_only_alpha_oracle.extend(fired_alpha)
+        fpnl_g = float(np.mean(fired_g)) if fired_g else 0.0
+        fpnl_u = float(np.mean(fired_u)) if fired_u else 0.0
+        fpnl_a = float(np.mean(fired_alpha)) if fired_alpha else 0.0
+        print(f'{w["window_idx"]:>3d} {w["val_start"]}→{w["val_end"]} '
+              f'{w["val_r"]:>+7.4f} {len(common):>5d} {len(fired_dates):>5d} '
+              f'{fpnl_g:>+11.4f} {fpnl_u:>+11.4f} {fpnl_a:>+9.4f} '
+              f'{full_alpha_sh:>+10.3f} {fired_alpha_sh:>+11.3f}', flush=True)
+
+    a_full_o = np.asarray(full_panel_alpha_oracle, dtype=float)
+    a_fired_o = np.asarray(fired_only_alpha_oracle, dtype=float)
+    full_pooled_sh_o = (a_full_o.mean() / a_full_o.std(ddof=1) * ann
+                        if a_full_o.size > 1 and a_full_o.std(ddof=1) > 1e-12 else 0.0)
+    fired_pooled_sh_o = (a_fired_o.mean() / a_fired_o.std(ddof=1) * ann
+                         if a_fired_o.size > 1 and a_fired_o.std(ddof=1) > 1e-12 else 0.0)
+    n_pos_fired_o = sum(1 for w in per_window_oracle if w['fired_alpha_sharpe'] > 0)
+    n_with_fires_o = sum(1 for w in per_window_oracle if w['n_rebals_fired'] >= 2)
+    overall_fire_rate_o = (a_fired_o.size / a_full_o.size if a_full_o.size else 0.0)
+    print(f'\n  ORACLE pooled fired-only alpha Sharpe = {fired_pooled_sh_o:+.3f}', flush=True)
+    print(f'  ORACLE pooled full-panel alpha Sharpe = {full_pooled_sh_o:+.3f}', flush=True)
+    print(f'  ORACLE overall fire rate = {overall_fire_rate_o*100:.1f}%',
+          flush=True)
+    print(f'  ORACLE fired-positive windows = {n_pos_fired_o}/{len(per_window_oracle)}',
+          flush=True)
+    summary_by_lookback['oracle'] = {
+        'pooled_fired_alpha_sharpe': fired_pooled_sh_o,
+        'pooled_full_alpha_sharpe':  full_pooled_sh_o,
+        'overall_fire_rate':         overall_fire_rate_o,
+        'fired_positive_windows':    n_pos_fired_o,
+        'windows_with_fires':        n_with_fires_o,
+        'total_windows':             len(per_window_oracle),
+        'per_window':                per_window_oracle,
+    }
 
     # Headline verdict
     headline_lb = args.gate_lookback_headline
