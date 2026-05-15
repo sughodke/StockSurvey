@@ -530,16 +530,165 @@ regularization rescue); and the regime-gated horizon closure
 [`confirmed-null`](../leaderboard.md#verdict-labels) on
 hand-engineered VIX-state horizon selection, plus the
 score-head-specialization reframe that closes the full arc).
+Plus the 2026-05-15 bilevel-objective sweep (verdict
+[`confirmed-null`](../leaderboard.md#verdict-labels) on direct
+deployment-return supervision for π — see "Bilevel objective"
+section below).
+
 Artifacts:
 `Output/horizon-mixture-{a0,a0p05,a0p1,a0p2,a0p3}-{windows.npz, comparison.png}`,
 `Output/horizon-mixture-sweep-summary.json`,
-`Output/horizon-regime-gated-windows.npz`. Reproduce:
+`Output/horizon-regime-gated-windows.npz`,
+`Output/horizon-bilevel-{lam0,lam0p25,lam0p5,lam1,lam2}-{windows.npz, comparison.png}`,
+`Output/horizon-bilevel-sweep-summary.json`. Reproduce:
 
 ```bash
 # Mixture + entropy sweep (Modal T4)
 uvx --from modal modal run apps/factor/scripts/modal/horizon_mixture.py \\
     --entropy-weights '0.0,0.05,0.1,0.2,0.3'
 
+# Bilevel deployment-reward sweep (Modal T4)
+uvx --from modal modal run apps/factor/scripts/modal/horizon_mixture.py \\
+    --deployment-reward-weights '0.0,0.25,0.5,1.0,2.0'
+
 # Regime-gated horizon (local CPU)
 uv run python apps/factor/scripts/horizon_regime_gated.py
 ```
+
+## Bilevel objective — direct deployment-return supervision for π (2026-05-15)
+
+After the entropy sweep closed `confirmed-null` on the
+regularization rescue and the regime-gated horizon closed
+`confirmed-null` on hand-engineered VIX state, the natural
+remaining lever was **changing the loss function** so π gets
+deployment-aware supervision instead of just rank-IC.
+
+### Hypothesis
+
+Decouple the two heads' training signal:
+
+```
+L = -mean_t Σ_k π_t[k] · IC_k_t / std_detached(IC)               ← scores + π
+    -λ · mean_t Σ_k π_t[k] · ret_k_t / std_detached(ret)         ← only π (scores detached)
+```
+
+where `ret_k_t = (centered_scores_detached · fwd_log_return_k · mask_k).mean / horizon_k - commission_frac / horizon_k`.
+
+Score head retains rank-IC's stability; π head sees per-day
+realized portfolio return as additional supervision. Both terms
+per-batch std-normalized (detached, so it's a pure scale factor in
+the gradient) so λ is a dimensionless balance. Pre-registration in
+[`TODO/factor-bilevel-horizon-objective`](../TODO/factor-bilevel-horizon-objective.md).
+
+Pre-registered cuts: PASS Δ-fix ≥ +0.10 AND ≥ 5/6 positive windows;
+MARGINAL Δ-fix ≥ +0.07 AND ≥ 4/6 positive; FAIL otherwise.
+
+### Results (factor-narrow, h_min=5, 6-window walk-forward)
+
+| α | λ | mean endog | best-fix(h=60) | **Δ-fix** | Δ-rand | H(π) | argmax shares | verdict |
+|---:|---:|---:|---:|---:|---:|---:|---|---|
+| 0 | 0.0 | +0.448 | +0.401 | **+0.048** | +0.119 | 0.11 | h=60: 80% | `partial-OOS` |
+| 0 | 0.25 | +0.453 | +0.405 | +0.047 | +0.126 | 0.12 | h=60: 78% | `partial-OOS` |
+| 0 | 0.5 | +0.426 | +0.405 | +0.021 | +0.102 | 0.13 | h=60: 79% | `partial-OOS` |
+| 0 | 1.0 | +0.409 | +0.400 | +0.009 | +0.097 | 0.15 | h=60: 76% | `partial-OOS` |
+| 0 | 2.0 | +0.401 | +0.401 | +0.000 | +0.054 | 0.27 | h=60: 65% | `partial-OOS` |
+
+**Δ-fix monotone-decreases as λ rises**. λ=0.25 ties baseline within
+noise; every higher λ actively hurts. No arm clears the +0.07
+MARGINAL cut.
+
+Per-window Δ-vs-best-fixed detail:
+
+| window | val_start | λ=0 | λ=0.25 | λ=0.5 | λ=1 | λ=2 |
+|---:|:---|---:|---:|---:|---:|---:|
+| 0 | 2005-11-15 | -0.371 | -0.380 | -0.392 | -0.411 | -0.337 |
+| 1 | 2008-12-24 | 0.000 | 0.000 | 0.000 | -0.002 | -0.009 |
+| 2 | 2012-03-22 | -0.065 | -0.087 | -0.103 | -0.104 | -0.069 |
+| 3 | 2015-06-30 | **+0.021** | +0.011 | -0.138 | -0.174 | **-0.282** |
+| 4 | 2018-10-08 | -0.011 | -0.013 | -0.005 | -0.010 | -0.018 |
+| 5 | 2022-01-13 | +0.021 | +0.015 | +0.034 | +0.024 | +0.025 |
+| pos_Δ | — | 2/6 | 2/6 | 1/6 | 1/6 | 1/6 |
+
+**Verdict: FAIL → [`confirmed-null`](../leaderboard.md#verdict-labels)**
+per pre-reg. The bilevel objective does NOT lift Δ-fix above the
+existing entropy-zero baseline.
+
+### Why this matters (mechanism)
+
+The per-window detail tells the whole story. **w3 (2015-06-30 era)
+is the only window where the unregularized mixture meaningfully
+won over best-fixed (+0.021 over h=60).** Both rescue attempts
+broke that same window in the same way:
+
+- Entropy sweep (2026-05-14): w3 dropped from +0.84 (α=0) → +0.66
+  at α=0.05 — forced higher entropy replaced good selections with
+  worse ones.
+- Bilevel sweep (2026-05-15): w3 Δ-fix dropped from +0.021 (λ=0) →
+  -0.282 at λ=2 — return-noise overrode the IC-based selection
+  that was working.
+
+**Both rescues hurt the working window most.** The architecture's
+ability to do state-conditional horizon mixing on factor-narrow is
+fragile — it only emerges at the cleanest noise level (rank-IC
+alone, no entropy reg, no return supervision). Any signal injected
+into π's training that isn't perfectly aligned with rank-IC's
+direction degrades that fragile state-conditional skill.
+
+The deployment-return signal IS structurally noisier than rank-IC
+at this dataset scale: per-bar rank-IC aggregates over ~150-200
+ticker rank-correlations, while per-day score-weighted return at
+horizon k is one scalar per (bar, k) cell. The supervision-signal
+SNR ratio is structural, not tunable by hyperparameter.
+
+### What the entropy growth tells us
+
+H(π) climbs from 0.11 (λ=0) → 0.27 (λ=2). The deployment-return
+term acts as a stochastic regularizer on π's concentration. At
+λ=2, the policy is meaningfully more diffuse but the redistribution
+is mostly between h=60 and h=40 — short horizons (h=5, 10, 20)
+stay near-zero across all arms. The bilevel signal can't open up
+the short-horizon part of the action space the oracle showed
+should win 49% of the time (h=5: 27%, h=10: 22% from the
+2026-05-14 oracle diagnostic).
+
+### What this closes vs leaves open
+
+**Closes**: the cheap version of "give π a deployment-aware
+training signal" — per-day score-weighted return as a regularizer
+on rank-IC. The framing is `confirmed-null` on this dataset +
+this feature stack.
+
+**Doesn't close**:
+
+- Heavier deployment-aware loss: full softmax-top-N portfolio +
+  proper commission accounting at training time. Roughly 5-10×
+  more expensive per step. If the issue is "the per-day
+  approximation is too crude", this fixes it; if the issue is
+  "the score head's per-bar information at h=5/10/20 is just
+  insufficient" (which the oracle diagnostic implies), this won't
+  help.
+- Different score-head features. The factor-narrow + 74-channel
+  IndicatorGridConfig stack is what's information-bounded. CWT
+  bundle / polar Morlet / SSL-pretrained backbone are other
+  feature stacks that would shift the per-horizon IC distribution.
+- Per-bar trailing-IC-by-horizon as a real-time selector. Not
+  pre-registered yet but the closest cousin to the bilevel idea
+  that doesn't require autograd.
+
+### Operational rule
+
+**For the discrete mixture-of-horizons-IC architecture on
+factor-narrow: train π with rank-IC alone, no regularization.**
+Both entropy reg AND deployment-return supervision degrade the
+single working window (w3). The +0.048 Δ-fix baseline from the
+2026-05-14 row stands as the canonical result; everything tried
+since either ties or hurts it.
+
+The bilevel framing's CONCEPT is sound — "train each head with
+the loss that matches the decision it makes" generalizes cleanly
+across multi-head architectures in the codebase. The empirical
+falsification is specifically about *per-day raw return as the
+π supervision signal* on *this dataset scale*. A heavier
+deployment-aware loss on a *larger dataset* (e.g., per-rebal data
+across more years, or a different universe with more bars per
+horizon) might still pass.

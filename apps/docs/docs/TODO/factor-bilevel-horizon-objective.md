@@ -1,8 +1,48 @@
 # `apps/factor` — bilevel horizon objective (IC for score head, deployment reward for π)
 
-**Status**: pre-registered 2026-05-15. Sweep not yet run.
+## Closed 2026-05-15
 
-## Hypothesis
+[`confirmed-null`](../leaderboard.md#verdict-labels) on the
+bilevel-rescue hypothesis. Sweep λ ∈ {0, 0.25, 0.5, 1.0, 2.0} ran on
+Modal T4 (~50 min wall, ~$0.30). Best Δ-fix is +0.048 at λ=0 (the
+existing 2026-05-14 entropy-zero baseline); Δ-fix monotone-decreases
+as λ rises (+0.047 → +0.000 across the sweep). No arm clears the
++0.07 MARGINAL cut or the +0.10 PASS cut.
+
+**What was falsified**: per-day score-weighted realized return as a
+supervision signal for the horizon head. The deployment-return signal
+is structurally noisier than rank-IC at this dataset scale (per-bar
+rank-IC aggregates ~150-200 ticker correlations; per-day return is one
+scalar per cell) — the SNR ratio is not hyperparameter-tunable.
+
+**What this leaves open**: not the bilevel framing per se — that
+generalizes cleanly across multi-head architectures. The empirical
+falsification is specifically about *raw per-day return* on *this
+dataset scale*. Heavier deployment-aware losses (full softmax-top-N
+portfolio + commission accounting at training time, ~5-10× more
+expensive per step), different score-head features (CWT bundle, polar
+Morlet, SSL backbone), or per-bar trailing-IC-by-horizon as a
+real-time selector each remain orthogonal levers. None pre-registered.
+
+See the extended findings page
+[`factor-endogenous-horizon-mixture`](../findings/factor-endogenous-horizon-mixture.md)
+("Bilevel objective" section) for the per-λ table, per-window
+stratification, and the mechanism diagnostic (both entropy reg and
+bilevel return-supervision hurt the same single working window w3
+most — the architecture's state-conditional skill is fragile to any
+signal injected into π's training that isn't aligned with rank-IC).
+
+Leaderboard row: 2026-05-15 bilevel-horizon-objective sweep
+(`confirmed-null` on the rescue hypothesis).
+
+---
+
+## Original pre-registration (preserved for the record)
+
+**Status at time of writing**: pre-registered 2026-05-15. Sweep not
+yet run.
+
+### Hypothesis
 
 The factor endogenous-horizon mixture's score head is trained on
 rank-IC (well-behaved, stable, established) and the horizon head π

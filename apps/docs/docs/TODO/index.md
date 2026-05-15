@@ -10,7 +10,6 @@ Active backlog for the StockSurvey monorepo. Each section from the original
 
 ## Research threads
 
-- [`apps/factor` — bilevel horizon objective (IC for score head, deployment reward for π) — pre-registered 2026-05-15](factor-bilevel-horizon-objective.md)
 - [`apps/cfr` — Deep CFR meta-allocator over existing scorers](apps-cfr.md)
 - [Factor sizing-input reframe — re-purpose apps/factor as a meta-gate input](factor-sizing-input-reframe.md)
 - [Ablation — disentangle why long-period RSI underperforms](rsi-long-period-ablation.md)
@@ -36,6 +35,7 @@ Active backlog for the StockSurvey monorepo. Each section from the original
 - [`apps/vol` v0 — resolved 2026-05-10, `inconclusive` (5/5 pos)](apps-vol.md)
 - [Factor endogenous-horizon entropy-weight sweep — resolved 2026-05-14, `confirmed-null` on rescue hypothesis; see extended [`factor-endogenous-horizon-mixture`](../findings/factor-endogenous-horizon-mixture.md)](factor-horizon-entropy-reg.md)
 - [`apps/critic` Φ value function — resolved 2026-05-15, `confirmed-null` on both v0 (cross-app window-level) and v0.1 (pair-level rescue); see [`critic-phi-quality-v0`](../findings/critic-phi-quality-v0.md)](critic-phi-value-function.md)
+- [Factor bilevel horizon objective — resolved 2026-05-15, `confirmed-null` on deployment-return supervision rescue; see extended [`factor-endogenous-horizon-mixture`](../findings/factor-endogenous-horizon-mixture.md) under "Bilevel objective"](factor-bilevel-horizon-objective.md)
 
 ## Superseded
 
