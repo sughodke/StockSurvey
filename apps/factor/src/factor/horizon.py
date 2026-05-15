@@ -354,9 +354,144 @@ def simulate_fixed_horizon_daily_pnl(
     )
 
 
+def simulate_oracle_daily_pnl(
+    scores: np.ndarray,
+    mask: np.ndarray,
+    daily_log_ret: np.ndarray,
+    rebal_idx: np.ndarray,
+    horizons: tuple[int, ...],
+    *,
+    daily_start: int,
+    daily_end: int,
+    commission_bps: float = 10.0,
+    temperature: float = 1.0,
+) -> IrregularRunResult:
+    """Hindsight greedy oracle for horizon choice — strict upper bound on
+    any real-time selector.
+
+    At each rebal bar `t` (conditioned on the oracle's own `prev_w`):
+      1. Compute `w_t = softmax(scores_t)` over `mask_t`.
+      2. For each candidate horizon `h_k`, look ahead and compute
+         per-day realized net return:
+            `r_pd_k = (w_t · sum(daily_log_ret[t:t+h_k]) − cost_t) / h_k`
+         where `cost_t = 0.5 · commission_frac · L1(w_t − prev_w_t)` is
+         the (one-shot, horizon-independent) cost of rebalancing at t.
+      3. Pick `h_chosen = horizons[argmax_k r_pd_k]`.
+      4. Hold `w_t` for `h_chosen` days; advance.
+
+    Uses future return data (`daily_log_ret[t:t+h_k]`) — this is cheating
+    in real-time terms. The oracle's resulting Sharpe is the upper
+    bound on *any* deployed horizon-selector (heuristic, learned, or
+    otherwise) at this universe + score head + cost structure.
+
+    Caveat: this is the greedy oracle (myopic, per-bar argmax), not the
+    full-DP optimum. The greedy oracle is a strict *lower bound* on
+    the true optimal — it doesn't reason about how today's horizon
+    choice constrains the next rebal's turnover cost. If greedy
+    doesn't beat fixed-h_max by the falsification threshold, the true
+    optimal is at most marginally better.
+    """
+    if daily_end <= daily_start:
+        raise ValueError(
+            f'daily_end={daily_end} must be > daily_start={daily_start}')
+    n_bars, N = scores.shape
+    D = daily_log_ret.shape[0]
+    if daily_end > D:
+        raise ValueError(
+            f'daily_end={daily_end} exceeds daily_log_ret length {D}')
+    commission_frac = commission_bps / 1e4
+    horizons_arr = np.asarray(horizons, dtype=np.int64)
+    K = len(horizons)
+
+    n_val_days = daily_end - daily_start
+    daily_pnl = np.zeros(n_val_days, dtype=np.float64)
+
+    bar_pool = np.where(
+        (rebal_idx >= daily_start) & (rebal_idx < daily_end))[0]
+    if len(bar_pool) == 0:
+        return IrregularRunResult(
+            daily_pnl=daily_pnl, rebal_log=[],
+            sharpe=0.0, mean_holding_days=0.0,
+            n_rebals=0, avg_turnover=0.0)
+
+    rebal_log: list[tuple[int, int, int]] = []
+    turnover_acc = 0.0
+    prev_w = np.zeros(N, dtype=np.float64)
+    d = int(rebal_idx[bar_pool[0]])
+    while d < daily_end:
+        b_candidates = np.where(rebal_idx[bar_pool] >= d)[0]
+        if len(b_candidates) == 0:
+            if np.any(prev_w):
+                tail_days = np.arange(d, daily_end) - daily_start
+                tail_ret = daily_log_ret[d:daily_end] @ prev_w
+                daily_pnl[tail_days] += tail_ret
+            break
+        b = int(bar_pool[b_candidates[0]])
+        if rebal_idx[b] > d:
+            gap_end = min(int(rebal_idx[b]), daily_end)
+            if gap_end > d and np.any(prev_w):
+                gap_days = np.arange(d, gap_end) - daily_start
+                seg_ret = daily_log_ret[d:gap_end] @ prev_w
+                daily_pnl[gap_days] += seg_ret
+            d = int(rebal_idx[b])
+            if d >= daily_end:
+                break
+
+        w = _softmax_weights(scores[b:b + 1], mask[b:b + 1], temperature)[0]
+        delta = w - prev_w
+        one_sided_l1 = 0.5 * np.abs(delta).sum() if np.any(prev_w) else (
+            np.abs(w).sum())
+        cost = commission_frac * one_sided_l1
+
+        # Hindsight per-day net return for each candidate horizon.
+        per_day_net = np.full(K, -np.inf, dtype=np.float64)
+        for k, h_k in enumerate(horizons_arr):
+            seg_end = min(d + int(h_k), daily_end)
+            actual_h = seg_end - d
+            if actual_h <= 0:
+                continue
+            # `daily_log_ret[d:seg_end] @ w` is (actual_h,) per-day
+            # portfolio log return; sum gives total over the holding.
+            realized = float((daily_log_ret[d:seg_end] @ w).sum())
+            per_day_net[k] = (realized - cost) / actual_h
+
+        k_star = int(np.argmax(per_day_net))
+        h_chosen = int(horizons_arr[k_star])
+
+        # Pay cost on day d.
+        day_idx = d - daily_start
+        if 0 <= day_idx < n_val_days:
+            daily_pnl[day_idx] -= cost
+        turnover_acc += one_sided_l1
+        rebal_log.append((b, d, h_chosen))
+
+        seg_end = min(d + h_chosen, daily_end)
+        if seg_end > d:
+            seg_days = np.arange(d, seg_end) - daily_start
+            daily_pnl[seg_days] += daily_log_ret[d:seg_end] @ w
+        prev_w = w
+        d = seg_end
+
+    if daily_pnl.size < 2:
+        sharpe = 0.0
+    else:
+        mu = float(daily_pnl.mean())
+        sd = float(daily_pnl.std())
+        sharpe = (mu / sd * (TRADING_DAYS ** 0.5)) if sd > 1e-12 else 0.0
+    n_rebals = len(rebal_log)
+    mean_h = (sum(h for _, _, h in rebal_log) / n_rebals) if n_rebals else 0.0
+    avg_to = (turnover_acc / n_rebals) if n_rebals else 0.0
+    return IrregularRunResult(
+        daily_pnl=daily_pnl, rebal_log=rebal_log,
+        sharpe=sharpe, mean_holding_days=mean_h,
+        n_rebals=n_rebals, avg_turnover=avg_to,
+    )
+
+
 __all__ = [
     'IrregularRunResult',
     'simulate_irregular_daily_pnl',
     'simulate_fixed_horizon_daily_pnl',
+    'simulate_oracle_daily_pnl',
     'TRADING_DAYS',
 ]

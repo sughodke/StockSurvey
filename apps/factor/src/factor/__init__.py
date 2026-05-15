@@ -59,6 +59,7 @@ from factor.horizon import (
     IrregularRunResult,
     simulate_fixed_horizon_daily_pnl,
     simulate_irregular_daily_pnl,
+    simulate_oracle_daily_pnl,
 )
 from factor.indicator_features import (
     IndicatorGridConfig, build_indicator_features, load_ticker_indicators,
@@ -133,6 +134,7 @@ __all__ = [
     'predict',
     'simulate_fixed_horizon_daily_pnl',
     'simulate_irregular_daily_pnl',
+    'simulate_oracle_daily_pnl',
     'train_scorer',
     'train_scorer_horizon_walkforward',
     'train_scorer_indicators',

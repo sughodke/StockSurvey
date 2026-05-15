@@ -350,60 +350,171 @@ The mixture's α=0 score head is implicitly trained at h≈60 (where
 fixed-h60 deployment** than a vanilla h=5-trained head.
 
 That ~+0.18 gap is the **score-head specialization effect**. It
-recovers what was previously attributed to "the mixture chose
-horizons cleverly". The mixture's +0.05 lift over its own
+recovers part of what was previously attributed to "the mixture
+chose horizons cleverly". The mixture's +0.05 lift over its own
 best-fixed baseline in the original
-[partial-OOS row](../leaderboard.md#master-table) sits inside the
-+0.18 specialization gap. Most of the architecture's value comes
-from *training the score head for the deployment horizon*, not from
-*picking horizons at deployment time*.
+[partial-OOS row](../leaderboard.md#master-table) was provisionally
+read as entirely score-head specialization in this section's first
+draft — but the hindsight oracle below tightens that read: roughly
++0.18 is specialization, and the remaining +0.05 marginal *is*
+real horizon-selection skill that the learned π captures.
 
-In other words: the endogenous-horizon arc was solving the wrong
-problem. The right operational rule is "train the score head at
-the horizon you intend to deploy at" — which is just the
-existing factor convention (`rebal_days=20` baseline at val
-Sharpe +0.44 in
-[`factor-indicator-baseline`](factor-indicator-baseline.md)), with
-the added datum that h=60 specialization beats h=20 on this
-specific eval setup.
+## Hindsight oracle — what the ceiling actually is
 
-### Arc closure
+Final test in the arc, added after the regime-gated null prompted
+"is this a limitation of the heuristic or of the information?"
+The hindsight greedy oracle takes the vanilla h=5 rank-IC score
+head and, at each rebal bar, picks the horizon `argmax_k r_pd_k`
+where `r_pd_k = (w_t · sum(daily_log_ret[t:t+h_k]) − cost_t) / h_k`
+is the per-day realized net return at horizon `h_k`. Uses future
+return data (cheating); strict upper bound on any real-time
+selector at this universe and score head. Greedy is myopic — a
+non-myopic DP optimum would be at least this good.
+
+### Result — oracle clears N1 by +0.112
+
+| Arm | Mean val Sharpe | Mean holding days |
+|---|---:|---:|
+| **learned mixture α=0** | **+0.448** | (variable; argmax π) |
+| **hindsight oracle** (vanilla h=5 head) | **+0.333** | 27.8 |
+| fixed-h60 (vanilla h=5 head) | +0.221 | 60.0 |
+| same-vol heuristic | +0.196 | 17.1 |
+| random-h | +0.116 | 28.2 |
+| fixed-h5 | −0.061 | 5.0 |
+| inverted-vol heuristic | −0.123 | 20.0 |
+
+Per-window:
+
+| Win | Val start | fixed-h60 | inverted-vol | same-vol | random-h | **oracle** |
+|---|---|---:|---:|---:|---:|---:|
+| w0 | 2005-11-15 | −0.855 | −0.571 | −0.213 | −1.026 | **−0.189** |
+| w1 | 2008-12-24 | +0.517 | −0.439 | +0.468 | −0.007 | **+0.673** |
+| w2 | 2012-03-22 | +0.678 | −0.358 | +0.305 | +0.914 | **+0.524** |
+| w3 | 2015-06-22 | +0.448 | +0.211 | +0.203 | +0.307 | **+0.406** |
+| w4 | 2018-08-20 | +0.365 | +0.233 | +0.296 | +0.319 | **+0.343** |
+| w5 | 2021-09-28 | +0.173 | +0.183 | +0.115 | +0.187 | **+0.238** |
+
+Oracle's horizon-use distribution (across all val bars, all 6
+windows): `{h=5: 27%, h=10: 22%, h=20: 12%, h=40: 11%, h=60: 28%}`.
+**Distinctly not collapsed.** Hindsight uses all 5 horizons roughly
+uniformly with a U-shape favoring the extremes.
+
+### The corrected decomposition
+
+| Quantity | Sharpe | Source |
+|---|---:|---|
+| Vanilla h=5 head + fixed h=60 | +0.221 | baseline |
+| Vanilla h=5 head + hindsight oracle | +0.333 | **upper bound on horizon-selection upside on this head** |
+| **Difference (horizon-selection upside)** | **+0.112** | |
+| Mixture-trained head + fixed h=60 | +0.401 | from prior row |
+| Mixture-trained head + learned π (α=0) | +0.448 | canonical mixture result |
+| **Difference (score-head specialization, holding h=60 fixed)** | **+0.180** | |
+| **Mixture's marginal horizon-selection (learned π vs fixed h=60)** | **+0.047** | |
+
+The decomposition: ~+0.18 specialization + ~+0.05 horizon-selection
+in the mixture's +0.23 total lift over the vanilla h=5 baseline.
+The learned π captures **~42% of the +0.11 oracle ceiling**
+(0.047 / 0.112) on this score head; the heuristic VIX-binary
+regime gates capture **none of it** (all negative or below
+fixed-h60). The mixture+oracle combination (oracle on a
+mixture-trained head) is the next-experiment ceiling and is **not
+yet tested** — likely sits well above +0.45.
+
+### What this corrects in the arc
+
+The "regime-gating is confirmed-null" verdict above stands as
+written for the *specific* heuristic tested (VIX vs 126d median,
+binary). The arc's broader closure-claim (drafted before the
+oracle ran) that **"horizon-selection has no upside on this
+universe"** was wrong. The oracle clears N1 by +0.112. The
+correct framing is:
+
+- Horizon-selection has **fundamental upside** (≥ +0.11 oracle
+  ceiling on the vanilla h=5 head; presumably higher on
+  specialized heads).
+- The learned mixture captures **~half** of the upside on its own
+  head.
+- Heuristic VIX-binary regime gates capture **none** of the upside,
+  in either direction.
+- The earlier rejection of "heuristic limitation" was wrong — the
+  heuristic *is* a limitation, but the deeper truth is that the
+  oracle uses the *full per-bar signal* (it knows realized
+  per-horizon return at each bar via cheating), while any
+  real-time selector has to *predict* that signal.
+- The gap between learned-π (+0.047 marginal) and oracle (+0.112)
+  is the **opportunity cost of real-time prediction** — the
+  marginal return on smarter selectors.
+
+### Arc closure (revised after the oracle result)
 
 The endogenous-horizon mixture-of-IC architecture is fully
-explored on `factor-narrow`:
+explored on `factor-narrow`, with the following table of verdicts:
 
 | Sub-hypothesis | Test | Verdict |
 |---|---|---|
-| State-conditional horizon selection unlocks a +0.10 Sharpe lift | Mixture trainer α=0 (2026-05-14, this page top) | `partial-OOS` (+0.048, under threshold) |
+| State-conditional horizon selection unlocks a +0.10 Sharpe lift | Mixture trainer α=0 (this page top) | `partial-OOS` (+0.048, under threshold) |
 | Entropy regularization rescues the partial-OOS | α-sweep `{0.05, 0.1, 0.2, 0.3}` | `confirmed-null` — π expands cleanly but Sharpe doesn't follow |
-| Hand-engineered VIX regime gate beats learned mixture | This section | `confirmed-null` — regime-gating loses to even random-h |
-| Mixture's +0.05 lift is state-conditional horizon skill | Compared to vanilla rank-IC at h=5 → h=60 (this section's reframe) | **Falsified** — the lift is score-head specialization, not horizon choice |
+| Hand-engineered VIX regime gate beats fixed-h60 | This section's regime-gated arms | `confirmed-null` — all gate variants lose to fixed-h60 |
+| Mixture's +0.05 lift is ENTIRELY score-head specialization | Hindsight oracle on vanilla h=5 head | **Partially falsified** — ~+0.18 is specialization but ~+0.05 *is* real horizon-selection (matches what learned π captures); the upper bound on horizon-selection is **+0.112** |
+| The architecture has zero horizon-selection upside | Hindsight oracle (this section above) | **Falsified** — oracle clears N1 by +0.112 |
 
-The full arc closes
-[`confirmed-null`](../leaderboard.md#verdict-labels) on the
-"rebal cadence as model output" thesis at this universe and
-feature stack. The orthogonal levers that remain (different
-feature stack, continuous horizon head + REINFORCE, learned
-value-function metric) are not pre-registered as next experiments
-— the falsification of the score-head-specialization confound
-makes the higher-priority next move "train factor at
-`rebal_days=60` and re-evaluate" rather than continue the
-horizon-emission research thread.
+The arc closes [`partial-OOS`](../leaderboard.md#verdict-labels)
+*not* `confirmed-null` (the original closure-claim was retracted
+after the oracle ran). Three things are simultaneously true:
+
+1. The mixture-trained head at α=0 + learned π gives +0.448, the
+   best end-to-end result we have. ~80% of its lift is score-head
+   specialization at the dominant horizon (h≈60); ~20% is real
+   horizon-selection.
+2. Hand-engineered VIX-binary regime gates do not help — all
+   variants lose to fixed-h60. The heuristic-as-selector axis is
+   `confirmed-null`.
+3. A hindsight oracle clears N1 by +0.112 on the same vanilla
+   score head, so **real-time selectors that approximate the
+   oracle have non-trivial room** (the learned π captures ~42% of
+   the oracle ceiling). What's `confirmed-null` is the narrow
+   heuristic-VIX-binary form, not the broader idea.
 
 ### Operational rule (closed-out)
 
-**Before treating horizon as an output of the model, train the
-score head at the deployment horizon and check whether the
-single-horizon baseline is already at the architecture's ceiling.**
-If specializing the score head explains the gap a "state-conditional
-horizon" head was supposed to produce, the horizon-emission line of
-inquiry is unwarranted. This is a corollary of the workspace's
-"regime filter > richer predictor" rule applied at a different
-granularity: the predictor's *training target* matters more than
-the predictor's *output structure*.
+**Two rules, ordered by how load-bearing each is:**
+
+1. **Train the score head at the deployment horizon** before
+   wiring up a horizon-selection head. The score-head specialization
+   effect is +0.18 — bigger than any horizon-selection upside
+   we've found.
+2. **The learned mixture-of-IC head extracts ~42% of the
+   horizon-selection oracle ceiling** but no real-time selector
+   we've tested exceeds it. Heuristic VIX-binary regime gates
+   capture 0% of the ceiling. To exceed the learned mixture, the
+   selector must improve on its per-bar IC × π reduction —
+   plausibly with a continuous horizon head, a per-bar
+   `realized-IC-by-horizon` predictor, or a feature stack richer
+   than 6 macro variables. None of these are pre-registered as
+   next experiments.
+
+### What's open after the closure
+
+- **Mixture-trained head + hindsight oracle** — the true ceiling
+  for this universe + feature stack, not yet measured. Predicted
+  to sit above +0.45 (oracle on the better head). ~5 min wall
+  follow-up if we run it; would update the "ceiling" line of the
+  decomposition table.
+- **`rebal_days=60` direct training** — tests whether score-head
+  specialization at h=60 (without the mixture trainer's
+  collapse-driven path) gives the same +0.401 as fixed-h60 on the
+  mixture-trained head. If yes, the simpler trainer beats the
+  whole architecture.
+- **Per-bar IC-by-horizon as a real-time selector** — for each
+  bar, choose horizon `argmax_k IC_t^k` where `IC_t^k` is the
+  trailing-window IC at horizon k. Heuristic but information-aware
+  in a way VIX-binary isn't. Would test whether the oracle's
+  +0.112 upside is reachable by features that don't peek at the
+  future.
 
 Driver: `apps/factor/scripts/horizon_regime_gated.py` (local CPU,
-~2 min wall). Artifacts:
+~2 min wall). Adds the oracle arm via `simulate_oracle_daily_pnl`
+in `factor.horizon`. Artifacts:
 `Output/horizon-regime-gated-windows.npz`. Reuses the existing
 `packages/macro` FRED loader for VIX (cached at `.macro-cache/`).
 

@@ -222,7 +222,7 @@ def main() -> None:
 
     from factor import (
         IndicatorGridConfig, train_scorer_indicators_walkforward, predict,
-        make_indicator_backbone,
+        make_indicator_backbone, simulate_oracle_daily_pnl,
     )
     from ss_macro import load_fred_series
 
@@ -310,10 +310,13 @@ def main() -> None:
         'inverted-vol': {'high': 5,  'low': 60, 'unknown': 60},
         'same-vol':     {'high': 60, 'low': 5,  'unknown': 60},
         'random-h':     {},
+        'oracle':       {},  # special: hindsight greedy
     }
     per_arm_per_window_sharpe: dict[str, list[float]] = {a: [] for a in arms_config}
     per_arm_per_window_holding: dict[str, list[float]] = {a: [] for a in arms_config}
     per_arm_per_window_rebals: dict[str, list[int]] = {a: [] for a in arms_config}
+    per_arm_per_window_argmax_counts: dict[str, list[dict[int, int]]] = {
+        a: [] for a in arms_config}
     per_window_val_start_date: list[str] = []
     per_window_vix_high_share: list[float] = []
 
@@ -344,27 +347,43 @@ def main() -> None:
         per_window_vix_high_share.append(vix_high_share_w)
 
         for arm_name, mapping in arms_config.items():
-            r = _simulate_arm(
-                arm_name=arm_name,
-                mapping=mapping,
-                val_scores=val_scores, val_mask=val_mask,
-                val_rebal_idx=val_rebal_idx,
-                val_states=val_states,
-                horizons=horizons,
-                daily_log_ret=daily_log_ret,
-                val_daily_start=val_daily_start,
-                val_daily_end=val_daily_end,
-                commission_bps=args.commission_bps,
-                temperature=args.temperature,
-                rng=rng_random_h if arm_name == 'random-h' else None,
-            )
+            if arm_name == 'oracle':
+                r = simulate_oracle_daily_pnl(
+                    scores=val_scores, mask=val_mask,
+                    daily_log_ret=daily_log_ret,
+                    rebal_idx=val_rebal_idx,
+                    horizons=horizons,
+                    daily_start=val_daily_start, daily_end=val_daily_end,
+                    commission_bps=args.commission_bps,
+                    temperature=args.temperature,
+                )
+            else:
+                r = _simulate_arm(
+                    arm_name=arm_name,
+                    mapping=mapping,
+                    val_scores=val_scores, val_mask=val_mask,
+                    val_rebal_idx=val_rebal_idx,
+                    val_states=val_states,
+                    horizons=horizons,
+                    daily_log_ret=daily_log_ret,
+                    val_daily_start=val_daily_start,
+                    val_daily_end=val_daily_end,
+                    commission_bps=args.commission_bps,
+                    temperature=args.temperature,
+                    rng=rng_random_h if arm_name == 'random-h' else None,
+                )
             per_arm_per_window_sharpe[arm_name].append(r.sharpe)
             per_arm_per_window_holding[arm_name].append(r.mean_holding_days)
             per_arm_per_window_rebals[arm_name].append(r.n_rebals)
+            counts = {h: 0 for h in horizons}
+            for _, _, h_chosen in r.rebal_log:
+                counts[h_chosen] = counts.get(h_chosen, 0) + 1
+            per_arm_per_window_argmax_counts[arm_name].append(counts)
 
     # ---------- Step 4: per-window + aggregate tables. ----------
     print('\n=== per-window val Sharpe by arm ===', flush=True)
-    arms_order = ['fixed-h5', 'fixed-h60', 'inverted-vol', 'same-vol', 'random-h']
+    arms_order = ['fixed-h5', 'fixed-h60', 'inverted-vol', 'same-vol',
+                  'random-h', 'oracle']
     header = f'{"win":>3}  {"date":>10}  {"vix-hi%":>7}  ' + '  '.join(
         f'{a:>13}' for a in arms_order)
     print(header, flush=True)
@@ -383,6 +402,18 @@ def main() -> None:
         aggregates[arm] = mean_s
         print(f'  {arm:<15} mean val Sharpe = {mean_s:+.3f}  '
               f'(mean holding days = {mean_h:.1f})', flush=True)
+
+    # Oracle's global horizon-pick distribution — diagnostic for which
+    # horizons hindsight prefers.
+    oracle_global = {h: 0 for h in horizons}
+    for counts in per_arm_per_window_argmax_counts['oracle']:
+        for h, c in counts.items():
+            oracle_global[h] += c
+    oracle_total = sum(oracle_global.values())
+    if oracle_total > 0:
+        print('\n  oracle argmax shares: '
+              f'{ {h: round(oracle_global[h]/oracle_total, 2) for h in horizons} }',
+              flush=True)
 
     # ---------- Step 5: pre-registered null-rejection table. ----------
     # The pre-registered comparisons are inverted-vol vs each baseline.
