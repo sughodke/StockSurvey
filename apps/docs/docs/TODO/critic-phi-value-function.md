@@ -3,8 +3,8 @@
 ## Closed 2026-05-15
 
 [`confirmed-null`](../leaderboard.md#verdict-labels) on the
-value-function-from-aggregate-data hypothesis. Two arms tested per
-pre-registration:
+value-function-from-aggregate-data hypothesis. Three arms tested
+(first two pre-registered, third user-requested exploratory follow-up):
 
 - **v0 (cross-app window-level)**: 134 window-level triples, tiny MLP,
   LOO-by-(app, window). Apparent rank quality with oracle arms in the
@@ -17,10 +17,13 @@ pre-registration:
   (Φ) vs 5.5% (LR) vs 100% (oracle) — confirms the pairs v1 LR
   predictor's 5.4% capture rate is at the feature-space ceiling, not
   the model-class ceiling. FAIL per pre-reg.
-
-**Day-2 (policy training against -Φ) was NOT attempted** — the
-pre-reg's exit condition was explicit: day-1 FAIL closes the arc as
-`confirmed-null`.
+- **v0.2 (policy training against -Φ)**: ran on user request after
+  v0.1 close-out. Two policies (vanilla + CQL-anchored) trained against
+  fixed Φ on the same pair-level data. Best policy (π_CQL) top-50
+  Sharpe = +0.142 vs Φ-direct +0.156 → Δ = **−0.014**. The
+  optimization problem `max E[π·Φ]` collapses to rank-by-Φ when π
+  and Φ share input space; the CQL anchor only regularizes a noisy Φ
+  and adds no information. FAIL per the exploratory cuts.
 
 **Open follow-ups** (not pre-registered as next experiments):
 

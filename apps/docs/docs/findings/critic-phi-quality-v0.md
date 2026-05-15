@@ -261,28 +261,145 @@ verdict are:
 
 None of these are pre-registered as next experiments.
 
+## v0.2 — policy training against -Φ (user-requested exploratory follow-up)
+
+After v0.1 closed the arc as `confirmed-null` per pre-reg, the user
+asked to "implement policy training against -Φ" anyway — exploratory
+rather than pre-registered, but the methodology is the contribution.
+
+### Setup
+
+For each LOO-by-window fold over the pair-level pairs data:
+
+1. Train Φ on the train fold (pair + macro features, 12-d input, same
+   hyperparams as v0.1 with-macro variant).
+2. Train two policy networks against fixed Φ:
+   - **π_vanilla**: maximize `E[σ(π(s)) · Φ(s)]` over the train fold.
+     No regularization beyond architecture (2×16 MLP, same as Φ).
+   - **π_CQL**: same plus an anchor on the marginal inclusion rate —
+     `λ · (mean(σ(π)) − p_target)²` with `p_target = K/N = 0.25` (top-50
+     of 200 pairs). This is a Conservative-Q-Learning analog: keep
+     the policy's marginal selection probability near the empirical
+     deployment rate.
+3. Deploy each policy on the held-out fold: rank the 200 held-out
+   pairs by the policy's score, take top-50, compute mean realized
+   Sharpe.
+
+Pre-registered cuts:
+- **PASS**: best policy top-50 Sharpe ≥ LR + 0.03 AND ≥ Φ-direct + 0.01
+- **MARGINAL**: best policy ≥ LR + 0.01
+- **FAIL**: otherwise
+
+### Results (Φ hyperparams matched to v0.1)
+
+| Arm | Top-50 Sharpe | vs all-pairs | % of oracle headroom |
+|---|---:|---:|---:|
+| All-pairs baseline | +0.102 | — | 0.0% |
+| LR (v1 analog) | +0.141 | +0.039 | +5.6% |
+| **Φ direct (v0.1 with-macro)** | **+0.156** | **+0.054** | **+7.8%** |
+| π vanilla (−Φ loss) | +0.116 | +0.014 | +2.0% |
+| π CQL (anchor 0.25) | +0.142 | +0.041 | +5.8% |
+| Oracle (within-window) | +0.804 | +0.702 | 100% |
+
+Best policy: π_CQL at +0.142.
+- Δ vs LR: **+0.001** (below MARGINAL cut)
+- Δ vs Φ-direct: **−0.014** (below PASS cut)
+
+**Verdict: FAIL (confirmed-null)** — neither policy lifts above Φ-direct.
+
+### The methodological surprise
+
+A first run used `Φ_lr = 1e-2` (different from v0.1's 5e-3) and the
+result superficially looked better:
+
+| Arm (first run, Φ_lr=1e-2) | Top-50 Sharpe |
+|---|---:|
+| Φ direct | +0.083 |
+| π vanilla | +0.139 |
+| π CQL | +0.153 |
+
+This gave Δ vs LR = +0.012 and looked like MARGINAL evidence of a
+policy lift. But when Φ's training hyperparameters are tuned to
+v0.1's tested setup (`lr=5e-3`), Φ-direct climbs from +0.083 to
++0.156 and the policy's apparent lift disappears: the CQL policy
+was *compensating for an under-trained Φ*, not adding new
+information about the data.
+
+This is the cleanest diagnostic of the v0.2 result: **the optimization
+problem `max E[π(s) · Φ(s)]` trivially maps to "rank-by-Φ"** when
+`π` and `Φ` share the same input space and architecture. There is
+no degree of freedom for `π` to exploit that `Φ` doesn't already
+have. The CQL anchor's only effect is to act as a soft regularizer
+on `Φ`'s noisy rankings — useful when `Φ` is under-trained, neutral
+when `Φ` is well-trained.
+
+### Per-fold detail (Φ_lr matched to v0.1)
+
+| Window | val_start | Φ direct top-50 | LR top-50 | π vanilla | π CQL | Oracle |
+|---:|:---|---:|---:|---:|---:|---:|
+| 0 | 2005-01-07 | -0.39 | -0.13 | -0.39 | -0.39 | +0.58 |
+| 1 | 2008-02-14 | +0.31 | +0.16 | +0.18 | +0.31 | +1.10 |
+| 2 | 2011-03-21 | +0.30 | +0.43 | +0.30 | +0.30 | +1.10 |
+| 3 | 2014-04-28 | +0.05 | +0.18 | +0.04 | +0.05 | +0.71 |
+| 4 | 2017-06-01 | +0.10 | +0.05 | +0.10 | +0.10 | +0.79 |
+| 5 | 2020-07-08 | +0.57 | +0.16 | +0.45 | +0.48 | +0.55 |
+| mean | — | **+0.156** | +0.141 | +0.116 | +0.142 | +0.804 |
+
+π_CQL closely tracks Φ-direct on 5 of 6 windows; the gap on w5
+(+0.48 vs +0.57) is the source of the −0.014 aggregate lag.
+
+### What v0.2 doesn't close
+
+The fundamental setup — policy and value share an input space and
+architecture — collapses the policy step to rank-by-Φ. Non-trivial
+policy gains would require ONE of:
+
+1. **Different action space**: discrete multi-class (factor:
+   horizon ∈ {5, 10, 20, 40, 60}), continuous-but-low-dim
+   (gate: 0/1 with a Bernoulli policy + Φ that scores both
+   actions), or budget-aware (portfolio Sharpe loss instead of
+   per-pair Sharpe loss).
+2. **Different policy state**: π reads more (or less) than Φ —
+   e.g., portfolio context, pair correlations to other selected
+   pairs, position-sizing.
+3. **Different objective**: not `E[π · Φ]` but a true offline-RL
+   objective with the realized return as the reward (Φ as the
+   critic in an actor-critic setup, with proper Bellman backups
+   on time-extended trajectories).
+
+None of these are pre-registered as next experiments. v0.2's
+contribution is the working policy-training apparatus: when a
+future Φ-quality improvement (per-rebal data, richer features,
+end-to-end training) lifts the value-function above the LR
+baseline materially, the policy step is one drop-in script call
+away.
+
 ## Arc closure
 
 The Φ-value-function arc closes with the same shape as the
 prediction-problem-pivot arc that preceded it: **a clean negative
 result with a precise diagnostic that re-frames the open question**.
 The user's framing in the pre-reg ("learn a value function offline
-from existing walk-forward triples") is falsified at the available
-data granularity. The framing isn't dead — per-rebal data and
-richer features each remain orthogonal levers — but the cheap
-version of the idea (use what's on disk, train a small NN) was
-adequately tested and adequately falsified.
+from existing walk-forward triples, train a policy against -Φ") is
+falsified at the available data granularity at *both* stages — Φ
+fails its quality cuts at v0 and v0.1, and the policy step at v0.2
+trivially collapses to rank-by-Φ. The framing isn't dead — per-rebal
+data, richer features, different action spaces, and different
+policy/value architectures each remain orthogonal levers — but the
+cheap version of the idea (use what's on disk, train a small NN, train
+a small policy on top) was adequately tested and adequately falsified.
 
 ## Master walk-forward log pointer
 
 - v0 (cross-app window-level): [`confirmed-null`](../leaderboard.md#verdict-labels) row 2026-05-15.
 - v0.1 (pair-level for pairs): [`confirmed-null`](../leaderboard.md#verdict-labels) row 2026-05-15.
+- v0.2 (policy training against -Φ): [`confirmed-null`](../leaderboard.md#verdict-labels) row 2026-05-15.
 
 Pre-registration: [`TODO/critic-phi-value-function`](../TODO/critic-phi-value-function.md).
 
 Implementation:
-- `apps/critic/src/critic/{dataset, features, model, eval, pairs_eval}.py`
-- `apps/critic/scripts/{run_phi_quality_walkforward, run_pair_phi_quality}.py`
+- `apps/critic/src/critic/{dataset, features, model, eval, pairs_eval, policy}.py`
+- `apps/critic/scripts/{run_phi_quality_walkforward, run_pair_phi_quality, run_policy_walkforward}.py`
 - `apps/pairs/scripts/run_pair_predictor_walkforward.py` (extended with per-pair-records emission)
 
 Artifacts:
@@ -290,4 +407,5 @@ Artifacts:
 - `Output/critic-phi-quality-no-oracle-summary.json` (v0 oracle-clean diagnostic)
 - `Output/critic-pair-phi-quality-summary.json` (v0.1 with macro)
 - `Output/critic-pair-phi-quality-no-macro-summary.json` (v0.1 pair-only)
+- `Output/critic-policy-walkforward-summary.json` (v0.2 policy training)
 - `Output/pairs-predictor-per-pair-records.npz` (1200 per-pair training records)
