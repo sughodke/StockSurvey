@@ -83,6 +83,7 @@ def train_horizon_walkforward_remote(
     learning_rate: float,
     weight_decay: float,
     entropy_weights_csv: str,
+    deployment_reward_weights_csv: str,
     mlp_hidden: int,
     mlp_layers: int,
     commission_bps: float,
@@ -171,7 +172,16 @@ def train_horizon_walkforward_remote(
           flush=True)
     backbone = make_indicator_backbone(ticker_data, cfg)
     entropy_weights = [float(a) for a in entropy_weights_csv.split(',') if a]
+    deployment_reward_weights = [
+        float(x) for x in deployment_reward_weights_csv.split(',') if x.strip()
+    ]
+    # Sweep is the cross-product (α, λ). For the canonical bilevel sweep
+    # you pass α='0.0' so we only sweep λ; for legacy entropy-only sweeps
+    # you pass deployment_reward_weights='0.0' so we only sweep α. Either
+    # way, the smaller sweep stays len-1 and the inner loop just runs the
+    # outer's full set.
     print(f'  sweeping entropy_weight ∈ {entropy_weights}', flush=True)
+    print(f'  sweeping deployment_reward_weight ∈ {deployment_reward_weights}', flush=True)
 
     import numpy as np
     sweep_summary: list[dict] = []
@@ -181,9 +191,23 @@ def train_horizon_walkforward_remote(
         s = f'{a:g}'.replace('.', 'p').replace('-', 'n')
         return f'a{s}'
 
+    def _lambda_tag(lam: float) -> str:
+        """File-name-safe tag (e.g. 0.25 → 'lam0p25', 0.0 → 'lam0')."""
+        s = f'{lam:g}'.replace('.', 'p').replace('-', 'n')
+        return f'lam{s}'
+
     for alpha in entropy_weights:
-        tag = _alpha_tag(alpha)
-        print(f'\n  --- α={alpha} ({tag}) ---', flush=True)
+      for lam in deployment_reward_weights:
+        # Single-arm runs (the default canonical sweep is α=0 fixed
+        # while λ varies) use a clean tag. Cross-product runs get a
+        # compound tag.
+        if len(entropy_weights) == 1 and len(deployment_reward_weights) > 1:
+            tag = _lambda_tag(lam)
+        elif len(deployment_reward_weights) == 1 and len(entropy_weights) > 1:
+            tag = _alpha_tag(alpha)
+        else:
+            tag = f'{_alpha_tag(alpha)}-{_lambda_tag(lam)}'
+        print(f'\n  --- α={alpha} λ={lam} ({tag}) ---', flush=True)
         t1 = time.perf_counter()
         res = train_scorer_horizon_walkforward(
             ticker_data, backbone,
@@ -197,6 +221,7 @@ def train_horizon_walkforward_remote(
             learning_rate=learning_rate,
             weight_decay=weight_decay,
             entropy_weight=alpha,
+            deployment_reward_weight=lam,
             commission_bps=commission_bps,
             temperature=temperature,
             seed=seed,
@@ -272,6 +297,7 @@ def train_horizon_walkforward_remote(
         blob['_summary'] = np.array(json.dumps({
             'horizons':             list(horizons),
             'entropy_weight':       alpha,
+            'deployment_reward_weight': lam,
             'mean_endog_sharpe':    endog_mean,
             'mean_random_sharpe':   random_mean,
             'best_fixed_horizon':   h_best,
@@ -302,14 +328,23 @@ def train_horizon_walkforward_remote(
             'step_window_blocks':   step_window_blocks,
             'wall_seconds':         round(wall, 1),
         }, indent=2))
-        npz_path = output / f'horizon-mixture-{tag}-windows.npz'
+        # File-name prefix: bilevel sweep (λ varies) uses
+        # `horizon-bilevel-` so it doesn't collide with the 2026-05-14
+        # entropy sweep's npz/png files. Legacy entropy sweep (λ=0
+        # fixed, α varies) keeps the `horizon-mixture-` prefix.
+        if len(deployment_reward_weights) > 1:
+            prefix = 'horizon-bilevel'
+        else:
+            prefix = 'horizon-mixture'
+        npz_path = output / f'{prefix}-{tag}-windows.npz'
         np.savez(npz_path, **blob)
-        plot_path = output / f'horizon-mixture-{tag}-comparison.png'
+        plot_path = output / f'{prefix}-{tag}-comparison.png'
         _plot_horizon_mixture(res, horizons, plot_path)
         print(f'    -> {npz_path.name}, {plot_path.name}', flush=True)
 
         sweep_summary.append({
             'entropy_weight':    alpha,
+            'deployment_reward_weight': lam,
             'mean_endog_sharpe': endog_mean,
             'mean_random_sharpe': random_mean,
             'best_fixed_horizon': h_best,
@@ -333,12 +368,13 @@ def train_horizon_walkforward_remote(
             'wall_seconds':      round(wall, 1),
         })
 
-    # ---------- Step 4: cross-α sweep summary ----------
-    print('\n=== Step 4/4: cross-α sweep summary ===', flush=True)
-    print(f'{"α":>6}  {"endog":>7}  {"best-fix":>9}  {"Δ-fix":>6}  '
+    # ---------- Step 4: cross-arm sweep summary ----------
+    print('\n=== Step 4/4: cross-arm sweep summary ===', flush=True)
+    print(f'{"α":>6}  {"λ":>6}  {"endog":>7}  {"best-fix":>9}  {"Δ-fix":>6}  '
           f'{"Δ-rand":>7}  {"H(π)":>5}  {"verdict":>15}', flush=True)
     for s in sweep_summary:
         print(f'{s["entropy_weight"]:>6.3g}  '
+              f'{s["deployment_reward_weight"]:>6.3g}  '
               f'{s["mean_endog_sharpe"]:>+7.3f}  '
               f'{s["best_fixed_sharpe"]:>+9.3f}  '
               f'{s["delta_vs_best_fixed"]:>+6.3f}  '
@@ -346,28 +382,37 @@ def train_horizon_walkforward_remote(
               f'{s["mean_pi_entropy"]:>5.2f}  '
               f'{s["verdict_label"]:>15}', flush=True)
 
-    # Best-α heuristic: highest delta_vs_best_fixed among those passing N1+N2+N4.
+    # Best-arm heuristic: highest delta_vs_best_fixed among those passing N1+N2+N4.
     eligible = [s for s in sweep_summary
                 if s['verdict_n1'] and s['verdict_n2'] and s['verdict_n4']]
     if eligible:
         best = max(eligible, key=lambda s: s['delta_vs_best_fixed'])
-        print(f'\n  best α (passes N1/N2/N4, max Δ-fix): '
-              f'α={best["entropy_weight"]}  Δ-fix={best["delta_vs_best_fixed"]:+.3f}  '
+        print(f'\n  best arm (passes N1/N2/N4, max Δ-fix): '
+              f'α={best["entropy_weight"]} λ={best["deployment_reward_weight"]}  '
+              f'Δ-fix={best["delta_vs_best_fixed"]:+.3f}  '
               f'verdict={best["verdict_label"]}', flush=True)
     else:
-        print('\n  no α passes N1+N2+N4 — architecture confirmed-null under '
-              'discrete mixture-of-horizons-IC.', flush=True)
+        print('\n  no arm passes N1+N2+N4 — architecture confirmed-null '
+              'under the discrete mixture-of-horizons-IC + deployment-reward '
+              'objective.', flush=True)
 
-    sweep_path = output / 'horizon-mixture-sweep-summary.json'
+    # Bilevel sweeps land their summary at `horizon-bilevel-sweep-summary.json`;
+    # entropy-only sweeps keep the legacy `horizon-mixture-sweep-summary.json`.
+    if len(deployment_reward_weights) > 1:
+        sweep_path = output / 'horizon-bilevel-sweep-summary.json'
+    else:
+        sweep_path = output / 'horizon-mixture-sweep-summary.json'
     sweep_path.write_text(json.dumps({
         'sweep_alphas': entropy_weights,
+        'sweep_lambdas': deployment_reward_weights,
         'arms': sweep_summary,
     }, indent=2))
     print(f'  -> {sweep_path.name}')
 
     artifacts: dict[str, bytes] = {}
     for p in sorted(output.iterdir()):
-        if p.is_file() and p.name.startswith('horizon-mixture'):
+        if p.is_file() and (p.name.startswith('horizon-mixture')
+                            or p.name.startswith('horizon-bilevel')):
             artifacts[p.name] = p.read_bytes()
     print(f'\nbundling {len(artifacts)} artifacts')
     return artifacts
@@ -493,6 +538,7 @@ def main(
     learning_rate: float = 1e-3,
     weight_decay: float = 1e-3,
     entropy_weights: str = '0.0',
+    deployment_reward_weights: str = '0.0',
     mlp_hidden: int = 32,
     mlp_layers: int = 1,
     commission_bps: float = 10.0,
@@ -508,16 +554,23 @@ def main(
     min_history_bars: int = 6500,
 ) -> None:
     """Local entrypoint: kicks off remote walk-forward sweep and downloads
-    artifacts. Pass a comma-separated `entropy_weights` to sweep multiple
-    α values in one remote invocation (shared cold start + feature build,
-    one walk-forward per α). Example:
+    artifacts.
 
-        --entropy-weights '0.0,0.05,0.1,0.2,0.3'
+    Pass a comma-separated `entropy_weights` to sweep entropy regularization
+    (the 2026-05-14 confirmed-null sweep), or `deployment_reward_weights`
+    for the 2026-05-15 bilevel objective sweep. Examples:
+
+        --entropy-weights '0.0,0.05,0.1,0.2,0.3'                     (legacy α-sweep)
+        --deployment-reward-weights '0.0,0.25,0.5,1.0,2.0'           (bilevel λ-sweep)
+
+    Both can be provided together for a cross-product sweep, but the
+    canonical bilevel sweep keeps α=0 fixed.
     """
     LOCAL_OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
     print(f'launching factor horizon-mixture sweep on Modal '
           f'(horizons={horizons}, n_steps={n_steps}, lr={learning_rate}, '
           f'wd={weight_decay}, entropy_weights={entropy_weights}, '
+          f'deployment_reward_weights={deployment_reward_weights}, '
           f'train/val/step blocks={train_window_blocks}/{val_window_blocks}/'
           f'{step_window_blocks}, max_tickers={max_tickers}, '
           f'min_history_bars={min_history_bars})')
@@ -527,6 +580,7 @@ def main(
         learning_rate=learning_rate,
         weight_decay=weight_decay,
         entropy_weights_csv=entropy_weights,
+        deployment_reward_weights_csv=deployment_reward_weights,
         mlp_hidden=mlp_hidden,
         mlp_layers=mlp_layers,
         commission_bps=commission_bps,

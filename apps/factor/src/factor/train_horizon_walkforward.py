@@ -44,7 +44,7 @@ from factor.horizon import (
     IrregularRunResult, simulate_fixed_horizon_daily_pnl,
     simulate_irregular_daily_pnl,
 )
-from factor.objectives import horizon_mixture_loss
+from factor.objectives import horizon_mixture_loss, horizon_mixture_loss_bilevel
 from factor.scorers import apply_mlp_horizon, init_mlp_horizon
 
 
@@ -220,6 +220,7 @@ def train_scorer_horizon_walkforward(
     learning_rate: float = 1e-3,
     weight_decay:  float = 0.0,
     entropy_weight: float = 0.0,
+    deployment_reward_weight: float = 0.0,
     seed:          int = 0,
     commission_bps: float = 10.0,
     temperature: float = 1.0,
@@ -272,7 +273,8 @@ def train_scorer_horizon_walkforward(
               f'fine bars (h_min={min(horizons)}, K={K}). '
               f'train={train_window_blocks}, val={val_window_blocks}, '
               f'step={step_window_blocks}. n_steps={n_steps} lr={learning_rate} '
-              f'wd={weight_decay} ent_w={entropy_weight}')
+              f'wd={weight_decay} ent_w={entropy_weight} '
+              f'dep_rw={deployment_reward_weight}')
 
     result = HorizonWalkForwardResult(
         n_steps=n_steps, learning_rate=learning_rate,
@@ -300,14 +302,24 @@ def train_scorer_horizon_walkforward(
         base_mask_train = Tensor(base_mask_np[train_slc])    # (n_train, N)
 
         final_loss = float('nan')
+        commission_frac = commission_bps / 10_000.0
         for _ in range(n_steps):
             Tensor.training = True
             opt.zero_grad()
             scores, pi = apply_mlp_horizon(
                 head_params, repr_train, base_mask_train)
-            loss = horizon_mixture_loss(
-                scores, fwd_train, mask_train, pi,
-                entropy_weight=entropy_weight)
+            if deployment_reward_weight > 0.0:
+                loss = horizon_mixture_loss_bilevel(
+                    scores, fwd_train, mask_train, pi,
+                    horizons=tuple(horizons),
+                    commission_frac=commission_frac,
+                    entropy_weight=entropy_weight,
+                    deployment_reward_weight=deployment_reward_weight,
+                )
+            else:
+                loss = horizon_mixture_loss(
+                    scores, fwd_train, mask_train, pi,
+                    entropy_weight=entropy_weight)
             loss.backward()
             opt.step()
             final_loss = float(loss.item())

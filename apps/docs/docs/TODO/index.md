@@ -10,6 +10,7 @@ Active backlog for the StockSurvey monorepo. Each section from the original
 
 ## Research threads
 
+- [`apps/factor` — bilevel horizon objective (IC for score head, deployment reward for π) — pre-registered 2026-05-15](factor-bilevel-horizon-objective.md)
 - [`apps/cfr` — Deep CFR meta-allocator over existing scorers](apps-cfr.md)
 - [Factor sizing-input reframe — re-purpose apps/factor as a meta-gate input](factor-sizing-input-reframe.md)
 - [Ablation — disentangle why long-period RSI underperforms](rsi-long-period-ablation.md)

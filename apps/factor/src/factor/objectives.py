@@ -171,6 +171,108 @@ def horizon_mixture_loss(
     return loss
 
 
+def horizon_mixture_loss_bilevel(
+    scores: Tensor,
+    fwd_multi: Tensor,
+    mask: Tensor,
+    pi: Tensor,
+    *,
+    horizons: tuple[int, ...],
+    commission_frac: float = 0.001,
+    entropy_weight: float = 0.0,
+    deployment_reward_weight: float = 0.0,
+) -> Tensor:
+    """Bilevel mixture loss: rank-IC for score head, IC + λ·deployment-return for π.
+
+    Same `(scores, fwd_multi, mask, pi)` shape contract as
+    `horizon_mixture_loss`. Additional inputs:
+
+      - `horizons`: tuple of horizon lengths matching `fwd_multi`'s K
+        axis. Used to convert cumulative log returns to per-day rates
+        so the cost term and the return signal are scale-comparable
+        across horizons.
+      - `commission_frac`: per-rebalance commission (e.g. 0.001 = 10 bps),
+        amortized over each horizon's holding period in the deployment-
+        reward term.
+      - `deployment_reward_weight` (λ): scalar weight on the
+        deployment-return term. λ=0 reduces to `horizon_mixture_loss`
+        exactly. Both terms are per-batch std-normalized (with the
+        std *detached* so it's a constant in the gradient graph) so
+        λ is dimensionless.
+
+    Loss structure:
+
+        L = -mean_t Σ_k π_t[k] · IC_k_t / std_detached(IC)         ← scores + pi see this
+            -λ · mean_t Σ_k π_t[k] · ret_k_t / std_detached(ret)    ← only pi sees this
+            -entropy_weight · H(pi)
+
+    where `ret_k_t = (centered_score_detached · fwd_k_t · mask_k_t).mean_over_tickers / horizon_k - commission_frac/horizon_k`.
+
+    The score-head detach inside the return term is the bilevel split:
+    the score head is trained on rank-IC's stability signal only, while
+    the horizon head sees deployment-return supervision in addition.
+    """
+    K = int(fwd_multi.shape[0])
+
+    # --- IC term (gradient flows into scores + pi) ---
+    ic_per_horizon = []
+    valid_per_horizon = []
+    for k in range(K):
+        ic_k, v_k = per_bar_pearson_ic(scores, fwd_multi[k], mask[k])
+        ic_per_horizon.append(ic_k.reshape(1, -1))
+        valid_per_horizon.append(v_k.reshape(1, -1))
+    ic_kt = ic_per_horizon[0].cat(*ic_per_horizon[1:], dim=0)
+    valid_kt = valid_per_horizon[0].cat(*valid_per_horizon[1:], dim=0)
+
+    pi_kt = pi.transpose(0, 1)              # (K, n_bars)
+    mix_ic_per_bar = (pi_kt * ic_kt * valid_kt).sum(axis=0)
+    any_valid = (valid_kt.sum(axis=0) > 0).cast(scores.dtype)
+    n_valid_bars = any_valid.sum().maximum(1.0)
+    mean_mix_ic = (mix_ic_per_bar * any_valid).sum() / n_valid_bars
+
+    # Per-batch std for scale normalization (detach: pure scale factor,
+    # no gradient through it).
+    ic_for_std = (ic_kt * valid_kt).detach()
+    ic_std = (ic_for_std.std() + 1e-8)
+    L_IC = -mean_mix_ic / ic_std
+
+    if deployment_reward_weight > 0.0:
+        # --- Deployment-return term (gradient flows ONLY into pi) ---
+        scores_d = scores.detach()
+        ret_per_horizon = []
+        for k in range(K):
+            h = horizons[k]
+            fwd_k = fwd_multi[k]
+            mask_k = mask[k]
+            counts = mask_k.sum(axis=1)
+            safe_counts = counts.maximum(1.0)
+            # Centered score per-bar (matches IC centering convention)
+            s_mean = (scores_d * mask_k).sum(axis=1) / safe_counts
+            s_dev = (scores_d - s_mean.reshape(-1, 1)) * mask_k
+            # Per-bar score-weighted forward log return, masked + per-day rate
+            cov_k = (s_dev * fwd_k * mask_k).sum(axis=1) / safe_counts
+            per_day_ret_k = cov_k / float(h) - commission_frac / float(h)
+            ret_per_horizon.append(per_day_ret_k.reshape(1, -1))
+        ret_kt = ret_per_horizon[0].cat(*ret_per_horizon[1:], dim=0)
+
+        mix_ret_per_bar = (pi_kt * ret_kt * valid_kt).sum(axis=0)
+        mean_mix_ret = (mix_ret_per_bar * any_valid).sum() / n_valid_bars
+
+        ret_for_std = (ret_kt * valid_kt).detach()
+        ret_std = (ret_for_std.std() + 1e-8)
+        L_RET = -mean_mix_ret / ret_std
+
+        loss = L_IC + L_RET * deployment_reward_weight
+    else:
+        loss = L_IC
+
+    if entropy_weight > 0.0:
+        log_pi = (pi + 1e-12).log()
+        H = -(pi * log_pi).sum(axis=1).mean()
+        loss = loss - Tensor(entropy_weight) * H
+    return loss
+
+
 def masked_mse(
     scores: Tensor, targets: Tensor, mask: Tensor,
 ) -> Tensor:
@@ -365,6 +467,7 @@ def block_ir_vs_ew(
 
 __all__ = [
     'TRADING_DAYS', 'block_sharpe', 'block_sharpe_long_short',
-    'block_ir_vs_ew', 'horizon_mixture_loss', 'long_short_weights',
+    'block_ir_vs_ew', 'horizon_mixture_loss', 'horizon_mixture_loss_bilevel',
+    'long_short_weights',
     'masked_mse', 'pearson_rank_ic', 'per_bar_pearson_ic',
 ]
