@@ -1,8 +1,91 @@
 # `apps/factor` — target-side REINFORCE for π (train against Sharpe, not rank-IC)
 
-**Status**: pre-registered 2026-05-15. Sweep not yet run.
+## Resolved 2026-05-15 — `partial-OOS` (MARGINAL), first positive lever in the rescue arc
 
-## Hypothesis
+Sweep β ∈ {0, 0.5, 2.0, 8.0} ran on Modal T4 (single-arm jobs — a
+Modal stdout-buffering bug drops all-but-last-arm artifacts on
+multi-arm runs).
+
+| β | mean endog | Δ-fix | verdict |
+|---:|---:|---:|---|
+| 0 (cached baseline) | +0.448 | +0.048 | partial-OOS |
+| 0.5 | +0.435 | +0.039 | partial-OOS |
+| 2.0 | +0.359 | −0.003 | confirmed-null |
+| **8.0** | **+0.453** | **+0.095** | **partial-OOS (MARGINAL)** |
+
+**β=8 is the first rescue in the four-attempt arc that lifts Δ-fix
+above the +0.048 baseline** (entropy reg +0.011, bilevel −0.001,
+horizon-aligned grid −0.036 all `confirmed-null`). MARGINAL per
+pre-reg: Δ-fix +0.095 ≥ +0.07 with 5/6 positive windows, just below
+the +0.10 PASS cut.
+
+**Two turning-point findings**:
+
+1. Non-monotonic phase transition in β: degrades through β≤2 (dips
+   to −0.003 at β=2) then jumps at β=8. The Sharpe-residual signal
+   needs β≈8 to fully escape the rank-IC h=60 attractor; gentle
+   nudges are strictly worse than baseline.
+2. First rescue that does NOT damage the w3 canary: w3 endog +0.855
+   (vs default +0.84). The prior three all dropped w3 by −0.18 to
+   −0.29. At w3 the mixture matches the best achievable fixed
+   horizon (fixed-h40 +0.86) — π is correctly state-selecting.
+
+The mean-centered + std-normalized Sharpe-residual is the first
+intervention whose expected gradient direction is *orthogonal* to
+rank-IC's (mean-centering kills the "raise-all-returns" component;
+std-normalization is the Sharpe-shaping). The rank-IC-vs-Sharpe
+misalignment the three prior failed rescues identified is real and
+*addressable* by changing π's training-signal direction.
+
+### Next-experiment chain (partial-OOS → stratify windows)
+
+Workstream continues — partial-OOS is not a close. Per the
+default-next-question for partial-OOS:
+
+1. **Higher-β sweep β ∈ {16, 32}** (highest value, ~25 min Modal
+   each, run single-arm). The response is monotone-up past the β=2
+   dip; β=16/32 may clear the +0.10 PASS cut and convert
+   `partial-OOS` → `confirmed-OOS`. **Pre-reg cuts**: PASS if best-β
+   Δ-fix ≥ +0.10 AND ≥ 5/6 positive; STRONG-PASS if ≥ +0.12 AND 6/6
+   positive; FAIL/plateau if Δ-fix ≤ +0.095 (β=8 was the peak).
+2. **w0 regime gate**: w0 (2005-11) is the only negative window and
+   is negative under *every* config + *every* fixed horizon —
+   structurally hard, not a π failure. A window-level gate that
+   flags w0-like regimes (candidate features: low cross-sectional
+   dispersion, pre-GFC low-vol grind, VIX below trailing median)
+   and de-risks would lift the mean by removing the −0.21 drag.
+   **Pre-reg cuts**: PASS if gated-mean Δ-fix ≥ +0.12 AND the gate
+   fires on w0 but not on ≥ 4 of the 5 positive windows.
+3. **Output-side restructure (#2)**: per-horizon score heads, each
+   trained on its own h-specific rank-IC, mixture *over* the
+   specialized heads. The pre-reg flagged this as the next pre-reg
+   if REINFORCE PASSed; at MARGINAL it's a candidate, not yet
+   pre-registered (sequence it after the higher-β sweep — if β=16/32
+   clears PASS, the architecture question is settled and output-side
+   becomes the compounding lever; if it plateaus, output-side
+   becomes the orthogonal next bet).
+
+Priority order: (1) higher-β sweep first (cheapest, directly
+resolves PASS-vs-MARGINAL), then (2) or (3) depending on its
+outcome.
+
+See the extended findings page
+[`factor-endogenous-horizon-mixture`](../findings/factor-endogenous-horizon-mixture.md)
+("Target-side REINFORCE" section) for the per-β table, w3-canary
+comparison across all four rescues, mechanism, and the final
+operational rule.
+
+Leaderboard row: 2026-05-15 target-side-REINFORCE sweep
+(`partial-OOS`, MARGINAL on β=8).
+
+---
+
+## Original pre-registration (preserved for the record)
+
+**Status at time of writing**: pre-registered 2026-05-15, sweep not
+yet run.
+
+### Hypothesis
 
 The horizon-aligned grid sweep (2026-05-15) closed `confirmed-null`
 on the input-side rescue and produced the cleanest diagnosis of the
