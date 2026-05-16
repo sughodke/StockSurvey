@@ -1,5 +1,26 @@
 # Joint v0 — small-capacity illiquid-options VRP × securities-lending stress
 
+!!! failure "CLOSED 2026-05-15 — `reversed-OOS`, killed upstream of the spread question"
+
+    Ran Stage-1 (cheap offline gates first). **Gate A**: the
+    unrestricted edge is *real* — +0.1408 of premium/cycle survives
+    artifact-cleaning (halt contamination only 1.8%; val r unchanged).
+    **Gate B-pre**: only **7.5%** of clean predicted picks are
+    quote-available in the only free per-contract source (DoltHub
+    `option_chain`); the quote-available 7.5% has **negative** mean
+    edge (−0.092) while the absent 92.5% holds the +0.199. The
+    re-frame fails *before* the borrow-conditioning and
+    breakeven-spread stages — the cohort carrying the edge cannot be
+    priced (historically or live) on free data, and the priceable
+    subset is the liquid cohort
+    [`vol-surface-v2-oi-restriction`](../findings/vol-surface-v2-oi-restriction.md)
+    already falsified. Full write-up:
+    [`vol-borrow-illiquid-vrp-falsified`](../findings/vol-borrow-illiquid-vrp-falsified.md).
+    Durable concept extracted →
+    [notes.md: quote-availability is a deployability gate](../notes.md#quote-availability-is-a-deployability-gate).
+    Borrow leg (Stage C3) never reached; not falsified, just unreached.
+    **Re-open only with a paid microcap option-quote source.**
+
 **Operational framing (the rule this would establish if it PASSES):**
 the variance risk premium concentrated in thin-OI options is a
 *capacity-constrained* edge — uneconomical for desks that need size,

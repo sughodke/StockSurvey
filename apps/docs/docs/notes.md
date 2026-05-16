@@ -500,3 +500,40 @@ return-IC ceiling is **data-side**, not supervision-, encoder-,
 horizon-, or universe-side. Honest pivots from here are
 prediction-problem changes (pair-spread, drawdown, IV-vs-realized) —
 tracked in the [TODO](TODO/different-prediction-problem.md).
+
+## Quote-availability is a deployability gate
+
+A deployability check that bites *before* transaction cost, and that
+the alpha-vs-EW backtest construction structurally hides: **can you
+get a price — historical or live — for the exact instruments the
+signal selects?**
+
+The vol small-capacity re-frame
+([`vol-borrow-illiquid-vrp-falsified`](findings/vol-borrow-illiquid-vrp-falsified.md))
+is the worked example. The signal was *real* — a +0.14-of-premium
+short-vol edge per cycle that survived artifact-cleaning. It still
+failed, because the cohort carrying it (microcap single-name options)
+is absent from every free option-quote source: 92.5% of the predicted
+picks could not be priced at all, and the 7.5% that could had
+*negative* edge. No spread number was ever needed.
+
+The general principle, in order of when each gate bites:
+
+1. **Quote-availability** — is the cohort priced by any source you
+   can access (free or affordably paid), historically *and* live? If
+   not, a real signal there is worth zero and the backtest cannot even
+   measure honest cost.
+2. **Transaction cost** — only meaningful *after* (1) passes; the
+   breakeven-spread question.
+3. **Capacity** — only meaningful after (1) and (2).
+
+The trap is structural, not incidental: edge that survives because it
+lives in an illiquid corner ("illiquidity is the moat", see
+[research-strategy: capacity-constrained edges](#)) is *co-extensive*
+with the corner no vendor bothers to quote — coverage economics track
+liquidity economics for the same reason the premium exists. So the
+"moat" inverts into an un-priceable wall. **Verify quote-availability
+of the target cohort before building anything**; it is the cheapest
+gate and it fails the most seductive ideas (real-signal-in-an-
+illiquid-cohort) fastest. The alpha-vs-EW metric hides this because
+both arms are notional — neither has to be quotable to difference.

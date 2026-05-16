@@ -127,6 +127,7 @@ nav:
       - Vol surface v2.3 — DoltHub OOS extension to 2026-04 confirms signal continuity (confirmed-OOS; OOS r +0.165 across 4-feature proxy, 11/11 positive quarters): findings/vol-surface-v2-dolthub-oos.md
       - Vol surface v3 — regime-gated liquid universe composition (126d-VIX gate rescues v2.2 FAIL; fired-α Sh +2.01, fire rate 37%, MARGINAL): findings/vol-surface-v3-regime-gated.md
       - Vol surface arc synthesis — partial-OOS arc closure with v3 regime-gated-liquid as deployment recipe: findings/vol-arc-synthesis.md
+      - Vol small-capacity re-frame falsified — real +0.14 edge but 92.5% of the cohort is un-quotable on free data; quote-availability is a deployability gate upstream of spread (reversed-OOS): findings/vol-borrow-illiquid-vrp-falsified.md
       - Relational arc synthesis (lifted from NO_OPTIONS.md): findings/relational-arc-synthesis.md
       - Prediction-problem-pivot arc synthesis: findings/prediction-problem-pivot-arc.md
       - Macro regime diagnostic (5/6 features predict pivot windows): findings/macro-regime-diagnostic.md

@@ -30,6 +30,23 @@ regime-gated architecture as the deployment recipe.
     60d-headline-ex-ante gate FAILED (too reactive, fires in calm-
     bull); 252d gate too slow. **126d is the operational best.**
 
+!!! failure "Update 2026-05-15 — small-capacity re-frame tested & falsified (`reversed-OOS`)"
+
+    The "harvest the discarded illiquid VRP as a small operator for
+    whom illiquidity is a moat" re-frame was scoped
+    ([`TODO/vol-borrow-illiquid-vrp`](../TODO/vol-borrow-illiquid-vrp.md))
+    and run. The unrestricted edge is **real** (+0.14 of premium/cycle,
+    artifact-cleaned — halt contamination only 1.8%), but the cohort
+    carrying it is **un-priceable on free data**: only 7.5% of clean
+    predicted picks are quote-available in the only free per-contract
+    source, and that 7.5% has *negative* edge — independently
+    re-deriving v2 #2's liquid-cohort collapse from a quote-DB-membership
+    axis. The re-frame fails *upstream of the spread question*. This
+    **does not change the parent arc verdict** (`partial-OOS`, v3
+    liquid-regime-gated recipe; DCA stays canonical live) — it closes a
+    branch off it. Full write-up:
+    [`vol-borrow-illiquid-vrp-falsified`](vol-borrow-illiquid-vrp-falsified.md).
+
 ## Arc trajectory
 
 | Phase | Finding | Verdict | Key result |

@@ -65,6 +65,7 @@ Default eval window unless otherwise stated: 2013-01-29 → 2025-12-11,
 - [Vol surface v2 #3 — DoltHub OOS extension to 2026-04 confirms signal continuity (confirmed-OOS; 11/11 positive OOS quarters)](vol-surface-v2-dolthub-oos.md)
 - [Vol surface v3 — regime-gated liquid universe composition (126d-VIX gate rescues v2 #2 FAIL: fired-α Sh +2.01, MARGINAL)](vol-surface-v3-regime-gated.md)
 - [Vol surface arc synthesis — partial-OOS arc closure; v3 regime-gated-liquid is the deployment recipe](vol-arc-synthesis.md)
+- [Small-capacity illiquid-VRP re-frame falsified — the edge is real (+0.14/premium, artifact-cleaned) but 92.5% of the cohort is un-quotable on free data and the quotable 7.5% has negative edge; quote-availability is a deployability gate upstream of transaction cost (reversed-OOS)](vol-borrow-illiquid-vrp-falsified.md)
 
 ## CFR app
 
