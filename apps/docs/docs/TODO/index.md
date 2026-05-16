@@ -10,6 +10,7 @@ Active backlog for the StockSurvey monorepo. Each section from the original
 
 ## Research threads
 
+- [Joint v0 — illiquid-options VRP × securities-lending stress — small-capacity re-frame of the discarded `confirmed-OOS` vol signal; Stage-0 PASS (DoltHub `option_chain` has free per-contract NBBO), runnable free with spread-defined cohort](vol-borrow-illiquid-vrp.md)
 - [`apps/factor` — target-side REINFORCE for π (Sharpe-residual, not rank-IC) — pre-registered 2026-05-15](factor-reinforce-target-side.md)
 - [`apps/cfr` — Deep CFR meta-allocator over existing scorers](apps-cfr.md)
 - [Factor sizing-input reframe — re-purpose apps/factor as a meta-gate input](factor-sizing-input-reframe.md)
