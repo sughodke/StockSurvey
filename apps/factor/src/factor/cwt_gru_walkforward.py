@@ -42,6 +42,7 @@ from dataclasses import dataclass, field
 import numpy as np
 from tqdm import tqdm
 
+from tinygrad import TinyJit
 from tinygrad.tensor import Tensor
 from tinygrad.nn.optim import AdamW
 
@@ -381,13 +382,27 @@ def train_cwt_gru_walkforward(
             s = apply_linear(head, h)                  # (n_bars*N,)
             return s.reshape(n_bars, N)
 
-        for _ in range(n_steps):
-            Tensor.training = True
+        # The 32-step GRU unroll builds a ~300-op autograd graph. Without
+        # JIT, tinygrad re-traces + re-schedules it every one of
+        # `n_steps` updates × 6 windows × |k| — that is what timed the
+        # un-jitted run out at 3h (k=2 ~830s/window, k=4 ~1565s/window).
+        # `TinyJit` records the kernel schedule on the 3rd call and
+        # replays it (incl. AdamW's in-place param assigns) for every
+        # subsequent step. Inputs are full-batch constants; passing the
+        # same Tensors each call is the documented "jit a param-updating
+        # step" pattern. Fresh TinyJit per window (closure captures this
+        # window's params/opt) → ~6 compiles per k, not n_steps×6.
+        @TinyJit
+        def _train_step(X: Tensor, y: Tensor, m: Tensor) -> Tensor:
             opt.zero_grad()
-            scores = _scores(Xtr_t, ntr)
-            loss = -pearson_rank_ic(scores, fwd_tr_t, mask_tr_t)
+            loss = -pearson_rank_ic(_scores(X, ntr), y, m)
             loss.backward()
             opt.step()
+            return loss.realize()
+
+        Tensor.training = True
+        for _ in range(n_steps):
+            _train_step(Xtr_t, fwd_tr_t, mask_tr_t)
 
         Tensor.training = False
         s_tr = _scores(Xtr_t, ntr)
