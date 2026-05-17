@@ -85,10 +85,16 @@ from factor.train_horizon_walkforward import (
 from factor.train_walkforward import (
     WalkForwardResult, WalkForwardWindow, train_scorer_walkforward,
 )
+from factor.cwt_gru_walkforward import (
+    CwtGruResult, CwtGruWindow, build_cwt_panel, gru_final_hidden,
+    init_cwt_gru, load_ticker_cwt, train_cwt_gru_walkforward,
+)
 
 __all__ = [
     'AlignedTickers',
     'Backbone',
+    'CwtGruResult',
+    'CwtGruWindow',
     'HorizonWalkForwardResult',
     'HorizonWindow',
     'IndicatorGridConfig',
@@ -109,8 +115,11 @@ __all__ = [
     'block_ir_vs_ew',
     'block_sharpe',
     'block_sharpe_long_short',
+    'build_cwt_panel',
     'build_indicator_features',
     'compute_input_stats',
+    'gru_final_hidden',
+    'init_cwt_gru',
     'forward_log_returns',
     'forward_log_returns_multi',
     'forward_robust_z',
@@ -124,6 +133,7 @@ __all__ = [
     'init_mlp_horizon',
     'init_mlp_multitask',
     'load_backbone',
+    'load_ticker_cwt',
     'load_ticker_indicators',
     'long_short_weights',
     'make_indicator_backbone',
@@ -135,6 +145,7 @@ __all__ = [
     'simulate_fixed_horizon_daily_pnl',
     'simulate_irregular_daily_pnl',
     'simulate_oracle_daily_pnl',
+    'train_cwt_gru_walkforward',
     'train_scorer',
     'train_scorer_horizon_walkforward',
     'train_scorer_indicators',
