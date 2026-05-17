@@ -46,6 +46,7 @@ Default eval window unless otherwise stated: 2013-01-29 → 2025-12-11,
 - [Passive equal-weight benchmark — every "shippable" relational row was alpha-zero or alpha-negative](passive-ew-benchmark.md)
 - [Delisting-aware EW benchmark falsified — audit-followup; ffill convention is empirically a no-op (Δ Sharpe ≤ 0.0002) because Stooq archive reuses ticker symbols and stooq_us_long manifest is hand-curated to survivors](delisting-aware-ew-falsified.md)
 - [Rank-IC trains a signed signal that long-only top-N can only half-execute](factor-rankic-long-only-mismatch.md)
+- [Recursive compression of the causal CWT — linear (Kalman) vs nonlinear (GRU); nonlinearity buys nothing for reconstruction, reconstructible dimensionality ≫ predictable](cwt-recursive-compression.md)
 
 ## Gate app
 

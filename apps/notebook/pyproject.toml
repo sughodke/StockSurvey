@@ -20,6 +20,8 @@ dependencies = [
 [project.scripts]
 ss-scalogram = "ss_notebook.scalogram:main"
 ss-scalogram-video = "ss_notebook.scalogram_video:main"
+ss-kalman-cwt = "ss_notebook.kalman_cwt:main"
+ss-rnn-cwt = "ss_notebook.rnn_cwt:main"
 
 [build-system]
 requires = ["hatchling"]
