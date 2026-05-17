@@ -25,7 +25,16 @@ trivial lag-1 forecast** (+0.04 R² at full rank, *negative* when
 compressed) — its apparent skill is autocorrelation, not learned
 structure. So "task-coupled" specifically means coupled to **forward
 returns**, not to the CWT's own continuation; a predict-latent of the
-CWT is ≈ a lag-1 copy of it and carries no learned signal to embed. **Explicit *length* compression is far harsher than
+CWT is ≈ a lag-1 copy of it and carries no learned signal to embed.
+**That return-coupled test has since been run and closes the arc
+`confirmed-null`** — a GRU trained end-to-end against cross-sectional
+rank-IC cannot clear the deterministic-indicator baseline at *any*
+state dim `k` on `factor-narrow` (see "Return-coupled embedding — the
+arc closure"). The terminal reading is therefore stronger than
+"recursive states are the wrong compressor": *the causal CWT carries
+no cross-sectional return signal recoverable by any representation
+move — the binding constraint is the feature class, so the lever is
+different data, not a cleverer model on the CWT.* **Explicit *length* compression is far harsher than
 per-bar width compression**: forcing one `k`-vector to stand in for a
 whole `L=32`-bar window (32× at `k=13`) loses ~18% of the variance
 where the per-bar state was near-lossless — and this curve is
@@ -168,9 +177,10 @@ contribute nothing to the filtered reconstruction.
   [`lie_test1`](factor-indicator-baseline.md) (kNN-on-CWT IC≈0) and
   [`relational-dwt-failure`](relational-dwt-failure.md) (4/4 distance
   scorers) null already on the board. The control falsifies the
-  cheap version of that idea by construction; only a
-  *return-coupled* embedding (next experiment) remains live.
-  Baseline added to `rnn_cwt.py` (`_persistence`).
+  cheap version of that idea by construction; the one remaining live
+  path — a *return-coupled* embedding — was then run and **also closed
+  `confirmed-null`** (see "Return-coupled embedding — the arc closure"
+  below). Baseline added to `rnn_cwt.py` (`_persistence`).
 
 ![AAPL — CWT reconstruction error vs recursive state dim. GRU recon
 (nonlinear, causal) overlays the linear PCA baseline almost exactly;
@@ -287,36 +297,93 @@ itself.](images/cwt-seqbottleneck-aapl-over-gld.png)
   post-warmup bars, so the spans overlap but are not identical;
   the ≤0.004 `k ≥ 8` agreement is robust to that.
 
-## Next experiment — task-coupled predictive state
+## Return-coupled embedding — the arc closure
 
-The reconstruction question is settled (doesn't compress cheaply,
-model class doesn't matter), and the persistence control settles the
-*self-prediction* question too: a latent trained to forecast the
-CWT's own next vector learns ≈nothing over lag-1 persistence. Both
-the "is predictable structure low-dimensional" and the "use the
-predict latent as a relational embedding" sub-questions are therefore
-**closed negative** — what remains is the one target never tested:
-forward returns.
+The reconstruction question was settled (doesn't compress cheaply,
+model class doesn't matter) and the persistence control settled the
+*self-prediction* question (a latent trained to forecast the CWT's own
+next vector learns ≈nothing over lag-1). The one target never tested
+was **forward returns**: train the recurrent state end-to-end against
+the cross-sectional rank-IC, not against the CWT's own continuation.
+That experiment is now done — and it closes the arc **negative**.
 
-**Hypothesis.** Retrain the same recurrent state with loss = the
-`apps/factor` cross-sectional rank-IC at horizon `H` (the
-[`pearson_rank_ic`](https://github.com/sughodke/StockSurvey/blob/master/apps/factor/src/factor/objectives.py)
-objective) instead of reconstruction MSE, sweep `k`. If predictive
-skill saturates by `k ≈ 3–4` while reconstruction needs `k ≈ 13`, the
-task-coupled predictive state is genuinely low-dimensional and worth
-building (the task-coupled branch). If predictive skill also needs
-~full rank, the CWT carries no compact predictive statistic and the
-lever is a different feature class entirely.
+**What was run.** `factor-narrow` (297 stooq_us_long,
+`min_history_bars=6500`), the deterministic-indicator-baseline 6-window
+walk-forward (train=63 / val=39 / step=39 blocks, `rebal_days=20`). A
+fresh GRU(`k`) encoder over the 13-scale causal CWT plus a linear head,
+trained jointly per window against `-pearson_rank_ic` (H=20) on the
+train rebal slice only, frozen for val — the encoder recurrence is
+**in the autograd graph**, not a frozen reservoir, which is what makes
+this orthogonal to the frozen-geometry CWT nulls
+([`lie_test1`](factor-indicator-baseline.md) kNN-on-CWT IC≈0,
+`lie_test4` cwt t≈−0.98, [`relational-dwt-failure`](relational-dwt-failure.md)
+4/4 scorers). Leak-free: causal CWT, `L=32` window ending at the rebal
+bar, per-scale standardisation fit train-only, per-window fresh init.
+Hyperparams fixed (no val tuning); only `k` swept. (The un-jitted
+32-step BPTT timed out at 3h on Modal; a `TinyJit`-per-window rewrite
+fixed it — k=2 4994s→1175s, bit-identical results — an infra fix that
+moved no pre-registered knob.)
 
-**Test design.** Cross-sectional, so universe-scale → Modal + tinygrad
-per the compute-placement rule (this is `apps/factor` territory, not
-the numpy notebook diagnostic). `factor-narrow` universe, 6-window
-factor windowing, metric mean val rank-IC vs the deterministic
-[indicator baseline](factor-indicator-baseline.md). Positive result:
-val-IC at `k ≤ 4` within −0.002 of the `k = 13` recurrent state *and*
-not below the indicator baseline. Negative: val-IC monotone in `k` with
-no plateau (predictable structure is full-rank → abandon CWT-recurrent
-states for the factor head). Not yet tracked as a `TODO/` page.
+### Results — mean val rank-IC vs GRU hidden dim `k`
+
+| `k` | mean val rank-IC | pos-window frac | vs indicator baseline +0.0120 |
+|---:|---:|:--:|:--|
+| 2  | **−0.0098** | 0.50 | far below |
+| 4  | **+0.0063** | 0.67 | below |
+| 8  | **+0.0063** | 0.67 | below |
+| 13 | **−0.0038** | 0.50 | below |
+| 16 | **+0.0003** | 0.33 | below |
+| 32 | **+0.0057** | 0.67 | below |
+
+Eval-only val Sharpe is ~+0.46–0.48 at every `k` (≈ the universe's
+passive level) and IR-vs-EW ≤ 0 for every arm.
+
+![Return-coupled GRU-over-CWT k-sweep on factor-narrow: every k sits
+below the +0.0120 deterministic-indicator baseline, far below the
++0.0140 pre-registered positive cut, with no monotone-in-k trend and
+no low-k plateau — a flat ≈0 band.](images/cwt-return-coupled-ic-vs-k.png)
+
+### Verdict — [`confirmed-null`](../leaderboard.md#verdict-labels)
+
+The pre-registered kill criterion fires mechanically: best `k≤4`
+(+0.0063) is below the +0.0140 positive cut, **every** arm is at or
+below the +0.0120 indicator baseline, and there is no low-`k` plateau.
+No band-edge adjudication — it is unambiguous. The max-capacity k=32
+(where this same panel's *reconstruction* was near-lossless) is no
+better than k=4: there is no compact return-coupled state because there
+is **no return-coupled CWT statistic of any rank** that a trained
+recurrence recovers on this universe.
+
+### Mechanism — the arc's terminal claim
+
+This sharpens "reconstructible ≫ predictable" to its strongest form
+and makes the missing third term explicit:
+
+> **reconstructible (≈full-rank) ≫ self-predictable (≈lag-1, no
+> learned content) ≫ return-predictable (≈ 0 at every rank).**
+
+A *trained* end-to-end recurrence — the most expressive move available
+on standard CWT data — fails to clear even the cheap
+deterministic-indicator baseline. So the binding constraint was never
+the representation move (reconstruction-fit vs self-prediction vs
+end-to-end, linear vs nonlinear, frozen vs trained, compressed vs
+full-rank): it is the **CWT feature class itself**. This re-derives,
+from the supervised-end-to-end direction, exactly the null the
+frozen-geometry CWT tests reached from the unsupervised direction —
+two independent paths to the same wall.
+
+### Operational rule (arc-final)
+
+**Do not apply another representation move to the causal CWT for
+cross-sectional return prediction.** Reconstruction, self-prediction,
+and end-to-end rank-IC training have each been falsified on the same
+panel; the lever is a *different feature class or novel data*, not a
+cleverer model on the CWT. This is the same steer the
+[`factor-reinforce-target-side`](../TODO/factor-reinforce-target-side.md)
+closure and the standing arbitraged-space frame reached independently
+— the higher-EV path is the novel-data leg
+([`vol-borrow-liquid-universe`](../TODO/vol-borrow-liquid-universe.md)),
+not more CWT variants.
 
 ## Master walk-forward log
 
@@ -328,7 +395,10 @@ the recon / predict / Kalman per-bar width-compression arc,
 length-compression + numéraire-invariance follow-up (AAPL vs
 AAPL/GLD), and (3) [2026-05-17](../leaderboard.md) the persistence
 control falsifying learned CWT-self-predictability (predict latent ≈
-lag-1; +0.04 over persistence at full rank, −0.108 compressed). The
-only remaining live path — a **return-coupled** (not
-CWT-self-prediction) recurrent embedding — will land its own row(s)
-on completion.
+lag-1; +0.04 over persistence at full rank, −0.108 compressed) — plus
+the arc-closing (4) [2026-05-17](../leaderboard.md) **return-coupled
+recurrent CWT embedding**, the universe-scale rank-IC-trained GRU
+k-sweep that lands [`confirmed-null`](../leaderboard.md#verdict-labels)
+(every `k` below the indicator baseline; no low-`k` plateau) and closes
+[`TODO/factor-cwt-return-coupled`](../TODO/factor-cwt-return-coupled.md)
+and the CWT-as-predictor question arc-wide.

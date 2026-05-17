@@ -1,5 +1,44 @@
 # `apps/factor` — return-coupled recurrent CWT embedding (rank-IC-trained, not reconstruction)
 
+## Resolved 2026-05-17 — [`confirmed-null`](../leaderboard.md#verdict-labels), arc closed
+
+The pre-registered k-sweep ran on Modal (`factor-narrow`, 6-window,
+fixed hyperparams, `k ∈ {2,4,8,13,16,32}`). **Every arm is at or below
+the +0.0120 deterministic-indicator baseline** (best k≤4 +0.0063, far
+below the +0.0140 positive cut; k=2 −0.0098; max-capacity k=32 +0.0057,
+no better than k=4); flat ≈0 band, no low-`k` plateau. The
+pre-registered kill criterion fired mechanically — clean
+`confirmed-null`, no band-edge call.
+
+A *trained* end-to-end recurrence — the most expressive move available
+on standard CWT data — cannot clear even the cheap indicator baseline
+at any `k`. Combined with the arc's prior closures this establishes the
+terminal claim: **reconstructible ≫ self-predictable ≫
+return-predictable ≈ 0**; the binding constraint is the CWT feature
+class, not the representation move. This closes the
+[`cwt-recursive-compression`](../findings/cwt-recursive-compression.md)
+arc's last live sub-question and the CWT-as-predictor question
+arc-wide.
+
+**Next experiment (per the standing frame — *not* another CWT
+variant):** the verdict's own implication is the orthogonal novel-data
+leg, [`vol-borrow-liquid-universe`](vol-borrow-liquid-universe.md), not
+an output-side restructure on the same panel. The
+`confirmed-null`→"find an orthogonal lever" rule and the
+[`factor-reinforce-target-side`](factor-reinforce-target-side.md)
+strategic steer point the same way; no CWT follow-up is registered.
+
+Implementation: `factor.cwt_gru_walkforward` (TinyJit per-window joint
+GRU+head trainer), `apps/factor/scripts/modal/cwt_return_coupled.py`.
+Finding: [`cwt-recursive-compression`](../findings/cwt-recursive-compression.md#return-coupled-embedding-the-arc-closure)
+("Return-coupled embedding — the arc closure"). Leaderboard:
+2026-05-17 factor return-coupled-CWT-GRU row. Provenance: 6 arms over 2
+Modal invocations (timing-probe k∈{2,32} + completion k∈{4,8,13,16}),
+same commit `72802c5`, same pinned config, seed=0, arms independent by
+construction.
+
+---
+
 The one live path left open by the
 [`cwt-recursive-compression`](../findings/cwt-recursive-compression.md)
 arc. That arc closed two sub-questions negative — the CWT does **not**
