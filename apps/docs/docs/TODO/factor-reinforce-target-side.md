@@ -1,5 +1,62 @@
 # `apps/factor` — target-side REINFORCE for π (train against Sharpe, not rank-IC)
 
+## Closed 2026-05-15 — higher-β resolved; the endogenous-horizon rescue arc is benchmark-artifact-bound
+
+The higher-β sweep (β ∈ {16, 32}, the `partial-OOS` default-next
+from β=8) ran single-arm, provenance-verified. **β=32 Δ-fix +0.108
+clears the literal +0.10 PASS cut** (β=16 +0.091 does not). But
+the mandated window stratification is decisive:
+
+> Against the **per-window** hindsight-best fixed horizon the
+> mixture is **0/6 wins** at both β=16 and β=32 (3 ties, 3 losses).
+> The learned π never beats committing to the single best horizon
+> for a window. The +0.108 is `mean_endog − single_global_best_fixed`
+> — a benchmark artifact of comparing a switching policy to one
+> horizon fixed across heterogeneous windows, dominated by w0's
+> structural negativity.
+
+**Verdict: [`partial-OOS`](../leaderboard.md#verdict-labels)**,
+user-adjudicated *not* promoted to `confirmed-OOS` (a hollow PASS
+would be the repo's 10th in 146 runs and corrupt the 9/146 base
+rate the strategic frame rests on).
+
+**This closes the workstream.** The retrospective implication is
+arc-wide: every positive Δ-fix in the endogenous-horizon arc
+(+0.048 baseline, β=8 +0.095, β=32 +0.108) is the same
+single-global-fixed-benchmark artifact — the discrete
+mixture-of-horizons-IC architecture **does not extract
+state-conditional skill on factor-narrow**.
+
+Superseded next-steps (do **not** run — pre-empted by the
+stratification):
+
+- **Higher-β still (β ∈ {64, 128})** — moot; the metric, not β, is
+  the problem. More β cannot turn 0/6 per-window wins positive.
+- **w0 regime gate** — moot; gating w0 mechanically lifts the
+  cross-window mean without creating any per-window skill (a
+  misleading rescue from the same artifact).
+
+Live follow-ups, both *orthogonal* (neither pre-registered):
+
+1. **Output-side restructure** — per-horizon specialised score
+   heads, mixture *over* specialists. A genuinely different
+   architecture, not another π-training intervention. Only worth a
+   pre-reg if the mixture architecture is not retired outright.
+2. **Novel-data arc (higher-EV, per the standing strategic frame
+   and the research director's steer)** — borrow-stress
+   conditioning (SEC FTD + FINRA daily short-volume + short
+   interest) on the *liquid* vol universe. Orthogonal to
+   cleverer-model-on-standard-data; see the new
+   `TODO/vol-borrow-liquid-universe` pre-reg.
+
+Finding: extended in
+[`factor-endogenous-horizon-mixture`](../findings/factor-endogenous-horizon-mixture.md)
+under "Target-side REINFORCE — higher-β sweep ... the stratification
+correction that caps the arc". Leaderboard:
+2026-05-15 target-side-REINFORCE higher-β row (`partial-OOS`).
+
+---
+
 ## Resolved 2026-05-15 — `partial-OOS` (MARGINAL), first positive lever in the rescue arc
 
 Sweep β ∈ {0, 0.5, 2.0, 8.0} ran on Modal T4 (single-arm jobs — a

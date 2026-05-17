@@ -972,7 +972,7 @@ default-next-question for partial-OOS (stratify the windows):
    specialization (the ~+0.18 lever from the 2026-05-14
    arc-closure) compounds with the now-working π training.
 
-### Operational rule (final)
+### Operational rule (after β=8, SUPERSEDED by the higher-β stratification below)
 
 **Target-side REINFORCE on the Sharpe-residual is the first
 intervention that lifts the endogenous-horizon mixture's Δ-fix
@@ -988,3 +988,116 @@ strictly worse than baseline. For deployment of the
 mixture-of-horizons architecture on factor-narrow, train the
 horizon head with target-side REINFORCE at β≈8; keep the score head
 on rank-IC.
+
+## Target-side REINFORCE — higher-β sweep β ∈ {16, 32} (2026-05-15): the stratification correction that caps the arc
+
+The `partial-OOS` default-next from β=8 was the higher-β sweep — the
+β=2 dip → β=8 +0.095 phase-transition suggested β>8 might clear the
++0.10 PASS cut. It did, on the headline metric. Stratifying the
+windows (the move the `partial-OOS`/`confirmed-OOS` default-next rule
+*mandates*) shows the headline metric was never measuring
+state-conditional skill.
+
+### Results (factor-narrow, h_min=5, 6-window walk-forward, single-arm per β)
+
+| β | mean endog | best-fix (single global) | Δ-fix | 5/6 endog>0 | H(π) |
+|---:|---:|---:|---:|:--:|---:|
+| 8 (prior) | +0.453 | h=10 +0.357 | +0.095 | yes | 0.80 |
+| **16** | +0.449 | h=10 +0.358 | **+0.091** | yes | 0.87 |
+| **32** | +0.463 | h=40 +0.355 | **+0.108** | yes | 0.94 |
+
+β=32 clears the literal +0.10 PASS cut. β=16 sits *below* β=8 — the
+"monotone-up past β=2" prediction holds only loosely (β=32 is a new
+peak; β=16 is not).
+
+### The stratification — the load-bearing result
+
+The headline `Δ-fix` benchmarks the mixture against **one** horizon
+held fixed across *all six* windows (β=32: h=40, +0.355). Benchmark
+it instead against the **per-window** hindsight-best fixed horizon
+(`max(val_fixed_sharpes)` per window — the strongest non-switching
+opponent):
+
+```
+β=32  per-window Δ vs per-window-best-fixed:
+  w0 −0.189   w1 0.000   w2 −0.017   w3 0.000   w4 −0.050   w5 0.000
+  → 3 ties, 3 losses, 0 WINS  (0/6)
+β=16  identical pattern: 0/6 wins.
+```
+
+The learned π **never beats picking the single best horizon for that
+window**. It ties at best (w1/w3/w5 — it correctly parks on the
+window's best horizon), loses at worst (w0/w2/w4). The +0.108 exists
+*only* because no single horizon is best in every window, so a
+switching policy beats a non-switching one **on the cross-window
+mean** — and that mean is dragged by w0, which is negative under
+every configuration and every fixed horizon (a structurally hard
+regime, not a π-selection failure). "Switching ≥ committing to one
+global horizon, on average, before w0" is a far weaker claim than
+"state-conditional skill", and it is the *only* claim the data
+supports.
+
+### Retrospective — the whole arc's Δ-fix is this artifact
+
+The same decomposition applies backward: the +0.048 2026-05-14
+baseline, β=8's +0.095, and β=32's +0.108 are all
+`mean_endog − single_global_best_fixed`. Against per-window
+best-fixed the discrete mixture almost certainly never won a window
+in any of them — the architecture likely **never extracted
+per-window skill**; it learned to park on the cross-window-modal
+horizon and the positive Δ-fix is a single-global-fixed-benchmark
+artifact throughout. The "first lever that moves the needle" framing
+in the β=8 operational rule above is, in this light, the first lever
+that moved a *benchmark artifact*.
+
+### Verdict — `partial-OOS`, deliberately not promoted (user-adjudicated)
+
+By the literal pre-reg cut applied with the convention the β=8 row
+used (Δ-fix ≥ +0.10 AND ≥5/6 positive *endog*), β=32 PASSes →
+`confirmed-OOS`. It was **deliberately recorded `partial-OOS`
+instead**, adjudicated with the research director: a hollow PASS
+would be the repo's **10th `confirmed-OOS` in 146 runs** and corrupt
+the 9/146 base rate that the whole "arbitraged-space" strategic frame
+rests on (see
+[`research-strategy-arbitraged-space`](../leaderboard.md#verdict-labels)
+discipline). The aggregate Δ-fix +0.108 is real and reproducible,
+but 0/6 per-window wins means it is not a clean confirmed-OOS.
+`partial-OOS` is the existing label for "signal present in aggregate,
+fails the stratified test" and matches the β=8 MARGINAL precedent in
+the same arc. This **supersedes** the β=8 "Operational rule (final)"
+above.
+
+### The w0 regime gate is now moot
+
+The β=8 `partial-OOS` next-step list flagged a w0 regime gate as the
+`partial-OOS → regime gate` move. The stratification pre-empts it:
+the problem is **0/6 per-window wins, not a w0-only drag**. Gating
+w0 out would mechanically lift the cross-window mean (remove the
+−0.19 window) *without creating any state-conditional skill* — a
+misleading rescue that would manufacture a better headline number
+from the same artifact. **Not run**, by design.
+
+### Operational rule (final, corrected)
+
+**The discrete mixture-of-horizons-IC architecture does not extract
+state-conditional skill on factor-narrow.** Across the entire rescue
+arc (entropy reg, bilevel return, horizon-aligned grid, target-side
+REINFORCE β up to 32) the mixture never beats the per-window
+hindsight-best fixed horizon in a single window; every positive
+`Δ-fix` is an artifact of benchmarking against one horizon fixed
+across heterogeneous windows. The next lever is **not** more β, not a
+w0 gate, and not another π-training intervention — it is either an
+output-side restructure (per-horizon specialized score heads, mixture
+*over* specialists — genuinely different architecture, not
+pre-registered) or retiring the mixture. Per the standing strategic
+frame, the higher-EV move is the orthogonal **novel-data arc**
+(borrow-stress conditioning on the liquid vol universe), not further
+variants of cleverer-model-on-standard-data here.
+
+### Master walk-forward log
+
+[2026-05-15 target-side-REINFORCE higher-β β∈{16,32} row](../leaderboard.md) —
+[`partial-OOS`](../leaderboard.md#verdict-labels) (β=32 Δ-fix +0.108
+clears the literal cut; 0/6 per-window wins → not promoted to
+`confirmed-OOS`). Closes the higher-β sub-question of
+[`TODO/factor-reinforce-target-side`](../TODO/factor-reinforce-target-side.md).

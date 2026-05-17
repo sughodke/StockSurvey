@@ -57,6 +57,11 @@ image = (
             # Modal aborts the build with "modified during build process" if
             # the harness writes a wakeup mid-upload.
             '.claude/**',
+            # `apps/docs/site/` is the mkdocs build output. A live
+            # `ss-docs-serve` livereload watcher rewrites it mid-upload,
+            # triggering the same "modified during build process" abort
+            # as `.claude/`. factor training never imports ss_docs.
+            'apps/docs/site/**',
             '.modal_metadata/**',
             'Output/**',
             'StooqData/**',

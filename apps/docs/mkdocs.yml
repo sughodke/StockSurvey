@@ -153,7 +153,8 @@ nav:
       - Done — apps/factor bilevel horizon objective (confirmed-null on deployment-return rescue): TODO/factor-bilevel-horizon-objective.md
       - Done — apps/factor horizon-aligned IndicatorGridConfig (confirmed-null on input-side rescue): TODO/factor-horizon-aligned-grid.md
       - Joint v0 — illiquid-options VRP × securities-lending stress (small-capacity re-frame; Stage-0 PASS — runnable free, spread-defined cohort): TODO/vol-borrow-illiquid-vrp.md
-      - apps/factor target-side REINFORCE for π (pre-registered): TODO/factor-reinforce-target-side.md
+      - Higher-EV — borrow-stress conditioning on the liquid vol universe (un-reached novel-data leg re-pointed; Stage-0 gate first, then gauss314 v3-locked + DoltHub OOS): TODO/vol-borrow-liquid-universe.md
+      - Done — apps/factor target-side REINFORCE for π (partial-OOS; higher-β resolved, arc benchmark-artifact-bound): TODO/factor-reinforce-target-side.md
       - apps/cfr — Deep CFR meta-allocator: TODO/apps-cfr.md
       - Factor sizing-input reframe: TODO/factor-sizing-input-reframe.md
       - Done — factor endogenous-horizon entropy-weight sweep (confirmed-null on rescue hypothesis): TODO/factor-horizon-entropy-reg.md

@@ -11,7 +11,7 @@ Active backlog for the StockSurvey monorepo. Each section from the original
 ## Research threads
 
 - [Joint v0 — illiquid-options VRP × securities-lending stress — small-capacity re-frame of the discarded `confirmed-OOS` vol signal; Stage-0 PASS (DoltHub `option_chain` has free per-contract NBBO), runnable free with spread-defined cohort](vol-borrow-illiquid-vrp.md)
-- [`apps/factor` — target-side REINFORCE for π (Sharpe-residual, not rank-IC) — `partial-OOS` (MARGINAL, Δ-fix +0.095 at β=8); first positive lever in the rescue arc; next: higher-β sweep β∈{16,32}](factor-reinforce-target-side.md)
+- [Higher-EV — borrow-stress conditioning on the *liquid* vol universe — the un-reached novel-data leg of the illiquid-VRP arc, re-pointed off the quote-availability wall onto the v3-locked liquid recipe; Stage-0 borrow-data feasibility gate first, then gauss314 (locked v3 + borrow split) → DoltHub OOS contingent on Phase-A H3 ≥ +0.10](vol-borrow-liquid-universe.md)
 - [`apps/cfr` — Deep CFR meta-allocator over existing scorers](apps-cfr.md)
 - [Factor sizing-input reframe — re-purpose apps/factor as a meta-gate input](factor-sizing-input-reframe.md)
 - [Ablation — disentangle why long-period RSI underperforms](rsi-long-period-ablation.md)
@@ -39,6 +39,7 @@ Active backlog for the StockSurvey monorepo. Each section from the original
 - [`apps/critic` Φ value function — resolved 2026-05-15, `confirmed-null` on both v0 (cross-app window-level) and v0.1 (pair-level rescue); see [`critic-phi-quality-v0`](../findings/critic-phi-quality-v0.md)](critic-phi-value-function.md)
 - [Factor bilevel horizon objective — resolved 2026-05-15, `confirmed-null` on deployment-return supervision rescue; see extended [`factor-endogenous-horizon-mixture`](../findings/factor-endogenous-horizon-mixture.md) under "Bilevel objective"](factor-bilevel-horizon-objective.md)
 - [Factor horizon-aligned IndicatorGridConfig — resolved 2026-05-15, `confirmed-null` on input-side rescue; see extended [`factor-endogenous-horizon-mixture`](../findings/factor-endogenous-horizon-mixture.md) under "Horizon-aligned feature grid"](factor-horizon-aligned-grid.md)
+- [Factor target-side REINFORCE for π — resolved 2026-05-15, `partial-OOS` (β=32 Δ-fix +0.108 clears literal cut but 0/6 per-window wins → not promoted; arc is benchmark-artifact-bound, w0-gate moot); see extended [`factor-endogenous-horizon-mixture`](../findings/factor-endogenous-horizon-mixture.md) under "Target-side REINFORCE — higher-β"](factor-reinforce-target-side.md)
 
 ## Superseded
 
