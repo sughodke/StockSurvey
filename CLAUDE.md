@@ -175,10 +175,24 @@ levels:
    Reuse existing universe / windowing tags where possible (Phase-2,
    factor-narrow, stooq_us_long, regime-3w-optuna, phase-2 split, etc.) —
    they're defined in the same page's "Operating conditions" section.
-2. Pick the right verdict label from the predefined vocabulary:
+2. **Always compute and record a Sharpe alongside the primary
+   metric for any portfolio-bearing run.** If the run produces a
+   deployable weight / return stream, the row MUST carry a
+   block-Sharpe (`ss_portfolio.block_sharpe`; `apps/factor`'s is
+   eval-only via `objectives.block_sharpe`) even when the
+   pre-registered decision metric is rank-IC / IC. Name both in the
+   `metric` column and report both in `train` / `val`, exactly as the
+   deterministic-indicator-baseline row does
+   (`mean val IC ; mean val Sharpe` → `+0.0120 ; +0.440`). Sharpe is
+   the only cross-arc-comparable number — a row without it cannot be
+   ranked against the rest of the board. Exempt: non-portfolio
+   diagnostics (reconstruction R², per-feature Pearson r, compression
+   error) where Sharpe is undefined — there put `N/A` in the Sharpe
+   position so the absence reads as intentional, not omitted.
+3. Pick the right verdict label from the predefined vocabulary:
    `confirmed-OOS`, `reversed-OOS`, `partial-OOS`, `confirmed-null`,
    `diagnostic`, `pending`. Don't invent new labels.
-3. Append-only — do not rewrite prior rows. If a new run supersedes an
+4. Append-only — do not rewrite prior rows. If a new run supersedes an
    earlier one, add a new row and reference the prior in the notes
    column. The leaderboard captures history, not the latest opinion.
 
