@@ -1,6 +1,26 @@
 # Factor short-horizon × fixed `(C, L)` representation
 
-**Verdict → next-experiment chain (stated up front):**
+> **RESOLVED 2026-05-18 — outcome 2 (horizon-only effect).**
+> Representation hypothesis **`confirmed-null`** (spectral rFFT +
+> MiniRocket-PPV both lose to the indicator control at all of
+> `rebal_days ∈ {20,10,5}`); horizon finding **`confirmed-OOS`** — the
+> existing indicator grid at `rebal_days=5` posts mean val IC **+0.0212,
+> 6/6 windows** (≈5× the 20d cell): the long-standing factor "+0.012
+> ceiling" was a `rebal_days=20` artifact. Per the numbered decision
+> rule's outcome-2 action, the **gated learned conv-AE arm was NOT
+> built** (the staging paragraph's looser "(1) or (2)" wording is
+> superseded by the numbered rule, which governs). **Spawned
+> follow-up:** pivot `apps/factor`'s default cadence to the short
+> horizon with the existing grid + run the `confirmed-OOS` adjacent
+> test (5d commission/turnover stress → is it microstructure?; second
+> universe; characterise the front-loaded per-window decay); feed the
+> horizon result into the relational
+> [`rebal-days-sweep`](rebal-days-sweep.md) thread. Evidence: 9
+> leaderboard rows `2026-05-18`; finding
+> [`factor-shorthorizon-representation`](../findings/factor-shorthorizon-representation.md).
+> Pre-registration retained below as written.
+
+**Verdict → next-experiment chain (as pre-registered):**
 
 - If a non-CWT fixed `(channel × compressed-length)` encoder beats the
   **horizon-matched** indicator baseline at `rebal_days ∈ {5, 10}` →

@@ -123,6 +123,7 @@ nav:
       - Sizing-input v0 — MSE-on-alpha calibrates but adds no information for rank-based emission: findings/factor-sizing-input-v0.md
       - Sizing-input v1 — factor signal-quality at 6-window resolution is too lagged to clear VIX gate: findings/factor-sizing-input-v1.md
       - Endogenous-horizon mixture — state-conditional rebal cadence beats random-π but not best fixed (π collapses to h=60 without entropy regularization): findings/factor-endogenous-horizon-mixture.md
+      - Short-horizon × (C,L) representation — +0.012 ceiling was a 20d artifact; indicator grid @5d +0.0212 IC 6/6 (confirmed-OOS), non-CWT (C,L) encoders confirmed-null (representation not the lever, horizon is): findings/factor-shorthorizon-representation.md
       - Gate drawdown v0 (partial-OOS): findings/gate-drawdown-v0.md
       - Dynamic rebalance cadence null — per-regime cadence oracle headroom +0.004 Sharpe (confirmed-null; cadence is non-binding and does not vary by regime, the regime signal is strategy-selection not execution timing): findings/dynamic-rebal-cadence-null.md
       - Pairs classical v0 (confirmed-null): findings/pairs-classical-v0.md
@@ -168,7 +169,7 @@ nav:
       - Backbone architecture: TODO/backbone-architecture.md
       - Port Sharpe to tinygrad: TODO/port-sharpe-tinygrad.md
       - DWT-compression follow-ups: TODO/dwt-compression-followups.md
-      - Factor short-horizon × (C,L) representation (pre-reg): TODO/factor-shorthorizon-representation.md
+      - Done — factor short-horizon × (C,L) representation (resolved 2026-05-18 — representation confirmed-null, horizon confirmed-OOS, +0.012 ceiling was a 20d artifact): TODO/factor-shorthorizon-representation.md
       - Rebal-days sweep: TODO/rebal-days-sweep.md
       - Reversed-price experiment: TODO/reversed-price-experiment.md
       - EW + rank-IC overlay (parked): TODO/ew-overlay-test.md
