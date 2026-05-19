@@ -18,6 +18,7 @@ Active backlog for the StockSurvey monorepo. Each section from the original
 - [Diagnose why w=1 row underperforms in the FiLM (w, n) head](film-w1-diagnostic.md)
 - [Backbone architecture — broader window/indicator coverage](backbone-architecture.md)
 - [DWT-compression follow-ups](dwt-compression-followups.md)
+- [Factor short-horizon × fixed `(C,L)` representation — pre-registered: 4 arms (indicator baseline / DCT / MiniRocket / gated conv-AE) × rebal_days {5,10,20}, IC-primary with commission-confound guardrail](factor-shorthorizon-representation.md)
 - [Rebal-days sweep](rebal-days-sweep.md)
 - [Reversed-price training — falsify the time-symmetry hypothesis](reversed-price-experiment.md)
 - [EW + rank-IC overlay test (parked — option 2 fallback)](ew-overlay-test.md)

@@ -168,6 +168,7 @@ nav:
       - Backbone architecture: TODO/backbone-architecture.md
       - Port Sharpe to tinygrad: TODO/port-sharpe-tinygrad.md
       - DWT-compression follow-ups: TODO/dwt-compression-followups.md
+      - Factor short-horizon × (C,L) representation (pre-reg): TODO/factor-shorthorizon-representation.md
       - Rebal-days sweep: TODO/rebal-days-sweep.md
       - Reversed-price experiment: TODO/reversed-price-experiment.md
       - EW + rank-IC overlay (parked): TODO/ew-overlay-test.md
