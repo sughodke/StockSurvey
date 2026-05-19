@@ -229,6 +229,7 @@ def train_scorer_walkforward(
     spread:      np.ndarray | None = None,
     max_spread:  float | None = None,
     forward_target_kind: str = 'log_return',
+    forward_skip: int = 0,
     aux_weight:  float = 0.0,
     aux_winsor:  tuple[float, float] = (0.01, 0.99),
     loss_kind:   str = 'rank_ic',
@@ -311,6 +312,7 @@ def train_scorer_walkforward(
 
     pre = precompute_inputs(
         tickers, backbone, rebal_days=rebal_days,
+        forward_skip=forward_skip,
         max_spread=max_spread, spread=spread,
         forward_target_kind=forward_target_kind,
         aux_target_kind='robust_z' if is_multitask else None,

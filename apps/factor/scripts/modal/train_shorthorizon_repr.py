@@ -150,7 +150,8 @@ def _resolve_ticker_list(tickers, max_tickers, min_history_bars):
 
 @app.function(gpu='T4', cpu=4, memory=16384, timeout=3 * 60 * 60)
 def sweep(
-    encoders: str, rebal_days_grid: str, tickers: str, start: str, end: str,
+    encoders: str, rebal_days_grid: str, forward_skip_grid: str,
+    tickers: str, start: str, end: str,
     scorer: str, n_steps: int, learning_rate: float, weight_decay: float,
     max_tickers: int, min_history_bars: int,
 ) -> dict[str, bytes]:
@@ -182,6 +183,7 @@ def sweep(
 
     enc_list = [e.strip() for e in encoders.split(',') if e.strip()]
     rebal_list = [int(r) for r in rebal_days_grid.split(',') if r.strip()]
+    skip_list = [int(s) for s in forward_skip_grid.split(',') if s.strip()]
     ticker_list = _resolve_ticker_list(tickers, max_tickers, min_history_bars)
     print(f'  universe: {len(ticker_list)} tickers', flush=True)
     n_workers = max(1, int(os.environ.get('FACTOR_FEATURE_WORKERS',
@@ -223,14 +225,15 @@ def sweep(
                             'error': f'only {len(ticker_data)} tickers'})
             continue
 
-        for rebal in rebal_list:
+        for rebal, skip in [(r, s) for r in rebal_list for s in skip_list]:
             tr, va, st = _scaled_blocks(rebal)
-            cell = f'sh-{encoder}-r{rebal}'
-            print(f'\n  >>> {cell}  blocks {tr}/{va}/{st}', flush=True)
+            cell = f'sh-{encoder}-r{rebal}-s{skip}'
+            print(f'\n  >>> {cell}  blocks {tr}/{va}/{st}  '
+                  f'forward_skip={skip}', flush=True)
             t1 = time.perf_counter()
             try:
                 wf = wf_for[encoder](
-                    ticker_data, cfg, rebal_days=rebal,
+                    ticker_data, cfg, rebal_days=rebal, forward_skip=skip,
                     train_window_blocks=tr, val_window_blocks=va,
                     step_window_blocks=st, scorer=scorer, n_steps=n_steps,
                     learning_rate=learning_rate, weight_decay=weight_decay,
@@ -238,7 +241,8 @@ def sweep(
             except Exception as e:
                 print(f'    FAILED: {type(e).__name__}: {e}', flush=True)
                 summary.append({'cell': cell, 'encoder': encoder,
-                                'rebal_days': rebal, 'failed': True,
+                                'rebal_days': rebal, 'forward_skip': skip,
+                                'failed': True,
                                 'error': f'{type(e).__name__}: {e}'})
                 continue
             wall = time.perf_counter() - t1
@@ -249,6 +253,7 @@ def sweep(
                  'train_sharpe': w.train_sharpe} for w in wf.windows]
             summary.append({
                 'cell': cell, 'encoder': encoder, 'rebal_days': rebal,
+                'forward_skip': skip,
                 'blocks': [tr, va, st], 'n_windows': wf.n_windows,
                 'mean_val_ic': wf.mean_val_ic,
                 'median_val_ic': wf.median_val_ic,
@@ -327,6 +332,7 @@ def _plot(summary, out_path) -> None:
 def main(
     encoders: str = 'indicator,spectral,minirocket',
     rebal_days_grid: str = '20,10,5',
+    forward_skip_grid: str = '0',
     tickers: str = '',
     start: str = '2000-01-01',
     end: str = '2026-04-01',
@@ -339,9 +345,11 @@ def main(
 ) -> None:
     LOCAL_OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
     print(f'launching factor-shorthorizon-repr (encoders={encoders}, '
-          f'rebal_days={rebal_days_grid}, max_tickers={max_tickers})')
+          f'rebal_days={rebal_days_grid}, forward_skip={forward_skip_grid}, '
+          f'max_tickers={max_tickers})')
     artifacts = sweep.remote(
-        encoders=encoders, rebal_days_grid=rebal_days_grid, tickers=tickers,
+        encoders=encoders, rebal_days_grid=rebal_days_grid,
+        forward_skip_grid=forward_skip_grid, tickers=tickers,
         start=start, end=end, scorer=scorer, n_steps=n_steps,
         learning_rate=learning_rate, weight_decay=weight_decay,
         max_tickers=max_tickers, min_history_bars=min_history_bars)

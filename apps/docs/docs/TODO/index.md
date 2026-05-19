@@ -19,6 +19,7 @@ Active backlog for the StockSurvey monorepo. Each section from the original
 - [Backbone architecture — broader window/indicator coverage](backbone-architecture.md)
 - [DWT-compression follow-ups](dwt-compression-followups.md)
 - [Done — factor short-horizon × fixed `(C,L)` representation — resolved 2026-05-18: representation `confirmed-null` (2 non-CWT (C,L) encoders × 3 horizons), horizon `confirmed-OOS` (indicator grid @5d +0.0212 IC, 6/6); the +0.012 ceiling was a `rebal_days=20` artifact. See finding](factor-shorthorizon-representation.md)
+- [Factor short-horizon edge — microstructure/cost stress — pre-registered skip-1 implementation-lag test of the `confirmed-OOS` 5d indicator edge (is +0.0212 IC a tradable move or bid-ask bounce?); gates universe-generalization + decay](factor-shorthorizon-microstructure.md)
 - [Rebal-days sweep](rebal-days-sweep.md)
 - [Reversed-price training — falsify the time-symmetry hypothesis](reversed-price-experiment.md)
 - [EW + rank-IC overlay test (parked — option 2 fallback)](ew-overlay-test.md)

@@ -170,6 +170,7 @@ nav:
       - Port Sharpe to tinygrad: TODO/port-sharpe-tinygrad.md
       - DWT-compression follow-ups: TODO/dwt-compression-followups.md
       - Done — factor short-horizon × (C,L) representation (resolved 2026-05-18 — representation confirmed-null, horizon confirmed-OOS, +0.012 ceiling was a 20d artifact): TODO/factor-shorthorizon-representation.md
+      - Factor short-horizon edge — microstructure/cost stress (skip-1 implementation lag, pre-reg): TODO/factor-shorthorizon-microstructure.md
       - Rebal-days sweep: TODO/rebal-days-sweep.md
       - Reversed-price experiment: TODO/reversed-price-experiment.md
       - EW + rank-IC overlay (parked): TODO/ew-overlay-test.md

@@ -94,7 +94,8 @@ def _params_to_numpy(p: dict[str, Tensor]) -> dict[str, np.ndarray]:
 
 def precompute_inputs(
     tickers: list[TickerData], backbone: Backbone, *,
-    rebal_days: int, max_spread: float | None = None,
+    rebal_days: int, forward_skip: int = 0,
+    max_spread: float | None = None,
     spread: np.ndarray | None = None,
     forward_target_kind: str = 'log_return',
     aux_target_kind: str | None = None,
@@ -139,6 +140,16 @@ def precompute_inputs(
         target in the multi-task path.
     Pass `None` (default) to skip the aux build.
     """
+    # `forward_skip` is only wired through the `log_return` target +
+    # block-return accounting (the implementation-lag control). The
+    # sign-demeaned / vol-innovation / aux targets don't apply the skip
+    # — fail loudly rather than silently mixing a skipped block return
+    # with an un-skipped target.
+    if forward_skip and forward_target_kind != 'log_return':
+        raise NotImplementedError(
+            f'forward_skip={forward_skip} only supported with '
+            f"forward_target_kind='log_return', got {forward_target_kind!r}")
+
     # `align_tickers_at_rebal` materializes features only at rebal bars,
     # not the full daily axis. The encoder consumes one row per rebal
     # block downstream, so allocating the full `(D, N, K, F)` panel was
@@ -147,7 +158,8 @@ def precompute_inputs(
     # / aligned.valid stay daily because the forward-return helpers
     # operate on daily bars; both are cheap (~78 MB / ~19 MB at scale).
     aligned = align_tickers_at_rebal(
-        tickers, K=backbone.K, F=backbone.F, rebal_days=rebal_days)
+        tickers, K=backbone.K, F=backbone.F, rebal_days=rebal_days,
+        forward_skip=forward_skip)
     rebal_idx = aligned.rebal_idx
     D = len(aligned.dates)
     Dp, N, K, F = aligned.features.shape
@@ -172,7 +184,8 @@ def precompute_inputs(
     # covariance numerator cancels catastrophically when val IC is small,
     # so target-side precision matters. Demoted to f32 at the boundary
     # below (`fwd_rb`, `blr_rb`) where the Tensor handoff happens.
-    fwd_ret = forward_log_returns(aligned.prices, rebal_days=rebal_days)
+    fwd_ret = forward_log_returns(
+        aligned.prices, rebal_days=rebal_days, forward_skip=forward_skip)
     daily_log_ret = np.zeros_like(aligned.prices, dtype=np.float64)
     log_p = np.log(np.maximum(aligned.prices, 1e-12))
     daily_log_ret[1:] = log_p[1:] - log_p[:-1]
@@ -222,7 +235,12 @@ def precompute_inputs(
     n_blocks = len(rebal_idx)
     block_log_ret = np.empty((n_blocks, N), dtype=np.float32)
     for b, i in enumerate(rebal_idx):
-        block_log_ret[b] = daily_log_ret[i + 1: i + rebal_days + 1].sum(axis=0)
+        # Held block return for an entry delayed `forward_skip` bars:
+        # daily log returns over [i+1+skip, i+rebal_days+skip]. skip=0
+        # is the prior [i+1, i+rebal_days] window exactly.
+        block_log_ret[b] = daily_log_ret[
+            i + 1 + forward_skip: i + rebal_days + 1 + forward_skip
+        ].sum(axis=0)
 
     repr_rb = np.nan_to_num(repr_rb_full, nan=0.0).astype(np.float32)
     fwd_rb = np.nan_to_num(target_rb, nan=0.0).astype(np.float32)
@@ -278,6 +296,7 @@ def precompute_inputs(
 def train_scorer(
     tickers: list[TickerData], backbone: Backbone, *,
     rebal_days: int = 5,
+    forward_skip: int = 0,
     train_frac: float = 0.7,
     scorer: str = 'linear',
     mlp_hidden: int = 64,
@@ -363,6 +382,7 @@ def train_scorer(
 
     pre = precompute_inputs(
         tickers, backbone, rebal_days=rebal_days,
+        forward_skip=forward_skip,
         max_spread=max_spread, spread=spread,
         aux_target_kind='robust_z' if aux_weight > 0.0 else None,
         aux_winsor=aux_winsor)

@@ -114,6 +114,7 @@ def align_tickers(
 
 def align_tickers_at_rebal(
     tickers: list[TickerData], *, K: int, F: int, rebal_days: int,
+    forward_skip: int = 0,
 ) -> AlignedTickers:
     """Like `align_tickers`, but only materializes features at rebalance bars.
 
@@ -158,7 +159,10 @@ def align_tickers_at_rebal(
     D = len(common)
     N = len(tickers)
     rebal_idx = np.arange(0, D, rebal_days, dtype=np.int64)
-    rebal_idx = rebal_idx[rebal_idx + rebal_days < D]
+    # Drop trailing bars whose `forward_skip`-delayed forward window
+    # runs off the end. At forward_skip=0 this is `+ rebal_days < D`,
+    # identical to the prior filter.
+    rebal_idx = rebal_idx[rebal_idx + rebal_days + forward_skip < D]
     if len(rebal_idx) < 4:
         raise ValueError(
             f'only {len(rebal_idx)} rebalance bars fit in {D} aligned dates '
@@ -194,14 +198,21 @@ def align_tickers_at_rebal(
 
 
 def forward_log_returns(
-    prices: np.ndarray, *, rebal_days: int,
+    prices: np.ndarray, *, rebal_days: int, forward_skip: int = 0,
 ) -> np.ndarray:
-    """`(D, N)` of log-returns summed over the *next* `rebal_days` bars.
+    """`(D, N)` of log-returns over a `rebal_days` window starting
+    `forward_skip` bars after the signal bar.
 
-    `out[i, j] = sum(log(p[i+k+1] / p[i+k]) for k in range(rebal_days))`,
-    so it's the log return realized by holding ticker j from close-of-i
-    to close-of-(i+rebal_days). The trailing `rebal_days` rows are NaN
-    (the future window doesn't fit).
+    `out[i, j] = log p[i + forward_skip + rebal_days] − log p[i +
+    forward_skip]` — the log return realized by a trader who reads the
+    signal at close-of-i but can only *enter* at close-of-(i +
+    forward_skip), holding to close-of-(i + forward_skip + rebal_days).
+    `forward_skip=0` (default) is the historical close-of-i entry and is
+    bit-identical to the prior implementation. `forward_skip=1` is the
+    bid-ask-bounce / implementation-lag control: a 1-day skip removes
+    the non-tradable same-bar mean-reversion. The trailing
+    `rebal_days + forward_skip` rows are NaN (the future window doesn't
+    fit).
     """
     # f64 throughout — pearson_rank_ic's covariance numerator is the
     # difference of two near-equal sums of (score - mean) * (fwd - mean),
@@ -211,11 +222,19 @@ def forward_log_returns(
     # The (D, N) panel is small (~78 MB at full pool); the f64-vs-f32
     # bytes saved aren't worth the SNR loss. Caller demotes to f32 at
     # the Tensor boundary in precompute_inputs.
+    if forward_skip < 0:
+        raise ValueError(f'forward_skip={forward_skip} must be >= 0')
     log_p = np.log(np.maximum(prices, 1e-12))
     D, N = prices.shape
     fwd = np.full((D, N), np.nan, dtype=np.float64)
-    if D > rebal_days:
-        fwd[:D - rebal_days] = log_p[rebal_days:] - log_p[:D - rebal_days]
+    s = forward_skip
+    last = D - rebal_days - s
+    if last > 0:
+        # i in [0, last): fwd[i] = log_p[i+s+H] - log_p[i+s].
+        # log_p[s+H : D] and log_p[s : s+last] are both length `last`;
+        # at s=0 this is log_p[H:] - log_p[:D-H], the prior expression
+        # exactly (bit-identical regression guard).
+        fwd[:last] = log_p[s + rebal_days: D] - log_p[s: s + last]
     return fwd
 
 
