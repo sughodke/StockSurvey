@@ -27,7 +27,7 @@ Default eval window unless otherwise stated: 2013-01-29 → 2025-12-11,
 - [Sizing-input v0 — MSE-on-alpha calibrates score magnitude but adds zero information for the rank-invariant signal-quality emission](factor-sizing-input-v0.md)
 - [Sizing-input v1 — factor signal-quality at 6-window resolution is too lagged to clear the VIX meta-gate](factor-sizing-input-v1.md)
 - [Endogenous-horizon mixture — state-conditional rebal cadence beats random-π but not best fixed (π collapses to h=60 without entropy regularization)](factor-endogenous-horizon-mixture.md)
-- [Short-horizon × fixed `(C,L)` representation — the +0.012 val-IC ceiling was a `rebal_days=20` artifact: the existing indicator grid at 5d posts +0.0212 IC, 6/6 windows (`confirmed-OOS`); two non-CWT `(C,L)` encoders lose at every horizon (`confirmed-null` — representation is not the lever, horizon is)](factor-shorthorizon-representation.md)
+- [Short-horizon × fixed `(C,L)` representation — the +0.012 val-IC ceiling was a `rebal_days=20` artifact: the existing indicator grid at 5d posts +0.0212 IC, 6/6 windows (`confirmed-OOS`); two non-CWT `(C,L)` encoders lose at every horizon (`confirmed-null` — representation is not the lever, horizon is); a 1-day implementation lag halves the 5d edge to +0.0114 (`partial-OOS` — ≈46% was bid-ask bounce, deployable only cost-controlled)](factor-shorthorizon-representation.md)
 
 ## Replay app
 

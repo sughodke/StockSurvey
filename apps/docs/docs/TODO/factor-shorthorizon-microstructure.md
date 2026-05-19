@@ -1,6 +1,30 @@
 # Factor short-horizon edge — microstructure / cost stress (skip-1)
 
-**Verdict → next-experiment chain (stated up front):**
+> **RESOLVED 2026-05-19 — `partial-OOS` (part-real, part bid-ask-bounce).**
+> A 1-day implementation lag (`forward_skip=1`) ~halves the 5d edge:
+> mean val IC +0.0212→**+0.0114**, 5/6 windows, net Sh +0.529. ≈46% of
+> the headline IC was non-tradable same-bar mean reversion (bid-ask
+> bounce), but it does **not** collapse — +0.0114 stays above the
+> pre-registered reversed-kill (+0.0106) and 5/6 windows hold → the
+> pre-reg **partial** band exactly. 10d retains a higher *fraction*
+> (64% vs 54%) but lower absolute (+0.0076, 4/6); neither collapses, so
+> the signal is not *entirely* microstructure. skip-0 cells reproduced
+> 2026-05-18 to ±3×10⁻⁵ (regression anchor — `forward_skip` is
+> bit-safe). Decay: skip-1 5d per-window
+> `[0.026,0.013,0.013,0.006,−0.005,0.016]` — recent edge ~+0.005–0.016
+> with a negative window, marginal. **Net:** the deployable read is "5d
+> with explicit cost/turnover control for a modest ~+0.011 IC",
+> *gated* on whether that clears the live cost model — not the +0.0212
+> headline. Reinforces the standing frame (higher-EV = orthogonal
+> prediction problems / novel data, not more factor-return variants).
+> **Spawned next (only if the modest edge is worth pursuing):** gross
+> decile-spread/turnover decomposition → precise commission break-even;
+> then universe-generalization. Evidence: 3 leaderboard rows
+> `2026-05-19`; finding
+> [`factor-shorthorizon-representation`](../findings/factor-shorthorizon-representation.md#microstructure--skip-1-follow-up).
+> Pre-registration retained below as written.
+
+**Verdict → next-experiment chain (as pre-registered):**
 
 - If the 5d indicator-grid edge **survives a 1-day implementation lag**
   (skip-1 mean val IC ≥ +0.012, ≥5/6 windows) → it is a *tradable*

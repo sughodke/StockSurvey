@@ -14,10 +14,13 @@ exactly as the [CWT-recursive-compression
 arc](cwt-recursive-compression.md) and the [indicator
 baseline](factor-indicator-baseline.md) found, now extended to *non-CWT*
 fixed `(C,L)` feature classes. **Sweep the prediction horizon before
-hunting representations.** Caveat: short-horizon cross-sectional
-reversal is a well-studied/arbitraged anomaly and the 5d result's
-cost-sensitivity is not yet stress-tested — see *Caveats* below before
-treating this as deployable.
+hunting representations.** Resolved caveat (2026-05-19): the 5d edge
+was stress-tested with a 1-day implementation lag (skip-1) and is
+**`partial-OOS`** — a realistic execution lag halves it
+(+0.0212→+0.0114, 5/6 windows), so ≈46% of the headline IC was
+non-tradable bid-ask bounce and the deployable signal is a modest,
+cost-controlled ~+0.011 IC, not +0.0212. See *Microstructure / skip-1
+follow-up* below.
 
 ## Why this experiment
 
@@ -153,6 +156,72 @@ microstructure?), (ii) a second universe, (iii) characterise the
 front-loaded per-window decay. Feed the horizon result into the
 relational [`rebal-days-sweep`](../TODO/rebal-days-sweep.md) thread (its
 analog-kNN analogue of the same question).
+
+## Microstructure / skip-1 follow-up
+
+The lede's `confirmed-OOS` carried a deployability caveat: short-horizon
+cross-sectional reversal is classically contaminated by **bid-ask
+bounce** (a name closing near its bid "reverts" up next day with no
+tradable move). Pre-registered test
+([`TODO/factor-shorthorizon-microstructure`](../TODO/factor-shorthorizon-microstructure.md)):
+re-evaluate with a **1-day implementation lag** — score on features
+through `close(t)` but realize the return a trader could actually
+capture entering at `close(t+1)` (`forward_skip=1`). Bid-ask bounce
+reverses within a day; a genuine cross-sectional move survives the skip.
+Indicator grid only (representation question closed `confirmed-null`);
+`rebal_days ∈ {20,10,5}` × `forward_skip ∈ {0,1}`, same `factor-narrow`
+/ windowing / n_steps as 2026-05-18.
+
+**Regression anchor:** skip-0 cells reproduced the 2026-05-18 rows to
+±3×10⁻⁵ (+0.0043 / +0.0118 / +0.0212) — the `forward_skip` threading is
+bit-safe and the prior rows stand.
+
+| horizon | skip-0 IC (windows) | skip-1 IC (windows) | retained | skip-1 Sharpe |
+|---|---|---|---|---|
+| 5d  | +0.0212 (6/6) | **+0.0114 (5/6)** | 54% | +0.529 |
+| 10d | +0.0118 (6/6) | +0.0076 (4/6) | 64% | +0.562 |
+| 20d | +0.0043 (4/6) | +0.0014 (3/6) | — | +0.369 |
+
+**Verdict: `partial-OOS`.** The 1-day lag ~halves the 5d edge → ≈46% of
+the headline +0.0212 was non-tradable same-bar mean reversion (bid-ask
+bounce). But it does not collapse: skip-1 5d IC +0.0114 stays above the
+pre-registered reversed-kill (+0.0106) and the 20d skip-0 cell
+(+0.0043), 5/6 windows hold, net Sharpe +0.529 (after the lag *and*
+10bps at 4× turnover) still beats 20d skip-0 (+0.253). That is the
+pre-registered **partial** band exactly (IC ∈ [+0.0106,+0.012], ≥4/6) —
+neither clean kill nor clean survive.
+
+**Horizon cross-check (as pre-registered):** 10d is more skip-robust in
+*fraction* (64% vs 5d's 54% — longer horizon, smaller microstructure
+share, as predicted) but lower in *absolute* skip-1 IC (+0.0076, 4/6).
+5d stays the strongest tradable horizon post-lag; neither collapses, so
+the short-horizon signal is **not entirely** microstructure.
+
+**Decay stratification.** skip-1 5d per-window val IC (calendar order,
+2000s→2020s): `[0.026, 0.013, 0.013, 0.006, −0.005, 0.016]` —
+front-loaded, with a *negative* penultimate window. The *live* tradable
+edge (last two windows) is ~+0.005–0.016 with one negative window —
+markedly weaker and noisier than the +0.0114 mean. Set deploy
+expectations off the recent windows, not the 26-year mean, and never
+off the +0.0212 raw headline.
+
+**Cost break-even (qualitative).** A precise break-even needs the gross
+per-block decile-spread / turnover decomposition (not in the v1
+artifact). What the artifact shows: skip-1 5d net Sharpe is +0.529 at
+10bps *after* the lag and 4× turnover — comfortably positive and above
+20d skip-0, so the break-even commission is materially above 10bps. A
+precise figure is the natural next adjacent test if the modest edge is
+worth pursuing.
+
+**Net.** At its best horizon and after a realistic execution lag the
+factor cross-sectional-return problem yields a *modest,
+partly-microstructure, recency-decayed* `partial-OOS` edge (~+0.011 IC)
+— not the +0.0212 headline. With the `confirmed-null` representation
+result, this reinforces the standing strategic frame: higher-EV is
+orthogonal prediction problems / novel data, not further
+factor-return-prediction variants. The deployable read of the cadence
+pivot is "5d with explicit cost/turnover control for a modest edge",
+gated on whether ~+0.011 IC clears the live cost model.
 
 ## Master walk-forward log
 
