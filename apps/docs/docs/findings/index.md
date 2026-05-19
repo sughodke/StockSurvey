@@ -90,3 +90,4 @@ Default eval window unless otherwise stated: 2013-01-29 → 2025-12-11,
 ## Critic app
 
 - [Critic Φ-quality v0 — cross-app window-level value function (confirmed-null; oracle-detection illusion in first pass + true Spearman flips negative when oracle arms dropped)](critic-phi-quality-v0.md)
+- [Dynamic rebalance-cadence null — per-regime hindsight cadence oracle headroom is +0.004 Sharpe over daily-EW (confirmed-null, 37× under kill gate); 5th and final reframing of state-conditional selection; cadence is non-binding, the regime edge is strategy-selection not execution timing](dynamic-rebal-cadence-null.md)

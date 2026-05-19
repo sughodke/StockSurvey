@@ -124,6 +124,7 @@ nav:
       - Sizing-input v1 — factor signal-quality at 6-window resolution is too lagged to clear VIX gate: findings/factor-sizing-input-v1.md
       - Endogenous-horizon mixture — state-conditional rebal cadence beats random-π but not best fixed (π collapses to h=60 without entropy regularization): findings/factor-endogenous-horizon-mixture.md
       - Gate drawdown v0 (partial-OOS): findings/gate-drawdown-v0.md
+      - Dynamic rebalance cadence null — per-regime cadence oracle headroom +0.004 Sharpe (confirmed-null; cadence is non-binding and does not vary by regime, the regime signal is strategy-selection not execution timing): findings/dynamic-rebal-cadence-null.md
       - Pairs classical v0 (confirmed-null): findings/pairs-classical-v0.md
       - Vol surface v0 (inconclusive, 5/5 pos): findings/vol-surface-v0.md
       - Vol surface v1 (confirmed-OOS, audit-validated, per-rebal portfolio aggregator + costs in loop, alpha Sharpe +5.86 with 25x real-to-shuffle ratio): findings/vol-surface-v1.md
