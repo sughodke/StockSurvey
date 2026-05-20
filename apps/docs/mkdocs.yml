@@ -157,6 +157,7 @@ nav:
       - Done — apps/factor horizon-aligned IndicatorGridConfig (confirmed-null on input-side rescue): TODO/factor-horizon-aligned-grid.md
       - Joint v0 — illiquid-options VRP × securities-lending stress (small-capacity re-frame; Stage-0 PASS — runnable free, spread-defined cohort): TODO/vol-borrow-illiquid-vrp.md
       - Higher-EV — borrow-stress conditioning on the liquid vol universe (un-reached novel-data leg re-pointed; Stage-0 gate first, then gauss314 v3-locked + DoltHub OOS): TODO/vol-borrow-liquid-universe.md
+      - Vol Tradier forward structural coverage probe (pre-reg; $0 sandbox-MCP; resolves DoltHub-vs-OPRA coverage gap; gates paid-vendor spend): TODO/vol-tradier-forward-coverage.md
       - Done — apps/factor target-side REINFORCE for π (partial-OOS; higher-β resolved, arc benchmark-artifact-bound): TODO/factor-reinforce-target-side.md
       - Done — apps/factor return-coupled recurrent CWT embedding (confirmed-null; every k ≤ indicator baseline, closes the CWT-as-predictor question arc-wide): TODO/factor-cwt-return-coupled.md
       - apps/cfr — Deep CFR meta-allocator: TODO/apps-cfr.md
