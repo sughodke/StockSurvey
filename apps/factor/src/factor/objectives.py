@@ -600,8 +600,85 @@ def block_ir_vs_ew(
     return mean / std * Tensor((TRADING_DAYS / rebal_days) ** 0.5)
 
 
+# --------------------------------------------------------------------------
+# Eval-only numpy mirrors of the per-block portfolio return stream.
+#
+# `block_sharpe` / `block_sharpe_long_short` collapse the per-block net
+# return vector to a scalar Sharpe. For the cross-arc Deflated-Sharpe
+# harness (`ss_portfolio.standardize_oos`) we need the *stream* itself.
+# These reconstruct it in pure numpy from the same inputs the walk-forward
+# already holds as numpy (`blr_rb_np`, `mask_rb_np`, `s_val.numpy()`), so
+# there is no tinygrad / gradient coupling — they are post-hoc reporting
+# helpers only. The arithmetic mirrors the Tensor versions above exactly.
+# --------------------------------------------------------------------------
+
+def block_port_returns_np(
+    rebal_scores: np.ndarray,
+    log_temperature: float,
+    block_log_ret: np.ndarray,
+    rebal_mask: np.ndarray,
+    commission_frac: float,
+) -> np.ndarray:
+    """Per-block net return stream of the softmax long-only top-N book.
+
+    Mirrors `block_sharpe` up to (but not including) the mean/std/anuual
+    reduction; returns the cost-adjusted per-block return vector.
+    """
+    scores = np.asarray(rebal_scores, dtype=np.float64)
+    blr = np.asarray(block_log_ret, dtype=np.float64)
+    mask = np.asarray(rebal_mask, dtype=np.float64)
+    temp = float(np.exp(log_temperature))
+    s = scores / temp + np.log(mask + 1e-12)
+    s = s - s.max(axis=1, keepdims=True)
+    exp_s = np.exp(s) * mask
+    w = exp_s / (exp_s.sum(axis=1, keepdims=True) + 1e-12)
+    port = (w * blr).sum(axis=1)
+    init_cost = np.abs(w[0]).sum()
+    diff_cost = 0.5 * np.abs(w[1:] - w[:-1]).sum(axis=1)
+    costs = commission_frac * np.concatenate([[init_cost], diff_cost])
+    return port - costs
+
+
+def block_port_returns_long_short_np(
+    rebal_scores: np.ndarray,
+    block_log_ret: np.ndarray,
+    rebal_mask: np.ndarray,
+    commission_frac: float,
+    leverage: float = 1.0,
+    clip_sigma: float = 3.0,
+) -> np.ndarray:
+    """Per-block net return stream of the market-neutral long-short book.
+
+    Mirrors `block_sharpe_long_short` (and its `long_short_weights`
+    constructor) up to the reduction; returns the cost-adjusted vector.
+    """
+    scores = np.asarray(rebal_scores, dtype=np.float64)
+    blr = np.asarray(block_log_ret, dtype=np.float64)
+    mask = np.asarray(rebal_mask, dtype=np.float64)
+    counts = mask.sum(axis=1, keepdims=True)
+    safe_counts = np.maximum(counts, 1.0)
+    s_mean = (scores * mask).sum(axis=1, keepdims=True) / safe_counts
+    s_dev = (scores - s_mean) * mask
+    s_var = (s_dev * s_dev).sum(axis=1, keepdims=True) / safe_counts
+    s_std = np.sqrt(s_var + 1e-12)
+    z = s_dev / s_std
+    z = np.clip(z, -clip_sigma, clip_sigma) * mask
+    z_mean = z.sum(axis=1, keepdims=True) / safe_counts
+    z = (z - z_mean) * mask
+    l1 = np.abs(z).sum(axis=1, keepdims=True)
+    safe_l1 = np.maximum(l1, 1e-12)
+    w = leverage * z / safe_l1
+    w = w * (l1 > 1e-9).astype(np.float64)
+    port = (w * blr).sum(axis=1)
+    init_cost = np.abs(w[0]).sum()
+    diff_cost = np.abs(w[1:] - w[:-1]).sum(axis=1)
+    costs = commission_frac * np.concatenate([[init_cost], diff_cost])
+    return port - costs
+
+
 __all__ = [
-    'TRADING_DAYS', 'block_sharpe', 'block_sharpe_long_short',
+    'TRADING_DAYS', 'block_port_returns_np', 'block_port_returns_long_short_np',
+    'block_sharpe', 'block_sharpe_long_short',
     'block_ir_vs_ew', 'horizon_mixture_loss', 'horizon_mixture_loss_bilevel',
     'horizon_mixture_loss_target', 'long_short_weights',
     'masked_mse', 'pearson_rank_ic', 'per_bar_pearson_ic',

@@ -28,8 +28,8 @@ from ss_features import TickerData, block_windows
 from factor.backbone import Backbone
 from factor.data import AlignedTickers
 from factor.objectives import (
-    block_ir_vs_ew, block_sharpe, block_sharpe_long_short,
-    masked_mse, pearson_rank_ic,
+    block_ir_vs_ew, block_port_returns_long_short_np, block_port_returns_np,
+    block_sharpe, block_sharpe_long_short, masked_mse, pearson_rank_ic,
 )
 from factor.scorers import get_scorer
 from factor.train import precompute_inputs
@@ -79,6 +79,15 @@ class WalkForwardWindow:
     # this window's signal-quality with the macro-state snapshot at
     # the same date.
     val_start_date:    str = ''
+    # Per-block OOS net (post-cost) return streams over the val window,
+    # for the cross-arc Deflated-Sharpe harness
+    # (`ss_portfolio.standardize_oos`). Long-only is the softmax-top-N
+    # book that `val_sharpe` measures; long-short is the market-neutral
+    # book that `val_sharpe_long_short` measures. Shape `(n_val_blocks,)`.
+    val_block_returns:    np.ndarray = field(
+        default_factory=lambda: np.array([], dtype=np.float64))
+    val_block_returns_long_short: np.ndarray = field(
+        default_factory=lambda: np.array([], dtype=np.float64))
 
 
 @dataclass
@@ -100,6 +109,24 @@ class WalkForwardResult:
     @property
     def n_windows(self) -> int:
         return len(self.windows)
+
+    @property
+    def oos_block_returns(self) -> np.ndarray:
+        """Concatenated OOS per-block net return stream (long-only) across
+        all val windows — the input to the cross-arc Deflated-Sharpe
+        harness. Non-overlapping at the default step==val anchor."""
+        if not self.windows:
+            return np.array([], dtype=np.float64)
+        return np.concatenate([w.val_block_returns for w in self.windows])
+
+    @property
+    def oos_block_returns_long_short(self) -> np.ndarray:
+        """Concatenated OOS per-block net return stream (market-neutral
+        long-short) across all val windows."""
+        if not self.windows:
+            return np.array([], dtype=np.float64)
+        return np.concatenate(
+            [w.val_block_returns_long_short for w in self.windows])
 
     @property
     def mean_val_ic(self) -> float:
@@ -479,6 +506,17 @@ def train_scorer_walkforward(
         s_val_np = s_val.numpy()
         sq_per_bar = _signal_quality_per_bar(
             s_val_np, mask_rb_np[val_slc])
+
+        # OOS per-block net return streams for the cross-arc DSR harness.
+        # Reconstructed in numpy from the same slices the Sharpe scalars
+        # used (no tinygrad / gradient coupling); mirror `block_sharpe` /
+        # `block_sharpe_long_short` up to the mean/std reduction.
+        val_blk_ret = block_port_returns_np(
+            s_val_np, final_log_temp, blr_rb_np[val_slc], mask_rb_np[val_slc],
+            commission_bps / 1e4)
+        val_blk_ret_ls = block_port_returns_long_short_np(
+            s_val_np, blr_rb_np[val_slc], mask_rb_np[val_slc],
+            commission_bps / 1e4)
         sq_mean = float(np.nanmean(sq_per_bar)) if sq_per_bar.size else float('nan')
         sq_std = float(np.nanstd(sq_per_bar)) if sq_per_bar.size else float('nan')
 
@@ -525,6 +563,8 @@ def train_scorer_walkforward(
             signal_quality_mean=sq_mean,
             signal_quality_std=sq_std,
             val_start_date=val_start_date,
+            val_block_returns=val_blk_ret,
+            val_block_returns_long_short=val_blk_ret_ls,
         ))
 
     if verbose:

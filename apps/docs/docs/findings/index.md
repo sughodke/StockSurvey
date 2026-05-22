@@ -10,6 +10,10 @@ verdict-per-row form ([verdict-label vocabulary](../leaderboard.md#verdict-label
 Default eval window unless otherwise stated: 2013-01-29 → 2025-12-11,
 10bps commission, 20-day rebal.
 
+## Methodology / cross-cutting
+
+- [Deflated Sharpe Ratio — the cross-arc-comparable ranking key; raw/mean-of-window Sharpe is not apples-to-apples (gate "alpha +0.067" is really a −0.10 excess-stream Sharpe, deflated t −1.73)](deflated-sharpe-leaderboard.md)
+
 ## Regime app
 
 - [Regime baselines, Optuna instability, and the JAX-Adam scale-weight collapse](regime-baselines.md)

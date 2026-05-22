@@ -70,6 +70,12 @@ def main() -> None:
                         'diagnostic finding. Adds ~3y to the usable '
                         'date floor (TIPS DFII10 starts 2003).')
     p.add_argument('--output-dir', default=str(DEFAULT_OUTPUT))
+    p.add_argument('--dump-returns', action='store_true',
+                   help='Concatenate the per-window OOS gated + '
+                        'unconditional daily net-return streams and write '
+                        'them to Output/gate-returns.npz, for the '
+                        'cross-arc deflated-Sharpe harness '
+                        '(ss_portfolio.standardize_oos).')
     args = p.parse_args()
 
     output = Path(args.output_dir)
@@ -136,6 +142,9 @@ def main() -> None:
           f'(train={train_w} bars, val={val_w} bars, step={step} bars)')
 
     rows = []
+    oos_gated_ret: list[np.ndarray] = []
+    oos_unc_ret: list[np.ndarray] = []
+    oos_dates: list[np.ndarray] = []
     print(f'\n{"win":>3s} {"train_dates":>23s} {"val_dates":>23s} '
           f'{"train_R2":>9s} {"val_R2":>8s} {"val_r":>7s} '
           f'{"avg_exp":>7s} {"unc_sh":>7s} {"gat_sh":>7s} '
@@ -166,6 +175,13 @@ def main() -> None:
             val_ew, val_gate_lagged, val_dates,
             arm_label='gated')
         alpha = gated.sharpe - unc.sharpe
+
+        # Accumulate the OOS net-return streams for the cross-arc DSR
+        # harness. Val windows are contiguous + non-overlapping at the
+        # default step==val_w, so concatenation is a clean OOS series.
+        oos_gated_ret.append(gated.daily_ret)
+        oos_unc_ret.append(unc.daily_ret)
+        oos_dates.append(np.asarray([np.datetime64(d) for d in val_dates]))
 
         # --- Oracle arm 1: perfect-DD-predictor (uses realized 20-day
         # forward DD as the "prediction"; threshold set on train-realized
@@ -309,6 +325,19 @@ def main() -> None:
         'per_window': rows,
     }, indent=2))
     print(f'\n-> {out_path}')
+
+    if args.dump_returns:
+        ret_path = output / f'gate-returns{suffix}.npz'
+        np.savez(
+            ret_path,
+            gated_ret=np.concatenate(oos_gated_ret),
+            unc_ret=np.concatenate(oos_unc_ret),
+            dates=np.concatenate(oos_dates),
+            periods_per_year=np.float64(252.0),
+            threshold_quantile=np.float64(args.threshold_quantile),
+            gate_mode=np.str_(args.gate_mode),
+        )
+        print(f'-> {ret_path} (OOS daily net-return streams for DSR)')
 
 
 if __name__ == '__main__':

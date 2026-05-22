@@ -79,6 +79,11 @@ def main() -> None:
     p.add_argument('--commission-bps', type=float, default=10.0)
     p.add_argument('--n-workers', type=int, default=mp.cpu_count())
     p.add_argument('--output-dir', default=str(DEFAULT_OUTPUT))
+    p.add_argument('--dump-returns', action='store_true',
+                   help='Concatenate the per-window OOS aggregate '
+                        'portfolio net-return stream and write it to '
+                        'Output/pairs-returns.npz for the cross-arc '
+                        'deflated-Sharpe harness.')
     args = p.parse_args()
 
     output = Path(args.output_dir)
@@ -115,6 +120,8 @@ def main() -> None:
           f'/ step={args.step_window_days} bars)', flush=True)
 
     rows = []
+    oos_agg_ret: list[np.ndarray] = []
+    oos_dates: list[np.ndarray] = []
     for w_idx, (lo, mid, hi) in enumerate(windows):
         print(f'\n=== window {w_idx} '
               f'({dates[lo].date()} → {dates[mid - 1].date()} train, '
@@ -133,6 +140,11 @@ def main() -> None:
             verbose=True)
         if not pairs_screened:
             print('  [skip] no pairs passed screening', flush=True)
+            # Flat (no position) window — contribute zeros so the OOS
+            # stream stays date-aligned for the DSR harness.
+            skip_dates = dates[mid:hi]
+            oos_agg_ret.append(np.zeros(len(skip_dates), dtype=np.float64))
+            oos_dates.append(np.asarray([np.datetime64(d) for d in skip_dates]))
             rows.append({
                 'window_idx': w_idx, 'n_pairs': 0,
                 'val_sharpe': 0.0, 'mean_pair_sharpe': 0.0,
@@ -208,6 +220,9 @@ def main() -> None:
                   f'in_trade={r.pct_in_trade:.2f}  '
                   f'half_life={r.train_half_life:.1f}', flush=True)
 
+        oos_agg_ret.append(agg_series.values)
+        oos_dates.append(np.asarray([np.datetime64(d) for d in val_dates]))
+
         rows.append({
             'window_idx': w_idx,
             'val_start': str(dates[mid].date()),
@@ -270,6 +285,16 @@ def main() -> None:
         'per_window': rows,
     }, indent=2))
     print(f'\n-> {out_path}', flush=True)
+
+    if args.dump_returns and oos_agg_ret:
+        ret_path = output / 'pairs-returns.npz'
+        np.savez(
+            ret_path,
+            agg_ret=np.concatenate(oos_agg_ret),
+            dates=np.concatenate(oos_dates),
+            periods_per_year=np.float64(252.0),
+        )
+        print(f'-> {ret_path} (OOS daily net-return stream for DSR)', flush=True)
 
 
 if __name__ == '__main__':

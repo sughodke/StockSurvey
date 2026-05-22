@@ -23,6 +23,12 @@ Import as `from ss_portfolio.bt_helpers import build_strategy, ...`.
 """
 
 from ss_portfolio.backtest import vbt_backtest
+from ss_portfolio.deflated import (
+    MetricBlock,
+    expected_max_sharpe,
+    probabilistic_sharpe,
+    standardize_oos,
+)
 from ss_portfolio.metrics import (
     annualized_sharpe,
     cagr,
@@ -40,6 +46,7 @@ from ss_portfolio.weights import (
 )
 
 __all__ = [
+    'MetricBlock',
     'TRADING_DAYS',
     'annualized_sharpe',
     'apply_nan_mask',
@@ -48,11 +55,14 @@ __all__ = [
     'block_sharpe_with_costs',
     'cagr',
     'calmar',
+    'expected_max_sharpe',
     'log_returns_matrix',
     'max_drawdown',
+    'probabilistic_sharpe',
     'select_top_n_matrix',
     'softmax_weights',
     'sortino',
+    'standardize_oos',
     'vbt_backtest',
     'weights_regime',
 ]
