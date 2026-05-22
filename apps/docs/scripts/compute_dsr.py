@@ -122,6 +122,15 @@ SPECS: list[ArcSpec] = [
         note='shape-kNN 1mo-reversal long/short, Phase-2 (21 names); '
              'IC t=+3.75 but does not survive translation at 21-name breadth',
     ),
+    ArcSpec(
+        key='lie-shape-knn-LS-wide',
+        npz='lie-shape-knn-wide-returns.npz',
+        stream_key='ls_block_returns',
+        mode='standalone',
+        n_trials=9,
+        note='same signal on factor-narrow (297); breadth did NOT rescue it — '
+             'IC reverses to t=-0.81, the +3.75 was Phase-2 mega-cap-specific',
+    ),
 ]
 
 

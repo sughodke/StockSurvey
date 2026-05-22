@@ -73,6 +73,7 @@ return stream:
 | 6 | lie shape-kNN 1mo-reversal L/S | standalone | 9 | −0.018 | −1.37 | 5.6 | 0.201 | 0.060 | −1.55 |
 | 7 | gate v0 (overlay) | overlay | 6 | −0.100 | +0.40 | 51.2 | 0.019 | 0.042 | −1.73 |
 | 8 | factor long-short | standalone | 50 | −0.163 | −1.47 | 10.1 | 0.149 | 0.001 | −3.07 |
+| 9 | lie shape-kNN reversal L/S (wide, 297) | standalone | 9 | −0.703 | −0.03 | 2.7 | 0.157 | 0.000 | −3.45 |
 
 **The shape-kNN reversal (row 6) is the cleanest IC→portfolio
 cautionary tale.** Its cross-sectional IC reproduces at t=+3.75 (1178
@@ -83,9 +84,18 @@ observations; the harvestable book has only 57 non-overlapping monthly
 realizations, and at **21-name breadth** the fundamental law
 (IR ≈ IC·√breadth·TC) leaves too thin a top-minus-bottom spread to clear
 costs + borrow. A high IC t-stat is necessary, not sufficient — breadth
-and the transfer coefficient gate whether it becomes alpha. Next test:
-re-run on a wider liquid universe (factor-narrow, √breadth ≈ 3.8×
-higher) to see whether breadth was the binding constraint.
+and the transfer coefficient gate whether it becomes alpha.
+
+**Breadth expansion (factor-narrow, 297 names) falsified the breadth
+hypothesis** (2026-05-22): widening from 21 to 297 names did not rescue
+the signal — the cross-sectional IC *reversed* to t=−0.81 and the L/S
+deflated t fell to −3.45 (worse than at 21 names). The +3.75 IC was
+**Phase-2 mega-cap-specific** (same universe-dependence as
+[relational](relational-universe-shift.md)): on a heterogeneous 297-name
+pool the shape-kNN neighbors no longer carry the 1-month-reversal
+premium. Net: the shape-kNN reversal is small, universe-specific, and
+non-harvestable as a long/short — the spread-trade line is closed. (The
+parallelized 8-worker kNN did 1.35M train × 27.9k queries in 88s.)
 
 **Only DCA — the live strategy — clears a defensible bar** (deflated t
 +2.07): modest +0.69 Sharpe but 5232 daily bars and 4 trials. The
