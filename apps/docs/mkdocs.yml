@@ -104,6 +104,7 @@ nav:
   - Findings:
       - findings/index.md
       - Deflated Sharpe (cross-arc ranking): findings/deflated-sharpe-leaderboard.md
+      - Borrow-stress vol (liquid, reversed-OOS): findings/vol-borrow-liquid-universe.md
       - Regime baselines: findings/regime-baselines.md
       - Log-returns vs raw close: findings/log-returns-vs-raw-close.md
       - Factor indicator-IC baseline: findings/factor-indicator-baseline.md

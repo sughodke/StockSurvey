@@ -129,7 +129,7 @@ def main() -> None:
             continue
         w = logr.iloc[pos + 1: pos + 1 + FWD_DAYS]
         if w.shape[0] >= FWD_DAYS * 0.7:
-            frv[d] = w.std() * np.sqrt(252) * 100.0  # to vol points (%)
+            frv[d] = w.std() * np.sqrt(252)  # decimal annualized vol, matches DoltHub iv_current
     frv = pd.DataFrame(frv).T
     print(f'  forward realized vol computed for {len(frv)} weeks', flush=True)
 
@@ -147,9 +147,25 @@ def main() -> None:
     print(f'  {len(dolt)} (week,symbol) VRP observations', flush=True)
 
     # --- borrow data for OOS weekly trading days (cached) ---
+    fin_cache, ftd_cache = CACHE / 'borrow_oos_finra.parquet', CACHE / 'borrow_oos_ftd.parquet'
     if BORROW_OOS.exists():
         bor = pd.read_parquet(BORROW_OOS)
         print(f'  borrow OOS cache: {len(bor)} rows')
+    elif fin_cache.exists() and ftd_cache.exists():
+        print('  using cached raw FINRA/FTD pulls')
+        fin = pd.read_parquet(fin_cache)
+        ftd = pd.read_parquet(ftd_cache)
+        fin['month'] = pd.to_datetime(fin['date'].values.astype('datetime64[M]'))
+        bor = fin.merge(ftd, on=['Symbol', 'month'], how='left')
+        bor['fails'] = bor['fails'].fillna(0.0)
+        def _z(s):
+            sd = s.std(ddof=0)
+            return (s - s.mean()) / sd if sd > 1e-12 else s * 0.0
+        bor['z_sr'] = bor.groupby('date')['short_ratio'].transform(_z)
+        bor['z_ftd'] = bor.groupby('date')['fails'].transform(lambda s: _z(np.log1p(s)))
+        bor['borrow_stress'] = bor['z_sr'].fillna(0) + bor['z_ftd'].fillna(0)
+        bor = bor[['date', 'Symbol', 'borrow_stress']]
+        bor.to_parquet(BORROW_OOS)
     else:
         print('  pulling FINRA + FTD for OOS weekly dates ...', flush=True)
         finra_chunks = []
@@ -159,7 +175,10 @@ def main() -> None:
                 fd = d - pd.Timedelta(days=back)
                 r = _finra(fd, set(syms))
                 if r is not None and len(r):
-                    r = r.copy(); r['week'] = d
+                    # key by the weekly SNAPSHOT date (join key to DoltHub),
+                    # drop the FINRA file's own trading-day 'date' to avoid collision
+                    r = r[['Symbol', 'short_ratio']].copy()
+                    r['date'] = d
                     finra_chunks.append(r)
                     break
             time.sleep(0.05)
@@ -175,10 +194,10 @@ def main() -> None:
                 time.sleep(0.1)
         ftd = pd.concat(ftd_rows, ignore_index=True) if ftd_rows else pd.DataFrame(
             columns=['Symbol', 'fails', 'month'])
+        fin.to_parquet(CACHE / 'borrow_oos_finra.parquet')
+        ftd.to_parquet(CACHE / 'borrow_oos_ftd.parquet')
         # composite: z(short_ratio) + z(log1p fails) per week, cross-sectional
-        fin = fin.rename(columns={'week': 'date'})
-        fin['month'] = fin['date'].values.astype('datetime64[M]')
-        fin['month'] = pd.to_datetime(fin['month'])
+        fin['month'] = pd.to_datetime(fin['date'].values.astype('datetime64[M]'))
         bor = fin.merge(ftd, on=['Symbol', 'month'], how='left')
         bor['fails'] = bor['fails'].fillna(0.0)
         def _z(s):

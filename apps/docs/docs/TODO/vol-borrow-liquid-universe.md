@@ -1,5 +1,16 @@
 # Higher-EV move — borrow-stress conditioning on the *liquid* vol universe (the un-reached novel-data leg, re-pointed)
 
+> **CLOSED 2026-05-22 — `reversed-OOS`.** Stage 0 PASSED (coverage 99%,
+> real dispersion). Phase A found a strong *in-sample* premium-amplifier
+> (high-borrow-stress hi-tercile Sharpe +3.80, direction flipped vs the
+> squeeze-tail assumption below). Phase B OOS-tested the flipped hypothesis
+> on never-seen DoltHub 2024-26 (552 weeks): **it did NOT replicate** —
+> high-stress VRP +0.011 ≤ low-stress +0.014, hi>lo in 36% of quarters. The
+> in-sample +3.80 was selection on 11 rebals. Borrow leg closes; do not
+> re-attempt without a paid securities-lending feed. Finding:
+> [`vol-borrow-liquid-universe`](../findings/vol-borrow-liquid-universe.md).
+> The rest of this page is the original (pre-result) plan, kept for record.
+
 > **Why this exists.** The
 > [`vol-borrow-illiquid-vrp`](vol-borrow-illiquid-vrp.md) arc died
 > `reversed-OOS` purely on **quote-availability**: vendor coverage
