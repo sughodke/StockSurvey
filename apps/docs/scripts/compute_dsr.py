@@ -46,6 +46,7 @@ class ArcSpec:
     n_trials: int            # configs tried in the arc (deflation term)
     mode: str = 'standalone'  # 'standalone' | 'overlay'
     benchmark_key: str | None = None  # npz key for benchmark stream
+    borrow_bps_yr: float = 0.0  # annual borrow charged on short notional (L/S books)
     note: str = ''
 
 
@@ -131,6 +132,28 @@ SPECS: list[ArcSpec] = [
         note='same signal on factor-narrow (297); breadth did NOT rescue it — '
              'IC reverses to t=-0.81, the +3.75 was Phase-2 mega-cap-specific',
     ),
+    # 5d-horizon indicator signal as a market-neutral long/short (skip-1 =
+    # tradable, microstructure-controlled). Two deflation framings: the
+    # conservative whole-factor-arc bar and the focused horizon-sweep bar.
+    ArcSpec(
+        key='factor-5d-LS-skip1-conservative',
+        npz='sh-indicator-r5-s1-windows.npz',
+        stream_key='oos_block_returns_long_short',
+        mode='standalone',
+        n_trials=50,  # whole factor-arc search
+        borrow_bps_yr=50.0,
+        note='5d skip-1 indicator long/short, factor-narrow; conservative '
+             'deflation (whole factor arc)',
+    ),
+    ArcSpec(
+        key='factor-5d-LS-skip1-focused',
+        npz='sh-indicator-r5-s1-windows.npz',
+        stream_key='oos_block_returns_long_short',
+        mode='standalone',
+        n_trials=8,  # horizon x skip sweep only (JKP: don't over-penalize)
+        borrow_bps_yr=50.0,
+        note='same stream, focused deflation (horizon/skip sweep only)',
+    ),
 ]
 
 
@@ -152,6 +175,9 @@ def compute() -> list[dict]:
             continue
         ppy = _periods_per_year(d)
         strat = np.asarray(d[spec.stream_key], dtype=np.float64)
+        if spec.borrow_bps_yr > 0:
+            # Per-block borrow on the gross short leg (~0.5 of L1=1 gross).
+            strat = strat - (spec.borrow_bps_yr / 1e4) * (1.0 / ppy) * 0.5
         bench = (np.asarray(d[spec.benchmark_key], dtype=np.float64)
                  if spec.benchmark_key else None)
 

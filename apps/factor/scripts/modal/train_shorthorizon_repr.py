@@ -291,6 +291,12 @@ def _save_npz(path: Path, wf, cell: str) -> None:
         'val_sharpe': np.array([w.val_sharpe for w in wf.windows], np.float32),
         'train_sharpe': np.array(
             [w.train_sharpe for w in wf.windows], np.float32),
+        # OOS pooled per-block net return streams for the cross-arc DSR
+        # harness (long-only top-N + market-neutral long/short).
+        'oos_block_returns': np.asarray(wf.oos_block_returns, np.float64),
+        'oos_block_returns_long_short': np.asarray(
+            wf.oos_block_returns_long_short, np.float64),
+        'periods_per_year': np.float64(252.0 / wf.rebal_days),
         '_summary': np.array(json.dumps({
             'cell': cell, 'scorer': wf.scorer, 'n_steps': wf.n_steps,
             'rebal_days': wf.rebal_days, 'n_windows': wf.n_windows,
