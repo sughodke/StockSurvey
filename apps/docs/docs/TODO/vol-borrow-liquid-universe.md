@@ -79,6 +79,31 @@ coverage) → record the gate outcome in this page, do **not** spend
 Modal, and the novel-data leg is closed for free-data the same way
 the illiquid leg was.
 
+### Stage 0 result (2026-05-22): **PASS** → Phase A unblocked
+
+Probe `apps/vol/scripts/borrow_stage0_probe.py` (local, free, ~2 min) over
+6 sample dates spanning the gauss314 v1/v2 span (2019-11 → 2023-03),
+reconstructing each date's top-200-OI liquid cohort from the local
+`.iv-cache/data_IV_USA.csv` and pulling FINRA daily short-volume + SEC FTD:
+
+- **Coverage: 99.3%** mean of the top-200-OI names present in FINRA
+  consolidated short-volume (covers all NMS symbols, as expected); SEC FTD
+  present for ~99% of the cohort (1 semi-month file 404'd — non-fatal).
+- **Dispersion: short-volume-ratio hi−lo tercile gap = 0.266 mean** (0.24–0.28
+  every date) → the liquid cohort is **not** degenerate; there is real,
+  splittable borrow-stress variation. This retires the pre-registered
+  kill-risk (liquid-name borrow-stress too flat to form terciles — the mirror
+  of the illiquid coverage death).
+
+**Caveats carried into Phase A:** (1) short-*volume* ratio is the most
+available but *noisiest* borrow proxy (much short volume is MM/HFT intraday,
+not directional borrow demand); the cleaner free signals are SEC FTD
+*magnitude* (not just presence — Stage 0 measured presence) and FINRA
+bi-monthly short *interest*. (2) The pure borrow-*cost* signal (loan fee /
+utilization) remains paid-data (Markit/IHS); Stage 0 confirms the free
+*proxies* are available + dispersed, and Phase A tests whether they actually
+condition the VRP. Artifact `Output/vol-borrow-stage0.json`.
+
 ## Falsifiable hypotheses
 
 - **H1 (premium):** within the liquid cohort, mean per-rebal VRP
