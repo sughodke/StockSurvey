@@ -75,7 +75,7 @@ SPECS: list[ArcSpec] = [
     # --- staged arcs (activate once the driver dumps the npz) ---
     ArcSpec(
         key='factor-indicator-baseline-LO',
-        npz='factor-returns.npz',
+        npz='walkforward-linear-s200-wd0.001-windows.npz',
         stream_key='oos_block_returns',
         mode='standalone',
         n_trials=50,  # largest search: horizons x representations x losses x heads x universes
@@ -83,7 +83,7 @@ SPECS: list[ArcSpec] = [
     ),
     ArcSpec(
         key='factor-long-short',
-        npz='factor-returns.npz',
+        npz='walkforward-linear-s200-wd0.001-windows.npz',
         stream_key='oos_block_returns_long_short',
         mode='standalone',
         n_trials=50,

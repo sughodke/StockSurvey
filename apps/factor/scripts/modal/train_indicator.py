@@ -644,6 +644,15 @@ def _save_walkforward_npz(path: Path, wf, cfg) -> None:
         [w.train_sharpe for w in wf.windows], dtype=np.float32)
     blob['val_sharpe'] = np.array(
         [w.val_sharpe for w in wf.windows], dtype=np.float32)
+    # Concatenated OOS per-block net return streams (long-only top-N +
+    # market-neutral long-short) for the cross-arc Deflated-Sharpe harness
+    # (ss_portfolio.standardize_oos). Float64 — these feed a Sharpe
+    # reduction where float32 accumulation noise is undesirable.
+    blob['oos_block_returns'] = np.asarray(
+        wf.oos_block_returns, dtype=np.float64)
+    blob['oos_block_returns_long_short'] = np.asarray(
+        wf.oos_block_returns_long_short, dtype=np.float64)
+    blob['periods_per_year'] = np.float64(252.0 / wf.rebal_days)
     # Stack head params per window (key 'head_W' becomes shape (n_windows, F)).
     if wf.windows:
         for k in wf.windows[0].head_params:
