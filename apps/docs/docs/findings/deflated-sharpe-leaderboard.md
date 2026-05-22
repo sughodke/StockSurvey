@@ -58,29 +58,43 @@ timing/exposure overlay) DSR is computed on the **excess** stream — the
 claimed edge — so "is the claimed edge real" stays comparable across
 both kinds.
 
-## Results so far
+## Results — all six stream arcs
 
-`compute_dsr.py` ranks every arc that has been re-run with a return
-dump. Completed (local) arcs:
+`compute_dsr.py` ranks every deployable arc, re-run to dump its OOS net
+return stream:
 
-| arc | mode | n_trials | stream ann. Sharpe | skew | kurt | E[max SR] | DSR | deflated t |
-|---|---|---:|---:|---:|---:|---:|---:|---:|
-| pairs-v0 | standalone | 4 | +0.203 | +0.61 | 20.81 | 0.015 | 0.429 | −0.180 |
-| gate-v0 (overlay) | overlay | 6 | −0.100 | +0.40 | 51.24 | 0.019 | 0.042 | −1.727 |
+| rank | arc | mode | n_trials | stream ann. Sharpe | skew | kurt | E[max SR] | DSR | deflated t |
+|---:|---|---|---:|---:|---:|---:|---:|---:|---:|
+| 1 | dca-canonical (live) | standalone | 4 | +0.692 | −0.52 | 11.0 | 0.015 | **0.981** | **+2.07** |
+| 2 | relational analog cross_ticker | standalone | 16 | +1.146 | −0.05 | 9.1 | 0.051 | 0.769 | +0.74 |
+| 3 | vol v3 regime-gated | standalone | 12 | +1.153 | +1.21 | 5.2 | 0.304 | 0.553 | +0.13 |
+| 4 | pairs v0 | standalone | 4 | +0.203 | +0.61 | 20.8 | 0.015 | 0.429 | −0.18 |
+| 5 | factor indicator-baseline LO | standalone | 50 | +0.192 | −1.92 | 12.1 | 0.149 | 0.085 | −1.37 |
+| 6 | gate v0 (overlay) | overlay | 6 | −0.100 | +0.40 | 51.2 | 0.019 | 0.042 | −1.73 |
+| 7 | factor long-short | standalone | 50 | −0.163 | −1.47 | 10.1 | 0.149 | 0.001 | −3.07 |
 
-Both confirm-and-sharpen the existing verdicts, and both expose the
-mean-of-Sharpes artifact:
+**Only DCA — the live strategy — clears a defensible bar** (deflated t
++2.07): modest +0.69 Sharpe but 5232 daily bars and 4 trials. The
+headline Sharpes mislead everywhere else, in three distinct ways the
+DSR corrects:
 
-- **gate v0** — the row's headline "alpha +0.067 Sharpe" is a mean of
-  per-window Sharpe *differences*. The actual excess return stream
-  (gated − unconditional EW, 4680 OOS days) has annualized Sharpe
-  **−0.10**, deflated t **−1.73**, DSR **0.04**. The overlay's claimed
-  edge is not skill — and the excess-kurtosis-51 fat tail (the gate
-  concentrating into crises) makes the naive Sharpe especially
-  misleading. Sharpens the prior `partial-OOS` reading toward "no edge".
-- **pairs v0** — row reports mean agg val Sharpe +0.099; the
-  concatenated stream Sharpe is +0.203, DSR 0.43, deflated t −0.18 — not
-  skill, consistent with the existing `confirmed-null`.
+- **mean-of-Sharpes ≠ stream Sharpe.** gate v0's "alpha +0.067" is a
+  mean of per-window Sharpe *differences*; the actual excess stream
+  (gated − EW, 4680 days) is −0.10 Sharpe, deflated t −1.73. factor's
+  "+0.440 mean val Sharpe" is a mean of windows; the pooled stream
+  (one −0.985 window included) is +0.192.
+- **small sample + many trials.** vol v3's +1.15 Sharpe → deflated t
+  +0.13: only 30 rebals, and against 12 trials the best-of-N null
+  expects per-period Sharpe 0.304 vs the observed 0.325.
+- **selection bias on a heavily-searched arc.** factor's
+  `confirmed-OOS` indicator baseline has a *negative* deflated t once
+  its ~50-config search is priced in — the DSR does not overturn the
+  mean-IC result, it prices the deployability.
+
+pairs (−0.18) and the gate (−1.73) confirm-and-sharpen their existing
+`confirmed-null` / `partial-OOS` verdicts. The fat tails matter: the
+gate's excess-kurtosis-51 stream (it concentrates into crises) makes a
+naive Sharpe especially misleading — the PSR moment term handles it.
 
 ## Scope: which rows can carry a DSR
 
@@ -100,17 +114,30 @@ A deflated Sharpe is *defined* only on a return stream, so the rankable
 ladder is the stream-bearing strategy arcs; the rest stay as
 falsification history.
 
-## Remaining work (staged)
+## Reproduction notes
 
-- **factor** — numpy stream mirrors `block_port_returns_np` /
-  `block_port_returns_long_short_np` added to `factor.objectives` and
-  validated against the tinygrad `block_sharpe` scalars (match to
-  float32 precision). Next: capture the per-val-window streams in
-  `train_walkforward`, ship them back through the Modal entrypoint, run.
-- **vol** — short-vol book stream dump + Modal run.
-- **relational** — phase-2 8-arm winner (analog cross_ticker) equity
-  curve → val return stream; Modal.
-- **DCA / cfr-phase4d** — local backtests → streams.
+- **relational** reproduced its leaderboard row exactly (val ann.
+  Sharpe +1.146).
+- **factor** per-window val Sharpes [−0.99, +0.85, +0.60, +0.23, +0.42,
+  +0.40] average to ≈+0.42, matching the +0.440 row; pooled stream is
+  +0.192 (the −0.99 window weighs more in the pooled stream than in the
+  mean-of-windows).
+- **DCA** PassiveEW(rebal_days=80) on the Phase-4d close panel gives
+  ann. Sharpe +0.692 vs the +0.673 row (80d cadence / period).
+- **vol v3** — the re-run headline (60d-gate fired-α Sharpe −0.66)
+  differs from the original +2.01 row (data-snapshot / composition
+  drift); the DSR uses the 126d deployment-recipe full-panel stream.
+  The reproduction gap itself argues for the DSR's skepticism.
+
+## Per-arc drivers (reproduce)
+
+- gate: `apps/gate/scripts/run_walkforward.py --threshold-quantile 0.95 --dump-returns`
+- pairs: `apps/pairs/scripts/run_walkforward.py --dump-returns`
+- factor: `uvx modal run apps/factor/scripts/modal/train_indicator.py::walkforward`
+- relational: `uvx modal run apps/relational/scripts/modal/relational_dwt_phase2.py`
+- vol: `apps/vol/scripts/run_walkforward_v3_regime_gated.py --dump-returns`
+- dca: `apps/dca/scripts/dca_returns_dump.py`
+- rank: `apps/docs/scripts/compute_dsr.py`
 - **Trial-count reconstruction** — ✅ pinned per arc in
   `compute_dsr.py` SPECS (conservative; round up when ambiguous, since
   under-counting trials weakens the deflation):

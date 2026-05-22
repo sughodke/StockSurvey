@@ -5,6 +5,8 @@ in chronological order. Append-only — when a finding is upgraded or
 downgraded, add a new row referencing the prior; never rewrite history.
 
 > **Sharpe backfill (2026-05-18):** rows before 2026-05-18 that computed a Sharpe but recorded only IC / R² have had it added *in place* with a `[backfill 2026-05-18 ← artifact]` provenance tag; non-portfolio diagnostics are tagged `Sharpe N/A`. No train/val numbers, verdicts, or conclusions were altered.
+>
+> **Deflated-Sharpe backfill (2026-05-22):** the raw Sharpe column is *not* a fair cross-arc ranking key — it mixes construction / universe / era / friction, and many rows report a **mean of per-window Sharpes** that can flip sign vs the deployable return stream. The new [Cross-arc Deflated-Sharpe ranking](#cross-arc-deflated-sharpe-ranking) section ranks the deployable strategy arcs on the **deflated-Sharpe t-stat** (`ss_portfolio.standardize_oos`), computed on each arc's re-run OOS net return stream and deflated by the number of configs the arc tried. Only stream-bearing strategy arcs get a DSR; meta-evaluations (compose scalar Sharpes) and non-portfolio diagnostics are `DSR N/A` by construction. This is **additive** — no existing row's numbers or verdicts were altered. See [`findings/deflated-sharpe-leaderboard.md`](findings/deflated-sharpe-leaderboard.md).
 
 The point of this file is to make the *OOS verdict* of every claim
 visible at a glance, so an in-sample finding can't sit unchallenged in
@@ -68,6 +70,60 @@ unless explicitly overridden in a row's notes column.
   shippable claim. E.g. "Optuna best params bounce window-to-window"
   — informative but no train/val comparison to verdict on.
 - **pending** — experiment in flight, no final number yet.
+
+## Cross-arc Deflated-Sharpe ranking
+
+The one apples-to-apples ladder. Each deployable strategy arc was
+re-run to dump its OOS **net** per-period return stream, then scored
+with `ss_portfolio.standardize_oos`: the **deflated-Sharpe t-stat** is
+the Sharpe corrected for higher moments (fat tails), sample length, and
+**selection bias** (`n_trials` = configs the arc tried, reconstructed
+conservatively from this log). `DSR = Phi(t)` is the probability the
+Sharpe is skill rather than the best of `n_trials` coin flips. Ranked
+best-first; computed by `apps/docs/scripts/compute_dsr.py` →
+`Output/dsr-leaderboard.json`.
+
+| rank | arc (leaderboard row) | mode | n_trials | stream ann. Sharpe | skew | kurt | E[max SR] | DSR | **deflated t** |
+|---:|---|---|---:|---:|---:|---:|---:|---:|---:|
+| 1 | **dca-canonical** (multi-asset DCA, the live strategy) | standalone | 4 | +0.692 | −0.52 | 11.0 | 0.015 | **0.981** | **+2.07** |
+| 2 | relational analog cross_ticker (2026-05-08 confirmed-OOS) | standalone | 16 | +1.146 | −0.05 | 9.1 | 0.051 | 0.769 | +0.74 |
+| 3 | vol surface v3 regime-gated (126d gate) | standalone | 12 | +1.153 | +1.21 | 5.2 | 0.304 | 0.553 | +0.13 |
+| 4 | pairs v0 (2026-05 confirmed-null) | standalone | 4 | +0.203 | +0.61 | 20.8 | 0.015 | 0.429 | −0.18 |
+| 5 | factor indicator-baseline long-only (2026-04-30 confirmed-OOS) | standalone | 50 | +0.192 | −1.92 | 12.1 | 0.149 | 0.085 | −1.37 |
+| 6 | gate v0 drawdown overlay (2026-05-10 partial-OOS) | overlay (excess vs EW) | 6 | −0.100 | +0.40 | 51.2 | 0.019 | 0.042 | −1.73 |
+| 7 | factor long-short book | standalone | 50 | −0.163 | −1.47 | 10.1 | 0.149 | 0.001 | −3.07 |
+
+**What the ranking says.** Only **DCA — the canonical live strategy —
+clears a defensible bar** (deflated t +2.07, DSR 0.98): a modest +0.69
+Sharpe, but over 5232 daily bars and only 4 trials. Relational analog is
+a positive runner-up (+0.74) but does not reach conventional
+significance after 16-trial deflation. **The headline Sharpes mislead:**
+vol v3's +1.15 collapses to deflated t +0.13 (30 rebals vs 12 trials —
+its per-period Sharpe 0.325 barely exceeds the best-of-12 null 0.304),
+and the factor indicator baseline — recorded `confirmed-OOS` on mean val
+IC — has a pooled-stream Sharpe of only +0.19 and a *negative* deflated
+t once its ~50-config search is priced in. This is the multiple-testing
+reality the [research-strategy note](findings/index.md) flags
+(few confirmed-OOS out of many rows), made quantitative.
+
+**Caveats.** (1) The factor row's `confirmed-OOS` verdict was on mean
+val *IC*, not stream Sharpe — the DSR does not overturn the IC result,
+it adds the deployability-with-deflation read. (2) The vol v3 re-run's
+headline (60d-gate fired-α Sharpe −0.66) differs from the original
++2.01 row — a reproduction gap (likely data-snapshot / composition
+drift) that itself argues for the DSR's skepticism; the DSR above uses
+the 126d deployment-recipe full-panel stream. (3) `n_trials` is a
+conservative reconstruction (see the finding); DCA and relational rank
+order is robust to ±50% on their trial counts, vol/factor are already
+below the bar at any plausible count.
+
+**Rows not on this ladder are `DSR N/A` by construction**, in two
+classes: *meta-evaluations* that compose scalar per-window Sharpes (the
+cfr macro-gate, all oracle arms, sizing/overlay diagnostics, regime
+Optuna best-params) — no return stream exists to deflate; and
+*non-portfolio diagnostics* (replay reconstruction R², macro-regime
+Pearson r, compression error) — Sharpe undefined. A deflated Sharpe is
+*defined* only on a return stream.
 
 ## Master table
 
