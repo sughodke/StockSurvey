@@ -154,6 +154,24 @@ SPECS: list[ArcSpec] = [
         borrow_bps_yr=50.0,
         note='same stream, focused deflation (horizon/skip sweep only)',
     ),
+    # The long/short construction is negative; the LONG-ONLY 5d book is the
+    # deployable lever (no short leg, no borrow). Same two framings.
+    ArcSpec(
+        key='factor-5d-LO-skip1-conservative',
+        npz='sh-indicator-r5-s1-windows.npz',
+        stream_key='oos_block_returns',
+        mode='standalone',
+        n_trials=50,
+        note='5d skip-1 indicator long-only top-N, factor-narrow; conservative deflation',
+    ),
+    ArcSpec(
+        key='factor-5d-LO-skip1-focused',
+        npz='sh-indicator-r5-s1-windows.npz',
+        stream_key='oos_block_returns',
+        mode='standalone',
+        n_trials=8,
+        note='same long-only stream, focused deflation (horizon/skip sweep only)',
+    ),
 ]
 
 

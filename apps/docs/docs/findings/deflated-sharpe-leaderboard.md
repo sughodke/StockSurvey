@@ -97,6 +97,29 @@ premium. Net: the shape-kNN reversal is small, universe-specific, and
 non-harvestable as a long/short — the spread-trade line is closed. (The
 parallelized 8-worker kNN did 1.35M train × 27.9k queries in 88s.)
 
+**The 5d-horizon indicator signal as a deployable book (2026-05-22)**
+was the other spread-trade candidate — higher breadth (factor-narrow,
+297) and a dollar-neutral constructor (transfer coefficient ≈ 1). Two
+ways it fails the DSR, both instructive:
+
+- **Market-neutral long/short: firmly negative.** Pooled-stream Sharpe
+  −0.45, deflated t −3.64 (focused) / −4.52 (conservative). The IC
+  predicts top-decile *out*performance, not bottom-decile
+  *under*performance, so the short leg adds cost + left-tail risk
+  (skew −2.4, kurt 26) without return, and 5d doubles turnover so
+  commission dominates. Same verdict as the 20d factor long-short
+  (−3.07): the long/short *construction* kills an otherwise-real signal.
+- **Long-only: a fat-tail mirage.** Raw Sharpe +0.357 looks deployable,
+  but skew +9.6 / kurt 218 flag it — a single 5d block returns +92.8%
+  (one small-name moonshot); ex-that-block the Sharpe falls to +0.272.
+  The PSR moment correction discounts it to deflated t +0.10 (focused —
+  a coin flip) / −0.91 (conservative). Not skill on either framing.
+
+The 5d IC is real (the long-only mean val IC reproduces at +0.0114
+skip-1), but **no construction of it clears a confident skill bar** —
+exactly the failure the DSR (vs a raw or mean-of-windows Sharpe) is
+built to surface.
+
 **Only DCA — the live strategy — clears a defensible bar** (deflated t
 +2.07): modest +0.69 Sharpe but 5232 daily bars and 4 trials. The
 headline Sharpes mislead everywhere else, in three distinct ways the
