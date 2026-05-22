@@ -70,8 +70,22 @@ return stream:
 | 3 | vol v3 regime-gated | standalone | 12 | +1.153 | +1.21 | 5.2 | 0.304 | 0.553 | +0.13 |
 | 4 | pairs v0 | standalone | 4 | +0.203 | +0.61 | 20.8 | 0.015 | 0.429 | −0.18 |
 | 5 | factor indicator-baseline LO | standalone | 50 | +0.192 | −1.92 | 12.1 | 0.149 | 0.085 | −1.37 |
-| 6 | gate v0 (overlay) | overlay | 6 | −0.100 | +0.40 | 51.2 | 0.019 | 0.042 | −1.73 |
-| 7 | factor long-short | standalone | 50 | −0.163 | −1.47 | 10.1 | 0.149 | 0.001 | −3.07 |
+| 6 | lie shape-kNN 1mo-reversal L/S | standalone | 9 | −0.018 | −1.37 | 5.6 | 0.201 | 0.060 | −1.55 |
+| 7 | gate v0 (overlay) | overlay | 6 | −0.100 | +0.40 | 51.2 | 0.019 | 0.042 | −1.73 |
+| 8 | factor long-short | standalone | 50 | −0.163 | −1.47 | 10.1 | 0.149 | 0.001 | −3.07 |
+
+**The shape-kNN reversal (row 6) is the cleanest IC→portfolio
+cautionary tale.** Its cross-sectional IC reproduces at t=+3.75 (1178
+daily-overlapping test dates) — a publication-grade signal — yet as a
+deployable dollar-neutral long/short it has annualized Sharpe −0.02 and
+deflated t −1.55. The t-stat borrows power from overlapping daily
+observations; the harvestable book has only 57 non-overlapping monthly
+realizations, and at **21-name breadth** the fundamental law
+(IR ≈ IC·√breadth·TC) leaves too thin a top-minus-bottom spread to clear
+costs + borrow. A high IC t-stat is necessary, not sufficient — breadth
+and the transfer coefficient gate whether it becomes alpha. Next test:
+re-run on a wider liquid universe (factor-narrow, √breadth ≈ 3.8×
+higher) to see whether breadth was the binding constraint.
 
 **Only DCA — the live strategy — clears a defensible bar** (deflated t
 +2.07): modest +0.69 Sharpe but 5232 daily bars and 4 trials. The

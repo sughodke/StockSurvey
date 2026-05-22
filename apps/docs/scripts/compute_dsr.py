@@ -113,6 +113,15 @@ SPECS: list[ArcSpec] = [
         n_trials=4,  # Phase 4a-d basket composition
         note='canonical live multi-asset DCA basket',
     ),
+    ArcSpec(
+        key='lie-shape-knn-LS',
+        npz='lie-shape-knn-returns.npz',
+        stream_key='ls_block_returns',
+        mode='standalone',
+        n_trials=9,  # lie v1/v3/v4 + horizon/lookback/k sweep
+        note='shape-kNN 1mo-reversal long/short, Phase-2 (21 names); '
+             'IC t=+3.75 but does not survive translation at 21-name breadth',
+    ),
 ]
 
 
