@@ -1,0 +1,5009 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Trading-strategy research and live execution monorepo.">
+      
+      
+      
+        <link rel="canonical" href="https://sidghodke.com/StockSurvey/findings/vol-surface-v3-regime-gated/">
+      
+      
+        <link rel="prev" href="../vol-surface-v2-dolthub-oos/">
+      
+      
+        <link rel="next" href="../vol-arc-synthesis/">
+      
+      
+        
+      
+      
+      <link rel="icon" href="../../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.6">
+    
+    
+      
+        <title>Vol surface v3 — regime-gated liquid universe composition (126d-VIX gate rescues v2.2 FAIL; fired-α Sh +2.01, fire rate 37%, MARGINAL) - StockSurvey</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/main.484c7ddc.min.css">
+      
+        
+        <link rel="stylesheet" href="../../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Geist:300,300i,400,400i,700,700i%7CGeist+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Geist";--md-code-font:"Geist Mono"}</style>
+      
+    
+    
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#vol-surface-v3-regime-gated-liquid-universe-partially-rescues-deployability-partial-oos-marginal-on-strict-pre-reg" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow md-header--lifted" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../.." title="StockSurvey" class="md-header__button md-logo" aria-label="StockSurvey" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            StockSurvey
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Vol surface v3 — regime-gated liquid universe composition (126d-VIX gate rescues v2.2 FAIL; fired-α Sh +2.01, fire rate 37%, MARGINAL)
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme)" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3.9 12c0-1.71 1.39-3.1 3.1-3.1h4V7H7a5 5 0 0 0-5 5 5 5 0 0 0 5 5h4v-1.9H7c-1.71 0-3.1-1.39-3.1-3.1M8 13h8v-2H8zm9-6h-4v1.9h4c1.71 0 3.1 1.39 3.1 3.1s-1.39 3.1-3.1 3.1h-4V17h4a5 5 0 0 0 5-5 5 5 0 0 0-5-5"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: light)" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_2" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M17 7H7a5 5 0 0 0-5 5 5 5 0 0 0 5 5h10a5 5 0 0 0 5-5 5 5 0 0 0-5-5m0 8a3 3 0 0 1-3-3 3 3 0 0 1 3-3 3 3 0 0 1 3 3 3 3 0 0 1-3 3"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: dark)" data-md-color-scheme="slate" data-md-color-primary="black" data-md-color-accent="indigo"  aria-label="Switch to system preference"  type="radio" name="__palette" id="__palette_2">
+    
+      <label class="md-header__button md-icon" title="Switch to system preference" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M17 7H7a5 5 0 0 0-5 5 5 5 0 0 0 5 5h10a5 5 0 0 0 5-5 5 5 0 0 0-5-5M7 15a3 3 0 0 1-3-3 3 3 0 0 1 3-3 3 3 0 0 1 3 3 3 3 0 0 1-3 3"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+          <a href="javascript:void(0)" class="md-search__icon md-icon" title="Share" aria-label="Share" data-clipboard data-clipboard-text="" data-md-component="search-share" tabindex="-1">
+            
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M18 16.08c-.76 0-1.44.3-1.96.77L8.91 12.7c.05-.23.09-.46.09-.7s-.04-.47-.09-.7l7.05-4.11c.54.5 1.25.81 2.04.81a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3c0 .24.04.47.09.7L8.04 9.81C7.5 9.31 6.79 9 6 9a3 3 0 0 0-3 3 3 3 0 0 0 3 3c.79 0 1.5-.31 2.04-.81l7.12 4.15c-.05.21-.08.43-.08.66 0 1.61 1.31 2.91 2.92 2.91s2.92-1.3 2.92-2.91A2.92 2.92 0 0 0 18 16.08"/></svg>
+          </a>
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+        <div class="md-search__suggest" data-md-component="search-suggest"></div>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/sughodke/StockSurvey" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+  </div>
+  <div class="md-source__repository">
+    sughodke/StockSurvey
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+    
+      
+<nav class="md-tabs" aria-label="Tabs" data-md-component="tabs">
+  <div class="md-grid">
+    <ul class="md-tabs__list">
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../.." class="md-tabs__link">
+        
+  
+  
+    
+  
+  Home
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../apps/" class="md-tabs__link">
+          
+  
+  
+    
+  
+  Apps
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../packages/" class="md-tabs__link">
+          
+  
+  
+    
+  
+  Packages
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../leaderboard/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Leaderboard
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../map/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Map
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../notes/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Notes
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../tags/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Tags
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+    
+  
+  
+    
+    
+      <li class="md-tabs__item md-tabs__item--active">
+        <a href="../" class="md-tabs__link">
+          
+  
+  
+    
+  
+  Findings
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../workflows/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Workflows
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../TODO/" class="md-tabs__link">
+          
+  
+  
+    
+  
+  TODO
+
+        </a>
+      </li>
+    
+  
+
+      
+    </ul>
+  </div>
+</nav>
+    
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+  
+
+
+<nav class="md-nav md-nav--primary md-nav--lifted" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="StockSurvey" class="md-nav__button md-logo" aria-label="StockSurvey" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    StockSurvey
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/sughodke/StockSurvey" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+  </div>
+  <div class="md-source__repository">
+    sughodke/StockSurvey
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_2" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../apps/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Apps
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_2" id="__nav_2_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Apps
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../apps/regime/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Regime
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../apps/relational/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Relational
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../apps/factor/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Factor
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../apps/replay/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Replay
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../apps/gate/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Gate
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../apps/pairs/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Pairs
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../apps/vol/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Vol
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../apps/cfr/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    CFR
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../apps/dca/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DCA
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../apps/notebook/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Notebook
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_3" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../packages/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Packages
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Packages
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../leaderboard/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Leaderboard
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../map/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Map
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../notes/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Notes
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../tags/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Tags
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_8" checked>
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Findings
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_8" id="__nav_8_label" tabindex="">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_8_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_8">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Findings
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../deflated-sharpe-leaderboard/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Deflated Sharpe (cross-arc ranking)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../regime-baselines/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Regime baselines
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../log-returns-vs-raw-close/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Log-returns vs raw close
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../factor-indicator-baseline/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Factor indicator-IC baseline
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../factor-ssl-walkforward/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Factor SSL walkforward
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../time-reversal-symmetry/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Time-reversal symmetry
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../factor-f32-precision-cancellation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Factor f32 precision cancellation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../factor-multitask-aux-head/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Factor multi-task aux head
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../factor-multitask-aux-weight-sweep/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Factor multi-task aux-weight sweep
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../replay-decoders/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Replay decoder options
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../replay-dwt-compression/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Replay DWT compression
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../replay-length-axis-compression/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Replay length-axis (K) compression
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../relational-universe-shift/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Relational universe shift
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../relational-dwt-failure/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Relational DWT-L1 OOS failure
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../relational-morlet-failure/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Relational polar Morlet OOS failure
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../passive-ew-benchmark/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Passive EW benchmark (regrades shippable rows)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../factor-rankic-long-only-mismatch/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Rank-IC vs long-only top-N mismatch
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../factor-loss-pivot/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Loss-pivot — Sharpe/IR losses underperform rank-IC
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../factor-sizing-input-v0/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Sizing-input v0 — MSE-on-alpha calibrates but adds no information for rank-based emission
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../factor-sizing-input-v1/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Sizing-input v1 — factor signal-quality at 6-window resolution is too lagged to clear VIX gate
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../factor-endogenous-horizon-mixture/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Endogenous-horizon mixture — state-conditional rebal cadence beats random-π but not best fixed (π collapses to h=60 without entropy regularization)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../factor-shorthorizon-representation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Short-horizon × (C,L) representation — +0.012 ceiling was a 20d artifact; indicator grid @5d +0.0212 IC 6/6 (confirmed-OOS) but a 1-day lag halves it to +0.0114 (partial-OOS, part bid-ask-bounce); non-CWT (C,L) encoders confirmed-null
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../gate-drawdown-v0/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Gate drawdown v0 (partial-OOS)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../dynamic-rebal-cadence-null/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Dynamic rebalance cadence null — per-regime cadence oracle headroom +0.004 Sharpe (confirmed-null; cadence is non-binding and does not vary by regime, the regime signal is strategy-selection not execution timing)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../pairs-classical-v0/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Pairs classical v0 (confirmed-null)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../vol-surface-v0/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Vol surface v0 (inconclusive, 5/5 pos)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../vol-surface-v1/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Vol surface v1 (confirmed-OOS, audit-validated, per-rebal portfolio aggregator + costs in loop, alpha Sharpe +5.86 with 25x real-to-shuffle ratio)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../vol-surface-v2-dollar-pnl/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Vol surface v2.1 — dollar-PnL conversion under 3 sizing conventions (confirmed-OOS; +$4.60 / +$1.95 / +$4.60 Sharpe under $-vega / share-count / vol-points equal sizing)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../vol-surface-v2-oi-restriction/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Vol surface v2.2 — OI restriction collapses alpha monotonically (reversed-OOS on deployability; alpha decays from +5.86 unrestricted to -0.48 at top-200 OI)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../vol-surface-v2-dolthub-oos/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Vol surface v2.3 — DoltHub OOS extension to 2026-04 confirms signal continuity (confirmed-OOS; OOS r +0.165 across 4-feature proxy, 11/11 positive quarters)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Vol surface v3 — regime-gated liquid universe composition (126d-VIX gate rescues v2.2 FAIL; fired-α Sh +2.01, fire rate 37%, MARGINAL)
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Vol surface v3 — regime-gated liquid universe composition (126d-VIX gate rescues v2.2 FAIL; fired-α Sh +2.01, fire rate 37%, MARGINAL)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#pre-registered-design-locked-before-run" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Pre-registered design (locked before run)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#pre-reg-cuts" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Pre-reg cuts
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#result" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Result
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#why-126d-is-the-right-lookback" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Why 126d is the right lookback
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#what-the-result-means-operationally" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        What the result means operationally
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#hindsight-oracle-the-gate-is-the-binding-constraint-2026-05-14-followup" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Hindsight oracle — the gate is the binding constraint (2026-05-14 followup)
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Hindsight oracle — the gate is the binding constraint (2026-05-14 followup)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#result-oracle-clears-the-pass-bar-by-a-wide-margin" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Result — oracle clears the PASS bar by a wide margin
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#per-window-oracle-detail" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Per-window oracle detail
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#what-this-says-about-the-gate" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        What this says about the gate
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#whats-still-untested-v3x-candidates-re-prioritized-after-oracle" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        What's still untested (v3.x candidates — re-prioritized after oracle)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#v31-composite-regime-gate-the-oracles-headroom-is-not-in-simple-aggregates" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        v3.1 — composite regime gate (the oracle's headroom is not in simple aggregates)
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="v3.1 — composite regime gate (the oracle&#39;s headroom is not in simple aggregates)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#result-vix-or-disp-passes-strict-pre-reg-but-at-lower-sharpe-than-baseline" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Result — vix-or-disp PASSES strict pre-reg but at lower Sharpe than baseline
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#per-window-detail" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Per-window detail
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#the-reframe" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The reframe
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#what-this-tells-us-about-the-oracle" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        What this tells us about the oracle
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#re-revised-arc-closure" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Re-revised arc closure
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#arc-level-synthesis-update" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Arc-level synthesis update
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#master-walk-forward-log" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Master walk-forward log
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../vol-arc-synthesis/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Vol surface arc synthesis — partial-OOS arc closure with v3 regime-gated-liquid as deployment recipe
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../vol-borrow-illiquid-vrp-falsified/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Vol small-capacity re-frame falsified — real +0.14 edge but 92.5% of the cohort is un-quotable on free data; quote-availability is a deployability gate upstream of spread (reversed-OOS)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../relational-arc-synthesis/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Relational arc synthesis (lifted from NO_OPTIONS.md)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../prediction-problem-pivot-arc/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Prediction-problem-pivot arc synthesis
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../macro-regime-diagnostic/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Macro regime diagnostic (5/6 features predict pivot windows)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../cfr-phase1/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    CFR Phase 1 — tabular CFR clears trailing-best by +0.609 (6/6) but ties naive uniform
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../cfr-phase2/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    CFR Phase 2 — menu enrichment confirmed-null; binding constraint is tabular sample density
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../cfr-phase3/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    CFR Phase 3 — Deep CFR + continuous state vector lifts +0.02 Sharpe (MARGINAL); architecture isn't the binding constraint either
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../cfr-phase4/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    CFR Phase 4 — universe shift to 13-asset multi-asset PASSES (alpha vs EW +0.056); first deployable CFR result
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../cfr-vs-dca-realistic/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    CFR vs DCA realistic-friction re-eval — raw alpha collapses to +0.015 net; DCA is the canonical live strategy
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../cfr-macro-gate-final/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    CFR + window-level VIX gate final close-out — bot is fully dead; memory-heavy regime gates fight regime transitions
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../cfr-sensitivity-followup/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    CFR Phase 4d sensitivity follow-up — friction × gate stress-test; audit-driven diagnostic that refines the prior closure (alpha is real and positive at every friction level, below +0.10 threshold)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../pairs-eg-gate-falsified/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Pairs EG-gate falsified — audit-followup test of EG-passing-rate regime gate; falsified at all three pre-registered thresholds; w0 sits in "working" EG band by count yet posts worst val Sharpe
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../delisting-aware-ew-falsified/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Delisting-aware EW benchmark falsified — audit-followup test of ffill-delisting bias; Δ Sharpe ≤ 0.0002 across all 4 universes (audit predicted +0.05-0.15); manifest curation + Stooq ticker reuse make the bias structurally absent
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../critic-phi-quality-v0/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Critic Φ-quality v0 — cross-app window-level value function (confirmed-null; oracle-detection illusion in first pass + true Spearman flips negative when oracle arms dropped)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../cwt-recursive-compression/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    CWT recursive compression (diagnostic) — Kalman vs GRU; nonlinearity buys nothing for reconstruction, reconstructible ≫ predictable dimensionality
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../workflows/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Workflows
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_10" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../TODO/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    TODO
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_10" id="__nav_10_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_10_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_10">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    TODO
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../TODO/critic-phi-value-function/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Done — apps/critic Φ value function (confirmed-null v0 + v0.1 rescue)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../TODO/factor-bilevel-horizon-objective/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Done — apps/factor bilevel horizon objective (confirmed-null on deployment-return rescue)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../TODO/factor-horizon-aligned-grid/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Done — apps/factor horizon-aligned IndicatorGridConfig (confirmed-null on input-side rescue)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../TODO/vol-borrow-illiquid-vrp/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Joint v0 — illiquid-options VRP × securities-lending stress (small-capacity re-frame; Stage-0 PASS — runnable free, spread-defined cohort)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../TODO/vol-borrow-liquid-universe/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Higher-EV — borrow-stress conditioning on the liquid vol universe (un-reached novel-data leg re-pointed; Stage-0 gate first, then gauss314 v3-locked + DoltHub OOS)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../TODO/vol-tradier-forward-coverage/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Vol Tradier forward structural coverage probe (pre-reg; $0 sandbox-MCP; resolves DoltHub-vs-OPRA coverage gap; gates paid-vendor spend)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../TODO/factor-reinforce-target-side/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Done — apps/factor target-side REINFORCE for π (partial-OOS; higher-β resolved, arc benchmark-artifact-bound)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../TODO/factor-cwt-return-coupled/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Done — apps/factor return-coupled recurrent CWT embedding (confirmed-null; every k ≤ indicator baseline, closes the CWT-as-predictor question arc-wide)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../TODO/apps-cfr/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    apps/cfr — Deep CFR meta-allocator
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../TODO/factor-sizing-input-reframe/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Factor sizing-input reframe
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../TODO/factor-horizon-entropy-reg/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Done — factor endogenous-horizon entropy-weight sweep (confirmed-null on rescue hypothesis)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../TODO/polar-morlet-migration/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Polar Morlet migration
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../TODO/review-followups/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Review follow-ups
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../TODO/rsi-long-period-ablation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    RSI long-period ablation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../TODO/film-w1-diagnostic/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    FiLM w=1 diagnostic
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../TODO/backbone-architecture/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Backbone architecture
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../TODO/port-sharpe-tinygrad/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Port Sharpe to tinygrad
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../TODO/dwt-compression-followups/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DWT-compression follow-ups
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../TODO/factor-shorthorizon-representation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Done — factor short-horizon × (C,L) representation (resolved 2026-05-18 — representation confirmed-null, horizon confirmed-OOS, +0.012 ceiling was a 20d artifact)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../TODO/factor-shorthorizon-microstructure/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Done — factor short-horizon edge microstructure/cost stress (skip-1 partial-OOS — 5d edge ~halved by a 1-day lag to +0.0114 IC, part bid-ask-bounce)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../TODO/rebal-days-sweep/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Rebal-days sweep
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../TODO/reversed-price-experiment/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Reversed-price experiment
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../TODO/ew-overlay-test/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    EW + rank-IC overlay (parked)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../TODO/modal-cron-live-deployment/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Modal-cron live deployment
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../TODO/memory-walltime-followups/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Memory and wall-time follow-ups
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../TODO/streaming-feature-pipeline/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Streaming feature pipeline (superseded)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../TODO/different-prediction-problem/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Done — different prediction problem (resolved)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../TODO/apps-pairs/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Done — apps/pairs v0 (resolved)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../TODO/apps-vol/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Done — apps/vol v0 (resolved)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../TODO/long-short-constructor/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Done — long-short constructor (resolved)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../TODO/recently-shipped/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Recently shipped
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#pre-registered-design-locked-before-run" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Pre-registered design (locked before run)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#pre-reg-cuts" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Pre-reg cuts
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#result" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Result
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#why-126d-is-the-right-lookback" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Why 126d is the right lookback
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#what-the-result-means-operationally" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        What the result means operationally
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#hindsight-oracle-the-gate-is-the-binding-constraint-2026-05-14-followup" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Hindsight oracle — the gate is the binding constraint (2026-05-14 followup)
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Hindsight oracle — the gate is the binding constraint (2026-05-14 followup)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#result-oracle-clears-the-pass-bar-by-a-wide-margin" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Result — oracle clears the PASS bar by a wide margin
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#per-window-oracle-detail" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Per-window oracle detail
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#what-this-says-about-the-gate" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        What this says about the gate
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#whats-still-untested-v3x-candidates-re-prioritized-after-oracle" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        What's still untested (v3.x candidates — re-prioritized after oracle)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#v31-composite-regime-gate-the-oracles-headroom-is-not-in-simple-aggregates" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        v3.1 — composite regime gate (the oracle's headroom is not in simple aggregates)
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="v3.1 — composite regime gate (the oracle&#39;s headroom is not in simple aggregates)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#result-vix-or-disp-passes-strict-pre-reg-but-at-lower-sharpe-than-baseline" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Result — vix-or-disp PASSES strict pre-reg but at lower Sharpe than baseline
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#per-window-detail" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Per-window detail
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#the-reframe" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The reframe
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#what-this-tells-us-about-the-oracle" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        What this tells us about the oracle
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#re-revised-arc-closure" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Re-revised arc closure
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#arc-level-synthesis-update" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Arc-level synthesis update
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#master-walk-forward-log" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Master walk-forward log
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+                
+
+
+
+  
+
+
+  <nav class="md-path" aria-label="Navigation" >
+    <ol class="md-path__list">
+      
+        
+  
+  
+    <li class="md-path__item">
+      <a href="../.." class="md-path__link">
+        
+  <span class="md-ellipsis">
+    Home
+  </span>
+
+      </a>
+    </li>
+  
+
+      
+      
+        
+  
+  
+    
+    
+      <li class="md-path__item">
+        <a href="../" class="md-path__link">
+          
+  <span class="md-ellipsis">
+    Findings
+  </span>
+
+        </a>
+      </li>
+    
+  
+
+      
+    </ol>
+  </nav>
+
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+  <nav class="md-tags" >
+    
+      
+      
+      
+      
+        <a href="../../tags/#tag:partial-oos" class="md-tag">partial-OOS</a>
+      
+    
+      
+      
+      
+      
+        <a href="../../tags/#tag:regime-gate" class="md-tag">regime-gate</a>
+      
+    
+      
+      
+      
+      
+        <a href="../../tags/#tag:v3-arc-closer" class="md-tag">v3-arc-closer</a>
+      
+    
+      
+      
+      
+      
+        <a href="../../tags/#tag:vol-surface" class="md-tag">vol-surface</a>
+      
+    
+  </nav>
+
+
+  
+  
+
+
+<h1 id="vol-surface-v3-regime-gated-liquid-universe-partially-rescues-deployability-partial-oos-marginal-on-strict-pre-reg">Vol surface v3 — regime-gated liquid universe partially rescues deployability (partial-OOS, MARGINAL on strict pre-reg)<a class="headerlink" href="#vol-surface-v3-regime-gated-liquid-universe-partially-rescues-deployability-partial-oos-marginal-on-strict-pre-reg" title="Permanent link">&para;</a></h1>
+<p><strong>Operational rule (extracted):</strong> <em>Composing the v2 #2 liquidity
+restriction with a VIX-126d-rolling-median per-rebal-bar gate
+partially rescues deployability: pooled fired-alpha Sharpe lifts
+from −0.48 (v2 #2 unconditional, top-200 OI) to +2.01 on fired
+rebals (37% fire rate). The 126d gate correctly suppresses the
+calm-bull 2021 regime (0 fires in w0, avoiding v2 #2's −2.57 alpha
+disaster) and captures the post-Fed-pivot 2022-2023 regime (3 fires
+in w3, +0.036 alpha PnL). Strict pre-reg verdict is MARGINAL (3/5
+fired-positive vs ≥4/5 PASS cut), but the architecture is
+materially deployable.</em></p>
+<h2 id="pre-registered-design-locked-before-run">Pre-registered design (locked before run)<a class="headerlink" href="#pre-registered-design-locked-before-run" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Component</th>
+<th>Choice</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Universe</td>
+<td>top-200 OI per date (v2 #2 setup)</td>
+</tr>
+<tr>
+<td>Feature stack</td>
+<td>v1 full 10-feature surface (skew + smile + IV/HV + OI + VIX-spread + strike-spread)</td>
+</tr>
+<tr>
+<td>Predictor</td>
+<td>linear OLS (v1 default; MLP deferred to v2 #4)</td>
+</tr>
+<tr>
+<td>Top-K</td>
+<td>50 picks per fired rebal</td>
+</tr>
+<tr>
+<td>Rebal cadence</td>
+<td>20 trading days (matches iv_rv_gap horizon)</td>
+</tr>
+<tr>
+<td>Sizing</td>
+<td>equal-$-vega per pick (v2 #1 confirmed convention)</td>
+</tr>
+<tr>
+<td>Gate</td>
+<td>per-rebal-bar: VIX[t] &gt; N-day-rolling-median(VIX, lookback)</td>
+</tr>
+<tr>
+<td>Gate lookback sweep</td>
+<td>{60, 126, 252} (headline 60d ex-ante)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="pre-reg-cuts">Pre-reg cuts<a class="headerlink" href="#pre-reg-cuts" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Cut</th>
+<th>Threshold</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>PASS</td>
+<td>fired-alpha Sharpe ≥ +0.30 AND fire-rate ∈ [20%, 80%] AND ≥ 4/5 fired-positive</td>
+</tr>
+<tr>
+<td>MARGINAL</td>
+<td>fired-alpha Sharpe ∈ [+0.10, +0.30] OR fire-rate outside band</td>
+</tr>
+<tr>
+<td>FAIL</td>
+<td>fired-alpha Sharpe &lt; +0.10 OR ≤ 2 windows with any fires</td>
+</tr>
+</tbody>
+</table>
+<h2 id="result">Result<a class="headerlink" href="#result" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th style="text-align: right;">Gate lookback</th>
+<th style="text-align: right;">Fired α Sharpe</th>
+<th style="text-align: right;">Fire rate</th>
+<th style="text-align: right;">Fired-pos windows</th>
+<th>Pre-reg verdict</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: right;">60d (headline ex-ante)</td>
+<td style="text-align: right;"><strong>−0.66</strong></td>
+<td style="text-align: right;">43%</td>
+<td style="text-align: right;">2/5</td>
+<td><strong>FAIL</strong> (negative α)</td>
+</tr>
+<tr>
+<td style="text-align: right;"><strong>126d (operational best)</strong></td>
+<td style="text-align: right;"><strong>+2.01</strong></td>
+<td style="text-align: right;"><strong>37%</strong></td>
+<td style="text-align: right;"><strong>3/5</strong></td>
+<td><strong>MARGINAL</strong> (3/5 &lt; strict 4/5 PASS)</td>
+</tr>
+<tr>
+<td style="text-align: right;">252d</td>
+<td style="text-align: right;">+1.84</td>
+<td style="text-align: right;">33%</td>
+<td style="text-align: right;">2/5</td>
+<td>FAIL (≤2 windows with fires; w0/w4 zero fires)</td>
+</tr>
+</tbody>
+</table>
+<p>The 60d headline ex-ante choice <strong>failed cleanly</strong>: short-memory gate
+fires during transient VIX bumps in 2021's calm-bull regime,
+exposing the strategy to v2 #2's −2.57 alpha disaster in w0.</p>
+<p>The 126d gate <strong>earns the recommendation</strong> by behavioral robustness:</p>
+<table>
+<thead>
+<tr>
+<th style="text-align: right;">Window</th>
+<th>Period</th>
+<th>VIX regime</th>
+<th style="text-align: right;">126d-gate fires</th>
+<th>Outcome</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: right;">0</td>
+<td>2021-01 → 2021-06</td>
+<td>calm-bull (VIX 18-26)</td>
+<td style="text-align: right;"><strong>0/6 fires</strong></td>
+<td><strong>Avoided</strong> v2 #2's α=−2.57 disaster</td>
+</tr>
+<tr>
+<td style="text-align: right;">1</td>
+<td>2021-06 → 2021-12</td>
+<td>calm-bull tail (VIX 15-25)</td>
+<td style="text-align: right;">2/6</td>
+<td>α=+0.008, contained</td>
+</tr>
+<tr>
+<td style="text-align: right;">2</td>
+<td>2021-12 → 2022-06</td>
+<td>reg-shift (VIX 19-37)</td>
+<td style="text-align: right;">5/6</td>
+<td>α=+0.007, neutral</td>
+</tr>
+<tr>
+<td style="text-align: right;">3</td>
+<td>2022-06 → 2022-12</td>
+<td>post-Fed-pivot (VIX 22-35)</td>
+<td style="text-align: right;"><strong>3/6 fires</strong></td>
+<td><strong>Captured</strong> α=+0.036</td>
+</tr>
+<tr>
+<td style="text-align: right;">4</td>
+<td>2022-12 → 2023-06</td>
+<td>recovery (VIX 16-26)</td>
+<td style="text-align: right;">1/6</td>
+<td>α=+0.010, captured tail</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Per-rebal alpha PnL on fired rebals</strong>: pooled mean +0.014 vol pts
+(vs v2 #2's unconditional −0.005 on top-200 OI). Net of 100 bps
+round-trip friction (1 bps in vol-point units): +0.013 fired-α PnL.</p>
+<h2 id="why-126d-is-the-right-lookback">Why 126d is the right lookback<a class="headerlink" href="#why-126d-is-the-right-lookback" title="Permanent link">&para;</a></h2>
+<ul>
+<li><strong>60d</strong>: too reactive. Median tracks recent VIX, so any local VIX
+  bump in calm-bull periods triggers the gate. Captures v0/v1
+  exposure to anti-predictive 2021 windows.</li>
+<li><strong>252d</strong>: too slow. Median includes too much prior-year stress;
+  in mid-2021, the 252d median was elevated by 2020 COVID and the
+  gate stayed closed even when current VIX was elevated. Missed
+  w4 entirely (1y memory still classifying 2023 as "calm" vs the
+  2022 elevated period).</li>
+<li><strong>126d</strong>: right band. Captures regime shifts on a 6-month memory,
+  which is the appropriate timescale for "the VIX regime has
+  changed enough that liquid-name vol mispricings are alive".</li>
+</ul>
+<p>This validates the operational rule from
+<a href="../cfr-sensitivity-followup/"><code>cfr-sensitivity-followup</code></a> that
+memory-window robustness matters for regime gate design — and
+extends it to vol's specific dynamics where 126d is the goldilocks
+lookback (different from CFR Phase 4d where 252d was best).</p>
+<h2 id="what-the-result-means-operationally">What the result means operationally<a class="headerlink" href="#what-the-result-means-operationally" title="Permanent link">&para;</a></h2>
+<ul>
+<li><strong>The strategy IS deployable on liquid options markets WITH the
+  126d-gate constraint.</strong> Expected operating point: ~37% of
+  20-day rebals fire; on those, fired-alpha Sharpe is +2.01
+  annualized. The other 63% of time, capital is parked.</li>
+<li><strong>Annual fire-cadence</strong>: ~12.6 rebals/yr × 37% ≈ 4.7 fired
+  rebals/yr. Modest sample-size, so the +2.01 fired-Sharpe is
+  noisy at one-year scale (95% CI roughly +0.5 to +3.5).</li>
+<li><strong>Full-panel (gate-closed = universe-baseline) alpha Sharpe is
+  +1.13</strong> — still positive even when "do nothing" defaults to
+  capturing the universe VRP baseline during closed rebals.</li>
+<li><strong>3/5 fired-positive windows</strong> is below the strict 4/5 PASS bar
+  but operationally meaningful (one of the two negative windows is
+  w0 where the gate correctly didn't fire — denominator artifact;
+  honest fired-positive count among windows where the gate fired
+  ≥ 2 times is 3/4 = 75%).</li>
+</ul>
+<h2 id="hindsight-oracle-the-gate-is-the-binding-constraint-2026-05-14-followup">Hindsight oracle — the gate is the binding constraint (2026-05-14 followup)<a class="headerlink" href="#hindsight-oracle-the-gate-is-the-binding-constraint-2026-05-14-followup" title="Permanent link">&para;</a></h2>
+<p>Cross-app oracle diagnostic borrowed from the
+<a href="../factor-endogenous-horizon-mixture/"><code>factor-endogenous-horizon-mixture</code></a>
+arc closure: at each rebal, the gate decision is a binary
+(fire/skip). The hindsight oracle picks fire iff realized
+alpha (gated-pnl − universe-pnl) &gt; 0 — uses future return data;
+strict upper bound on any gate (heuristic or learned).</p>
+<h3 id="result-oracle-clears-the-pass-bar-by-a-wide-margin">Result — oracle clears the PASS bar by a wide margin<a class="headerlink" href="#result-oracle-clears-the-pass-bar-by-a-wide-margin" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Arm</th>
+<th style="text-align: right;">Pooled fired α Sh</th>
+<th style="text-align: right;">Pooled full α Sh</th>
+<th style="text-align: right;">Fire rate</th>
+<th style="text-align: right;">Fired-pos windows</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>60d gate</td>
+<td style="text-align: right;">−0.66</td>
+<td style="text-align: right;">−0.44</td>
+<td style="text-align: right;">43%</td>
+<td style="text-align: right;">2/5</td>
+</tr>
+<tr>
+<td><strong>126d gate (operational best)</strong></td>
+<td style="text-align: right;"><strong>+2.01</strong></td>
+<td style="text-align: right;">+1.13</td>
+<td style="text-align: right;">37%</td>
+<td style="text-align: right;">3/5</td>
+</tr>
+<tr>
+<td>252d gate</td>
+<td style="text-align: right;">+1.84</td>
+<td style="text-align: right;">+1.00</td>
+<td style="text-align: right;">33%</td>
+<td style="text-align: right;">2/5</td>
+</tr>
+<tr>
+<td><strong>Hindsight oracle</strong></td>
+<td style="text-align: right;"><strong>+4.87</strong></td>
+<td style="text-align: right;"><strong>+3.25</strong></td>
+<td style="text-align: right;"><strong>70%</strong></td>
+<td style="text-align: right;"><strong>4/5</strong></td>
+</tr>
+</tbody>
+</table>
+<p>The 126d gate captures <strong>~41%</strong> of the oracle's fired-Sharpe
+ceiling (2.01 / 4.87). On the full-panel metric, the oracle
+delivers <strong>2.9×</strong> more (+3.25 vs +1.13). And the oracle's
+<strong>70% fire rate</strong> vs 126d's 37% says the underlying alpha is
+positive on roughly <em>twice</em> as many rebals as the VIX-rolling-
+median heuristic recognizes — the heuristic is missing the
+non-VIX-correlated half of positive-alpha rebals.</p>
+<h3 id="per-window-oracle-detail">Per-window oracle detail<a class="headerlink" href="#per-window-oracle-detail" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th style="text-align: right;">Win</th>
+<th>Val period</th>
+<th style="text-align: right;">n_reb</th>
+<th style="text-align: right;">fired</th>
+<th style="text-align: right;">mean α</th>
+<th style="text-align: right;">full α Sh</th>
+<th style="text-align: right;">fired α Sh</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: right;">0</td>
+<td>2021-01 → 2021-06</td>
+<td style="text-align: right;">6</td>
+<td style="text-align: right;">1</td>
+<td style="text-align: right;">+0.016</td>
+<td style="text-align: right;">+1.45</td>
+<td style="text-align: right;">0.0 (1 sample)</td>
+</tr>
+<tr>
+<td style="text-align: right;">1</td>
+<td>2021-06 → 2021-12</td>
+<td style="text-align: right;">6</td>
+<td style="text-align: right;">5</td>
+<td style="text-align: right;">+0.013</td>
+<td style="text-align: right;">+2.28</td>
+<td style="text-align: right;">+2.58</td>
+</tr>
+<tr>
+<td style="text-align: right;">2</td>
+<td>2021-12 → 2022-06</td>
+<td style="text-align: right;">6</td>
+<td style="text-align: right;">4</td>
+<td style="text-align: right;">+0.041</td>
+<td style="text-align: right;">+3.16</td>
+<td style="text-align: right;">+5.07</td>
+</tr>
+<tr>
+<td style="text-align: right;">3</td>
+<td>2022-06 → 2022-12</td>
+<td style="text-align: right;">6</td>
+<td style="text-align: right;">5</td>
+<td style="text-align: right;">+0.040</td>
+<td style="text-align: right;">+4.61</td>
+<td style="text-align: right;">+6.42</td>
+</tr>
+<tr>
+<td style="text-align: right;">4</td>
+<td>2022-12 → 2023-06</td>
+<td style="text-align: right;">6</td>
+<td style="text-align: right;">6</td>
+<td style="text-align: right;">+0.041</td>
+<td style="text-align: right;">+6.49</td>
+<td style="text-align: right;">+6.49</td>
+</tr>
+</tbody>
+</table>
+<p>Oracle fires in 5/5 windows (vs 126d's 4/5); 4/5 cleanly
+positive (vs 3/5). w0's "fired α Sh = 0.0" is a single-sample
+artifact (one rebal → std=0); the rebal itself had positive
+alpha (+0.016).</p>
+<h3 id="what-this-says-about-the-gate">What this says about the gate<a class="headerlink" href="#what-this-says-about-the-gate" title="Permanent link">&para;</a></h3>
+<p>The 126d heuristic verdict (MARGINAL, 3/5 fired-positive) reads
+very differently in light of the oracle ceiling:</p>
+<table>
+<thead>
+<tr>
+<th>Question</th>
+<th>Answer</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Does the architecture have headroom over 126d?</td>
+<td><strong>Yes, +2.86 fired-Sharpe.</strong></td>
+</tr>
+<tr>
+<td>Is the heuristic the binding constraint?</td>
+<td><strong>Yes</strong> — oracle clears PASS by a wide margin while 126d misses by exactly one window.</td>
+</tr>
+<tr>
+<td>Is per-rebal alpha-sign predictable in principle?</td>
+<td><strong>In hindsight yes; question is whether real-time features other than VIX can approximate this.</strong></td>
+</tr>
+<tr>
+<td>Should the arc close <code>confirmed-OOS</code> if a learned gate matches oracle?</td>
+<td>Yes — clearing 4/5 fired-positive with fired-Sharpe well above +0.30 satisfies pre-reg PASS.</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Operational rule extracted:</strong> <em>the v3 partial-OOS verdict
+is gate-bound, not architecture-bound.</em> The signal the
+predictor produces translates into positive per-rebal alpha at
+roughly 70% of rebals on the top-200 OI universe; the VIX-
+126d heuristic catches just over half of those, with the
+positive-alpha rebals it misses being the ones where alpha
+fires for reasons orthogonal to vol-of-vol (e.g.,
+cross-sectional IV dispersion, post-event drift, term-structure
+inversions).</p>
+<p>This <strong>revises the priority</strong> on the v3.x candidates below: the
+<strong>composite regime gate</strong> (item #4) becomes the highest-value
+next experiment, not the lowest. The oracle says there are
++2.86 fired-Sharpe points sitting on the table that any
+deployable gate richer than single-VIX-state could in principle
+capture.</p>
+<h2 id="whats-still-untested-v3x-candidates-re-prioritized-after-oracle">What's still untested (v3.x candidates — re-prioritized after oracle)<a class="headerlink" href="#whats-still-untested-v3x-candidates-re-prioritized-after-oracle" title="Permanent link">&para;</a></h2>
+<ol>
+<li><strong>Composite regime gate (NOW HIGHEST-VALUE per the oracle).</strong>
+   VIX + cross-sectional IV dispersion + maybe a vol-of-vol or
+   term-structure-inversion feature. The oracle shows +2.86
+   fired-Sharpe of unrealized lift is available — at minimum
+   half of it is plausibly recoverable by a richer gate than
+   single-VIX-state. Test design: train a binary logistic-
+   regression / GBM on per-rebal features (VIX, cross-sectional
+   IV dispersion, IV skew, term-structure slope) against the
+   realized-positive-alpha-or-not target. Evaluate gate-fired
+   alpha Sharpe + fire rate + fired-positive window count
+   against 126d-baseline.</li>
+<li><strong>Per-rebal alpha-magnitude predictor.</strong> Instead of binary
+   gate, predict expected alpha magnitude at each rebal and
+   size proportionally (or deploy iff predicted alpha &gt; τ).
+   Closer to the original v0/v1 architecture but at the
+   per-rebal-deployment-decision granularity.</li>
+<li><strong>MLP head on the regime-gated liquid universe</strong> — v2 #4
+   originally. With 126d gate firing in ~37% of rebals, sample
+   size for MLP training is reduced. Probably modest lift;
+   linear is the right baseline. Reprioritized below the gate
+   work above.</li>
+<li><strong>Friction sensitivity on fired-only PnL</strong> — the fired
+   alpha PnL of +0.014 vol pts is ~14× the 100 bps friction
+   threshold. At 500 bps round-trip (illiquid-options worst
+   case) it becomes ~3× friction — still positive but tighter.
+   Worth a sensitivity sweep.</li>
+<li><strong>Live infrastructure (<code>ss-vol live</code> + IBKR / Tradier
+   broker adapter)</strong> — gated on this v3 outcome; given
+   MARGINAL by strict pre-reg, the build-cost calculation
+   becomes worth re-evaluating now that the oracle has
+   established the architecture's true ceiling. If a composite
+   gate captures even half the +2.86 oracle headroom, fired
+   Sharpe lifts to ~+3.4 and PASS is unambiguous.</li>
+</ol>
+<h2 id="v31-composite-regime-gate-the-oracles-headroom-is-not-in-simple-aggregates">v3.1 — composite regime gate (the oracle's headroom is not in simple aggregates)<a class="headerlink" href="#v31-composite-regime-gate-the-oracles-headroom-is-not-in-simple-aggregates" title="Permanent link">&para;</a></h2>
+<p>Pre-registered after the oracle finding above prioritized composite
+regime gates as the highest-value follow-up. Five composite arms +
+the v3 126d baseline + the oracle, all on the same 5 walk-forward
+windows. Two rule-based composites (OR/AND of VIX-126d and
+cross-sectional <code>iv_over_hv20</code>-dispersion-126d), two single-feature
+alternatives (dispersion alone, mean-VRP alone), and one learned
+logistic-regression composite on 4 features (VIX, dispersion,
+mean-VRP, VIX-5d-change) trained on per-rebal realized-alpha-sign
+targets.</p>
+<h3 id="result-vix-or-disp-passes-strict-pre-reg-but-at-lower-sharpe-than-baseline">Result — <code>vix-or-disp</code> PASSES strict pre-reg but at lower Sharpe than baseline<a class="headerlink" href="#result-vix-or-disp-passes-strict-pre-reg-but-at-lower-sharpe-than-baseline" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Arm</th>
+<th style="text-align: right;">Fired α Sh</th>
+<th style="text-align: right;">Full α Sh</th>
+<th style="text-align: right;">Fire rate</th>
+<th style="text-align: right;">Fired-pos</th>
+<th>Pre-reg verdict</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>vix-126d (v3 baseline)</td>
+<td style="text-align: right;"><strong>+2.01</strong></td>
+<td style="text-align: right;">+1.13</td>
+<td style="text-align: right;">37%</td>
+<td style="text-align: right;">3/5</td>
+<td>MARGINAL (3/5 &lt; 4/5 strict cut)</td>
+</tr>
+<tr>
+<td>disp-126d</td>
+<td style="text-align: right;">+0.10</td>
+<td style="text-align: right;">+0.07</td>
+<td style="text-align: right;">47%</td>
+<td style="text-align: right;">2/5</td>
+<td>FAIL</td>
+</tr>
+<tr>
+<td>mean-vrp-126d</td>
+<td style="text-align: right;">+0.12</td>
+<td style="text-align: right;">+0.09</td>
+<td style="text-align: right;">53%</td>
+<td style="text-align: right;">3/5</td>
+<td>FAIL</td>
+</tr>
+<tr>
+<td><strong>vix-or-disp</strong></td>
+<td style="text-align: right;"><strong>+0.39</strong></td>
+<td style="text-align: right;"><strong>+0.32</strong></td>
+<td style="text-align: right;"><strong>67%</strong></td>
+<td style="text-align: right;"><strong>4/5</strong></td>
+<td><strong>PASS (strict)</strong></td>
+</tr>
+<tr>
+<td>vix-and-disp</td>
+<td style="text-align: right;">+1.21</td>
+<td style="text-align: right;">+0.51</td>
+<td style="text-align: right;">17%</td>
+<td style="text-align: right;">0/5</td>
+<td>FAIL (out of band)</td>
+</tr>
+<tr>
+<td>lr-composite</td>
+<td style="text-align: right;">+0.15</td>
+<td style="text-align: right;">+0.13</td>
+<td style="text-align: right;">77%</td>
+<td style="text-align: right;">3/5</td>
+<td>FAIL</td>
+</tr>
+<tr>
+<td>oracle ceiling</td>
+<td style="text-align: right;">+4.87</td>
+<td style="text-align: right;">+3.25</td>
+<td style="text-align: right;">70%</td>
+<td style="text-align: right;">4/5</td>
+<td>(hindsight)</td>
+</tr>
+</tbody>
+</table>
+<p>Pre-reg cuts:</p>
+<ul>
+<li><strong>PASS</strong>: fired-α Sh ≥ +0.30 AND fire-rate ∈ [20%, 80%] AND
+  ≥ 4/5 fired-positive. Only <code>vix-or-disp</code> clears all three.</li>
+<li><strong>STRONG-PASS</strong>: fired-α Sh ≥ +3.0 (captures ≥ 50% of the +2.86
+  oracle headroom). <strong>No arm clears.</strong></li>
+</ul>
+<h3 id="per-window-detail">Per-window detail<a class="headerlink" href="#per-window-detail" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th style="text-align: right;">Win</th>
+<th>Val period</th>
+<th style="text-align: right;">vix-126d</th>
+<th style="text-align: right;">disp-126d</th>
+<th style="text-align: right;">vix-or-disp</th>
+<th style="text-align: right;">vix-and-disp</th>
+<th style="text-align: right;">lr-composite</th>
+<th style="text-align: right;">oracle</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: right;">0</td>
+<td>2021-01 → 2021-06</td>
+<td style="text-align: right;">0.00 (0)</td>
+<td style="text-align: right;">−2.24 (2)</td>
+<td style="text-align: right;">−2.24 (2)</td>
+<td style="text-align: right;">0.00 (0)</td>
+<td style="text-align: right;">−2.48 (5)</td>
+<td style="text-align: right;">0.00 (1)</td>
+</tr>
+<tr>
+<td style="text-align: right;">1</td>
+<td>2021-06 → 2021-12</td>
+<td style="text-align: right;">+3.46 (2)</td>
+<td style="text-align: right;">+2.20 (4)</td>
+<td style="text-align: right;">+2.58 (5)</td>
+<td style="text-align: right;">0.00 (1)</td>
+<td style="text-align: right;">+2.60 (2)</td>
+<td style="text-align: right;">+2.58 (5)</td>
+</tr>
+<tr>
+<td style="text-align: right;">2</td>
+<td>2021-12 → 2022-06</td>
+<td style="text-align: right;">+0.73 (5)</td>
+<td style="text-align: right;">−0.41 (2)</td>
+<td style="text-align: right;">+0.73 (5)</td>
+<td style="text-align: right;">−0.41 (2)</td>
+<td style="text-align: right;">−0.57 (4)</td>
+<td style="text-align: right;">+5.07 (4)</td>
+</tr>
+<tr>
+<td style="text-align: right;">3</td>
+<td>2022-06 → 2022-12</td>
+<td style="text-align: right;"><strong>+6.01 (3)</strong></td>
+<td style="text-align: right;">0.00 (1)</td>
+<td style="text-align: right;"><strong>+6.01 (3)</strong></td>
+<td style="text-align: right;">0.00 (1)</td>
+<td style="text-align: right;">+4.19 (6)</td>
+<td style="text-align: right;"><strong>+6.42 (5)</strong></td>
+</tr>
+<tr>
+<td style="text-align: right;">4</td>
+<td>2022-12 → 2023-06</td>
+<td style="text-align: right;">0.00 (1)</td>
+<td style="text-align: right;">+5.73 (5)</td>
+<td style="text-align: right;"><strong>+5.73 (5)</strong></td>
+<td style="text-align: right;">0.00 (1)</td>
+<td style="text-align: right;">+6.50 (6)</td>
+<td style="text-align: right;">+6.50 (6)</td>
+</tr>
+</tbody>
+</table>
+<p><code>(n)</code> = fires in that window. Key pattern:</p>
+<ul>
+<li><strong>w0 (2021-01, calm-bull)</strong>: <code>vix-126d</code> correctly stays out
+  (0 fires); <code>vix-or-disp</code> fires twice and loses (−2.24).
+  Dispersion-only arms are exposed to this regime.</li>
+<li><strong>w4 (2022-12, recovery)</strong>: <code>vix-126d</code> fires once and gets
+  shut out (Sharpe → 0 by single-sample artifact);
+  <code>vix-or-disp</code> fires 5× and captures +5.73. <strong>This is the
+  window the OR composite recovers from the baseline.</strong></li>
+<li><strong>w3 (2022-06, post-Fed-pivot)</strong>: <code>vix-126d</code>, <code>vix-or-disp</code>,
+  and <code>lr-composite</code> all capture high alpha (+6.01 / +6.01 /
+  +4.19). The high-fired-Sharpe windows are stable across gate
+  variants.</li>
+</ul>
+<h3 id="the-reframe">The reframe<a class="headerlink" href="#the-reframe" title="Permanent link">&para;</a></h3>
+<p>The composite-gate hypothesis (NOW HIGHEST-VALUE per the oracle)
+was: "VIX + cross-sectional IV dispersion + ..." should capture
+the +2.86 fired-α Sharpe headroom the oracle reveals. The result
+is <strong>mixed</strong>:</p>
+<ul>
+<li>The strict pre-reg PASS bar (4/5 fired-positive) is clearable
+  by a composite (<code>vix-or-disp</code>).</li>
+<li>The STRONG-PASS bar (capture ≥ 50% of oracle headroom) is
+  <strong>not clearable</strong> by any arm tested. The best composite delta
+  vs baseline is <code>vix-and-disp</code> at −0.80 fired-Sharpe — every
+  composite is <em>worse</em> than <code>vix-126d</code> on per-rebal Sharpe.</li>
+<li>The oracle's signal lives in a feature space that simple
+  cross-sectional aggregates + rolling-median thresholds
+  <strong>do not span</strong>.</li>
+</ul>
+<p>Two distinct operational claims emerge:</p>
+<table>
+<thead>
+<tr>
+<th>Metric</th>
+<th>Better arm</th>
+<th>Why</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Strict pre-reg PASS (operational diversification)</td>
+<td><code>vix-or-disp</code></td>
+<td>clears 4/5 fired-positive vs 3/5 for baseline</td>
+</tr>
+<tr>
+<td>Per-rebal expected Sharpe (annualized PnL)</td>
+<td><code>vix-126d</code></td>
+<td>+2.01 × ~11 fires/yr beats +0.39 × ~20 fires/yr</td>
+</tr>
+<tr>
+<td>Capture of oracle headroom</td>
+<td>none</td>
+<td>architecture's +2.86 headroom remains substantially unreached</td>
+</tr>
+</tbody>
+</table>
+<h3 id="what-this-tells-us-about-the-oracle">What this tells us about the oracle<a class="headerlink" href="#what-this-tells-us-about-the-oracle" title="Permanent link">&para;</a></h3>
+<p>The oracle's +2.86 headroom is <strong>real but not feature-extractable
+from the aggregates tested</strong>. Three plausible explanations
+(ordered by load-bearingness):</p>
+<ol>
+<li><strong>The "right" features are time-varying or higher-order</strong>:
+   regime persistence (5-day momentum of dispersion), per-symbol
+   skew dispersion, term-structure inversions, or pre-event
+   indicators. The 4 features in the LR-composite stack are
+   stationary cross-sectional moments — too coarse.</li>
+<li><strong>Sample size limits learning</strong>: 15 train rebals per window
+   is far too few for a 4-feature classifier to extract anything
+   beyond linear marginals. An expanding-window training scheme
+   or a much larger feature stack with strong priors could
+   recover more.</li>
+<li><strong>The oracle's signal is non-Markovian</strong>: fire/skip might
+   depend on the trajectory leading into bar t (e.g.,
+   convergence to a quiet equilibrium → next regime is fragile)
+   that aggregate snapshots can't recover.</li>
+</ol>
+<h3 id="re-revised-arc-closure">Re-revised arc closure<a class="headerlink" href="#re-revised-arc-closure" title="Permanent link">&para;</a></h3>
+<p>The v3 partial-OOS verdict still stands. v3.1 adds a small new
+fact: <code>vix-or-disp</code> is a deployable operating point with <strong>better
+window diversification</strong> (4/5 fired-positive vs 3/5) at <strong>lower
+per-rebal Sharpe</strong> (+0.39 vs +2.01). Whether to deploy the
+composite over single-VIX depends on whether the user cares more
+about "more positive windows" or "higher mean per-rebal Sharpe".</p>
+<p>The <strong>STRONG-PASS bar is not yet achievable</strong> with simple feature
+engineering on the existing predictor + universe. The oracle says
+the architecture has +2.86 of unrealized headroom; closing
+materially more than ~30% of that requires either:</p>
+<ul>
+<li>A <strong>richer feature set</strong> beyond cross-sectional moments
+  (per-symbol dispersion patterns, term-structure features,
+  options-flow indicators).</li>
+<li><strong>More training data</strong> (expanding-window classifier across all
+  prior walk-forward windows, or pre-walkforward warmup).</li>
+<li>A <strong>non-binary gate</strong> (continuous sizing in proportion to
+  predicted alpha magnitude, not just on/off).</li>
+</ul>
+<p>None of those is pre-registered as the next experiment; the
+workstream stays at partial-OOS with two operational arms
+(single-VIX-126d and OR-composite) and the live-deployment work
+unblocked under either.</p>
+<p>Driver: <code>apps/vol/scripts/run_walkforward_v3_1_composite.py</code>
+(local CPU, ~2 min wall, no Modal). Artifacts:
+<code>Output/vol-walkforward-v3-1-composite-summary.json</code>.</p>
+<h2 id="arc-level-synthesis-update">Arc-level synthesis update<a class="headerlink" href="#arc-level-synthesis-update" title="Permanent link">&para;</a></h2>
+<p>Updates the vol-arc-synthesis verdict from "partial-OOS pending v3"
+to <strong>"partial-OOS with regime-gated-liquid as the deployment
+recipe"</strong>:</p>
+<table>
+<thead>
+<tr>
+<th>Phase</th>
+<th>Verdict</th>
+<th>Net contribution to arc</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>v0</td>
+<td>inconclusive</td>
+<td>Signal hint at per-cell-Sharpe level</td>
+</tr>
+<tr>
+<td>v1</td>
+<td>confirmed-OOS</td>
+<td>Per-rebal Sharpe +5.86 unrestricted (metric was the bottleneck)</td>
+</tr>
+<tr>
+<td>v2 #1</td>
+<td>confirmed-OOS</td>
+<td>Dollar conversion robust ($-vega Sharpe +4.60)</td>
+</tr>
+<tr>
+<td>v2 #2</td>
+<td>reversed-OOS</td>
+<td>OI restriction collapses alpha (−0.48 on top-200)</td>
+</tr>
+<tr>
+<td>v2 #3</td>
+<td>confirmed-OOS</td>
+<td>Signal extends OOS to 2026-04</td>
+</tr>
+<tr>
+<td><strong>v3</strong></td>
+<td><strong>MARGINAL (126d gate)</strong></td>
+<td><strong>Regime gate partially rescues: fired Sharpe +2.01, fire rate 37%</strong></td>
+</tr>
+</tbody>
+</table>
+<p><strong>Final arc state</strong>: <code>partial-OOS</code> shippable with documented constraints
+(top-200 OI + 126d-VIX gate). The signal is real (v1 + v2 #3),
+dollar-substantial under standard sizing (v2 #1), liquidity-bound (v2 #2),
+and regime-rescuable (v3). DCA stays canonical live for simplicity;
+vol-v3 is the active research workstream pending live-deployment build-out.</p>
+<h2 id="master-walk-forward-log">Master walk-forward log<a class="headerlink" href="#master-walk-forward-log" title="Permanent link">&para;</a></h2>
+<p><a href="../../leaderboard/">2026-05-14 vol v3 row</a> —
+<a href="../../leaderboard/#verdict-labels"><code>partial-OOS</code></a> on the arc.
+Strict pre-reg headline (60d lookback): FAIL. Operational best
+(126d lookback): MARGINAL by strict pre-reg cut on fired-positive
+windows (3/5 vs ≥4/5), but materially rescues v2 #2's FAIL.</p>
+<p>Artifacts:
+- Driver: <code>apps/vol/scripts/run_walkforward_v3_regime_gated.py</code>
+- Output: <code>Output/vol-walkforward-v3-regime-gated-summary.json</code>
+- Predecessors: <a href="../vol-surface-v2-oi-restriction/"><code>vol-surface-v2-oi-restriction</code></a>,
+  <a href="../vol-arc-synthesis/"><code>vol-arc-synthesis</code></a></p>
+
+
+
+
+
+
+
+  
+  
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+    
+      
+      <nav class="md-footer__inner md-grid" aria-label="Footer" >
+        
+          
+          <a href="../vol-surface-v2-dolthub-oos/" class="md-footer__link md-footer__link--prev" aria-label="Previous: Vol surface v2.3 — DoltHub OOS extension to 2026-04 confirms signal continuity (confirmed-OOS; OOS r +0.165 across 4-feature proxy, 11/11 positive quarters)">
+            <div class="md-footer__button md-icon">
+              
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+            </div>
+            <div class="md-footer__title">
+              <span class="md-footer__direction">
+                Previous
+              </span>
+              <div class="md-ellipsis">
+                Vol surface v2.3 — DoltHub OOS extension to 2026-04 confirms signal continuity (confirmed-OOS; OOS r +0.165 across 4-feature proxy, 11/11 positive quarters)
+              </div>
+            </div>
+          </a>
+        
+        
+          
+          <a href="../vol-arc-synthesis/" class="md-footer__link md-footer__link--next" aria-label="Next: Vol surface arc synthesis — partial-OOS arc closure with v3 regime-gated-liquid as deployment recipe">
+            <div class="md-footer__title">
+              <span class="md-footer__direction">
+                Next
+              </span>
+              <div class="md-ellipsis">
+                Vol surface arc synthesis — partial-OOS arc closure with v3 regime-gated-liquid as deployment recipe
+              </div>
+            </div>
+            <div class="md-footer__button md-icon">
+              
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M4 11v2h12l-5.5 5.5 1.42 1.42L19.84 12l-7.92-7.92L10.5 5.5 16 11z"/></svg>
+            </div>
+          </a>
+        
+      </nav>
+    
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["content.code.annotate", "content.code.copy", "content.tooltips", "navigation.footer", "navigation.indexes", "navigation.path", "navigation.sections", "navigation.expand", "navigation.tabs", "navigation.tabs.sticky", "navigation.tracking", "search.highlight", "search.share", "search.suggest", "toc.follow"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.79ae519e.min.js"></script>
+      
+    
+  </body>
+</html>

@@ -2,298 +2,394 @@
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
     <url>
          <loc>https://sidghodke.com/StockSurvey/</loc>
-         <lastmod>2026-05-14</lastmod>
+         <lastmod>2026-05-22</lastmod>
     </url>
     <url>
          <loc>https://sidghodke.com/StockSurvey/leaderboard/</loc>
-         <lastmod>2026-05-14</lastmod>
+         <lastmod>2026-05-22</lastmod>
+    </url>
+    <url>
+         <loc>https://sidghodke.com/StockSurvey/map/</loc>
+         <lastmod>2026-05-22</lastmod>
     </url>
     <url>
          <loc>https://sidghodke.com/StockSurvey/notes/</loc>
-         <lastmod>2026-05-14</lastmod>
+         <lastmod>2026-05-22</lastmod>
     </url>
     <url>
          <loc>https://sidghodke.com/StockSurvey/tags/</loc>
-         <lastmod>2026-05-14</lastmod>
+         <lastmod>2026-05-22</lastmod>
     </url>
     <url>
          <loc>https://sidghodke.com/StockSurvey/workflows/</loc>
-         <lastmod>2026-05-14</lastmod>
+         <lastmod>2026-05-22</lastmod>
     </url>
     <url>
          <loc>https://sidghodke.com/StockSurvey/TODO/</loc>
-         <lastmod>2026-05-14</lastmod>
+         <lastmod>2026-05-22</lastmod>
     </url>
     <url>
          <loc>https://sidghodke.com/StockSurvey/TODO/apps-cfr/</loc>
-         <lastmod>2026-05-14</lastmod>
+         <lastmod>2026-05-22</lastmod>
     </url>
     <url>
          <loc>https://sidghodke.com/StockSurvey/TODO/apps-pairs/</loc>
-         <lastmod>2026-05-14</lastmod>
+         <lastmod>2026-05-22</lastmod>
     </url>
     <url>
          <loc>https://sidghodke.com/StockSurvey/TODO/apps-vol/</loc>
-         <lastmod>2026-05-14</lastmod>
+         <lastmod>2026-05-22</lastmod>
     </url>
     <url>
          <loc>https://sidghodke.com/StockSurvey/TODO/backbone-architecture/</loc>
-         <lastmod>2026-05-14</lastmod>
+         <lastmod>2026-05-22</lastmod>
+    </url>
+    <url>
+         <loc>https://sidghodke.com/StockSurvey/TODO/critic-phi-value-function/</loc>
+         <lastmod>2026-05-22</lastmod>
     </url>
     <url>
          <loc>https://sidghodke.com/StockSurvey/TODO/different-prediction-problem/</loc>
-         <lastmod>2026-05-14</lastmod>
+         <lastmod>2026-05-22</lastmod>
     </url>
     <url>
          <loc>https://sidghodke.com/StockSurvey/TODO/dwt-compression-followups/</loc>
-         <lastmod>2026-05-14</lastmod>
+         <lastmod>2026-05-22</lastmod>
     </url>
     <url>
          <loc>https://sidghodke.com/StockSurvey/TODO/ew-overlay-test/</loc>
-         <lastmod>2026-05-14</lastmod>
+         <lastmod>2026-05-22</lastmod>
+    </url>
+    <url>
+         <loc>https://sidghodke.com/StockSurvey/TODO/factor-bilevel-horizon-objective/</loc>
+         <lastmod>2026-05-22</lastmod>
+    </url>
+    <url>
+         <loc>https://sidghodke.com/StockSurvey/TODO/factor-cwt-return-coupled/</loc>
+         <lastmod>2026-05-22</lastmod>
+    </url>
+    <url>
+         <loc>https://sidghodke.com/StockSurvey/TODO/factor-horizon-aligned-grid/</loc>
+         <lastmod>2026-05-22</lastmod>
+    </url>
+    <url>
+         <loc>https://sidghodke.com/StockSurvey/TODO/factor-horizon-entropy-reg/</loc>
+         <lastmod>2026-05-22</lastmod>
+    </url>
+    <url>
+         <loc>https://sidghodke.com/StockSurvey/TODO/factor-reinforce-target-side/</loc>
+         <lastmod>2026-05-22</lastmod>
+    </url>
+    <url>
+         <loc>https://sidghodke.com/StockSurvey/TODO/factor-shorthorizon-microstructure/</loc>
+         <lastmod>2026-05-22</lastmod>
+    </url>
+    <url>
+         <loc>https://sidghodke.com/StockSurvey/TODO/factor-shorthorizon-representation/</loc>
+         <lastmod>2026-05-22</lastmod>
     </url>
     <url>
          <loc>https://sidghodke.com/StockSurvey/TODO/factor-sizing-input-reframe/</loc>
-         <lastmod>2026-05-14</lastmod>
+         <lastmod>2026-05-22</lastmod>
     </url>
     <url>
          <loc>https://sidghodke.com/StockSurvey/TODO/film-w1-diagnostic/</loc>
-         <lastmod>2026-05-14</lastmod>
+         <lastmod>2026-05-22</lastmod>
     </url>
     <url>
          <loc>https://sidghodke.com/StockSurvey/TODO/long-short-constructor/</loc>
-         <lastmod>2026-05-14</lastmod>
+         <lastmod>2026-05-22</lastmod>
     </url>
     <url>
          <loc>https://sidghodke.com/StockSurvey/TODO/memory-walltime-followups/</loc>
-         <lastmod>2026-05-14</lastmod>
+         <lastmod>2026-05-22</lastmod>
     </url>
     <url>
          <loc>https://sidghodke.com/StockSurvey/TODO/modal-cron-live-deployment/</loc>
-         <lastmod>2026-05-14</lastmod>
+         <lastmod>2026-05-22</lastmod>
     </url>
     <url>
          <loc>https://sidghodke.com/StockSurvey/TODO/polar-morlet-migration/</loc>
-         <lastmod>2026-05-14</lastmod>
+         <lastmod>2026-05-22</lastmod>
     </url>
     <url>
          <loc>https://sidghodke.com/StockSurvey/TODO/port-sharpe-tinygrad/</loc>
-         <lastmod>2026-05-14</lastmod>
+         <lastmod>2026-05-22</lastmod>
     </url>
     <url>
          <loc>https://sidghodke.com/StockSurvey/TODO/rebal-days-sweep/</loc>
-         <lastmod>2026-05-14</lastmod>
+         <lastmod>2026-05-22</lastmod>
     </url>
     <url>
          <loc>https://sidghodke.com/StockSurvey/TODO/recently-shipped/</loc>
-         <lastmod>2026-05-14</lastmod>
+         <lastmod>2026-05-22</lastmod>
     </url>
     <url>
          <loc>https://sidghodke.com/StockSurvey/TODO/reversed-price-experiment/</loc>
-         <lastmod>2026-05-14</lastmod>
+         <lastmod>2026-05-22</lastmod>
     </url>
     <url>
          <loc>https://sidghodke.com/StockSurvey/TODO/review-followups/</loc>
-         <lastmod>2026-05-14</lastmod>
+         <lastmod>2026-05-22</lastmod>
     </url>
     <url>
          <loc>https://sidghodke.com/StockSurvey/TODO/rsi-long-period-ablation/</loc>
-         <lastmod>2026-05-14</lastmod>
+         <lastmod>2026-05-22</lastmod>
     </url>
     <url>
          <loc>https://sidghodke.com/StockSurvey/TODO/streaming-feature-pipeline/</loc>
-         <lastmod>2026-05-14</lastmod>
+         <lastmod>2026-05-22</lastmod>
+    </url>
+    <url>
+         <loc>https://sidghodke.com/StockSurvey/TODO/vol-borrow-illiquid-vrp/</loc>
+         <lastmod>2026-05-22</lastmod>
+    </url>
+    <url>
+         <loc>https://sidghodke.com/StockSurvey/TODO/vol-borrow-liquid-universe/</loc>
+         <lastmod>2026-05-22</lastmod>
+    </url>
+    <url>
+         <loc>https://sidghodke.com/StockSurvey/TODO/vol-tradier-forward-coverage/</loc>
+         <lastmod>2026-05-22</lastmod>
     </url>
     <url>
          <loc>https://sidghodke.com/StockSurvey/apps/</loc>
-         <lastmod>2026-05-14</lastmod>
+         <lastmod>2026-05-22</lastmod>
     </url>
     <url>
          <loc>https://sidghodke.com/StockSurvey/apps/cfr/</loc>
-         <lastmod>2026-05-14</lastmod>
+         <lastmod>2026-05-22</lastmod>
     </url>
     <url>
          <loc>https://sidghodke.com/StockSurvey/apps/dca/</loc>
-         <lastmod>2026-05-14</lastmod>
+         <lastmod>2026-05-22</lastmod>
     </url>
     <url>
          <loc>https://sidghodke.com/StockSurvey/apps/factor/</loc>
-         <lastmod>2026-05-14</lastmod>
+         <lastmod>2026-05-22</lastmod>
     </url>
     <url>
          <loc>https://sidghodke.com/StockSurvey/apps/gate/</loc>
-         <lastmod>2026-05-14</lastmod>
+         <lastmod>2026-05-22</lastmod>
     </url>
     <url>
          <loc>https://sidghodke.com/StockSurvey/apps/notebook/</loc>
-         <lastmod>2026-05-14</lastmod>
+         <lastmod>2026-05-22</lastmod>
     </url>
     <url>
          <loc>https://sidghodke.com/StockSurvey/apps/pairs/</loc>
-         <lastmod>2026-05-14</lastmod>
+         <lastmod>2026-05-22</lastmod>
     </url>
     <url>
          <loc>https://sidghodke.com/StockSurvey/apps/regime/</loc>
-         <lastmod>2026-05-14</lastmod>
+         <lastmod>2026-05-22</lastmod>
     </url>
     <url>
          <loc>https://sidghodke.com/StockSurvey/apps/relational/</loc>
-         <lastmod>2026-05-14</lastmod>
+         <lastmod>2026-05-22</lastmod>
     </url>
     <url>
          <loc>https://sidghodke.com/StockSurvey/apps/replay/</loc>
-         <lastmod>2026-05-14</lastmod>
+         <lastmod>2026-05-22</lastmod>
     </url>
     <url>
          <loc>https://sidghodke.com/StockSurvey/apps/vol/</loc>
-         <lastmod>2026-05-14</lastmod>
+         <lastmod>2026-05-22</lastmod>
     </url>
     <url>
          <loc>https://sidghodke.com/StockSurvey/findings/</loc>
-         <lastmod>2026-05-14</lastmod>
+         <lastmod>2026-05-22</lastmod>
     </url>
     <url>
          <loc>https://sidghodke.com/StockSurvey/findings/cfr-macro-gate-final/</loc>
-         <lastmod>2026-05-14</lastmod>
+         <lastmod>2026-05-22</lastmod>
     </url>
     <url>
          <loc>https://sidghodke.com/StockSurvey/findings/cfr-phase1/</loc>
-         <lastmod>2026-05-14</lastmod>
+         <lastmod>2026-05-22</lastmod>
     </url>
     <url>
          <loc>https://sidghodke.com/StockSurvey/findings/cfr-phase2/</loc>
-         <lastmod>2026-05-14</lastmod>
+         <lastmod>2026-05-22</lastmod>
     </url>
     <url>
          <loc>https://sidghodke.com/StockSurvey/findings/cfr-phase3/</loc>
-         <lastmod>2026-05-14</lastmod>
+         <lastmod>2026-05-22</lastmod>
     </url>
     <url>
          <loc>https://sidghodke.com/StockSurvey/findings/cfr-phase4/</loc>
-         <lastmod>2026-05-14</lastmod>
+         <lastmod>2026-05-22</lastmod>
     </url>
     <url>
          <loc>https://sidghodke.com/StockSurvey/findings/cfr-sensitivity-followup/</loc>
-         <lastmod>2026-05-14</lastmod>
+         <lastmod>2026-05-22</lastmod>
     </url>
     <url>
          <loc>https://sidghodke.com/StockSurvey/findings/cfr-vs-dca-realistic/</loc>
-         <lastmod>2026-05-14</lastmod>
+         <lastmod>2026-05-22</lastmod>
+    </url>
+    <url>
+         <loc>https://sidghodke.com/StockSurvey/findings/critic-phi-quality-v0/</loc>
+         <lastmod>2026-05-22</lastmod>
+    </url>
+    <url>
+         <loc>https://sidghodke.com/StockSurvey/findings/cwt-recursive-compression/</loc>
+         <lastmod>2026-05-22</lastmod>
+    </url>
+    <url>
+         <loc>https://sidghodke.com/StockSurvey/findings/deflated-sharpe-leaderboard/</loc>
+         <lastmod>2026-05-22</lastmod>
     </url>
     <url>
          <loc>https://sidghodke.com/StockSurvey/findings/delisting-aware-ew-falsified/</loc>
-         <lastmod>2026-05-14</lastmod>
+         <lastmod>2026-05-22</lastmod>
+    </url>
+    <url>
+         <loc>https://sidghodke.com/StockSurvey/findings/dynamic-rebal-cadence-null/</loc>
+         <lastmod>2026-05-22</lastmod>
+    </url>
+    <url>
+         <loc>https://sidghodke.com/StockSurvey/findings/factor-endogenous-horizon-mixture/</loc>
+         <lastmod>2026-05-22</lastmod>
     </url>
     <url>
          <loc>https://sidghodke.com/StockSurvey/findings/factor-f32-precision-cancellation/</loc>
-         <lastmod>2026-05-14</lastmod>
+         <lastmod>2026-05-22</lastmod>
     </url>
     <url>
          <loc>https://sidghodke.com/StockSurvey/findings/factor-indicator-baseline/</loc>
-         <lastmod>2026-05-14</lastmod>
+         <lastmod>2026-05-22</lastmod>
     </url>
     <url>
          <loc>https://sidghodke.com/StockSurvey/findings/factor-loss-pivot/</loc>
-         <lastmod>2026-05-14</lastmod>
+         <lastmod>2026-05-22</lastmod>
     </url>
     <url>
          <loc>https://sidghodke.com/StockSurvey/findings/factor-multitask-aux-head/</loc>
-         <lastmod>2026-05-14</lastmod>
+         <lastmod>2026-05-22</lastmod>
     </url>
     <url>
          <loc>https://sidghodke.com/StockSurvey/findings/factor-multitask-aux-weight-sweep/</loc>
-         <lastmod>2026-05-14</lastmod>
+         <lastmod>2026-05-22</lastmod>
     </url>
     <url>
          <loc>https://sidghodke.com/StockSurvey/findings/factor-rankic-long-only-mismatch/</loc>
-         <lastmod>2026-05-14</lastmod>
+         <lastmod>2026-05-22</lastmod>
+    </url>
+    <url>
+         <loc>https://sidghodke.com/StockSurvey/findings/factor-shorthorizon-representation/</loc>
+         <lastmod>2026-05-22</lastmod>
     </url>
     <url>
          <loc>https://sidghodke.com/StockSurvey/findings/factor-sizing-input-v0/</loc>
-         <lastmod>2026-05-14</lastmod>
+         <lastmod>2026-05-22</lastmod>
     </url>
     <url>
          <loc>https://sidghodke.com/StockSurvey/findings/factor-sizing-input-v1/</loc>
-         <lastmod>2026-05-14</lastmod>
+         <lastmod>2026-05-22</lastmod>
     </url>
     <url>
          <loc>https://sidghodke.com/StockSurvey/findings/factor-ssl-walkforward/</loc>
-         <lastmod>2026-05-14</lastmod>
+         <lastmod>2026-05-22</lastmod>
     </url>
     <url>
          <loc>https://sidghodke.com/StockSurvey/findings/gate-drawdown-v0/</loc>
-         <lastmod>2026-05-14</lastmod>
+         <lastmod>2026-05-22</lastmod>
     </url>
     <url>
          <loc>https://sidghodke.com/StockSurvey/findings/log-returns-vs-raw-close/</loc>
-         <lastmod>2026-05-14</lastmod>
+         <lastmod>2026-05-22</lastmod>
     </url>
     <url>
          <loc>https://sidghodke.com/StockSurvey/findings/macro-regime-diagnostic/</loc>
-         <lastmod>2026-05-14</lastmod>
+         <lastmod>2026-05-22</lastmod>
     </url>
     <url>
          <loc>https://sidghodke.com/StockSurvey/findings/pairs-classical-v0/</loc>
-         <lastmod>2026-05-14</lastmod>
+         <lastmod>2026-05-22</lastmod>
     </url>
     <url>
          <loc>https://sidghodke.com/StockSurvey/findings/pairs-eg-gate-falsified/</loc>
-         <lastmod>2026-05-14</lastmod>
+         <lastmod>2026-05-22</lastmod>
     </url>
     <url>
          <loc>https://sidghodke.com/StockSurvey/findings/passive-ew-benchmark/</loc>
-         <lastmod>2026-05-14</lastmod>
+         <lastmod>2026-05-22</lastmod>
     </url>
     <url>
          <loc>https://sidghodke.com/StockSurvey/findings/prediction-problem-pivot-arc/</loc>
-         <lastmod>2026-05-14</lastmod>
+         <lastmod>2026-05-22</lastmod>
     </url>
     <url>
          <loc>https://sidghodke.com/StockSurvey/findings/regime-baselines/</loc>
-         <lastmod>2026-05-14</lastmod>
+         <lastmod>2026-05-22</lastmod>
     </url>
     <url>
          <loc>https://sidghodke.com/StockSurvey/findings/relational-arc-synthesis/</loc>
-         <lastmod>2026-05-14</lastmod>
+         <lastmod>2026-05-22</lastmod>
     </url>
     <url>
          <loc>https://sidghodke.com/StockSurvey/findings/relational-dwt-failure/</loc>
-         <lastmod>2026-05-14</lastmod>
+         <lastmod>2026-05-22</lastmod>
     </url>
     <url>
          <loc>https://sidghodke.com/StockSurvey/findings/relational-morlet-failure/</loc>
-         <lastmod>2026-05-14</lastmod>
+         <lastmod>2026-05-22</lastmod>
     </url>
     <url>
          <loc>https://sidghodke.com/StockSurvey/findings/relational-universe-shift/</loc>
-         <lastmod>2026-05-14</lastmod>
+         <lastmod>2026-05-22</lastmod>
     </url>
     <url>
          <loc>https://sidghodke.com/StockSurvey/findings/replay-decoders/</loc>
-         <lastmod>2026-05-14</lastmod>
+         <lastmod>2026-05-22</lastmod>
     </url>
     <url>
          <loc>https://sidghodke.com/StockSurvey/findings/replay-dwt-compression/</loc>
-         <lastmod>2026-05-14</lastmod>
+         <lastmod>2026-05-22</lastmod>
     </url>
     <url>
          <loc>https://sidghodke.com/StockSurvey/findings/replay-length-axis-compression/</loc>
-         <lastmod>2026-05-14</lastmod>
+         <lastmod>2026-05-22</lastmod>
     </url>
     <url>
          <loc>https://sidghodke.com/StockSurvey/findings/time-reversal-symmetry/</loc>
-         <lastmod>2026-05-14</lastmod>
+         <lastmod>2026-05-22</lastmod>
+    </url>
+    <url>
+         <loc>https://sidghodke.com/StockSurvey/findings/vol-arc-synthesis/</loc>
+         <lastmod>2026-05-22</lastmod>
+    </url>
+    <url>
+         <loc>https://sidghodke.com/StockSurvey/findings/vol-borrow-illiquid-vrp-falsified/</loc>
+         <lastmod>2026-05-22</lastmod>
     </url>
     <url>
          <loc>https://sidghodke.com/StockSurvey/findings/vol-surface-v0/</loc>
-         <lastmod>2026-05-14</lastmod>
+         <lastmod>2026-05-22</lastmod>
     </url>
     <url>
          <loc>https://sidghodke.com/StockSurvey/findings/vol-surface-v1/</loc>
-         <lastmod>2026-05-14</lastmod>
+         <lastmod>2026-05-22</lastmod>
+    </url>
+    <url>
+         <loc>https://sidghodke.com/StockSurvey/findings/vol-surface-v2-dollar-pnl/</loc>
+         <lastmod>2026-05-22</lastmod>
+    </url>
+    <url>
+         <loc>https://sidghodke.com/StockSurvey/findings/vol-surface-v2-dolthub-oos/</loc>
+         <lastmod>2026-05-22</lastmod>
+    </url>
+    <url>
+         <loc>https://sidghodke.com/StockSurvey/findings/vol-surface-v2-oi-restriction/</loc>
+         <lastmod>2026-05-22</lastmod>
+    </url>
+    <url>
+         <loc>https://sidghodke.com/StockSurvey/findings/vol-surface-v3-regime-gated/</loc>
+         <lastmod>2026-05-22</lastmod>
     </url>
     <url>
          <loc>https://sidghodke.com/StockSurvey/packages/</loc>
-         <lastmod>2026-05-14</lastmod>
+         <lastmod>2026-05-22</lastmod>
     </url>
 </urlset>

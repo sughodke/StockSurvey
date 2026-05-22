@@ -1,0 +1,4755 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Trading-strategy research and live execution monorepo.">
+      
+      
+      
+        <link rel="canonical" href="https://sidghodke.com/StockSurvey/findings/cwt-recursive-compression/">
+      
+      
+        <link rel="prev" href="../critic-phi-quality-v0/">
+      
+      
+        <link rel="next" href="../../workflows/">
+      
+      
+        
+      
+      
+      <link rel="icon" href="../../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.6">
+    
+    
+      
+        <title>CWT recursive compression (diagnostic) — Kalman vs GRU; nonlinearity buys nothing for reconstruction, reconstructible ≫ predictable dimensionality - StockSurvey</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/main.484c7ddc.min.css">
+      
+        
+        <link rel="stylesheet" href="../../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Geist:300,300i,400,400i,700,700i%7CGeist+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Geist";--md-code-font:"Geist Mono"}</style>
+      
+    
+    
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#recursive-compression-of-the-causal-cwt-linear-vs-nonlinear-compression-vs-prediction" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow md-header--lifted" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../.." title="StockSurvey" class="md-header__button md-logo" aria-label="StockSurvey" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            StockSurvey
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              CWT recursive compression (diagnostic) — Kalman vs GRU; nonlinearity buys nothing for reconstruction, reconstructible ≫ predictable dimensionality
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme)" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3.9 12c0-1.71 1.39-3.1 3.1-3.1h4V7H7a5 5 0 0 0-5 5 5 5 0 0 0 5 5h4v-1.9H7c-1.71 0-3.1-1.39-3.1-3.1M8 13h8v-2H8zm9-6h-4v1.9h4c1.71 0 3.1 1.39 3.1 3.1s-1.39 3.1-3.1 3.1h-4V17h4a5 5 0 0 0 5-5 5 5 0 0 0-5-5"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: light)" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_2" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M17 7H7a5 5 0 0 0-5 5 5 5 0 0 0 5 5h10a5 5 0 0 0 5-5 5 5 0 0 0-5-5m0 8a3 3 0 0 1-3-3 3 3 0 0 1 3-3 3 3 0 0 1 3 3 3 3 0 0 1-3 3"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: dark)" data-md-color-scheme="slate" data-md-color-primary="black" data-md-color-accent="indigo"  aria-label="Switch to system preference"  type="radio" name="__palette" id="__palette_2">
+    
+      <label class="md-header__button md-icon" title="Switch to system preference" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M17 7H7a5 5 0 0 0-5 5 5 5 0 0 0 5 5h10a5 5 0 0 0 5-5 5 5 0 0 0-5-5M7 15a3 3 0 0 1-3-3 3 3 0 0 1 3-3 3 3 0 0 1 3 3 3 3 0 0 1-3 3"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+          <a href="javascript:void(0)" class="md-search__icon md-icon" title="Share" aria-label="Share" data-clipboard data-clipboard-text="" data-md-component="search-share" tabindex="-1">
+            
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M18 16.08c-.76 0-1.44.3-1.96.77L8.91 12.7c.05-.23.09-.46.09-.7s-.04-.47-.09-.7l7.05-4.11c.54.5 1.25.81 2.04.81a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3c0 .24.04.47.09.7L8.04 9.81C7.5 9.31 6.79 9 6 9a3 3 0 0 0-3 3 3 3 0 0 0 3 3c.79 0 1.5-.31 2.04-.81l7.12 4.15c-.05.21-.08.43-.08.66 0 1.61 1.31 2.91 2.92 2.91s2.92-1.3 2.92-2.91A2.92 2.92 0 0 0 18 16.08"/></svg>
+          </a>
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+        <div class="md-search__suggest" data-md-component="search-suggest"></div>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/sughodke/StockSurvey" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+  </div>
+  <div class="md-source__repository">
+    sughodke/StockSurvey
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+    
+      
+<nav class="md-tabs" aria-label="Tabs" data-md-component="tabs">
+  <div class="md-grid">
+    <ul class="md-tabs__list">
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../.." class="md-tabs__link">
+        
+  
+  
+    
+  
+  Home
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../apps/" class="md-tabs__link">
+          
+  
+  
+    
+  
+  Apps
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../packages/" class="md-tabs__link">
+          
+  
+  
+    
+  
+  Packages
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../leaderboard/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Leaderboard
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../map/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Map
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../notes/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Notes
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../tags/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Tags
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+    
+  
+  
+    
+    
+      <li class="md-tabs__item md-tabs__item--active">
+        <a href="../" class="md-tabs__link">
+          
+  
+  
+    
+  
+  Findings
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../workflows/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Workflows
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../TODO/" class="md-tabs__link">
+          
+  
+  
+    
+  
+  TODO
+
+        </a>
+      </li>
+    
+  
+
+      
+    </ul>
+  </div>
+</nav>
+    
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+  
+
+
+<nav class="md-nav md-nav--primary md-nav--lifted" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="StockSurvey" class="md-nav__button md-logo" aria-label="StockSurvey" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    StockSurvey
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/sughodke/StockSurvey" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+  </div>
+  <div class="md-source__repository">
+    sughodke/StockSurvey
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_2" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../apps/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Apps
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_2" id="__nav_2_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Apps
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../apps/regime/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Regime
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../apps/relational/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Relational
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../apps/factor/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Factor
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../apps/replay/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Replay
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../apps/gate/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Gate
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../apps/pairs/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Pairs
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../apps/vol/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Vol
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../apps/cfr/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    CFR
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../apps/dca/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DCA
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../apps/notebook/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Notebook
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_3" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../packages/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Packages
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Packages
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../leaderboard/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Leaderboard
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../map/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Map
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../notes/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Notes
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../tags/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Tags
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_8" checked>
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Findings
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_8" id="__nav_8_label" tabindex="">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_8_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_8">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Findings
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../deflated-sharpe-leaderboard/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Deflated Sharpe (cross-arc ranking)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../regime-baselines/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Regime baselines
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../log-returns-vs-raw-close/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Log-returns vs raw close
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../factor-indicator-baseline/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Factor indicator-IC baseline
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../factor-ssl-walkforward/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Factor SSL walkforward
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../time-reversal-symmetry/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Time-reversal symmetry
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../factor-f32-precision-cancellation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Factor f32 precision cancellation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../factor-multitask-aux-head/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Factor multi-task aux head
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../factor-multitask-aux-weight-sweep/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Factor multi-task aux-weight sweep
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../replay-decoders/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Replay decoder options
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../replay-dwt-compression/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Replay DWT compression
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../replay-length-axis-compression/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Replay length-axis (K) compression
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../relational-universe-shift/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Relational universe shift
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../relational-dwt-failure/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Relational DWT-L1 OOS failure
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../relational-morlet-failure/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Relational polar Morlet OOS failure
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../passive-ew-benchmark/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Passive EW benchmark (regrades shippable rows)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../factor-rankic-long-only-mismatch/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Rank-IC vs long-only top-N mismatch
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../factor-loss-pivot/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Loss-pivot — Sharpe/IR losses underperform rank-IC
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../factor-sizing-input-v0/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Sizing-input v0 — MSE-on-alpha calibrates but adds no information for rank-based emission
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../factor-sizing-input-v1/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Sizing-input v1 — factor signal-quality at 6-window resolution is too lagged to clear VIX gate
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../factor-endogenous-horizon-mixture/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Endogenous-horizon mixture — state-conditional rebal cadence beats random-π but not best fixed (π collapses to h=60 without entropy regularization)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../factor-shorthorizon-representation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Short-horizon × (C,L) representation — +0.012 ceiling was a 20d artifact; indicator grid @5d +0.0212 IC 6/6 (confirmed-OOS) but a 1-day lag halves it to +0.0114 (partial-OOS, part bid-ask-bounce); non-CWT (C,L) encoders confirmed-null
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../gate-drawdown-v0/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Gate drawdown v0 (partial-OOS)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../dynamic-rebal-cadence-null/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Dynamic rebalance cadence null — per-regime cadence oracle headroom +0.004 Sharpe (confirmed-null; cadence is non-binding and does not vary by regime, the regime signal is strategy-selection not execution timing)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../pairs-classical-v0/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Pairs classical v0 (confirmed-null)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../vol-surface-v0/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Vol surface v0 (inconclusive, 5/5 pos)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../vol-surface-v1/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Vol surface v1 (confirmed-OOS, audit-validated, per-rebal portfolio aggregator + costs in loop, alpha Sharpe +5.86 with 25x real-to-shuffle ratio)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../vol-surface-v2-dollar-pnl/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Vol surface v2.1 — dollar-PnL conversion under 3 sizing conventions (confirmed-OOS; +$4.60 / +$1.95 / +$4.60 Sharpe under $-vega / share-count / vol-points equal sizing)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../vol-surface-v2-oi-restriction/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Vol surface v2.2 — OI restriction collapses alpha monotonically (reversed-OOS on deployability; alpha decays from +5.86 unrestricted to -0.48 at top-200 OI)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../vol-surface-v2-dolthub-oos/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Vol surface v2.3 — DoltHub OOS extension to 2026-04 confirms signal continuity (confirmed-OOS; OOS r +0.165 across 4-feature proxy, 11/11 positive quarters)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../vol-surface-v3-regime-gated/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Vol surface v3 — regime-gated liquid universe composition (126d-VIX gate rescues v2.2 FAIL; fired-α Sh +2.01, fire rate 37%, MARGINAL)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../vol-arc-synthesis/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Vol surface arc synthesis — partial-OOS arc closure with v3 regime-gated-liquid as deployment recipe
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../vol-borrow-illiquid-vrp-falsified/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Vol small-capacity re-frame falsified — real +0.14 edge but 92.5% of the cohort is un-quotable on free data; quote-availability is a deployability gate upstream of spread (reversed-OOS)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../relational-arc-synthesis/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Relational arc synthesis (lifted from NO_OPTIONS.md)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../prediction-problem-pivot-arc/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Prediction-problem-pivot arc synthesis
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../macro-regime-diagnostic/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Macro regime diagnostic (5/6 features predict pivot windows)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../cfr-phase1/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    CFR Phase 1 — tabular CFR clears trailing-best by +0.609 (6/6) but ties naive uniform
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../cfr-phase2/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    CFR Phase 2 — menu enrichment confirmed-null; binding constraint is tabular sample density
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../cfr-phase3/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    CFR Phase 3 — Deep CFR + continuous state vector lifts +0.02 Sharpe (MARGINAL); architecture isn't the binding constraint either
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../cfr-phase4/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    CFR Phase 4 — universe shift to 13-asset multi-asset PASSES (alpha vs EW +0.056); first deployable CFR result
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../cfr-vs-dca-realistic/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    CFR vs DCA realistic-friction re-eval — raw alpha collapses to +0.015 net; DCA is the canonical live strategy
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../cfr-macro-gate-final/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    CFR + window-level VIX gate final close-out — bot is fully dead; memory-heavy regime gates fight regime transitions
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../cfr-sensitivity-followup/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    CFR Phase 4d sensitivity follow-up — friction × gate stress-test; audit-driven diagnostic that refines the prior closure (alpha is real and positive at every friction level, below +0.10 threshold)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../pairs-eg-gate-falsified/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Pairs EG-gate falsified — audit-followup test of EG-passing-rate regime gate; falsified at all three pre-registered thresholds; w0 sits in "working" EG band by count yet posts worst val Sharpe
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../delisting-aware-ew-falsified/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Delisting-aware EW benchmark falsified — audit-followup test of ffill-delisting bias; Δ Sharpe ≤ 0.0002 across all 4 universes (audit predicted +0.05-0.15); manifest curation + Stooq ticker reuse make the bias structurally absent
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../critic-phi-quality-v0/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Critic Φ-quality v0 — cross-app window-level value function (confirmed-null; oracle-detection illusion in first pass + true Spearman flips negative when oracle arms dropped)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    CWT recursive compression (diagnostic) — Kalman vs GRU; nonlinearity buys nothing for reconstruction, reconstructible ≫ predictable dimensionality
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    CWT recursive compression (diagnostic) — Kalman vs GRU; nonlinearity buys nothing for reconstruction, reconstructible ≫ predictable dimensionality
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#why-this-was-run" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Why this was run
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#eval-setup-reproducible" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Eval setup (reproducible)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#what-the-data-shows" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        What the data shows
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="What the data shows">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#gru-vs-linear-pca-aapl-last-4000-bars-r2" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        GRU vs linear PCA (AAPL, last 4000 bars, R²)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#kalman-linear-gaussian-aapl-full-post-warmup-series-r2" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Kalman / linear-Gaussian (AAPL, full post-warmup series, R²)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#mechanism" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Mechanism
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#length-compression-sequence-bottleneck-numeraire-invariance" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Length compression — sequence bottleneck + numéraire-invariance
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#caveats-and-scope" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Caveats and scope
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#return-coupled-embedding-the-arc-closure" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Return-coupled embedding — the arc closure
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Return-coupled embedding — the arc closure">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#results-mean-val-rank-ic-vs-gru-hidden-dim-k" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Results — mean val rank-IC vs GRU hidden dim k
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#verdict-confirmed-null" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Verdict — confirmed-null
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#mechanism-the-arcs-terminal-claim" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Mechanism — the arc's terminal claim
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#operational-rule-arc-final" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Operational rule (arc-final)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#master-walk-forward-log" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Master walk-forward log
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../workflows/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Workflows
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_10" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../TODO/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    TODO
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_10" id="__nav_10_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_10_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_10">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    TODO
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../TODO/critic-phi-value-function/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Done — apps/critic Φ value function (confirmed-null v0 + v0.1 rescue)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../TODO/factor-bilevel-horizon-objective/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Done — apps/factor bilevel horizon objective (confirmed-null on deployment-return rescue)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../TODO/factor-horizon-aligned-grid/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Done — apps/factor horizon-aligned IndicatorGridConfig (confirmed-null on input-side rescue)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../TODO/vol-borrow-illiquid-vrp/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Joint v0 — illiquid-options VRP × securities-lending stress (small-capacity re-frame; Stage-0 PASS — runnable free, spread-defined cohort)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../TODO/vol-borrow-liquid-universe/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Higher-EV — borrow-stress conditioning on the liquid vol universe (un-reached novel-data leg re-pointed; Stage-0 gate first, then gauss314 v3-locked + DoltHub OOS)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../TODO/vol-tradier-forward-coverage/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Vol Tradier forward structural coverage probe (pre-reg; $0 sandbox-MCP; resolves DoltHub-vs-OPRA coverage gap; gates paid-vendor spend)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../TODO/factor-reinforce-target-side/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Done — apps/factor target-side REINFORCE for π (partial-OOS; higher-β resolved, arc benchmark-artifact-bound)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../TODO/factor-cwt-return-coupled/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Done — apps/factor return-coupled recurrent CWT embedding (confirmed-null; every k ≤ indicator baseline, closes the CWT-as-predictor question arc-wide)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../TODO/apps-cfr/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    apps/cfr — Deep CFR meta-allocator
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../TODO/factor-sizing-input-reframe/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Factor sizing-input reframe
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../TODO/factor-horizon-entropy-reg/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Done — factor endogenous-horizon entropy-weight sweep (confirmed-null on rescue hypothesis)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../TODO/polar-morlet-migration/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Polar Morlet migration
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../TODO/review-followups/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Review follow-ups
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../TODO/rsi-long-period-ablation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    RSI long-period ablation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../TODO/film-w1-diagnostic/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    FiLM w=1 diagnostic
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../TODO/backbone-architecture/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Backbone architecture
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../TODO/port-sharpe-tinygrad/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Port Sharpe to tinygrad
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../TODO/dwt-compression-followups/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DWT-compression follow-ups
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../TODO/factor-shorthorizon-representation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Done — factor short-horizon × (C,L) representation (resolved 2026-05-18 — representation confirmed-null, horizon confirmed-OOS, +0.012 ceiling was a 20d artifact)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../TODO/factor-shorthorizon-microstructure/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Done — factor short-horizon edge microstructure/cost stress (skip-1 partial-OOS — 5d edge ~halved by a 1-day lag to +0.0114 IC, part bid-ask-bounce)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../TODO/rebal-days-sweep/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Rebal-days sweep
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../TODO/reversed-price-experiment/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Reversed-price experiment
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../TODO/ew-overlay-test/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    EW + rank-IC overlay (parked)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../TODO/modal-cron-live-deployment/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Modal-cron live deployment
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../TODO/memory-walltime-followups/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Memory and wall-time follow-ups
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../TODO/streaming-feature-pipeline/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Streaming feature pipeline (superseded)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../TODO/different-prediction-problem/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Done — different prediction problem (resolved)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../TODO/apps-pairs/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Done — apps/pairs v0 (resolved)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../TODO/apps-vol/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Done — apps/vol v0 (resolved)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../TODO/long-short-constructor/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Done — long-short constructor (resolved)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../TODO/recently-shipped/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Recently shipped
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#why-this-was-run" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Why this was run
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#eval-setup-reproducible" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Eval setup (reproducible)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#what-the-data-shows" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        What the data shows
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="What the data shows">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#gru-vs-linear-pca-aapl-last-4000-bars-r2" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        GRU vs linear PCA (AAPL, last 4000 bars, R²)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#kalman-linear-gaussian-aapl-full-post-warmup-series-r2" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Kalman / linear-Gaussian (AAPL, full post-warmup series, R²)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#mechanism" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Mechanism
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#length-compression-sequence-bottleneck-numeraire-invariance" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Length compression — sequence bottleneck + numéraire-invariance
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#caveats-and-scope" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Caveats and scope
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#return-coupled-embedding-the-arc-closure" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Return-coupled embedding — the arc closure
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Return-coupled embedding — the arc closure">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#results-mean-val-rank-ic-vs-gru-hidden-dim-k" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Results — mean val rank-IC vs GRU hidden dim k
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#verdict-confirmed-null" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Verdict — confirmed-null
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#mechanism-the-arcs-terminal-claim" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Mechanism — the arc's terminal claim
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#operational-rule-arc-final" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Operational rule (arc-final)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#master-walk-forward-log" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Master walk-forward log
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+                
+
+
+
+  
+
+
+  <nav class="md-path" aria-label="Navigation" >
+    <ol class="md-path__list">
+      
+        
+  
+  
+    <li class="md-path__item">
+      <a href="../.." class="md-path__link">
+        
+  <span class="md-ellipsis">
+    Home
+  </span>
+
+      </a>
+    </li>
+  
+
+      
+      
+        
+  
+  
+    
+    
+      <li class="md-path__item">
+        <a href="../" class="md-path__link">
+          
+  <span class="md-ellipsis">
+    Findings
+  </span>
+
+        </a>
+      </li>
+    
+  
+
+      
+    </ol>
+  </nav>
+
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+  <nav class="md-tags" >
+    
+      
+      
+      
+      
+        <a href="../../tags/#tag:diagnostic" class="md-tag">diagnostic</a>
+      
+    
+      
+      
+      
+      
+        <a href="../../tags/#tag:hypothesis-user" class="md-tag">hypothesis-user</a>
+      
+    
+  </nav>
+
+
+  
+  
+
+
+<h1 id="recursive-compression-of-the-causal-cwt-linear-vs-nonlinear-compression-vs-prediction">Recursive compression of the causal CWT — linear vs nonlinear, compression vs prediction<a class="headerlink" href="#recursive-compression-of-the-causal-cwt-linear-vs-nonlinear-compression-vs-prediction" title="Permanent link">&para;</a></h1>
+<p><strong>Operational rule:</strong> the 13-scale causal CWT panel of a single
+ticker does <strong>not</strong> admit a cheap low-dimensional recursive state under
+a <em>reconstruction</em> objective, and recurrence <strong>nonlinearity does not
+help</strong>. A GRU recurrent autoencoder tracks linear PCA to ~3 decimals at
+every state dim <code>k</code>; near-lossless (≤5% rel error) needs <code>k ≈ p = 13</code>
+either way. Do not spend effort on nonlinear recurrent encoders as a
+<em>reconstruction-faithful</em> CWT compressor — there is no nonlinear
+manifold to exploit; the cross-scale redundancy is linear and PCA
+already extracts it optimally. If a small fixed-dim CWT state is
+wanted, it must be <strong>task-coupled</strong> (trained against the prediction
+target), not reconstruction-fit — because the <em>predictable</em> structure
+is far lower-dimensional than the <em>reconstructible</em> structure (the
+one-step-ahead column degrades far faster than the reconstruction
+column climbs). And a persistence control sharpens this to its strong
+form: the one-step CWT-self-prediction latent <strong>barely beats the
+trivial lag-1 forecast</strong> (+0.04 R² at full rank, <em>negative</em> when
+compressed) — its apparent skill is autocorrelation, not learned
+structure. So "task-coupled" specifically means coupled to <strong>forward
+returns</strong>, not to the CWT's own continuation; a predict-latent of the
+CWT is ≈ a lag-1 copy of it and carries no learned signal to embed.
+<strong>That return-coupled test has since been run and closes the arc
+<code>confirmed-null</code></strong> — a GRU trained end-to-end against cross-sectional
+rank-IC cannot clear the deterministic-indicator baseline at <em>any</em>
+state dim <code>k</code> on <code>factor-narrow</code> (see "Return-coupled embedding — the
+arc closure"). The terminal reading is therefore stronger than
+"recursive states are the wrong compressor": <em>the causal CWT carries
+no cross-sectional return signal recoverable by any representation
+move — the binding constraint is the feature class, so the lever is
+different data, not a cleverer model on the CWT.</em> <strong>Explicit <em>length</em> compression is far harsher than
+per-bar width compression</strong>: forcing one <code>k</code>-vector to stand in for a
+whole <code>L=32</code>-bar window (32× at <code>k=13</code>) loses ~18% of the variance
+where the per-bar state was near-lossless — and this curve is
+<strong>numéraire-invariant</strong> (denominating AAPL in gold leaves it
+unchanged within ≤0.015 R², identical for <code>k ≥ 8</code>), confirming the
+high-dimensionality is intrinsic to the CWT representation, not the
+price series.</p>
+<p>This page closes a two-diagnostic arc (linear-Gaussian Kalman → GRU)
+prompted by a user question on converting an unbounded time series into
+a fixed dimension, and on whether the recurrence's <em>linearity</em> was the
+binding constraint.</p>
+<h2 id="why-this-was-run">Why this was run<a class="headerlink" href="#why-this-was-run" title="Permanent link">&para;</a></h2>
+<p>The conceptual frame: the only fixed-dim summaries of an unbounded
+past that actually use unbounded history are <em>recursive</em> states, and a
+recursive state is only meaningful as a <strong>sufficient statistic for the
+future</strong> — there is no target-free notion of "the right state". Kalman
+is the closed-form linear-Gaussian case; a trained RNN is the learned
+nonlinear case. The diagnostic asks the measurable version of that
+question on real data: <em>how few recursive state dims reconstruct the
+causal CWT, and does that change between a linear and a nonlinear
+recurrence?</em></p>
+<h2 id="eval-setup-reproducible">Eval setup (reproducible)<a class="headerlink" href="#eval-setup-reproducible" title="Permanent link">&para;</a></h2>
+<ul>
+<li><strong>Ticker / data:</strong> AAPL, Stooq archive (<code>./StooqData/</code>,
+  split-/dividend-adjusted close).</li>
+<li><strong>Observation panel:</strong> <code>y_t ∈ ℝ^p</code>, <code>p = len(ALL_SCALES) = 13</code>, the
+  causal Ricker CWT (<code>ss_wavelets.causal_cwt</code>) of log-returns input,
+  <code>lookback = 90</code> — the scalogram convention. First
+  <code>KERNEL_HALF_EXTENT·max(scale) + lookback = 3·126 + 90 = 468</code> bars
+  dropped (reduced wavelet support). Per-scale z-scored before fitting
+  (mandatory — without it PCA collapses onto scale=126).</li>
+<li><strong>Models, same panel + metric:</strong><ul>
+<li><em>Kalman / LDS</em> — <code>s_t = A s_{t-1} + w_t</code>, <code>y_t = C s_t + v_t</code>.
+  Subspace fit: <code>C</code> = top-<code>k</code> SVD axes, <code>A</code> = least-squares VAR(1)
+  on the latent scores, <code>Q</code>/<code>R</code> from residual covariances. Forward
+  Kalman filter gives the recursive state. Full post-warmup series
+  (~all history).</li>
+<li><em>GRU autoencoder</em> — <code>h_t = GRU(h_{t-1}, x_t) ∈ ℝ^k</code>,
+  <code>ŷ_t = h_t W_o + b_o</code> (linear emission, so the <em>only</em> difference
+  vs the LDS is recurrence nonlinearity). Hand-rolled numpy +
+  Adam + truncated BPTT (overlapping stride-8 length-32 windows;
+  keeps <code>apps/notebook</code> numpy-only — tinygrad stays in
+  factor/replay). Last 4000 post-warmup bars (runtime cap).</li>
+</ul>
+</li>
+<li><strong>Metric:</strong> relative Frobenius error and R² on the <em>original</em> CWT
+  scale, swept over state dim <code>k ∈ {1,2,3,4,5,6,8,10,13}</code>. Three
+  scored quantities:<ul>
+<li><code>recon</code> — causal reconstruction <code>ŷ_t</code> from <code>h_t</code>/<code>s_t</code> built on
+  <code>y_{:t}</code> (the compression number).</li>
+<li><code>predict</code> — one-step-ahead <code>ŷ_t</code> from state built on <code>y_{:t-1}</code>.</li>
+<li><code>pca</code> — non-causal batch SVD projection at rank <code>k</code> (linear
+  upper bound; lossless at <code>k = p</code> by construction).</li>
+</ul>
+</li>
+<li><strong>Built-in correctness anchor:</strong> a GRU with <code>k ≥ p</code> must reach
+  R² → ~1. First training pass plateaued at R² 0.786 (underfit,
+  <em>not</em> a data property) and was rejected; overlapping-window
+  retuning reaches R² <strong>0.998</strong> at <code>k=13</code>, validating every small-<code>k</code>
+  row.</li>
+<li><strong>Scripts:</strong> <code>apps/notebook/src/ss_notebook/kalman_cwt.py</code>
+  (<code>ss-kalman-cwt</code>), <code>.../rnn_cwt.py</code> (<code>ss-rnn-cwt</code>); the RNN module
+  imports <code>cwt_panel</code> + <code>_rel_err</code> from the Kalman module so the two
+  tables share the exact panel and metric path.</li>
+</ul>
+<h2 id="what-the-data-shows">What the data shows<a class="headerlink" href="#what-the-data-shows" title="Permanent link">&para;</a></h2>
+<h3 id="gru-vs-linear-pca-aapl-last-4000-bars-r2">GRU vs linear PCA (AAPL, last 4000 bars, R²)<a class="headerlink" href="#gru-vs-linear-pca-aapl-last-4000-bars-r2" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th style="text-align: right;">k</th>
+<th style="text-align: right;">PCA (linear)</th>
+<th style="text-align: right;">RNN recon (causal, nonlinear)</th>
+<th style="text-align: right;">RNN 1-step (predict)</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: right;">1</td>
+<td style="text-align: right;">+0.188</td>
+<td style="text-align: right;">+0.188</td>
+<td style="text-align: right;">+0.184</td>
+</tr>
+<tr>
+<td style="text-align: right;">2</td>
+<td style="text-align: right;">+0.342</td>
+<td style="text-align: right;">+0.341</td>
+<td style="text-align: right;">+0.332</td>
+</tr>
+<tr>
+<td style="text-align: right;">3</td>
+<td style="text-align: right;">+0.451</td>
+<td style="text-align: right;">+0.450</td>
+<td style="text-align: right;">+0.412</td>
+</tr>
+<tr>
+<td style="text-align: right;">4</td>
+<td style="text-align: right;">+0.545</td>
+<td style="text-align: right;">+0.545</td>
+<td style="text-align: right;">+0.500</td>
+</tr>
+<tr>
+<td style="text-align: right;">5</td>
+<td style="text-align: right;">+0.626</td>
+<td style="text-align: right;">+0.624</td>
+<td style="text-align: right;">+0.576</td>
+</tr>
+<tr>
+<td style="text-align: right;">6</td>
+<td style="text-align: right;">+0.703</td>
+<td style="text-align: right;">+0.701</td>
+<td style="text-align: right;">+0.640</td>
+</tr>
+<tr>
+<td style="text-align: right;">8</td>
+<td style="text-align: right;">+0.816</td>
+<td style="text-align: right;">+0.814</td>
+<td style="text-align: right;">+0.735</td>
+</tr>
+<tr>
+<td style="text-align: right;">10</td>
+<td style="text-align: right;">+0.912</td>
+<td style="text-align: right;">+0.910</td>
+<td style="text-align: right;">+0.809</td>
+</tr>
+<tr>
+<td style="text-align: right;">13</td>
+<td style="text-align: right;">+1.000</td>
+<td style="text-align: right;">+0.998</td>
+<td style="text-align: right;">+0.883</td>
+</tr>
+</tbody>
+</table>
+<h3 id="kalman-linear-gaussian-aapl-full-post-warmup-series-r2">Kalman / linear-Gaussian (AAPL, full post-warmup series, R²)<a class="headerlink" href="#kalman-linear-gaussian-aapl-full-post-warmup-series-r2" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th style="text-align: right;">k</th>
+<th style="text-align: right;">PCA = Kalman filtered</th>
+<th style="text-align: right;">Kalman 1-step (predict)</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: right;">1</td>
+<td style="text-align: right;">+0.185</td>
+<td style="text-align: right;">+0.179</td>
+</tr>
+<tr>
+<td style="text-align: right;">4</td>
+<td style="text-align: right;">+0.538</td>
+<td style="text-align: right;">+0.489</td>
+</tr>
+<tr>
+<td style="text-align: right;">8</td>
+<td style="text-align: right;">+0.816</td>
+<td style="text-align: right;">+0.727</td>
+</tr>
+<tr>
+<td style="text-align: right;">10</td>
+<td style="text-align: right;">+0.913</td>
+<td style="text-align: right;">+0.802</td>
+</tr>
+<tr>
+<td style="text-align: right;">13</td>
+<td style="text-align: right;">+1.000</td>
+<td style="text-align: right;">+0.873</td>
+</tr>
+</tbody>
+</table>
+<p>The Kalman <em>filtered</em> column is <strong>bit-identical to batch PCA at every
+<code>k</code></strong>: the fitted observation noise <code>R</code> is tiny relative to state
+scale, so the optimal filter is memoryless — the recursive dynamics
+contribute nothing to the filtered reconstruction.</p>
+<h2 id="mechanism">Mechanism<a class="headerlink" href="#mechanism" title="Permanent link">&para;</a></h2>
+<ul>
+<li><strong>Nonlinearity buys nothing for reconstruction.</strong> RNN recon ≈ PCA to
+  ~3 decimals across the whole sweep, with the <code>k=13</code> anchor at 0.998
+  confirming the model has capacity and converged. The cross-scale
+  redundancy of the per-scale-z-scored CWT is <em>linear</em> redundancy
+  (adjacent scales are smoothed views of one z-normed price series);
+  PCA already extracts it optimally and a GRU finds nothing more. The
+  no-low-rank result is a property of the <strong>CWT panel</strong>, not of the
+  linear-Gaussian model class.</li>
+<li><strong>No cheap knee.</strong> R² is roughly linear in <code>k</code> (≈0.70 at <code>k=6</code>,
+  ≈0.91 at <code>k=10</code>); near-lossless needs essentially the full rank.
+  This refines the practical reading of the
+  <a href="../factor-indicator-baseline/"><code>lie_test1</code></a>-style "8D ≈ 78% variance"
+  intuition: variance-explained and reconstruction-error are different
+  bars, and the latter is unforgiving here.</li>
+<li><strong>Reconstructible ≫ predictable.</strong> Under <em>both</em> model classes the
+  <code>predict</code> column sits well below <code>recon</code> at every <code>k</code> (RNN <code>k=8</code>:
+  0.735 vs 0.814; <code>k=13</code>: 0.883 vs 0.998). A state that compresses the
+  CWT near-losslessly still predicts the next CWT vector materially
+  worse — and the predictive gap <em>widens</em> with <code>k</code>. The reconstructible
+  structure is high-dimensional; the predictable structure appears
+  concentrated in far fewer dims. This is the sufficient-statistic
+  point made measurable: a recursive state fit to a reconstruction
+  objective gives compression no better than batch PCA (recurrence
+  wasted) while prediction is strictly worse — the "worst of both",
+  observed twice.</li>
+<li><strong>Persistence control — the predict latent learns ≈nothing.</strong>
+  (2026-05-17 follow-up.) The <code>predict</code> R² is impressive only until
+  benchmarked against the trivial lag-1 forecast <code>ŷ_{t+1} = y_t</code>. The
+  CWT is a slowly-varying wavelet transform, so persistence alone
+  reconstructs the next vector at <strong>R²=+0.843</strong> (AAPL). Against that
+  floor the learned predict latent is <em>worse</em> when compressed
+  (<code>k=8</code>: +0.735, <strong>−0.108</strong> vs persistence) and only marginally
+  better at full rank (<code>k=13</code>: +0.883, <strong>+0.040</strong>). So
+  "reconstructible ≫ predictable" sharpens to its strong form:
+  <em>marginal </em><em>learned</em><em> predictability of the CWT-self-continuation
+  target ≈ 0</em> — the predict arm's apparent skill is autocorrelation,
+  not a learned forecast. Implication for the recurring "use the
+  predict latent as a word2vec-style embedding for relational
+  selection" idea: the latent is ≈ a lag-1 copy of the CWT, so any
+  geometry on it (centroid / kNN / farthest) is geometry on the
+  current CWT — exactly the
+  <a href="../factor-indicator-baseline/"><code>lie_test1</code></a> (kNN-on-CWT IC≈0) and
+  <a href="../relational-dwt-failure/"><code>relational-dwt-failure</code></a> (4/4 distance
+  scorers) null already on the board. The control falsifies the
+  cheap version of that idea by construction; the one remaining live
+  path — a <em>return-coupled</em> embedding — was then run and <strong>also closed
+  <code>confirmed-null</code></strong> (see "Return-coupled embedding — the arc closure"
+  below). Baseline added to <code>rnn_cwt.py</code> (<code>_persistence</code>).</li>
+</ul>
+<p><img alt="AAPL — CWT reconstruction error vs recursive state dim. GRU recon
+(nonlinear, causal) overlays the linear PCA baseline almost exactly;
+the one-step predictive curve sits well above both at every k — the
+reconstructible structure is high-dimensional, the predictable
+structure is not." src="../images/cwt-recursive-compression-aapl.png" /></p>
+<h2 id="length-compression-sequence-bottleneck-numeraire-invariance">Length compression — sequence bottleneck + numéraire-invariance<a class="headerlink" href="#length-compression-sequence-bottleneck-numeraire-invariance" title="Permanent link">&para;</a></h2>
+<p>A follow-up question: the recon/predict arms compress the panel
+<em>width</em> (<code>p → k</code> per bar) but the recursive state still emits one
+<code>k</code>-vector <strong>every bar</strong> — the time axis is never shortened. The
+distinct operation is <em>length</em> compression: collapse a whole <code>L</code>-bar
+window into a representation with fewer numbers than the window holds.
+A recurrent state already does this in principle — its final hidden
+state <code>h_L</code> is a single <code>k</code>-vector summarizing the entire <code>L</code>-bar
+history — so the sharp test is: encode an <code>L</code>-bar window to <strong>only</strong>
+<code>h_L ∈ ℝ^k</code>, then reconstruct the <em>entire</em> <code>(L, p)</code> window from that
+one vector. Matched linear baseline: PCA on the flattened windows
+(the optimal unconstrained linear <code>k</code>-compression of the same
+<code>L·p</code>-dim object). Linear emission again, so the only nonlinearity is
+the encoder recurrence.</p>
+<p>This is far harsher than per-bar width compression — at <code>L = 32</code>,
+<code>p = 13</code> the window is 416 numbers and <code>k = 13</code> is a 32× squeeze, so
+unlike the per-bar arm there is <strong>no <code>k = p → 1.0</code> anchor</strong>; lossless
+is impossible in-sweep. The correctness check is instead
+monotonicity in <code>k</code> and GRU ≤ PCA-flat (a causal recurrent encoder is
+strictly more constrained than an unconstrained linear projection).</p>
+<p>To test whether the result depends on the price series or only on the
+CWT representation, the same sweep was run on AAPL <strong>and</strong> on AAPL
+denominated in gold (<code>AAPL_close / GLD_close</code>, inner-aligned on
+dates; the causal rolling-z-norm makes the GLD≈1/10oz scale constant
+irrelevant). Both full, identical settings (250 epochs, <code>k=1→13</code>,
+<code>L=32</code>, stride 8, last 4000 post-warmup bars, seed 0):</p>
+<table>
+<thead>
+<tr>
+<th style="text-align: right;">k</th>
+<th style="text-align: right;">comp.</th>
+<th style="text-align: right;">AAPL PCA-flat</th>
+<th style="text-align: right;">AAPL/GLD PCA-flat</th>
+<th style="text-align: right;">AAPL GRU</th>
+<th style="text-align: right;">AAPL/GLD GRU</th>
+<th style="text-align: right;">ΔGRU</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: right;">1</td>
+<td style="text-align: right;">416×</td>
+<td style="text-align: right;">+0.171</td>
+<td style="text-align: right;">+0.166</td>
+<td style="text-align: right;">+0.162</td>
+<td style="text-align: right;">+0.158</td>
+<td style="text-align: right;">+0.004</td>
+</tr>
+<tr>
+<td style="text-align: right;">2</td>
+<td style="text-align: right;">208×</td>
+<td style="text-align: right;">+0.313</td>
+<td style="text-align: right;">+0.293</td>
+<td style="text-align: right;">+0.295</td>
+<td style="text-align: right;">+0.280</td>
+<td style="text-align: right;">+0.015</td>
+</tr>
+<tr>
+<td style="text-align: right;">3</td>
+<td style="text-align: right;">139×</td>
+<td style="text-align: right;">+0.398</td>
+<td style="text-align: right;">+0.393</td>
+<td style="text-align: right;">+0.376</td>
+<td style="text-align: right;">+0.366</td>
+<td style="text-align: right;">+0.010</td>
+</tr>
+<tr>
+<td style="text-align: right;">4</td>
+<td style="text-align: right;">104×</td>
+<td style="text-align: right;">+0.481</td>
+<td style="text-align: right;">+0.468</td>
+<td style="text-align: right;">+0.451</td>
+<td style="text-align: right;">+0.438</td>
+<td style="text-align: right;">+0.013</td>
+</tr>
+<tr>
+<td style="text-align: right;">5</td>
+<td style="text-align: right;">83×</td>
+<td style="text-align: right;">+0.539</td>
+<td style="text-align: right;">+0.521</td>
+<td style="text-align: right;">+0.511</td>
+<td style="text-align: right;">+0.498</td>
+<td style="text-align: right;">+0.013</td>
+</tr>
+<tr>
+<td style="text-align: right;">6</td>
+<td style="text-align: right;">69×</td>
+<td style="text-align: right;">+0.593</td>
+<td style="text-align: right;">+0.576</td>
+<td style="text-align: right;">+0.546</td>
+<td style="text-align: right;">+0.541</td>
+<td style="text-align: right;">+0.005</td>
+</tr>
+<tr>
+<td style="text-align: right;">8</td>
+<td style="text-align: right;">52×</td>
+<td style="text-align: right;">+0.682</td>
+<td style="text-align: right;">+0.678</td>
+<td style="text-align: right;">+0.645</td>
+<td style="text-align: right;">+0.646</td>
+<td style="text-align: right;">−0.001</td>
+</tr>
+<tr>
+<td style="text-align: right;">10</td>
+<td style="text-align: right;">42×</td>
+<td style="text-align: right;">+0.752</td>
+<td style="text-align: right;">+0.753</td>
+<td style="text-align: right;">+0.717</td>
+<td style="text-align: right;">+0.721</td>
+<td style="text-align: right;">−0.004</td>
+</tr>
+<tr>
+<td style="text-align: right;">13</td>
+<td style="text-align: right;">32×</td>
+<td style="text-align: right;">+0.823</td>
+<td style="text-align: right;">+0.822</td>
+<td style="text-align: right;">+0.787</td>
+<td style="text-align: right;">+0.785</td>
+<td style="text-align: right;">+0.002</td>
+</tr>
+</tbody>
+</table>
+<p>(R² on the original CWT scale; non-overlapping <code>L</code>-block eval. At
+<code>k=13</code>, R² ≈ 0.82 = ≈18% of windowed variance unreconstructed,
+≈42% relative Frobenius error.)</p>
+<p><strong>Length compression is harsh and has no cheap knee.</strong> R² is roughly
+linear in <code>k</code>; one <code>k</code>-vector cannot hold an <code>L</code>-bar CWT window
+without losing ~18% of the variance even at the 32× ratio — the same
+qualitative shape as the per-bar width result, but the per-bar arm
+reached near-lossless at <code>k = p</code> whereas here <code>k = p</code> is still a 32×
+squeeze. The recursive state <em>can</em> collapse the time axis; it just
+does so lossily, and the diagnostic quantifies the loss.</p>
+<p><strong>The curve is numéraire-invariant.</strong> GRU columns differ by ≤0.015 R²
+anywhere and are identical (≤0.004) for <code>k ≥ 8</code>, including the <code>k=13</code>
+endpoint (0.787 vs 0.785); the epoch-independent PCA-flat baseline
+shows the same (≤0.020, ≤0.004 for <code>k ≥ 8</code>). The only systematic
+effect is a marginal <strong>low-<code>k</code> (k=2–6) ~0.01–0.02 edge for plain
+AAPL</strong> that washes out by <code>k ≥ 8</code>. Mechanism:
+<code>log(AAPL/GLD) = logret(AAPL) − logret(GLD)</code>; the GLD term is a
+small, weakly-correlated additive perturbation — it adds a sliver of
+structure the <em>leading</em> components don't absorb (so low-<code>k</code> is
+slightly worse under gold) but does not restructure the panel, so the
+tail and endpoint are unchanged. Changing the unit you price in is
+<strong>not a lever on CWT compressibility</strong> — reinforcing that the
+high-dimensionality is intrinsic to the causal-CWT representation, not
+to the particular price series.</p>
+<div class="grid">
+<p><img alt="AAPL — whole 32-bar CWT window reconstructed from one k-vector. GRU
+seq-bottleneck tracks just under the PCA-flat linear bound; no cheap
+knee, ~18% variance unrecoverable even at 32×
+(k=13)." src="../images/cwt-seqbottleneck-aapl.png" /></p>
+<p><img alt="AAPL priced in gold — visually indistinguishable from the
+dollar-priced curve: the numéraire is not a compressibility lever;
+the high-dimensionality is a property of the CWT representation
+itself." src="../images/cwt-seqbottleneck-aapl-over-gld.png" /></p>
+</div>
+<h2 id="caveats-and-scope">Caveats and scope<a class="headerlink" href="#caveats-and-scope" title="Permanent link">&para;</a></h2>
+<ul>
+<li><strong>Single ticker.</strong> AAPL only. Universe-generality is the open
+  question (see next experiment) — this is <code>diagnostic</code>, not a
+  train/val claim against a named universe, so per the recording
+  protocol it carries one consolidated diagnostic leaderboard row, not
+  a per-arm OOS row.</li>
+<li><strong>Two bar windows.</strong> Kalman ran on the full post-warmup series; the
+  GRU on the last 4000 bars (runtime cap). PCA R² differs by ≤0.015
+  between windows — the qualitative conclusion is robust to it; the
+  RNN table is the internally-consistent one (all three columns, same
+  window).</li>
+<li><strong>Reconstruction objective only.</strong> Everything here is
+  reconstruction-fit. It says nothing about a <em>predictive</em> low-dim
+  state — that is exactly what the next experiment isolates.</li>
+<li><strong>Linear emission by design.</strong> The GRU decoder is linear so the
+  ablation is clean (only recurrence nonlinearity moves). A nonlinear
+  decoder is a different question, not tested.</li>
+<li><strong>Seq-bottleneck specifics.</strong> <code>L = 32</code> only (the "vs <code>L</code>" curve
+  needs re-runs at other <code>--seq-len</code>); non-overlapping <code>L</code>-blocks for
+  eval, overlapping stride-8 windows for training. AAPL/GLD is
+  inner-aligned on dates so the panel starts ~2006 (GLD lists
+  2004-11) vs ~earlier for plain AAPL — both capped to the last 4000
+  post-warmup bars, so the spans overlap but are not identical;
+  the ≤0.004 <code>k ≥ 8</code> agreement is robust to that.</li>
+</ul>
+<h2 id="return-coupled-embedding-the-arc-closure">Return-coupled embedding — the arc closure<a class="headerlink" href="#return-coupled-embedding-the-arc-closure" title="Permanent link">&para;</a></h2>
+<p>The reconstruction question was settled (doesn't compress cheaply,
+model class doesn't matter) and the persistence control settled the
+<em>self-prediction</em> question (a latent trained to forecast the CWT's own
+next vector learns ≈nothing over lag-1). The one target never tested
+was <strong>forward returns</strong>: train the recurrent state end-to-end against
+the cross-sectional rank-IC, not against the CWT's own continuation.
+That experiment is now done — and it closes the arc <strong>negative</strong>.</p>
+<p><strong>What was run.</strong> <code>factor-narrow</code> (297 stooq_us_long,
+<code>min_history_bars=6500</code>), the deterministic-indicator-baseline 6-window
+walk-forward (train=63 / val=39 / step=39 blocks, <code>rebal_days=20</code>). A
+fresh GRU(<code>k</code>) encoder over the 13-scale causal CWT plus a linear head,
+trained jointly per window against <code>-pearson_rank_ic</code> (H=20) on the
+train rebal slice only, frozen for val — the encoder recurrence is
+<strong>in the autograd graph</strong>, not a frozen reservoir, which is what makes
+this orthogonal to the frozen-geometry CWT nulls
+(<a href="../factor-indicator-baseline/"><code>lie_test1</code></a> kNN-on-CWT IC≈0,
+<code>lie_test4</code> cwt t≈−0.98, <a href="../relational-dwt-failure/"><code>relational-dwt-failure</code></a>
+4/4 scorers). Leak-free: causal CWT, <code>L=32</code> window ending at the rebal
+bar, per-scale standardisation fit train-only, per-window fresh init.
+Hyperparams fixed (no val tuning); only <code>k</code> swept. (The un-jitted
+32-step BPTT timed out at 3h on Modal; a <code>TinyJit</code>-per-window rewrite
+fixed it — k=2 4994s→1175s, bit-identical results — an infra fix that
+moved no pre-registered knob.)</p>
+<h3 id="results-mean-val-rank-ic-vs-gru-hidden-dim-k">Results — mean val rank-IC vs GRU hidden dim <code>k</code><a class="headerlink" href="#results-mean-val-rank-ic-vs-gru-hidden-dim-k" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th style="text-align: right;"><code>k</code></th>
+<th style="text-align: right;">mean val rank-IC</th>
+<th style="text-align: center;">pos-window frac</th>
+<th style="text-align: left;">vs indicator baseline +0.0120</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: right;">2</td>
+<td style="text-align: right;"><strong>−0.0098</strong></td>
+<td style="text-align: center;">0.50</td>
+<td style="text-align: left;">far below</td>
+</tr>
+<tr>
+<td style="text-align: right;">4</td>
+<td style="text-align: right;"><strong>+0.0063</strong></td>
+<td style="text-align: center;">0.67</td>
+<td style="text-align: left;">below</td>
+</tr>
+<tr>
+<td style="text-align: right;">8</td>
+<td style="text-align: right;"><strong>+0.0063</strong></td>
+<td style="text-align: center;">0.67</td>
+<td style="text-align: left;">below</td>
+</tr>
+<tr>
+<td style="text-align: right;">13</td>
+<td style="text-align: right;"><strong>−0.0038</strong></td>
+<td style="text-align: center;">0.50</td>
+<td style="text-align: left;">below</td>
+</tr>
+<tr>
+<td style="text-align: right;">16</td>
+<td style="text-align: right;"><strong>+0.0003</strong></td>
+<td style="text-align: center;">0.33</td>
+<td style="text-align: left;">below</td>
+</tr>
+<tr>
+<td style="text-align: right;">32</td>
+<td style="text-align: right;"><strong>+0.0057</strong></td>
+<td style="text-align: center;">0.67</td>
+<td style="text-align: left;">below</td>
+</tr>
+</tbody>
+</table>
+<p>Eval-only val Sharpe is ~+0.46–0.48 at every <code>k</code> (≈ the universe's
+passive level) and IR-vs-EW ≤ 0 for every arm.</p>
+<p><img alt="Return-coupled GRU-over-CWT k-sweep on factor-narrow: every k sits
+below the +0.0120 deterministic-indicator baseline, far below the
++0.0140 pre-registered positive cut, with no monotone-in-k trend and
+no low-k plateau — a flat ≈0 band." src="../images/cwt-return-coupled-ic-vs-k.png" /></p>
+<h3 id="verdict-confirmed-null">Verdict — <a href="../../leaderboard/#verdict-labels"><code>confirmed-null</code></a><a class="headerlink" href="#verdict-confirmed-null" title="Permanent link">&para;</a></h3>
+<p>The pre-registered kill criterion fires mechanically: best <code>k≤4</code>
+(+0.0063) is below the +0.0140 positive cut, <strong>every</strong> arm is at or
+below the +0.0120 indicator baseline, and there is no low-<code>k</code> plateau.
+No band-edge adjudication — it is unambiguous. The max-capacity k=32
+(where this same panel's <em>reconstruction</em> was near-lossless) is no
+better than k=4: there is no compact return-coupled state because there
+is <strong>no return-coupled CWT statistic of any rank</strong> that a trained
+recurrence recovers on this universe.</p>
+<h3 id="mechanism-the-arcs-terminal-claim">Mechanism — the arc's terminal claim<a class="headerlink" href="#mechanism-the-arcs-terminal-claim" title="Permanent link">&para;</a></h3>
+<p>This sharpens "reconstructible ≫ predictable" to its strongest form
+and makes the missing third term explicit:</p>
+<blockquote>
+<p><strong>reconstructible (≈full-rank) ≫ self-predictable (≈lag-1, no
+learned content) ≫ return-predictable (≈ 0 at every rank).</strong></p>
+</blockquote>
+<p>A <em>trained</em> end-to-end recurrence — the most expressive move available
+on standard CWT data — fails to clear even the cheap
+deterministic-indicator baseline. So the binding constraint was never
+the representation move (reconstruction-fit vs self-prediction vs
+end-to-end, linear vs nonlinear, frozen vs trained, compressed vs
+full-rank): it is the <strong>CWT feature class itself</strong>. This re-derives,
+from the supervised-end-to-end direction, exactly the null the
+frozen-geometry CWT tests reached from the unsupervised direction —
+two independent paths to the same wall.</p>
+<h3 id="operational-rule-arc-final">Operational rule (arc-final)<a class="headerlink" href="#operational-rule-arc-final" title="Permanent link">&para;</a></h3>
+<p><strong>Do not apply another representation move to the causal CWT for
+cross-sectional return prediction.</strong> Reconstruction, self-prediction,
+and end-to-end rank-IC training have each been falsified on the same
+panel; the lever is a <em>different feature class or novel data</em>, not a
+cleverer model on the CWT. This is the same steer the
+<a href="../../TODO/factor-reinforce-target-side/"><code>factor-reinforce-target-side</code></a>
+closure and the standing arbitraged-space frame reached independently
+— the higher-EV path is the novel-data leg
+(<a href="../../TODO/vol-borrow-liquid-universe/"><code>vol-borrow-liquid-universe</code></a>),
+not more CWT variants.</p>
+<h2 id="master-walk-forward-log">Master walk-forward log<a class="headerlink" href="#master-walk-forward-log" title="Permanent link">&para;</a></h2>
+<p>This arc carries three
+<a href="../../leaderboard/#verdict-labels"><code>diagnostic</code></a> rows — single-ticker,
+no train/val split to verdict on: (1) <a href="../../leaderboard/">2026-05-16</a>
+the recon / predict / Kalman per-bar width-compression arc,
+(2) <a href="../../leaderboard/">2026-05-16</a> the sequence-bottleneck
+length-compression + numéraire-invariance follow-up (AAPL vs
+AAPL/GLD), and (3) <a href="../../leaderboard/">2026-05-17</a> the persistence
+control falsifying learned CWT-self-predictability (predict latent ≈
+lag-1; +0.04 over persistence at full rank, −0.108 compressed) — plus
+the arc-closing (4) <a href="../../leaderboard/">2026-05-17</a> <strong>return-coupled
+recurrent CWT embedding</strong>, the universe-scale rank-IC-trained GRU
+k-sweep that lands <a href="../../leaderboard/#verdict-labels"><code>confirmed-null</code></a>
+(every <code>k</code> below the indicator baseline; no low-<code>k</code> plateau) and closes
+<a href="../../TODO/factor-cwt-return-coupled/"><code>TODO/factor-cwt-return-coupled</code></a>
+and the CWT-as-predictor question arc-wide.</p>
+
+
+
+
+
+
+
+  
+  
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+    
+      
+      <nav class="md-footer__inner md-grid" aria-label="Footer" >
+        
+          
+          <a href="../critic-phi-quality-v0/" class="md-footer__link md-footer__link--prev" aria-label="Previous: Critic Φ-quality v0 — cross-app window-level value function (confirmed-null; oracle-detection illusion in first pass + true Spearman flips negative when oracle arms dropped)">
+            <div class="md-footer__button md-icon">
+              
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+            </div>
+            <div class="md-footer__title">
+              <span class="md-footer__direction">
+                Previous
+              </span>
+              <div class="md-ellipsis">
+                Critic Φ-quality v0 — cross-app window-level value function (confirmed-null; oracle-detection illusion in first pass + true Spearman flips negative when oracle arms dropped)
+              </div>
+            </div>
+          </a>
+        
+        
+          
+          <a href="../../workflows/" class="md-footer__link md-footer__link--next" aria-label="Next: Workflows">
+            <div class="md-footer__title">
+              <span class="md-footer__direction">
+                Next
+              </span>
+              <div class="md-ellipsis">
+                Workflows
+              </div>
+            </div>
+            <div class="md-footer__button md-icon">
+              
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M4 11v2h12l-5.5 5.5 1.42 1.42L19.84 12l-7.92-7.92L10.5 5.5 16 11z"/></svg>
+            </div>
+          </a>
+        
+      </nav>
+    
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["content.code.annotate", "content.code.copy", "content.tooltips", "navigation.footer", "navigation.indexes", "navigation.path", "navigation.sections", "navigation.expand", "navigation.tabs", "navigation.tabs.sticky", "navigation.tracking", "search.highlight", "search.share", "search.suggest", "toc.follow"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.79ae519e.min.js"></script>
+      
+    
+  </body>
+</html>
