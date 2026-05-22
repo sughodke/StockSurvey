@@ -21,7 +21,13 @@ from pathlib import Path
 
 import modal
 
-REPO_ROOT = Path(__file__).resolve().parents[4]
+# REPO_ROOT only matters locally (image build + artifact write). Inside the
+# Modal container this script is dropped at /root/<basename> (2 parents), so
+# parents[4] would IndexError at import time — guard with a remote fallback.
+try:
+    REPO_ROOT = Path(__file__).resolve().parents[4]
+except IndexError:
+    REPO_ROOT = Path('/root/StockSurvey')   # remote fallback (unused there)
 REMOTE_REPO = '/root/StockSurvey'
 STOOQ_SUBSET_REL = 'apps/notebook/data/stooq_us_long'
 STOOQ_SUBSET = f'{REMOTE_REPO}/{STOOQ_SUBSET_REL}'
@@ -54,8 +60,27 @@ image = (
 
 app = modal.App('lie-shape-knn-ls', image=image)
 
+# Module globals for fork-shared kNN state — the predictor holds the ~1.3M
+# train set, which fork inherits copy-on-write so workers don't re-copy it.
+# This parallelizes TimelessPredictor's per-query argpartition loop (the
+# single-threaded bottleneck; the distance matmul already uses BLAS cores).
+_PRED = None
+_XQ = None
+_TQ = None
 
-@app.function(cpu=8.0, memory=32768, timeout=2 * 60 * 60)
+
+def _predict_range(args):
+    import numpy as np
+    lo, hi, batch = args
+    out = np.full(hi - lo, np.nan)
+    for s in range(lo, hi, batch):
+        e = min(s + batch, hi)
+        p, _ = _PRED.predict(_XQ[s:e], _TQ[s:e])
+        out[s - lo:e - lo] = p
+    return lo, out
+
+
+@app.function(cpu=8.0, memory=49152, timeout=2 * 60 * 60)
 def run_longshort(
     start: str, end: str, horizon: int, lookback: int, k: int,
     temporal_gap: int, train_frac: float, min_history_bars: int,
@@ -136,11 +161,26 @@ def run_longshort(
                   if (not is_train[j]) and int(t_arr[j]) in rebal_set])
     print(f'rebal blocks: {len(rebal_dates)}; query samples: {len(q)}', flush=True)
 
+    # Parallel prediction across processes (fork shares the train set COW).
+    import multiprocessing as mp
+    import time as _time
+    globals()['_PRED'] = pred
+    globals()['_XQ'] = X[q]
+    globals()['_TQ'] = t_int[q]
+    # Cap workers: each holds a (query_batch x n_train) distance matrix
+    # (~1.3GB at 128 x 1.3M), so 8 workers ~ 10GB; don't let os.cpu_count()
+    # (host cores, not the reservation) blow past the memory budget.
+    n_workers = max(1, min(os.cpu_count() or 8, 8))
+    edges = np.linspace(0, len(q), n_workers + 1).astype(int)
+    ranges = [(int(edges[i]), int(edges[i + 1]), query_batch)
+              for i in range(n_workers) if edges[i + 1] > edges[i]]
+    print(f'predicting on {n_workers} workers, {len(ranges)} ranges', flush=True)
+    _t0 = _time.perf_counter()
     yhat_q = np.full(len(q), np.nan)
-    for s in range(0, len(q), query_batch):
-        e = min(s + query_batch, len(q))
-        p, _ = pred.predict(X[q[s:e]], t_int[q[s:e]])
-        yhat_q[s:e] = p
+    with mp.get_context('fork').Pool(len(ranges)) as pool:
+        for lo, out in pool.imap_unordered(_predict_range, ranges):
+            yhat_q[lo:lo + len(out)] = out
+    print(f'prediction done in {_time.perf_counter() - _t0:.1f}s', flush=True)
 
     ic = cross_sectional_ic_summary(yhat_q, y[q], t_int[q], method='spearman')
     print(f'signal check (rebal dates): mean IC {ic["mean_ic"]:+.4f} '
