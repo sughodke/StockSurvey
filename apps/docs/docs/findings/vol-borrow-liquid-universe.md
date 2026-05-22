@@ -37,7 +37,7 @@ assumption. So the pre-registered conditioned rule (drop high-stress) *failed*
 (overweight high-stress).
 
 **The discipline that mattered:** that flip was read off 11 in-sample fired
-rebals, post-hoc — exactly the [Sullivan-Timmermann-White](leaderboard.md)
+rebals, post-hoc — exactly the Sullivan-Timmermann-White
 data-snooping setup. The +3.80 was treated as a **hypothesis, not a result**,
 and gated to a pre-registered OOS test.
 
