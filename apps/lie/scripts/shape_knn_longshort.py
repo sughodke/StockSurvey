@@ -38,8 +38,8 @@ from pathlib import Path
 
 import numpy as np
 
-from factor.objectives import block_port_returns_long_short_np
 from lie.cross_sectional import cross_sectional_ic_summary
+from lie.longshort import long_short_net_returns
 from lie.predictor import TimelessPredictor
 from lie.ticker_features import TickerFeatureConfig, build_ticker_features
 from ss_portfolio import standardize_oos
@@ -160,7 +160,7 @@ def main() -> None:
 
     # Market-neutral long/short book via the validated factor constructor.
     cf = args.commission_bps / 1e4
-    net = block_port_returns_long_short_np(scores, blr, mask, cf)
+    net = long_short_net_returns(scores, blr, mask, cf)
 
     # Borrow haircut on the short leg: L1(w)=1 => gross short ~0.5 per block,
     # held H/252 of a year. Conservative flat charge per block.
