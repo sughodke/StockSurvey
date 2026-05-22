@@ -182,6 +182,17 @@ SPECS: list[ArcSpec] = [
         note='12-1 cross-sectional momentum L/S, factor-narrow; the canonical '
              'durable anomaly — weak/non-significant here net of costs+crash',
     ),
+    ArcSpec(
+        key='low-vol-bab-LS',
+        npz='low-vol-bab-returns.npz',
+        stream_key='ls_block_returns',
+        mode='standalone',
+        n_trials=1,  # pre-registered canonical factor (low-vol/BAB family)
+        # borrow already charged inside the stream; dollar-neutral (neg-beta tilt)
+        note='low-volatility L/S (long low-vol/short high-vol), factor-narrow; '
+             'durable factor — marginally best of the cross-sectional arms but '
+             'sub-significant + recent crowding decay',
+    ),
 ]
 
 

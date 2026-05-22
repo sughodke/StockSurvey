@@ -150,6 +150,22 @@ liquid US universe at realistic friction, so the "cross-section is bound"
 conclusion is not an artifact of searching the wrong space badly. The
 ladder's verdict stands — the only deflated-t-confident edge is passive DCA.
 
+**Low-volatility / BAB (2026-05-22)** completed the durable-survivor sweep:
+the structural anti-edge — long low-vol / short high-vol, the honest form
+of "short what naive money overpays for" (Baker-Bradley-Wurgler;
+Frazzini-Pedersen). Pre-registered, dollar-neutral, factor-narrow, 302
+monthly blocks, net of costs + borrow. Result: ann Sharpe +0.128; PSR
+deflated-t +0.64 (DSR 0.74) — **marginally the best cross-sectional arm on
+the board** (vs momentum +0.40) but still sub-significant; family-deflation
+(n=6) goes negative; last two 6-year chunks negative (post-2018 low-vol
+crowding decay). So **both** of the field's durable cross-sectional survivors
+— momentum and low-vol — are marginal-at-best here net of costs. (Caveat: the
+dollar-neutral book carries a negative net-beta tilt; true beta-neutral BAB is
+untested, but a +0.13 Sharpe with recent decay is unlikely to clear
+significance even beta-neutralized.) The cross-sectional search is closed:
+no single-factor arm clears the bar, and the only deflated-t-confident edge
+remains being passively long a diversified basket.
+
 **Only DCA — the live strategy — clears a defensible bar** (deflated t
 +2.07): modest +0.69 Sharpe but 5232 daily bars and 4 trials. The
 headline Sharpes mislead everywhere else, in three distinct ways the
