@@ -172,6 +172,16 @@ SPECS: list[ArcSpec] = [
         n_trials=8,
         note='same long-only stream, focused deflation (horizon/skip sweep only)',
     ),
+    ArcSpec(
+        key='momentum-12-1-LS',
+        npz='momentum-12-1-returns.npz',
+        stream_key='ls_block_returns',
+        mode='standalone',
+        n_trials=1,  # pre-registered canonical factor (not a search winner)
+        # borrow already charged inside the stream
+        note='12-1 cross-sectional momentum L/S, factor-narrow; the canonical '
+             'durable anomaly — weak/non-significant here net of costs+crash',
+    ),
 ]
 
 

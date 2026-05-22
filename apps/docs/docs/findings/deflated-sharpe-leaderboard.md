@@ -133,6 +133,23 @@ DCA is the final answer, and the whole DSR workstream converges on the
 same place: the only deflated-t-confident edge here is being passively
 long a diversified basket.
 
+**12-1 cross-sectional momentum (2026-05-22)** closed the last open
+question. The cross-sectional + search literature (Sullivan-Timmermann-White;
+Harvey-Liu) says technical-rule *search* is data-snooping but the durable
+cross-sectional *survivors* are value and momentum — and the repo had only
+tested technical indicators at short (reversal) horizons, never 12-1
+momentum at its proper horizon. Run pre-registered (not an Optuna sweep, to
+avoid manufacturing a winner): skip-1 12-month formation, dollar-neutral
+L/S, factor-narrow, 302 monthly blocks, net of costs + borrow. Result: ann
+Sharpe +0.081; PSR deflated-t +0.40 (DSR 0.66, below significance even with
+no selection penalty); ladder framing −0.88; 3/6 chunks positive. The
+academic ~0.5-1.0 gross momentum premium is eaten by costs and the 2008-09
+momentum crash (skew −1.09, kurt 8.15). This is the load-bearing null: even
+the field's most durable cross-sectional anomaly is marginal-at-best on this
+liquid US universe at realistic friction, so the "cross-section is bound"
+conclusion is not an artifact of searching the wrong space badly. The
+ladder's verdict stands — the only deflated-t-confident edge is passive DCA.
+
 **Only DCA — the live strategy — clears a defensible bar** (deflated t
 +2.07): modest +0.69 Sharpe but 5232 daily bars and 4 trials. The
 headline Sharpes mislead everywhere else, in three distinct ways the
