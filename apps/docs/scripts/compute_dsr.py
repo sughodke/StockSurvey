@@ -128,6 +128,10 @@ def compute() -> list[dict]:
             print(f'[skip] {spec.key}: {spec.npz} not found (arc not yet re-run)')
             continue
         d = np.load(path, allow_pickle=True)
+        if spec.stream_key not in d.files:
+            print(f'[skip] {spec.key}: {spec.npz} lacks key '
+                  f"'{spec.stream_key}' (stale npz; re-run the arc)")
+            continue
         ppy = _periods_per_year(d)
         strat = np.asarray(d[spec.stream_key], dtype=np.float64)
         bench = (np.asarray(d[spec.benchmark_key], dtype=np.float64)
