@@ -120,6 +120,19 @@ skip-1), but **no construction of it clears a confident skill bar** —
 exactly the failure the DSR (vs a raw or mean-of-windows Sharpe) is
 built to surface.
 
+**Regime-scaled DCA (2026-05-22)** tested the inverse direction —
+monetizing the one signal that *is* predictable (aggregate regime) on
+the one strategy that *does* ship (passive DCA), by scaling the basket's
+exposure with a vol-target overlay (Moreira-Muir) and the gate's
+predicted-drawdown signal. It failed too: both overlays add alpha of
+only +0.02 (inside the gate's own ±0.10 noise band), vol-target reverses
+sign across spans (+0.019 full → −0.063 val), and all arms' deflated-t
+cluster at +1.8–2.1, statistically indistinguishable from passive. So
+the regime signal is real but **not monetizable after costs** — passive
+DCA is the final answer, and the whole DSR workstream converges on the
+same place: the only deflated-t-confident edge here is being passively
+long a diversified basket.
+
 **Only DCA — the live strategy — clears a defensible bar** (deflated t
 +2.07): modest +0.69 Sharpe but 5232 daily bars and 4 trials. The
 headline Sharpes mislead everywhere else, in three distinct ways the
