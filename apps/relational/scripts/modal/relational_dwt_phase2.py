@@ -263,8 +263,24 @@ def run_arms(prices_pkl: bytes) -> dict[str, bytes]:
                     f'Δcagr={va.cagr - tr.cagr:+.4f}  '
                     f'Δmaxdd={va.max_dd - tr.max_dd:+.4f}\n')
 
+    # OOS val-window daily return stream for the cross-arc Deflated-Sharpe
+    # harness. Canonical confirmed-OOS arm is 'analog' (uncompressed
+    # cross_ticker, the val-Sharpe-1.146 winner). Equity curve → daily
+    # simple returns over [VAL_START, VAL_END].
+    import numpy as _np_local
+    canonical_arm = 'analog'
+    val_equity = eq_panel[canonical_arm].loc[VAL_START:VAL_END].astype(float)
+    val_daily_ret = val_equity.pct_change().dropna().values
+    ret_path = output / 'relational-returns.npz'
+    _np_local.savez(
+        ret_path,
+        val_daily_ret=_np_local.asarray(val_daily_ret, dtype=_np_local.float64),
+        periods_per_year=_np_local.float64(252.0),
+        arm=_np_local.str_(canonical_arm),
+    )
+
     artifacts: dict[str, bytes] = {}
-    for p in [fig_path, stats_path, seg_csv_path, seg_txt_path]:
+    for p in [fig_path, stats_path, seg_csv_path, seg_txt_path, ret_path]:
         artifacts[p.name] = p.read_bytes()
     print(f'\nbundling {len(artifacts)} artifacts', flush=True)
     return artifacts

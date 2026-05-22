@@ -107,6 +107,14 @@ def main() -> None:
     p.add_argument('--gate-lookback-sweep', type=int, nargs='+',
                    default=[60, 126, 252])
     p.add_argument('--output-dir', default=str(DEFAULT_OUTPUT))
+    p.add_argument('--dump-returns', action='store_true',
+                   help='Write the per-rebal full-panel alpha stream '
+                        '(fired alpha, 0 in cash) for --dump-lookback to '
+                        'Output/vol-returns.npz for the cross-arc '
+                        'deflated-Sharpe harness.')
+    p.add_argument('--dump-lookback', type=int, default=126,
+                   help='Which VIX-gate lookback the dumped stream uses '
+                        '(126d = v3 deployment recipe).')
     args = p.parse_args()
 
     output = Path(args.output_dir)
@@ -315,6 +323,8 @@ def main() -> None:
             'windows_with_fires': n_with_fires,
             'total_windows': n_total,
             'per_window': per_window,
+            '_full_panel_alpha_stream': list(full_panel_alpha),
+            '_fired_only_alpha_stream': list(fired_only_alpha),
         }
 
     # Oracle arm — gate fires iff realized alpha > 0 per rebal.
@@ -460,9 +470,35 @@ def main() -> None:
         'verdict': verdict,
         'summary_by_lookback': summary_by_lookback,
     }
+    # Extract the per-rebal alpha stream for the DSR dump before stripping
+    # the bulky stream lists out of the JSON summary.
+    dump_streams = None
+    for lb, blk in summary_by_lookback.items():
+        if isinstance(blk, dict):
+            full = blk.pop('_full_panel_alpha_stream', None)
+            fired = blk.pop('_fired_only_alpha_stream', None)
+            if lb == args.dump_lookback and full is not None:
+                dump_streams = (full, fired)
+
     out_path = output / 'vol-walkforward-v3-regime-gated-summary.json'
     out_path.write_text(json.dumps(summary, indent=2, default=str))
     print(f'\n-> {out_path}', flush=True)
+
+    if args.dump_returns:
+        if dump_streams is None:
+            print(f'  [warn] no stream for lookback {args.dump_lookback}; '
+                  'not in sweep?', flush=True)
+        else:
+            full, fired = dump_streams
+            ret_path = output / 'vol-returns.npz'
+            np.savez(
+                ret_path,
+                full_panel_alpha=np.asarray(full, dtype=np.float64),
+                fired_only_alpha=np.asarray(fired, dtype=np.float64),
+                periods_per_year=np.float64(252.0 / args.rebal_days),
+                gate_lookback=np.int64(args.dump_lookback),
+            )
+            print(f'-> {ret_path} (v3 per-rebal alpha stream for DSR)', flush=True)
 
 
 if __name__ == '__main__':

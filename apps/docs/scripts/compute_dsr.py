@@ -100,7 +100,7 @@ SPECS: list[ArcSpec] = [
     ArcSpec(
         key='vol-v3-regime-gated',
         npz='vol-returns.npz',
-        stream_key='fired_alpha_ret',
+        stream_key='full_panel_alpha',
         mode='standalone',
         n_trials=12,  # v0->v3.1 x sizing conventions x OI filters x regime gates
         note='short-vol v3 deployment recipe; the one large real signal',
