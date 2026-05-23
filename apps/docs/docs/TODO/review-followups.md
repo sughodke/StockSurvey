@@ -20,3 +20,37 @@ Inline `TODO(review #N)` markers point to the file:line. Grep
   precision notional but ships `round(qty_diff, 6)` qty. Penny-stock
   edge case; surfaced via `rejected_orders` already.
   (`ss_portfolio/broker.py:build_trades`)
+
+## ss_loaders load_cryptocompare v2 endpoint fix
+
+**Discovered 2026-05-22 via the crypto venue port** (see
+[`factor-crypto-venue-test`](factor-crypto-venue-test.md)).
+`ss_loaders.load_cryptocompare` hits CryptoCompare's retired v1
+response shape — top-level `Data` as a list keyed by `time`. The v2
+endpoint nests at `Data.Data` and the per-row timestamp is `time`
+inside that nested list. The v1 path raises
+`AttributeError: 'DataFrame' object has no attribute 'time'` on any
+non-empty response.
+
+Repro:
+```python
+from ss_loaders import load_cryptocompare
+load_cryptocompare('BTC')  # AttributeError
+```
+
+Fix (small):
+- Switch the request to the v2 endpoint (still
+  `min-api.cryptocompare.com/data/v2/histoday` style — already what the
+  paginator hits, the bug is in the response unpacking).
+- Read `payload['Data']['Data']` (list of dicts) instead of
+  `payload['Data']` (assumed-list-of-dicts).
+- Paginate via the `toTs` query param using the *last row's* `time`
+  field. The crypto venue prep script
+  (`apps/factor/scripts/prep_crypto_universe.py`) inlines a working
+  v2-compatible fetcher — copy that paging loop into the library
+  function and add a small unit test that mocks one page of the v2
+  response shape.
+
+Out of scope for the venue test (the prep script's inline fetcher
+unblocks the crypto run). One-day pickup before the next consumer of
+the library function.

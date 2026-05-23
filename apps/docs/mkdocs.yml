@@ -161,6 +161,7 @@ nav:
       - Joint v0 — illiquid-options VRP × securities-lending stress (small-capacity re-frame; Stage-0 PASS — runnable free, spread-defined cohort): TODO/vol-borrow-illiquid-vrp.md
       - Higher-EV — borrow-stress conditioning on the liquid vol universe (un-reached novel-data leg re-pointed; Stage-0 gate first, then gauss314 v3-locked + DoltHub OOS): TODO/vol-borrow-liquid-universe.md
       - Vol Tradier forward structural coverage probe (pre-reg; $0 sandbox-MCP; resolves DoltHub-vs-OPRA coverage gap; gates paid-vendor spend): TODO/vol-tradier-forward-coverage.md
+      - Crypto venue port — factor indicator-grid walk-forward on CryptoCompare top-50 (pre-registered single-test from .research-venue-fit.md; scaffold built 04bf48d, smoke-test n=50 encouraging at val IC +0.0504 / 4-5 positive but NOT a verdict; Modal eval ~$0.10 not yet kicked off): TODO/factor-crypto-venue-test.md
       - Done — apps/factor target-side REINFORCE for π (partial-OOS; higher-β resolved, arc benchmark-artifact-bound): TODO/factor-reinforce-target-side.md
       - Done — apps/factor return-coupled recurrent CWT embedding (confirmed-null; every k ≤ indicator baseline, closes the CWT-as-predictor question arc-wide): TODO/factor-cwt-return-coupled.md
       - apps/cfr — Deep CFR meta-allocator: TODO/apps-cfr.md
