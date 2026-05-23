@@ -21,7 +21,7 @@ from dataclasses import dataclass
 import pandas as pd
 
 from vol.iv_compute import (
-    ChainQuote, bs_delta_call, bs_delta_put, bs_vega, implied_vol_call,
+    ChainQuote, _naive, bs_delta_call, bs_delta_put, bs_vega, implied_vol_call,
     implied_vol_put,
 )
 from vol.persist import StranglesConfig
@@ -75,13 +75,12 @@ def build_short_strangle(
     (Alpaca OCC-formatted). If None, we synthesize the OCC symbol
     ourselves following the standard convention.
     """
-    if today is None:
-        today = pd.Timestamp.utcnow().normalize()
+    today = _naive(today) if today is not None else pd.Timestamp.utcnow().normalize().tz_localize(None)
 
     # Step 1: tenor filter
     eligible = [
         q for q in chain
-        if abs((q.expiration - today).days - cfg.target_tenor_days)
+        if abs((_naive(q.expiration) - today).days - cfg.target_tenor_days)
         <= cfg.tenor_tolerance_days
         and math.isfinite(q.mid) and q.mid > 0
         and q.open_interest >= cfg.min_open_interest
@@ -92,9 +91,9 @@ def build_short_strangle(
         return None
 
     # Step 2: pick single expiration closest to target
-    exps = sorted({q.expiration for q in eligible})
+    exps = sorted({_naive(q.expiration) for q in eligible})
     best_exp = min(exps, key=lambda e: abs((e - today).days - cfg.target_tenor_days))
-    eligible = [q for q in eligible if q.expiration == best_exp]
+    eligible = [q for q in eligible if _naive(q.expiration) == best_exp]
     T = max((best_exp - today).days, 1) / 365.0
 
     calls = [q for q in eligible if q.option_type == 'call' and q.strike > underlier_price]

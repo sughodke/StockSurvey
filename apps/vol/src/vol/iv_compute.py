@@ -40,6 +40,16 @@ import pandas as pd
 SQRT_2PI = math.sqrt(2.0 * math.pi)
 
 
+def _naive(ts) -> pd.Timestamp:
+    """Coerce any timestamp-like to a tz-naive `pd.Timestamp`. Alpaca
+    contracts come back tz-naive but `pd.Timestamp.utcnow()` is
+    tz-aware; mixing them raises in arithmetic."""
+    t = pd.Timestamp(ts)
+    if t.tzinfo is not None:
+        t = t.tz_convert('UTC').tz_localize(None)
+    return t
+
+
 def _norm_cdf(x: float) -> float:
     return 0.5 * (1.0 + math.erf(x / math.sqrt(2.0)))
 
@@ -169,12 +179,12 @@ def atm_iv_from_chain(
     inverts BS on each side's mid, and returns the average. Returns
     NaN if no acceptable expiration / strike exists.
     """
-    if today is None:
-        today = pd.Timestamp.utcnow().normalize()
+    today = _naive(today) if today is not None else pd.Timestamp.utcnow().normalize().tz_localize(None)
     # Filter to acceptable tenors
     candidates = [
         q for q in chain
-        if abs((q.expiration - today).days - target_tenor_days) <= tenor_tolerance_days
+        if abs((_naive(q.expiration) - today).days - target_tenor_days)
+            <= tenor_tolerance_days
         and math.isfinite(q.mid) and q.mid > 0
     ]
     if not candidates:

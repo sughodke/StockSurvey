@@ -356,10 +356,10 @@ def test_live_gate_closed_aborts_cleanly(tmp_path: Path):
     assert len(result.strangles) == 0
 
 
-def test_live_chain_query_layer_not_yet_wired(tmp_path: Path):
-    """Documents the staged state of the MVP: when the gate fires and
-    we'd actually need the chain-query layer, the scaffold raises
-    NotImplementedError. The CLI surfaces this as exit code 2.
+def test_live_chain_query_layer_wired(tmp_path: Path):
+    """Gate-fires path now goes through real chain-query orchestration
+    (no more NotImplementedError). With empty mocks it should bail
+    out cleanly with a no-bars / no-features message, not crash.
     """
     from vol.live import run_live
     cp = _sample_checkpoint()
@@ -374,14 +374,22 @@ def test_live_chain_query_layer_not_yet_wired(tmp_path: Path):
         def get_account(self):
             return FlatAccount()
 
-    # VIX = 25, last 126d median = 15 (gate FIRES).
+    # Stocks client returns empty df → run_live raises a clear error
+    class EmptyStocks:
+        def get_stock_bars(self, _req):
+            class R: df = pd.DataFrame()
+            return R()
+    class EmptyOptions:
+        def get_option_contracts(self, _req): return []
+        def get_option_snapshot(self, _req): return {}
+
     idx = pd.date_range('2025-01-01', periods=200, freq='B')
     vix = pd.Series(np.full(200, 15.0), index=idx)
     vix.iloc[-1] = 25.0
 
-    with pytest.raises(NotImplementedError, match='_build_feature_panel'):
+    with pytest.raises(RuntimeError, match='no underlying bars'):
         run_live(
             cp_path, broker=StubBroker(),
-            options_data=object(), bars_data=object(),
+            options_data=EmptyOptions(), bars_data=EmptyStocks(),
             vix_loader=lambda: vix, dry_run=True,
             killswitch_path=tmp_path / 'does-not-exist')

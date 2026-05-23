@@ -54,14 +54,44 @@ def _run_live(args: argparse.Namespace) -> int:
     return 0
 
 
+def _add_ensemble_args(p: argparse.ArgumentParser) -> None:
+    p.add_argument('--dca-params', required=True,
+                   help='Path to a DCACheckpoint JSON (ss-dca live --params)')
+    p.add_argument('--vol-params', required=True,
+                   help='Path to a VolCheckpoint JSON (ss-vol live --params)')
+    p.add_argument('--dry-run', action='store_true', default=True,
+                   help='Compute and log only; do not submit orders (default)')
+    p.add_argument('--live', dest='dry_run', action='store_false',
+                   help='Actually submit orders (off by default)')
+
+
+def _run_ensemble(args: argparse.Namespace) -> int:
+    from vol.ensemble import format_ensemble, run_ensemble
+    result = run_ensemble(
+        dca_checkpoint=args.dca_params,
+        vol_checkpoint=args.vol_params,
+        dry_run=args.dry_run,
+    )
+    print(format_ensemble(result))
+    # Treat partial failures as non-zero exit so a cron operator notices.
+    if result.dca_error or result.vol_error:
+        return 5
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog='ss-vol')
     sub = parser.add_subparsers(dest='cmd')
     live = sub.add_parser('live', help='Run one vol-v3 rebalance against Alpaca paper')
     _add_live_args(live)
+    ens = sub.add_parser('ensemble',
+                         help='Run DCA + vol-v3 ensemble against Alpaca paper')
+    _add_ensemble_args(ens)
     args = parser.parse_args(argv)
     if args.cmd == 'live':
         return _run_live(args)
+    if args.cmd == 'ensemble':
+        return _run_ensemble(args)
     parser.print_help()
     return 1
 

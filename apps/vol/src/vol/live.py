@@ -199,12 +199,16 @@ def run_live(
             f'total |vega| ${total_vega:.0f} > cap ${max_total_vega_usd:.0f}; '
             f'scaled by {scale:.3f}')
 
+    # Always run the submit path — dry_run=True produces synthetic
+    # DRY_RUN_* order ids so the operator sees what *would* be submitted.
+    # The real-money guard is the `dry_run` flag passed through.
     order_ids: list[str] = []
     rejections: list[tuple[str, str]] = []
-    if not dry_run and strangles:
-        order_ids, rejections = submit_strangles(broker, strangles)
-        notes.append(f'submitted {len(order_ids)} multi-leg orders; '
-                     f'{len(rejections)} rejected')
+    if strangles:
+        order_ids, rejections = submit_strangles(broker, strangles, dry_run=dry_run)
+        notes.append(
+            f'{"would submit" if dry_run else "submitted"} '
+            f'{len(order_ids)} multi-leg orders; {len(rejections)} rejected')
 
     return LiveRunResult(
         timestamp=timestamp,
@@ -263,35 +267,124 @@ def _is_paper_account(broker) -> bool:
 
 
 def _build_feature_panel(cp, options_data, bars_data, iv_fn, rv_fn):
-    """Stub for the data-heavy feature-build step.
+    """Pull per-name Alpaca chains + bars, build the 4-feature predictor input.
 
-    Production impl: for each symbol in `cp.universe`, fetch the
-    options chain (Alpaca `OptionChainRequest`), compute ATM 30d IV
-    via `iv_fn`, fetch ~6 weeks of underlying bars via `bars_data`,
-    compute trailing 20d realized vol via `rv_fn`, persist a history
-    of past IV/HV snapshots (for the 4-week change features), and
-    return a feature DataFrame + the latest-bar-date + n_eligible.
-
-    The MVP scaffold (this commit) leaves this as a NotImplementedError
-    so the orchestration unit-tests still pass with mocks. The
-    follow-up commit wires the real Alpaca chain queries through.
+    Returns ``(features, last_bar_date, n_eligible)`` where:
+      features : DataFrame indexed by symbol with the four
+                 `LIVE_FEATURE_NAMES` columns.
+      last_bar_date : ISO date string of the freshest underlying close
+                      seen across the universe.
+      n_eligible : how many names actually produced finite features
+                   (the rest are dropped — the predictor only scores
+                   what it has).
     """
-    raise NotImplementedError(
-        'vol.live._build_feature_panel is the next deliverable. '
-        'The orchestration scaffold + risk rails are tested with mocks; '
-        'the Alpaca options-chain query layer is the next commit.')
+    from vol.alpaca_chain import (
+        fetch_option_snapshot_chain, fetch_underlying_bars,
+    )
+    from vol.iv_compute import build_feature_row
+    from vol.iv_history import append_snapshot, load_history
+
+    # Step 1: underlying bars for the whole universe in one batch.
+    bars = fetch_underlying_bars(bars_data, cp.universe, days=40)
+    if bars.empty:
+        raise RuntimeError(
+            f'no underlying bars returned for {len(cp.universe)} universe '
+            'symbols; check Alpaca credentials and market-data permissions')
+    last_bar_date = str(bars.index.max().date())
+
+    # Step 2: per-name chain query + ATM IV synth + realized vol.
+    iv_now: dict[str, float] = {}
+    hv_now: dict[str, float] = {}
+    n_chain_ok = 0
+    for sym in cp.universe:
+        try:
+            chain = fetch_option_snapshot_chain(
+                options_data, sym,
+                target_tenor_days=cp.strangle.target_tenor_days,
+                tenor_tolerance_days=cp.strangle.tenor_tolerance_days,
+            )
+        except Exception as e:
+            # Per-name failures don't kill the run; the name just
+            # gets dropped from the predictor input. Logged so an
+            # operator can investigate.
+            print(f'  [chain] {sym}: skipped ({type(e).__name__}: {e})',
+                  flush=True)
+            continue
+        if not chain:
+            continue
+        if sym not in bars.columns:
+            continue
+        und_px_today = float(bars[sym].dropna().iloc[-1])
+        atm_iv = iv_fn(chain, und_px_today,
+                       target_tenor_days=cp.strangle.target_tenor_days,
+                       tenor_tolerance_days=cp.strangle.tenor_tolerance_days)
+        rv = rv_fn(bars[sym].dropna(), window=20)
+        if not (atm_iv == atm_iv) or atm_iv <= 0:  # NaN-safe check
+            continue
+        if not (rv == rv) or rv <= 0:
+            continue
+        iv_now[sym] = atm_iv
+        hv_now[sym] = rv
+        n_chain_ok += 1
+
+    iv_now_s = pd.Series(iv_now, dtype=float)
+    hv_now_s = pd.Series(hv_now, dtype=float)
+
+    # Step 3: persist today's snapshot to the local history cache
+    # so the next run sees us. Idempotent — overwrites prior same-day rows.
+    append_snapshot(iv_now_s, hv_now_s, as_of=bars.index.max())
+
+    # Step 4: load enough back-history for the 4-week change features.
+    iv_hist, hv_hist = load_history(n_weeks=8)
+    # If the local cache is too thin (first runs), the build_feature_row
+    # helper falls back to whatever it has — the diff features will be
+    # NaN on those rows and the predictor drops them. The operator
+    # bootstraps once via `bootstrap_from_dolthub` before deployment.
+
+    features = build_feature_row(iv_now_s, hv_now_s, iv_hist, hv_hist)
+    n_eligible = int(features.notna().all(axis=1).sum())
+    return features, last_bar_date, n_eligible
 
 
 def _build_strangles_for_picks(picks, cp, options_data, bars_data, notes):
-    """For each pick, fetch chain and build a short strangle.
+    """For each pick, query the chain and build a short strangle.
 
-    Same staging as `_build_feature_panel` — implemented after the
-    chain-query layer lands. Drops names that fail liquidity gates
-    rather than silently zeroing them (per the rail policy in the
-    module docstring).
+    Drops names that fail the strangle's liquidity gates rather than
+    silently zeroing them. Returns a list of `Strangle`.
     """
-    raise NotImplementedError(
-        'vol.live._build_strangles_for_picks: next commit.')
+    from vol.alpaca_chain import fetch_option_snapshot_chain
+    from vol.strangle import build_short_strangle
+
+    strangles: list[Strangle] = []
+    # Pull underlying prices once for all picks (small batch).
+    syms = list(picks.index)
+    from vol.alpaca_chain import fetch_underlying_bars
+    bars = fetch_underlying_bars(bars_data, syms, days=3)
+    if bars.empty:
+        notes.append(f'strangle build: no bars for picks; dropping all')
+        return []
+
+    for sym in syms:
+        try:
+            chain = fetch_option_snapshot_chain(
+                options_data, sym,
+                target_tenor_days=cp.strangle.target_tenor_days,
+                tenor_tolerance_days=cp.strangle.tenor_tolerance_days,
+            )
+        except Exception as e:
+            notes.append(f'strangle build {sym}: chain fetch failed '
+                         f'({type(e).__name__})')
+            continue
+        if not chain or sym not in bars.columns:
+            notes.append(f'strangle build {sym}: empty chain or no bar')
+            continue
+        und_px = float(bars[sym].dropna().iloc[-1])
+        s = build_short_strangle(sym, und_px, chain, cp.strangle)
+        if s is None:
+            notes.append(f'strangle build {sym}: failed liquidity gates')
+            continue
+        strangles.append(s)
+    return strangles
 
 
 def _scale_strangles(strangles, scale):
@@ -316,23 +409,30 @@ def _scale_strangles(strangles, scale):
     return out
 
 
-def submit_strangles(broker, strangles: list[Strangle]
+def submit_strangles(broker, strangles: list[Strangle], *,
+                     dry_run: bool = False,
                      ) -> tuple[list[str], list[tuple[str, str]]]:
-    """Submit each strangle as a multi-leg `OptionLegRequest`.
+    """Submit each strangle as a multi-leg `LimitOrderRequest`.
 
     Returns (order_ids, rejections). Per-name failures are captured,
     not raised — so a partial outage doesn't lose the rest of the
     rebalance. Same submit-and-report-rejections shape as
     `ss_portfolio.broker.AlpacaBroker.submit_orders`.
 
-    The actual multi-leg Alpaca call is the next commit. For now this
-    is a deliberate NotImplementedError so an accidental `--live`
-    can't go anywhere.
+    `dry_run=True` returns synthetic `DRY_RUN_*` order ids for each
+    strangle without touching Alpaca; this is what `run_live(dry_run=True)`
+    passes through. The real-money guard is upstream in `run_live`.
     """
-    raise NotImplementedError(
-        'vol.live.submit_strangles: real submission lands in the next '
-        'commit, after smoke-testing the chain-query layer end-to-end '
-        'on paper. dry_run=True until then.')
+    from vol.alpaca_chain import submit_short_strangle
+    order_ids: list[str] = []
+    rejections: list[tuple[str, str]] = []
+    for s in strangles:
+        sub = submit_short_strangle(broker, s, dry_run=dry_run)
+        if sub.order_id is not None:
+            order_ids.append(sub.order_id)
+        if sub.rejection_reason is not None:
+            rejections.append((sub.underlier, sub.rejection_reason))
+    return order_ids, rejections
 
 
 # --- Formatting ------------------------------------------------------------

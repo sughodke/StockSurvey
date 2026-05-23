@@ -5568,18 +5568,29 @@ dependencies = [
     { name = "ss-features" },
     { name = "ss-iv" },
     { name = "ss-loaders" },
+    { name = "ss-macro" },
     { name = "ss-portfolio" },
+]
+
+[package.optional-dependencies]
+live = [
+    { name = "dca" },
+    { name = "ss-portfolio", extra = ["alpaca"] },
 ]
 
 [package.metadata]
 requires-dist = [
+    { name = "dca", marker = "extra == 'live'", editable = "apps/dca" },
     { name = "numpy" },
     { name = "pandas" },
     { name = "ss-features", editable = "packages/features" },
     { name = "ss-iv", editable = "packages/iv" },
     { name = "ss-loaders", editable = "packages/loaders" },
+    { name = "ss-macro", editable = "packages/macro" },
     { name = "ss-portfolio", editable = "packages/portfolio" },
+    { name = "ss-portfolio", extras = ["alpaca"], marker = "extra == 'live'", editable = "packages/portfolio" },
 ]
+provides-extras = ["live"]
 
 [[package]]
 name = "watchdog"

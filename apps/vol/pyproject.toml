@@ -8,8 +8,18 @@ dependencies = [
     "ss-features",
     "ss-portfolio",
     "ss-iv",
+    "ss-macro",
     "numpy",
     "pandas",
+]
+
+[project.optional-dependencies]
+# `live` path needs Alpaca options support + the DCA leg (for the
+# ensemble subcommand). `dca` is a workspace member; alpaca-py via
+# the same extra ss-portfolio uses.
+live = [
+    "dca",
+    "ss-portfolio[alpaca]",
 ]
 
 [build-system]
@@ -27,3 +37,5 @@ ss-loaders = { workspace = true }
 ss-features = { workspace = true }
 ss-portfolio = { workspace = true }
 ss-iv = { workspace = true }
+ss-macro = { workspace = true }
+dca = { workspace = true }

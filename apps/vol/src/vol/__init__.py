@@ -84,6 +84,7 @@ from vol.persist import (
 from vol.inference import gate_fires, predict_iv_rv_gap, select_top_k
 from vol.strangle import Strangle, StrangleLeg, build_short_strangle
 from vol.live import GateState, LiveRunResult, format_run, run_live
+from vol.ensemble import EnsembleRunResult, format_ensemble, run_ensemble
 
 
 __all__ = [
