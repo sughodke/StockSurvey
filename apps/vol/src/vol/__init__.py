@@ -73,6 +73,17 @@ from vol.backtest import (
 from vol.portfolio import (
     PortfolioShortVolResult, evaluate_portfolio_short_vol,
 )
+# Live path (Alpaca paper options) — separate from the research stack.
+# `LIVE_FEATURE_NAMES` is the 4-feature DoltHub OLS used by the
+# deployable predictor; the research-stack `FEATURE_NAMES` above is
+# the gauss314 9-feature surface (used for the train-time evals).
+from vol.persist import (
+    LIVE_FEATURE_NAMES, StranglesConfig, VolCheckpoint,
+    load_checkpoint, save_checkpoint, validate,
+)
+from vol.inference import gate_fires, predict_iv_rv_gap, select_top_k
+from vol.strangle import Strangle, StrangleLeg, build_short_strangle
+from vol.live import GateState, LiveRunResult, format_run, run_live
 
 
 __all__ = [

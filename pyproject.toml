@@ -87,6 +87,7 @@ testpaths = [
     "apps/factor/tests",
     "apps/cfr/tests",
     "apps/dca/tests",
+    "apps/vol/tests",
     "packages/edgar/tests",
 ]
 addopts = "-q --import-mode=importlib"
