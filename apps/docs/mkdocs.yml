@@ -135,6 +135,7 @@ nav:
       - Vol surface v2.2 — OI restriction collapses alpha monotonically (reversed-OOS on deployability; alpha decays from +5.86 unrestricted to -0.48 at top-200 OI): findings/vol-surface-v2-oi-restriction.md
       - Vol surface v2.3 — DoltHub OOS extension to 2026-04 confirms signal continuity (confirmed-OOS; OOS r +0.165 across 4-feature proxy, 11/11 positive quarters): findings/vol-surface-v2-dolthub-oos.md
       - Vol surface v3 — regime-gated liquid universe composition (126d-VIX gate rescues v2.2 FAIL; fired-α Sh +2.01, fire rate 37%, MARGINAL): findings/vol-surface-v3-regime-gated.md
+      - Vol v3 — DoltHub 2024-26 OOS extension (signal replicates AND grows 2.5x on 4.6x more data — deflated-t +11.21 — BUT 2024-26 is a calm-bull regime with no vol crisis; ρ with DCA = +0.215 not ≈0; partial-OOS MARGINAL — strongest case for engineering investment but not a go-live verdict): findings/vol-v3-dolthub-oos.md
       - Vol surface arc synthesis — partial-OOS arc closure with v3 regime-gated-liquid as deployment recipe: findings/vol-arc-synthesis.md
       - Vol small-capacity re-frame falsified — real +0.14 edge but 92.5% of the cohort is un-quotable on free data; quote-availability is a deployability gate upstream of spread (reversed-OOS): findings/vol-borrow-illiquid-vrp-falsified.md
       - Relational arc synthesis (lifted from NO_OPTIONS.md): findings/relational-arc-synthesis.md

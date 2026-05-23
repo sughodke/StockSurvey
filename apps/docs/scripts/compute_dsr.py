@@ -115,6 +115,19 @@ SPECS: list[ArcSpec] = [
         note='short-vol v3 deployment recipe; the one large real signal',
     ),
     ArcSpec(
+        key='vol-v3-dolthub-oos',
+        npz='vol-v3-dolthub-oos-returns.npz',
+        stream_key='full_panel_alpha',
+        mode='standalone',
+        n_trials=12,  # same arc as vol-v3-regime-gated; OOS extension is not a new search
+        note='vol v3 architecture re-run on DoltHub 2023-08→2026-04 OOS '
+             '(138 weekly rebals, 4.6x sample of gauss314). Signal grew '
+             '+1.15→+2.85 ann Sh, 11/11 quarters positive, but ρ with DCA '
+             'shifted +0.0→+0.215 (date-aligned, pre-reg gate fails) AND '
+             'the 2024-26 sample is a calm-bull short-vol tailwind regime '
+             '— no vol crisis in window. partial-OOS / MARGINAL.',
+    ),
+    ArcSpec(
         key='dca-canonical',
         npz='dca-returns.npz',
         stream_key='daily_ret',
