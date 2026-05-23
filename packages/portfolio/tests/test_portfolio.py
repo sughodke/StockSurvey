@@ -133,6 +133,24 @@ def test_apply_position_cap_zero_sum_input():
     assert (capped.values >= 0).all()
 
 
+def test_apply_position_cap_preserves_subunit_input_mass():
+    """Sub-100% gross input must not be re-inflated to 1.0 by the
+    degenerate-uniform branch. Regression for code-review finding CB-4
+    (2026-05-22): a caller that intentionally runs a partial book
+    (spread-gate removed half the universe, mixed-cash sleeve, etc.)
+    handed in weights summing to <1; the previous degenerate branch
+    silently inflated total exposure to 1.0.
+    """
+    # Two nonzero names at 0.25 each, total mass 0.5; cap=0.20 forces
+    # degenerate branch (2*0.20=0.4 < 1). Output should sum to 0.5,
+    # uniformly distributed across the two nonzero names.
+    w = pd.Series([0.25, 0.25, 0.0], index=list('ABC'))
+    capped = apply_position_cap(w, max_position=0.20)
+    assert capped.sum() == pytest.approx(0.5, abs=1e-9)
+    assert capped.loc['C'] == pytest.approx(0.0, abs=1e-12)
+    np.testing.assert_allclose(capped.loc[['A', 'B']].values, [0.25, 0.25])
+
+
 def test_select_top_n_matrix_descending():
     from ss_portfolio import select_top_n_matrix
     scores = np.array([

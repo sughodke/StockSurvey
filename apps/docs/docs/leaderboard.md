@@ -83,36 +83,53 @@ Sharpe is skill rather than the best of `n_trials` coin flips. Ranked
 best-first; computed by `apps/docs/scripts/compute_dsr.py` →
 `Output/dsr-leaderboard.json`.
 
-| rank | arc (leaderboard row) | mode | n_trials | stream ann. Sharpe | skew | kurt | E[max SR] | DSR | **deflated t** |
-|---:|---|---|---:|---:|---:|---:|---:|---:|---:|
-| 1 | **dca-canonical** (multi-asset DCA, the live strategy) | standalone | 4 | +0.692 | −0.52 | 11.0 | 0.015 | **0.981** | **+2.07** |
-| 2 | relational analog cross_ticker (2026-05-08 confirmed-OOS) | standalone | 16 | +1.146 | −0.05 | 9.1 | 0.051 | 0.769 | +0.74 |
-| 3 | low-volatility L/S (long low-vol/short high-vol, pre-registered, n=1) — best cross-sectional arm, still sub-significant | standalone | 1 | +0.128 | −0.02 | 5.2 | 0.000 | 0.738 | +0.64 |
-| 4 | 12-1 cross-sectional momentum L/S (pre-registered, n=1) — weak, not significant | standalone | 1 | +0.081 | −1.09 | 8.2 | 0.000 | 0.656 | +0.40 |
-| 5 | vol surface v3 regime-gated (126d gate) | standalone | 12 | +1.153 | +1.21 | 5.2 | 0.304 | 0.553 | +0.13 |
-| 6 | factor 5d long-only skip-1 (focused n=8) — fat-tail mirage (1 block +93%) | standalone | 8 | +0.357 | +9.60 | 217.7 | 0.048 | 0.539 | +0.10 |
-| 7 | pairs v0 (2026-05 confirmed-null) | standalone | 4 | +0.203 | +0.61 | 20.8 | 0.015 | 0.429 | −0.18 |
-| 8 | factor 5d long-only skip-1 (conservative n=50) | standalone | 50 | +0.357 | +9.60 | 217.7 | 0.074 | 0.181 | −0.91 |
-| 9 | factor indicator-baseline long-only 20d (2026-04-30 confirmed-OOS) | standalone | 50 | +0.192 | −1.92 | 12.1 | 0.149 | 0.085 | −1.37 |
-| 10 | lie shape-kNN 1mo-reversal long/short, Phase-2 (2026-05-22) | standalone | 9 | −0.018 | −1.37 | 5.6 | 0.201 | 0.060 | −1.55 |
-| 11 | gate v0 drawdown overlay (2026-05-10 partial-OOS) | overlay (excess vs EW) | 6 | −0.100 | +0.40 | 51.2 | 0.019 | 0.042 | −1.73 |
-| 12 | factor long-short book 20d | standalone | 50 | −0.163 | −1.47 | 10.1 | 0.149 | 0.001 | −3.07 |
-| 13 | lie shape-kNN reversal L/S — wide universe (factor-narrow 297) | standalone | 9 | −0.703 | −0.03 | 2.7 | 0.157 | 0.000 | −3.45 |
-| 14 | factor 5d long/short skip-1 (focused n=8) | standalone | 8 | −0.452 | −2.39 | 25.6 | 0.048 | 0.000 | −3.64 |
-| 15 | factor 5d long/short skip-1 (conservative n=50) | standalone | 50 | −0.452 | −2.39 | 25.6 | 0.074 | 0.000 | −4.52 |
+**Methodology fix (2026-05-22, post-audit recompute).** The first
+publication of this table used the `standardize_oos` default
+`sharpe_std = 1/sqrt(n_obs)` — the null s.e. of a single Sharpe
+estimator, not the cross-trial dispersion the DSR formula requires.
+That was *bidirectionally* wrong: it **under**-deflated long-daily
+arcs (DCA, relational, pairs — 1/sqrt(5232) ≈ 0.014 << empirical) and
+**over**-deflated short-block arcs (vol v3 n=30: 1/sqrt(30) ≈ 0.183 >>
+empirical). The corrected pipeline (`compute_dsr.py` rev 2026-05-22,
+audit finding UF-2) uses the empirically-measured cross-trial
+annualized Sharpe std of **0.25** (n=39 factor walk-forward arms in
+this workspace, observed std 0.245). `n_trials=1` arcs are immune by
+construction (E[maxSR]=0 regardless). Both `sharpe_std_ann` per arc
+and `periods_per_year` per NPZ are now explicit-required. The table
+below is the recomputed ladder.
 
-**What the ranking says.** Only **DCA — the canonical live strategy —
-clears a defensible bar** (deflated t +2.07, DSR 0.98): a modest +0.69
-Sharpe, but over 5232 daily bars and only 4 trials. Relational analog is
-a positive runner-up (+0.74) but does not reach conventional
-significance after 16-trial deflation. **The headline Sharpes mislead:**
-vol v3's +1.15 collapses to deflated t +0.13 (30 rebals vs 12 trials —
-its per-period Sharpe 0.325 barely exceeds the best-of-12 null 0.304),
-and the factor indicator baseline — recorded `confirmed-OOS` on mean val
-IC — has a pooled-stream Sharpe of only +0.19 and a *negative* deflated
-t once its ~50-config search is priced in. This is the multiple-testing
-reality the [research-strategy note](findings/index.md) flags
-(few confirmed-OOS out of many rows), made quantitative.
+| rank | arc (leaderboard row) | mode | n_trials | stream ann. Sharpe | skew | kurt | E[max SR] | DSR | **deflated t** | Δ vs prior |
+|---:|---|---|---:|---:|---:|---:|---:|---:|---:|---|
+| 1 | **dca-canonical** (multi-asset DCA, the live strategy) | standalone | 4 | +0.692 | −0.52 | 11.0 | 0.017 | **0.973** | **+1.93** | was #1, +2.07 (small drop) |
+| 2 | relational analog cross_ticker (2026-05-08 confirmed-OOS) | standalone | 16 | +1.146 | −0.05 | 9.1 | 0.028 | 0.937 | +1.53 | was #2, +0.74 (lifted) |
+| 3 | vol surface v3 regime-gated (126d gate) | standalone | 12 | +1.153 | +1.21 | 5.2 | 0.117 | 0.907 | +1.32 | was #5, +0.13 (lifted) |
+| 4 | low-volatility L/S (long low-vol/short high-vol, pre-registered, n=1) — best cross-sectional arm, still sub-significant | standalone | 1 | +0.128 | −0.02 | 5.2 | 0.000 | 0.738 | +0.64 | was #3 (n=1 immune) |
+| 5 | 12-1 cross-sectional momentum L/S (pre-registered, n=1) — weak, not significant | standalone | 1 | +0.081 | −1.09 | 8.2 | 0.000 | 0.656 | +0.40 | was #4 (n=1 immune) |
+| 6 | factor 5d long-only skip-1 (focused n=8) — fat-tail mirage (1 block +93%) | standalone | 8 | +0.357 | +9.60 | 217.7 | 0.051 | 0.484 | −0.04 | was #6, +0.10 (small drop) |
+| 7 | pairs v0 (2026-05 confirmed-null) | standalone | 4 | +0.203 | +0.61 | 20.8 | 0.017 | 0.397 | −0.26 | was #7, −0.18 |
+| 8 | lie shape-kNN 1mo-reversal long/short, Phase-2 (2026-05-22) | standalone | 9 | −0.018 | −1.37 | 5.6 | 0.110 | 0.194 | −0.86 | was #10, −1.55 (lifted) |
+| 9 | factor 5d long-only skip-1 (conservative n=50) | standalone | 50 | +0.357 | +9.60 | 217.7 | 0.080 | 0.129 | −1.13 | was #8, −0.91 |
+| 10 | factor indicator-baseline long-only 20d (2026-04-30 confirmed-OOS) | standalone | 50 | +0.192 | −1.92 | 12.1 | 0.160 | 0.062 | −1.54 | was #9, −1.37 |
+| 11 | gate v0 drawdown overlay (2026-05-10 partial-OOS) | overlay (excess vs EW) | 6 | −0.100 | +0.40 | 51.2 | 0.021 | 0.034 | −1.83 | was #11, −1.73 |
+| 12 | lie shape-kNN reversal L/S — wide universe (factor-narrow 297) | standalone | 9 | −0.703 | −0.03 | 2.7 | 0.110 | 0.001 | −3.00 | was #13, −3.45 |
+| 13 | factor long-short book 20d | standalone | 50 | −0.163 | −1.47 | 10.1 | 0.160 | 0.001 | −3.25 | was #12, −3.07 |
+| 14 | factor 5d long/short skip-1 (focused n=8) | standalone | 8 | −0.452 | −2.39 | 25.6 | 0.051 | 0.000 | −3.76 | was #14, −3.64 |
+| 15 | factor 5d long/short skip-1 (conservative n=50) | standalone | 50 | −0.452 | −2.39 | 25.6 | 0.080 | 0.000 | −4.71 | was #15, −4.52 |
+
+**What the ranking says.** Under the corrected `sharpe_std` calibration
+**no arc clears the conventional t = +2 bar**. **DCA — the canonical
+live strategy — is closest** (deflated t +1.93, DSR 0.97): a modest
++0.69 Sharpe over 5232 daily bars and only 4 trials, just shy of
+significance. Relational analog (t +1.53) and vol v3 regime-gated
+(t +1.32) are the next two — both *lifted* by the recalibration (the
+old `1/sqrt(n_obs)` fallback was over-deflating their short / dispersed
+streams) but still in the "interesting, not confirmed" tier. **The
+headline Sharpes still mislead the other way:** the factor indicator
+baseline — recorded `confirmed-OOS` on mean val IC — has a pooled-stream
+Sharpe of only +0.19 and deflated t = −1.54 once its ~50-config search
+is priced in. This is the multiple-testing reality the
+[research-strategy note](findings/index.md) flags (few confirmed-OOS
+out of many rows), made quantitative.
 
 **Caveats.** (1) The factor row's `confirmed-OOS` verdict was on mean
 val *IC*, not stream Sharpe — the DSR does not overturn the IC result,
@@ -247,6 +264,8 @@ Metric is what train / val numbers refer to.
 | 2026-05-22 | macro | **Continuous VIX-percentile sigmoid meta-gate** (replaces macro v1b's binary VIX-above-median window gate with exposure=sigmoid((VIX-pct−0.5)·slope) on the 17 pivot-app v0 windows) | gate 6 + pairs 6 + vol 5 = 17 windows | post-process of v0 per-window alphas (no retrain) | mean alpha (gated) vs ungated + binary v1b ; positive-α windows | n/a | **ungated +0.085 (13/17) ; binary v1b +0.075 (4/17) ; continuous slope=10 +0.095 (13/17)** | continuous beats binary but **not ungated** | [`confirmed-null`](#verdict-labels) | The continuous gate nominally beats the binary v1b by +0.021 — but only because the **binary cliff over-suspends** (drops below ungated). Against the meaningful baseline (ungated +0.085) the continuous gate adds **+0.010** — noise at n=17. So the VIX meta-gate, binary or continuous, **adds nothing over ungated deployment**; the continuous form merely repairs the binary's self-inflicted damage. Consistent with [regime-scaled DCA](findings/deflated-sharpe-leaderboard.md) and [`cfr-macro-gate-final`](findings/cfr-macro-gate-final.md) (memory-heavy gates fight regime transitions). Driver `apps/gate/scripts/macro_meta_gate_continuous.py`; artifact `Output/macro-meta-gate-continuous.json`. |
 | 2026-05-22 | vol | **B1 Phase A — borrow-stress conditioning on the locked v3 recipe** (Stage-0 PASS → full FINRA short-vol + SEC FTD composite; v3 recipe unchanged + borrow-tercile split of the 50 picks per fired rebal) | gauss314 → OI-top-200 | 5-window vol (300/120/120, 20d), 11 fired rebals | H1 per-tercile alpha ; H2 per-tercile worst-rebal ; H3 conditioned net Sharpe vs unconditioned v3 | n/a | **H1 HOLDS strong** (lo +0.002, hi **+0.042**; hi-tercile in-sample Sharpe **+3.80** vs uncond +2.01) ; **H2 squeeze-tail FALSE** (hi worst −0.026 vs lo −0.108) ; **H3 pre-reg drop-hi FAILS −2.17** | mechanism real but direction flipped vs pre-reg | [`partial-OOS`](#verdict-labels) | **The borrow-stress mechanism is real and strong, but the scoping page's directional assumption is backwards.** High borrow-stress = **rich-AND-safe** (richest VRP +0.042, *best* tail −0.026), not the squeeze-tail-to-avoid the page assumed — so the pre-registered conditioned rule (drop high-stress) **discards the alpha** and fails (−2.17). The implied rule is the inverse (overweight high-stress: in-sample hi-tercile Sharpe +3.80). **CRITICAL DISCIPLINE:** that flip is read off 11 in-sample fired rebals and post-hoc — exactly the Sullivan-Timmermann-White data-snooping trap. It is a *hypothesis for OOS*, not a result. Phase B (pre-registered **overweight-hi** on never-seen DoltHub 2024-26) is the only legitimate confirmation; if it doesn't hold OOS, H1 was an 11-rebal mirage. Driver `apps/vol/scripts/{prep_borrow_data,run_walkforward_v3_borrow}.py`; artifacts `Output/vol-borrow-{stage0,phaseA}.json`. TODO [`vol-borrow-liquid-universe`](TODO/vol-borrow-liquid-universe.md). |
 | 2026-05-22 | vol | **B1 Phase B — OOS confirmation of the borrow premium-amplifier (closes the arc)** (pre-registered test of Phase A's flipped/in-sample discovery: does high-borrow-stress carry richer realized VRP on never-seen DoltHub 2024-26?) | DoltHub `volatility_history` weekly, OOS 2023-08→2026-04, liquid cohort = gauss314 top-200-OI union (327 names) | 552 weekly snapshots / 11 quarters; iv_rv_gap = iv_current − forward-20d realized vol (from prices, not DoltHub hv) | hi-stress vs lo-stress mean realized VRP ; hi>lo quarter-fraction | n/a (OOS) | **hi-stress VRP +0.011 ≤ lo-stress +0.014 ; hi>lo in 36% of quarters** (pre-reg PASS needed hi>lo AND ≥60%) | the in-sample +3.80 does NOT hold OOS | [`reversed-OOS`](#verdict-labels) — **borrow leg closes** | The decisive falsification. Phase A's hi-tercile in-sample Sharpe +3.80 (11 fired rebals) **does not replicate** on 552 OOS weeks — high-borrow-stress carries *marginally lower*, not richer, VRP out-of-sample, and beats low-stress in only 36% of quarters. The in-sample signal was selection on 11 rebals (the STW trap, flagged at Phase A). **The disciplined process worked: the spectacular in-sample signal was OOS-tested before any deployment claim and killed.** Closes the B1 borrow arc and the free-borrow-proxy novel-data leg (the illiquid leg died on coverage; this liquid leg passes coverage but fails OOS confirmation). DCA stays the only deflated-t-confident edge. (Caught + fixed a units bug mid-run — DoltHub IV is decimal vs my percent forward-vol; the corrected magnitudes are realistic and the verdict is unchanged. Caveat: DoltHub weekly/decimal substrate ≠ gauss314 daily, but the OOS sample is 50× larger than Phase A and the mechanism should be substrate-agnostic.) Driver `apps/vol/scripts/run_borrow_phaseB_oos.py`; artifact `Output/vol-borrow-phaseB.json`. Finding [`vol-borrow-liquid-universe`](findings/vol-borrow-liquid-universe.md). |
+
+| 2026-05-22 | meta | **DSR ladder recompute — sharpe_std calibration fix (audit UF-2/UF-3)** (replaced the `1/sqrt(n_obs)` fallback in `standardize_oos` with an empirically-measured cross-trial dispersion of 0.25 annualized — observed std across 39 factor walk-forward arms in this workspace — and made `periods_per_year` a required NPZ key) | full cross-arc DSR ladder (15 deployable arcs) | n/a (methodology recompute, no new run) | deflated-t (DCA) ; pos-Δ count ; ranking-flip count | n/a | **DCA t +2.07 → +1.93 (still #1, no arc clears t=+2)** ; vol v3 +0.13 → +1.32 (#5 → #3) ; relational +0.74 → +1.53 (lifted at #2) ; 6 ranking flips, all within the sub-t=+2 cluster | the old fallback was bidirectionally wrong — over-deflated short-block arcs (vol n=30), under-deflated long-daily arcs (DCA n=5232) | [`diagnostic`](#verdict-labels) | The fallback used the null s.e. of a *single* Sharpe estimator (1/√n), not the cross-trial dispersion the DSR formula requires (Bailey-López de Prado 2014). With the empirical 0.25 (workspace n=39, observed 0.245), short-stream arcs *lift* and long-stream arcs *drop slightly*; the qualitative claim updates from "DCA is the only t-confident edge" to "**no arc clears t=+2; DCA is closest at +1.93, vol v3 and relational the next two at +1.32–1.53**". The frontier of "what survives deflation" widens modestly but the load-bearing conclusion — *no clean win on free public-equity data; next lever is paid/novel data or a different venue* — stands. Driver `apps/docs/scripts/compute_dsr.py` (rev 2026-05-22, adds `sharpe_std_ann` ArcSpec field + required `periods_per_year` key, raises on missing). See `findings/deflated-sharpe-leaderboard.md`. |
 
 ## Pending walk-forward checks called out elsewhere
 

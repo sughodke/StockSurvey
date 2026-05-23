@@ -65,15 +65,32 @@ return stream:
 
 | rank | arc | mode | n_trials | stream ann. Sharpe | skew | kurt | E[max SR] | DSR | deflated t |
 |---:|---|---|---:|---:|---:|---:|---:|---:|---:|
-| 1 | dca-canonical (live) | standalone | 4 | +0.692 | −0.52 | 11.0 | 0.015 | **0.981** | **+2.07** |
-| 2 | relational analog cross_ticker | standalone | 16 | +1.146 | −0.05 | 9.1 | 0.051 | 0.769 | +0.74 |
-| 3 | vol v3 regime-gated | standalone | 12 | +1.153 | +1.21 | 5.2 | 0.304 | 0.553 | +0.13 |
-| 4 | pairs v0 | standalone | 4 | +0.203 | +0.61 | 20.8 | 0.015 | 0.429 | −0.18 |
-| 5 | factor indicator-baseline LO | standalone | 50 | +0.192 | −1.92 | 12.1 | 0.149 | 0.085 | −1.37 |
-| 6 | lie shape-kNN 1mo-reversal L/S | standalone | 9 | −0.018 | −1.37 | 5.6 | 0.201 | 0.060 | −1.55 |
-| 7 | gate v0 (overlay) | overlay | 6 | −0.100 | +0.40 | 51.2 | 0.019 | 0.042 | −1.73 |
-| 8 | factor long-short | standalone | 50 | −0.163 | −1.47 | 10.1 | 0.149 | 0.001 | −3.07 |
-| 9 | lie shape-kNN reversal L/S (wide, 297) | standalone | 9 | −0.703 | −0.03 | 2.7 | 0.157 | 0.000 | −3.45 |
+| 1 | dca-canonical (live) | standalone | 4 | +0.692 | −0.52 | 11.0 | 0.017 | **0.973** | **+1.93** |
+| 2 | relational analog cross_ticker | standalone | 16 | +1.146 | −0.05 | 9.1 | 0.028 | 0.937 | +1.53 |
+| 3 | vol v3 regime-gated | standalone | 12 | +1.153 | +1.21 | 5.2 | 0.117 | 0.907 | +1.32 |
+| 4 | pairs v0 | standalone | 4 | +0.203 | +0.61 | 20.8 | 0.017 | 0.397 | −0.26 |
+| 5 | factor indicator-baseline LO | standalone | 50 | +0.192 | −1.92 | 12.1 | 0.160 | 0.062 | −1.54 |
+| 6 | lie shape-kNN 1mo-reversal L/S | standalone | 9 | −0.018 | −1.37 | 5.6 | 0.110 | 0.194 | −0.86 |
+| 7 | gate v0 (overlay) | overlay | 6 | −0.100 | +0.40 | 51.2 | 0.021 | 0.034 | −1.83 |
+| 8 | factor long-short | standalone | 50 | −0.163 | −1.47 | 10.1 | 0.160 | 0.001 | −3.25 |
+| 9 | lie shape-kNN reversal L/S (wide, 297) | standalone | 9 | −0.703 | −0.03 | 2.7 | 0.110 | 0.001 | −3.00 |
+
+**Calibration update (2026-05-22, post-audit recompute).** A code audit
+(UF-2) flagged that the first publication of this ladder used the
+`standardize_oos` default fallback `sharpe_std = 1/sqrt(n_obs)` — the
+null s.e. of a *single* Sharpe estimator, not the cross-trial
+dispersion the DSR formula requires. That fallback was *bidirectionally*
+wrong: it **over**-deflated short-block arcs (vol n=30: 1/√30 ≈ 0.183 >>
+empirical) and **under**-deflated long-daily arcs (DCA n=5232: 1/√5232
+≈ 0.014 << empirical). The corrected calibration uses the
+**empirically-measured cross-trial annualized Sharpe std of 0.25**
+(n=39 factor walk-forward arms in this workspace, observed std 0.245);
+`n_trials=1` arcs are immune by construction. Net result: **no arc
+clears the conventional t=+2 bar**. DCA stays #1 at t=+1.93 (was +2.07).
+Vol v3 moves #5 → #3 (+0.13 → +1.32, lifted). Relational stays #2 but
++0.74 → +1.53 (lifted). The qualitative claim updates from "DCA is the
+only t-confident edge" to "**DCA is closest to the bar at +1.93; no arc
+clears it; vol v3 and relational are the next two at +1.32–1.53**".
 
 **The shape-kNN reversal (row 6) is the cleanest IC→portfolio
 cautionary tale.** Its cross-sectional IC reproduces at t=+3.75 (1178
@@ -166,25 +183,32 @@ significance even beta-neutralized.) The cross-sectional search is closed:
 no single-factor arm clears the bar, and the only deflated-t-confident edge
 remains being passively long a diversified basket.
 
-**Only DCA — the live strategy — clears a defensible bar** (deflated t
-+2.07): modest +0.69 Sharpe but 5232 daily bars and 4 trials. The
-headline Sharpes mislead everywhere else, in three distinct ways the
-DSR corrects:
+**No arc clears the conventional t=+2 bar after calibration.** DCA
+is closest at deflated t +1.93 (was +2.07 under the wrong fallback) —
+a modest +0.69 Sharpe over 5232 daily bars and only 4 trials, just shy
+of significance. Relational analog (+1.53) and vol v3 regime-gated
+(+1.32) are the next two; both were *lifted* by the recalibration (the
+old `1/sqrt(n_obs)` was over-deflating their short / dispersed streams)
+but still sit in the "interesting, not confirmed" tier. The headline
+Sharpes mislead the other way for the rest, in three distinct patterns
+the DSR corrects:
 
 - **mean-of-Sharpes ≠ stream Sharpe.** gate v0's "alpha +0.067" is a
   mean of per-window Sharpe *differences*; the actual excess stream
-  (gated − EW, 4680 days) is −0.10 Sharpe, deflated t −1.73. factor's
+  (gated − EW, 4680 days) is −0.10 Sharpe, deflated t −1.83. factor's
   "+0.440 mean val Sharpe" is a mean of windows; the pooled stream
   (one −0.985 window included) is +0.192.
-- **small sample + many trials.** vol v3's +1.15 Sharpe → deflated t
-  +0.13: only 30 rebals, and against 12 trials the best-of-N null
-  expects per-period Sharpe 0.304 vs the observed 0.325.
+- **small sample × many trials, properly calibrated.** vol v3's +1.15
+  Sharpe → deflated t +1.32 under the empirical 0.25 calibration (vs
+  +0.13 under the old over-deflating 1/√30 fallback). 30 rebals × 12
+  trials × proper cross-trial dispersion = "interesting, not
+  conclusive".
 - **selection bias on a heavily-searched arc.** factor's
   `confirmed-OOS` indicator baseline has a *negative* deflated t once
   its ~50-config search is priced in — the DSR does not overturn the
   mean-IC result, it prices the deployability.
 
-pairs (−0.18) and the gate (−1.73) confirm-and-sharpen their existing
+pairs (−0.26) and the gate (−1.83) sharpen their existing
 `confirmed-null` / `partial-OOS` verdicts. The fat tails matter: the
 gate's excess-kurtosis-51 stream (it concentrates into crises) makes a
 naive Sharpe especially misleading — the PSR moment term handles it.

@@ -27,6 +27,7 @@ companion finding); a single pre-registered config is ``n_trials=1``.
 from __future__ import annotations
 
 import json
+import math
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -47,6 +48,13 @@ class ArcSpec:
     mode: str = 'standalone'  # 'standalone' | 'overlay'
     benchmark_key: str | None = None  # npz key for benchmark stream
     borrow_bps_yr: float = 0.0  # annual borrow charged on short notional (L/S books)
+    # Annualized cross-trial Sharpe dispersion used to set
+    # expected_max_sharpe. Defaults to 0.25 — the empirically-observed
+    # cross-trial std (0.245) across 39 factor-arc walk-forward arms in
+    # this workspace (see code-review finding UF-2). Override per arc
+    # when a wider/narrower sweep was actually run. n_trials=1 arcs are
+    # immune (E[maxSR]=0 regardless of sharpe_std).
+    sharpe_std_ann: float = 0.25
     note: str = ''
 
 
@@ -196,8 +204,20 @@ SPECS: list[ArcSpec] = [
 ]
 
 
-def _periods_per_year(d, default: float = 252.0) -> float:
-    return float(d['periods_per_year']) if 'periods_per_year' in d else default
+def _periods_per_year(d, *, arc_key: str) -> float:
+    """Read `periods_per_year` from a returns NPZ. Required key — raises
+    if absent (CB review UF-3). Silently defaulting to 252 inflated
+    annualized Sharpe by sqrt(rebal_days) on any block-return arc that
+    forgot the key. Auditing the existing Output/ NPZs (2026-05-22)
+    confirmed every current SPECS arc has it set; the raise is
+    defensive against future dumper drift.
+    """
+    if 'periods_per_year' not in d:
+        raise KeyError(
+            f"{arc_key}: returns NPZ lacks required key 'periods_per_year'. "
+            "Add it to the arc's --dump-returns writer "
+            "(daily=252, monthly=12, etc).")
+    return float(d['periods_per_year'])
 
 
 def compute() -> list[dict]:
@@ -212,7 +232,7 @@ def compute() -> list[dict]:
             print(f'[skip] {spec.key}: {spec.npz} lacks key '
                   f"'{spec.stream_key}' (stale npz; re-run the arc)")
             continue
-        ppy = _periods_per_year(d)
+        ppy = _periods_per_year(d, arc_key=spec.key)
         strat = np.asarray(d[spec.stream_key], dtype=np.float64)
         if spec.borrow_bps_yr > 0:
             # Per-block borrow on the gross short leg (~0.5 of L1=1 gross).
@@ -220,18 +240,25 @@ def compute() -> list[dict]:
         bench = (np.asarray(d[spec.benchmark_key], dtype=np.float64)
                  if spec.benchmark_key else None)
 
+        # Per-period cross-trial dispersion. Converting annualized →
+        # per-period uses the same sqrt(ppy) factor as the Sharpe
+        # estimator itself (CB review UF-2 fix).
+        sharpe_std_pp = spec.sharpe_std_ann / math.sqrt(ppy)
+
         if spec.mode == 'overlay':
             if bench is None:
                 raise ValueError(f'{spec.key}: overlay mode needs benchmark_key')
             edge = strat - bench
-            mb = standardize_oos(edge, periods_per_year=ppy, n_trials=spec.n_trials)
+            mb = standardize_oos(edge, periods_per_year=ppy, n_trials=spec.n_trials,
+                                 sharpe_std=sharpe_std_pp)
             standalone = standardize_oos(
-                strat, periods_per_year=ppy, n_trials=spec.n_trials, benchmark=bench)
+                strat, periods_per_year=ppy, n_trials=spec.n_trials,
+                sharpe_std=sharpe_std_pp, benchmark=bench)
             ctx = {'standalone_ann_sharpe': standalone.ann_sharpe,
                    'ir_vs_bench': standalone.ir_vs_bench}
         else:
             mb = standardize_oos(strat, periods_per_year=ppy, n_trials=spec.n_trials,
-                                 benchmark=bench)
+                                 sharpe_std=sharpe_std_pp, benchmark=bench)
             ctx = {'ir_vs_bench': mb.ir_vs_bench}
 
         row = {'key': spec.key, 'mode': spec.mode, 'n_trials': spec.n_trials,

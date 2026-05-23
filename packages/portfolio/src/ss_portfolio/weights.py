@@ -63,11 +63,15 @@ def apply_position_cap(weights: pd.Series, max_position: float) -> pd.Series:
     the cap.
 
     Degenerate small-universe handling: if the number of *nonzero*
-    input weights times `max_position` is less than 1, the cap is
-    binding for everyone — distribute uniformly across the nonzero
-    names only. Zero-weight names stay at zero (e.g. spread-gated
-    illiquid names must not get re-introduced by the cap step).
-    All-zero input short-circuits to all-zero output.
+    input weights times `max_position` is less than the input total
+    mass, the cap relaxes — distribute uniformly across the nonzero
+    names only, **scaled to `min(input_sum, 1.0)`**. This preserves
+    intentional sub-100% gross exposure (CB-4): a caller that hands in
+    weights summing to 0.5 (e.g. half the universe spread-gated out)
+    receives an output that sums to 0.5, not 1.0. Zero-weight names
+    stay at zero (e.g. spread-gated illiquid names must not get
+    re-introduced by the cap step). All-zero input short-circuits to
+    all-zero output.
     """
     if not 0 < max_position <= 1:
         raise ValueError(f'max_position must be in (0, 1], got {max_position}')
@@ -77,7 +81,8 @@ def apply_position_cap(weights: pd.Series, max_position: float) -> pd.Series:
         return weights.copy()
     if n_nonzero * max_position < 1.0 - 1e-9:
         out = pd.Series(0.0, index=weights.index, name=weights.name)
-        out.loc[nonzero_mask] = 1.0 / n_nonzero
+        target_total = min(float(weights.sum()), 1.0)
+        out.loc[nonzero_mask] = target_total / n_nonzero
         return out
 
     base = weights / weights.sum() if weights.sum() > 0 else weights

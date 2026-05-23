@@ -184,16 +184,25 @@ def main() -> None:
         # Aggregate. Use the val_log dates from the union of pair val
         # spans — pairs may have different per-pair val spans due to
         # missing-data cleanup.
+        #
+        # CB-1 fix (2026-05-22): divide each date by the number of
+        # pairs *active on that date*, not the total pair count. The
+        # prior `fillna(0)/N_pairs` divisor systematically biased the
+        # aggregate toward zero on partial-day overlaps (under-weighting
+        # the active pairs by N_active/N_pairs). The leaderboard pairs
+        # row was a lower-bound estimate, not the intended 1/N-on-active
+        # book.
         val_dates = val_log.index
-        # Reindex each pair's val_daily_ret onto val_dates with
-        # 0-fill for missing.
-        agg_arr = np.zeros(len(val_dates), dtype=np.float64)
+        per_pair = []
         for bt in pair_results:
             ser = pd.Series(bt.val_daily_ret,
                             index=val_log[[bt.a, bt.b]].dropna().index)
-            ser_full = ser.reindex(val_dates).fillna(0.0)
-            agg_arr += ser_full.values / max(len(pair_results), 1)
-        agg_series = pd.Series(agg_arr, index=val_dates)
+            per_pair.append(ser.reindex(val_dates))
+        if per_pair:
+            wide = pd.concat(per_pair, axis=1)
+            agg_series = wide.mean(axis=1, skipna=True).fillna(0.0)
+        else:
+            agg_series = pd.Series(0.0, index=val_dates)
         from ss_portfolio.metrics import (
             annualized_sharpe, cagr, max_drawdown, sortino,
         )
