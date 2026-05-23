@@ -81,7 +81,7 @@ TRAIN_END   = pd.Timestamp('2023-07-28')
 VAL_START   = pd.Timestamp('2023-08-01')
 VAL_END     = pd.Timestamp('2026-04-30')
 
-REBAL_WEEKS = 4   # 20 trading days per v3
+REBAL_TRADING_DAYS = 20   # non-overlapping with FORWARD_DAYS=20 — matches v3 gauss314
 FORWARD_DAYS = 20
 GATE_LOOKBACK_TRADING_DAYS = 126
 
@@ -220,7 +220,10 @@ def load_dca_block_stream(rebal_dates: pd.DatetimeIndex) -> np.ndarray:
 def main() -> None:
     p = argparse.ArgumentParser()
     p.add_argument('--top-k', type=int, default=100)
-    p.add_argument('--rebal-weeks', type=int, default=REBAL_WEEKS)
+    p.add_argument('--rebal-trading-days', type=int, default=REBAL_TRADING_DAYS,
+                   help='Trading-day spacing between rebals. Default 20 = '
+                        'non-overlapping with FORWARD_DAYS=20 forward-RV window, '
+                        'matches v3 gauss314 convention.')
     p.add_argument('--gate-lookback', type=int, default=GATE_LOOKBACK_TRADING_DAYS)
     p.add_argument('--parquet', default=str(DOLTHUB_PARQUET))
     p.add_argument('--output-dir', default=str(DEFAULT_OUTPUT))
@@ -277,11 +280,32 @@ def main() -> None:
     val_aug['pred_gap'] = val_pred
     val_aug['iv_rv_gap'] = val['iv_rv_gap'].values
 
-    # Per-rebal portfolio over weekly snapshots.
+    # Per-rebal portfolio over non-overlapping 20-trading-day intervals.
+    # The earlier "every Nth DoltHub date" approach was a bug: DoltHub
+    # coverage shifted from weekly snapshots (2019-23) to ~daily (2024-26),
+    # so stepping every N unique dates collapsed to ~5-trading-day cadence
+    # in the OOS window — overlapping the 20-day forward-RV window and
+    # double-counting information across rebals. Fix: walk the val date
+    # list and accept each rebal only when it is ≥ REBAL_TRADING_DAYS
+    # trading days after the last accepted rebal (counted on Stooq's
+    # trading calendar). This guarantees non-overlapping forward windows
+    # and matches v3 gauss314's 20-day convention exactly.
     val_dates = pd.DatetimeIndex(sorted(val['date'].unique()))
-    rebal_dates = val_dates[::args.rebal_weeks]
-    print(f'\n  rebal cadence: {args.rebal_weeks} weeks '
-          f'({len(rebal_dates)} rebals in OOS span)', flush=True)
+    trading_idx = pd.DatetimeIndex(prices.index)  # Stooq trading-day calendar
+    rebal_dates_list: list[pd.Timestamp] = []
+    last_trading_pos = -10**9
+    for d in val_dates:
+        # Find the first trading day >= this DoltHub snapshot date.
+        pos = trading_idx.searchsorted(d, side='left')
+        if pos >= len(trading_idx):
+            break
+        if (pos - last_trading_pos) >= args.rebal_trading_days:
+            rebal_dates_list.append(d)
+            last_trading_pos = pos
+    rebal_dates = pd.DatetimeIndex(rebal_dates_list)
+    print(f'\n  rebal cadence: {args.rebal_trading_days} trading days '
+          f'(non-overlapping) → {len(rebal_dates)} rebals in OOS span',
+          flush=True)
 
     # Score each rebal: top-K mean iv_rv_gap vs universe mean iv_rv_gap.
     full_panel_alpha = []      # gated × fire-flag
@@ -320,7 +344,10 @@ def main() -> None:
     n_total = full_panel_alpha.size
     n_fired = int(fire_flags.sum())
     fire_rate = n_fired / n_total if n_total else 0.0
-    ann = float(np.sqrt(52.0 / args.rebal_weeks))
+    # Annualize from trading-day cadence (252 / rebal_trading_days), matching
+    # v3 gauss314's convention (e.g. 20-day rebal → ppy ≈ 12.6).
+    ppy = 252.0 / args.rebal_trading_days
+    ann = float(np.sqrt(ppy))
 
     full_pooled_sh = (full_panel_alpha.mean() / full_panel_alpha.std(ddof=1) * ann
                       if full_panel_alpha.size > 1 and full_panel_alpha.std(ddof=1) > 1e-12 else 0.0)
@@ -392,7 +419,7 @@ def main() -> None:
         fired_only_alpha=fired_only_alpha,
         rebal_dates=np.asarray([str(d.date()) for d in rebal_kept]),
         fire_flags=fire_flags,
-        periods_per_year=np.float64(52.0 / args.rebal_weeks),
+        periods_per_year=np.float64(ppy),
         gate_lookback=np.int32(args.gate_lookback),
         commission_bps=np.float64(0.0),  # short-vol PnL is accounted upstream
         pre_registered_bar=np.str_(
@@ -408,7 +435,8 @@ def main() -> None:
         'val_period_oos': f'{VAL_START.date()} → {VAL_END.date()}',
         'train_r2': train_r2,
         'val_pearson_r': val_corr,
-        'rebal_weeks': args.rebal_weeks,
+        'rebal_trading_days': args.rebal_trading_days,
+        'periods_per_year': ppy,
         'gate_lookback_days': args.gate_lookback,
         'top_k': args.top_k,
         'n_rebals_total': int(n_total),

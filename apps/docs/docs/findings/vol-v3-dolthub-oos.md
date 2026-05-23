@@ -2,20 +2,38 @@
 
 **Operational rule.** The vol-v3 regime-gated short-vol architecture
 (predictor on IV/HV features + VIX 126d-rolling-median gate + top-K=100
-per weekly rebal) **replicates and grows** on a 4.6× larger never-seen
-sample (138 weekly rebals 2023-08 → 2026-04 vs 30 on gauss314 2019-23):
-**ann Sharpe +1.15 → +2.85, deflated-t +1.32 → +11.21, 11/11 quarters
-positive**. **But** (1) the new sample is a structurally calm-bull
-short-vol regime with **no vol crisis** in window, so the +2.85 is
-partly regime-tailwind rather than a 20-year-applicable read; (2) the
-date-aligned correlation with DCA is ρ = **+0.215**, not the ≈0 the
-gauss314-tail proxy suggested — diversification is meaningful (much
-better than relational's +0.79) but weaker than claimed; (3)
-`commission_bps=0` in the stream — options-broker frictions will reduce
-the deployable Sharpe materially. **Read this as: vol-v3 is the
-most-deserving candidate for the next round of engineering investment
-(`ss-vol live` + options-broker integration), not as a go-live
-verdict.** The next vol crisis is the binding falsification test.
+per **20-trading-day non-overlapping** rebal) **replicates and grows**
+on a comparable-sample-size OOS extension (33 rebals 2023-08 → 2026-04
+vs 30 on gauss314 2019-23): **ann Sharpe +1.15 → +2.82, deflated-t
++1.32 → +5.55, 10/11 quarters positive (91%)**. **But** (1) the new
+sample is a structurally calm-bull short-vol regime with **no vol
+crisis** in window, so the +2.82 is partly regime-tailwind rather than
+a 20-year-applicable read; (2) the date-aligned correlation with DCA
+is ρ = **+0.276**, not the ≈0 the gauss314-tail proxy suggested —
+diversification is meaningful (much better than relational's +0.79)
+but weaker than claimed; (3) `commission_bps=0` in the stream —
+options-broker frictions will reduce the deployable Sharpe
+materially. **Read this as: vol-v3 is the most-deserving candidate
+for the next round of engineering investment (`ss-vol live` +
+options-broker integration), not as a go-live verdict.** The next vol
+crisis is the binding falsification test.
+
+### First-publication correction (2026-05-23)
+
+The initial dump of this run used `val_dates[::4]` (step every 4
+unique DoltHub dates), which was correct on weekly substrate (2019-23)
+but collapsed to a ~5-trading-day rebal cadence on the daily 2024+
+portion of the OOS span — **overlapping the 20-day forward-RV window
+4×** and double-counting information across rebals. The corrected
+script steps every **20 trading days on Stooq's daily calendar**,
+guaranteeing non-overlapping forward windows and matching v3
+gauss314's convention exactly. Effect on the headline numbers: n_obs
+dropped 138 → 33 (in line with the predicted ~35); ann Sharpe
+essentially unchanged (+2.85 → +2.82 — the per-period statistic
+is honest); deflated-t dropped +11.21 → +5.55 (the overlap was
+inflating obs-count via `sqrt(N−1)`, not signal magnitude). The
+falsification verdict is unchanged: still 3/4 pre-reg gates pass →
+MARGINAL.
 
 ## What was tested
 
@@ -37,6 +55,9 @@ v3 used. This run is therefore the closest DoltHub-faithful analogue:
   (`iv_over_hv`, `iv_z`, `iv_change_4w`, `hv_change_4w` → `iv_rv_gap`),
   trained 2019-10 → 2023-07 (gauss314-overlap window) and frozen for
   the OOS span. Single split, not walk-forward refit.
+- **Rebal cadence**: every 20 trading days on Stooq's daily calendar,
+  non-overlapping with the 20-day forward-RV window. Matches v3
+  gauss314 exactly.
 - **Target**: forward 20-trading-day realized vol computed from honest
   Stooq log-return std — **not** DoltHub's `hv_current` (which is
   0.85 autocorrelated at lag 4 and would tautologically explain the
@@ -64,35 +85,35 @@ PASS = 4/4, MARGINAL = 2/4 or 3/4, FAIL = ≤ 1/4.
 
 ## Results
 
-| metric | gauss314 (original, 30 obs) | **DoltHub OOS (new, 138 obs)** |
+| metric | gauss314 (original, 30 obs) | **DoltHub OOS (corrected, 33 non-overlap obs)** |
 |---|---:|---:|
-| pooled fired-alpha Sharpe | +1.32 (fired-only) | **+6.97** ⚠️ |
-| pooled full-panel Sharpe | +1.15 | **+2.85** |
-| deflated-t (full_panel, n_trials=12) | +1.32 | **+11.21** ⚠️ |
-| positive quarters | (not computed) | **11/11 (100%)** |
-| fire rate | ~37% | 48.6% (in pre-reg band) |
-| ρ(full_panel, DCA-block, date-aligned) | ≈ 0 (tail proxy) | **+0.215** (pre-reg gate FAILS) |
-| skew / kurt (full_panel) | +1.21 / 5.23 | +1.01 / 2.89 |
+| pooled fired-alpha Sharpe | +1.32 (fired-only) | **+6.18** |
+| pooled full-panel Sharpe | +1.15 | **+2.82** |
+| deflated-t (full_panel, n_trials=12) | +1.32 | **+5.55** |
+| positive quarters | (not computed) | **10/11 (91%)** |
+| fire rate | ~37% | 51.5% (in pre-reg band) |
+| ρ(full_panel, DCA-block, date-aligned) | ≈ 0 (tail proxy) | **+0.276** (pre-reg gate FAILS) |
+| skew / kurt (full_panel) | +1.21 / 5.23 | +1.09 / 3.15 |
+| inter-rebal gap (cal days) | ~28 | mean 29.5 (28-34 range) ✓ |
 | train R² | (not computed) | +0.0409 |
 | val Pearson r | (not computed) | **+0.165** (in line with v0's +0.12-+0.13) |
 
 **Pre-reg verdict**: 3/4 gates PASS → **MARGINAL**, but the failure is
-ρ +0.215 > +0.15 (the rest pass overwhelmingly: fired-Sh 23× the bar,
-fire-rate dead centre, all 11 quarters positive).
+ρ +0.276 > +0.15 (the rest pass overwhelmingly: fired-Sh 20× the bar,
+fire-rate dead centre, 10/11 quarters positive).
 
-### DCA + vol-v3 ensemble (date-aligned, 115 overlap blocks)
+### DCA + vol-v3 ensemble (date-aligned, 29 non-overlapping 20d blocks)
 
 The cleanest practical question: can the new vol-v3 stream lift DCA
 under proper date alignment?
 
 | construction | ann Sharpe | deflated t (n_trials=21) |
 |---|---:|---:|
-| DCA solo (115 overlap blocks) | +1.27 | +2.12 |
-| DCA + vol × 0.25 | +2.21 | +4.54 |
-| DCA + vol × 0.5 | +2.61 | +6.19 |
-| DCA + vol × 1.0 | +2.83 | +8.22 |
-| **DCA + vol × 3.0** | +2.86 | **+9.87** (peak) |
-| DCA + vol × 5.0 | +2.84 | +9.97 |
+| DCA solo (29 overlap blocks) | +1.49 | +1.39 |
+| DCA + vol × 0.25 | +2.40 | +2.81 |
+| DCA + vol × 0.5 | +2.79 | +3.78 |
+| DCA + vol × 1.0 | +3.02 | +4.78 |
+| **DCA + vol × 3.0** | +3.06 | **+5.35** (peak) |
 | — | — | — |
 | DCA full-daily (5232 bars, reference) | +0.69 | +1.93 |
 
@@ -113,16 +134,16 @@ knife-edge.
 
 2. **ρ with DCA shifted from the gauss314-tail proxy.** The earlier
    "ρ ≈ 0" claim used a tail-overlap proxy on un-dated vol streams.
-   Properly date-aligned over 115 blocks in the OOS window, ρ = +0.215.
-   Diversification is still meaningful (relational ρ is +0.79), but
-   the "uncorrelated diversifier" framing was an artifact of the
-   alignment proxy.
+   Properly date-aligned over 29 non-overlapping 20d blocks in the OOS
+   window, ρ = +0.276. Diversification is still meaningful (relational
+   ρ is +0.79), but the "uncorrelated diversifier" framing was an
+   artifact of the alignment proxy.
 
 3. **No transaction costs in the stream.** `commission_bps=0` in the
    dump because vol-points accounting is upstream of friction; the
    deployable book pays options bid-ask, vega-hedging slippage, and
    the gauntlet. **Deflated-t on the deployable book is materially
-   lower than +11.21.**
+   lower than +5.55.**
 
 ## What this updates
 
@@ -131,9 +152,10 @@ knife-edge.
   integration. The empirical case is the strongest the workspace has.
 - **It is NOT a go-live verdict.** Three caveats above; the next vol
   crisis is the binding test.
-- **The DCA + vol ensemble math is real but bounded by ρ +0.215**, not
-  the ≈0 claimed previously. The +9.87 peak ensemble deflated-t over
-  115 blocks beats DCA-alone (+2.12 overlap, +1.93 full) substantially.
+- **The DCA + vol ensemble math is real but bounded by ρ +0.276**, not
+  the ≈0 claimed previously. The +5.35 peak ensemble deflated-t over
+  29 non-overlapping blocks beats DCA-alone (+1.39 overlap, +1.93 full)
+  substantially.
 - **The original vol-v3 leaderboard row (`partial-OOS`) is not
   superseded.** The 30-rebal gauss314 sample saw 2020 + 2022 crises and
   the alpha held; this DoltHub run sees a calm regime and the alpha
