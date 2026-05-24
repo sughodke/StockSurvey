@@ -275,6 +275,56 @@ Where the next-experiment hypothesis lands:
    `stooq_us_long`, the effect is mega-cap-specific; otherwise the
    train/val split was the binding constraint" is.
 
+### Writing pre-registrations — believe in the test, not the outcome
+
+Pre-registration locks the falsification bar BEFORE the eval runs.
+That discipline only matters if you also **believe the experiment can
+clear it**. A pre-reg that opens with "honest expectation =
+`confirmed-null`" isn't pre-registered — it's pre-defeated, and a
+half-hearted experiment will return a half-hearted result.
+
+Concretely: when you write a `TODO/<workstream>.md` page, the
+"expected outcome" section should read like **the strongest plausible
+case for the hypothesis**, not the most-likely cynical outcome:
+
+  - **What is the mechanism by which this could succeed?**
+    Describe the literature / theoretical / empirical reason the
+    experiment could clear the bar. Be specific — "low-vol stocks
+    historically deliver higher risk-adjusted returns under
+    Frazzini-Pedersen BAB" is a mechanism; "this is unlikely to work"
+    is not.
+  - **What would confirm-OOS look like operationally?**
+    Pre-imagine the success state. If the candidate clears the
+    +1.0 Δt bar, what does the published finding say? What does
+    the next experiment after that look like? If you can't picture
+    the success state, the test is mis-specified.
+  - **What's the *steel-man* version of the result?**
+    Argue *for* the candidate even if your prior is skeptical.
+    Strong tests come from genuine engagement with the hypothesis,
+    not from rehearsing the cynic's verdict in advance.
+
+The base rate of null results in this repo is high (the leaderboard
+shows it explicitly). That's an empirical observation about the
+*data*, not a license to predict every new arc into null before
+running it. The methodology rewrite explicitly establishes that
+arc-level data-limits are the binding constraint — but it does NOT
+license writing pre-regs as "this won't work either." Every arc
+deserves the chance to be the one that does.
+
+When the experiment lands, the verdict is whatever the locked bar
+says it is. If it's `confirmed-null`, the writeup honestly records
+that result. The honesty is *post-eval*, not *pre-eval*. Pre-eval
+honesty is the falsifiable test design — universe, windowing,
+expected delta, what counts as a positive result. That's where the
+discipline goes.
+
+Practical rule of thumb: if your draft pre-reg page contains the
+phrase "honest expectation = confirmed-null" or "I expect this to
+fail" or "the cross-sectional null is robust" before any data has
+been examined, **delete that sentence and rewrite the page around
+the mechanism instead**. Save the post-eval verdict-language for the
+finding page.
+
 ### Executing a TODO end-to-end
 
 When you pick a `TODO/<topic>.md` item and start implementing it,
