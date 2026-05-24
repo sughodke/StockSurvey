@@ -64,8 +64,8 @@ image = (
         REPO_ROOT.as_posix(),
         remote_path=REMOTE_REPO,
         ignore=[
-            '.git/**', '.venv/**', 'Output/**', 'StooqData/**',
-            'Nasdaq3347/**',
+            '.git/**', '.venv/**', '.claude/**',
+            'Output/**', 'StooqData/**', 'Nasdaq3347/**',
             'apps/relational/src/**', 'apps/regime/src/**',
             'apps/v1/src/**', 'apps/replay/src/**',
             '**/__pycache__/**', '**/*.pyc',
