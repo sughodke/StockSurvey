@@ -104,18 +104,19 @@ below is the recomputed ladder.
 | 2 | **dca-canonical** (multi-asset DCA, the live strategy) | standalone | 4 | +0.692 | −0.52 | 11.0 | 0.017 | **0.973** | **+1.93** | was #1, +2.07 (small drop) |
 | 3 | relational analog cross_ticker (2026-05-08 confirmed-OOS) | standalone | 16 | +1.146 | −0.05 | 9.1 | 0.028 | 0.937 | +1.53 | was #2, +0.74 (lifted) |
 | 4 | vol surface v3 regime-gated (126d gate, gauss314 2019-23) | standalone | 12 | +1.153 | +1.21 | 5.2 | 0.117 | 0.907 | +1.32 | was #5, +0.13 (lifted) |
-| 5 | low-volatility L/S (long low-vol/short high-vol, pre-registered, n=1) — best cross-sectional arm, still sub-significant | standalone | 1 | +0.128 | −0.02 | 5.2 | 0.000 | 0.738 | +0.64 | was #3 (n=1 immune) |
-| 6 | 12-1 cross-sectional momentum L/S (pre-registered, n=1) — weak, not significant | standalone | 1 | +0.081 | −1.09 | 8.2 | 0.000 | 0.656 | +0.40 | was #4 (n=1 immune) |
-| 7 | factor 5d long-only skip-1 (focused n=8) — fat-tail mirage (1 block +93%) | standalone | 8 | +0.357 | +9.60 | 217.7 | 0.051 | 0.484 | −0.04 | was #6, +0.10 (small drop) |
-| 8 | pairs v0 (2026-05 confirmed-null) | standalone | 4 | +0.203 | +0.61 | 20.8 | 0.017 | 0.397 | −0.26 | was #7, −0.18 |
-| 9 | lie shape-kNN 1mo-reversal long/short, Phase-2 (2026-05-22) | standalone | 9 | −0.018 | −1.37 | 5.6 | 0.110 | 0.194 | −0.86 | was #10, −1.55 (lifted) |
-| 10 | factor 5d long-only skip-1 (conservative n=50) | standalone | 50 | +0.357 | +9.60 | 217.7 | 0.080 | 0.129 | −1.13 | was #8, −0.91 |
-| 11 | factor indicator-baseline long-only 20d (2026-04-30 confirmed-OOS) | standalone | 50 | +0.192 | −1.92 | 12.1 | 0.160 | 0.062 | −1.54 | was #9, −1.37 |
-| 12 | gate v0 drawdown overlay (2026-05-10 partial-OOS) | overlay (excess vs EW) | 6 | −0.100 | +0.40 | 51.2 | 0.021 | 0.034 | −1.83 | was #11, −1.73 |
-| 13 | lie shape-kNN reversal L/S — wide universe (factor-narrow 297) | standalone | 9 | −0.703 | −0.03 | 2.7 | 0.110 | 0.001 | −3.00 | was #13, −3.45 |
-| 14 | factor long-short book 20d | standalone | 50 | −0.163 | −1.47 | 10.1 | 0.160 | 0.001 | −3.25 | was #12, −3.07 |
-| 15 | factor 5d long/short skip-1 (focused n=8) | standalone | 8 | −0.452 | −2.39 | 25.6 | 0.051 | 0.000 | −3.76 | was #14, −3.64 |
-| 16 | factor 5d long/short skip-1 (conservative n=50) | standalone | 50 | −0.452 | −2.39 | 25.6 | 0.080 | 0.000 | −4.71 | was #15, −4.52 |
+| 5 | **dca-basket-search-winner-4etf** (Optuna-search winner: VTI+TLT+IEF+GLD; same val Sharpe as canonical-13 but better full-sample max-DD) | standalone | 200 | +0.863 | −0.14 | 6.5 | 0.044 | 0.782 | +0.78 | NEW 2026-05-23; n_trials=200 reflects the pre-reg search cost |
+| 6 | low-volatility L/S (long low-vol/short high-vol, pre-registered, n=1) — best cross-sectional arm, still sub-significant | standalone | 1 | +0.128 | −0.02 | 5.2 | 0.000 | 0.738 | +0.64 | was #3 (n=1 immune) |
+| 7 | 12-1 cross-sectional momentum L/S (pre-registered, n=1) — weak, not significant | standalone | 1 | +0.081 | −1.09 | 8.2 | 0.000 | 0.656 | +0.40 | was #4 (n=1 immune) |
+| 8 | factor 5d long-only skip-1 (focused n=8) — fat-tail mirage (1 block +93%) | standalone | 8 | +0.357 | +9.60 | 217.7 | 0.051 | 0.484 | −0.04 | was #6, +0.10 (small drop) |
+| 9 | pairs v0 (2026-05 confirmed-null) | standalone | 4 | +0.203 | +0.61 | 20.8 | 0.017 | 0.397 | −0.26 | was #7, −0.18 |
+| 10 | lie shape-kNN 1mo-reversal long/short, Phase-2 (2026-05-22) | standalone | 9 | −0.018 | −1.37 | 5.6 | 0.110 | 0.194 | −0.86 | was #10, −1.55 (lifted) |
+| 11 | factor 5d long-only skip-1 (conservative n=50) | standalone | 50 | +0.357 | +9.60 | 217.7 | 0.080 | 0.129 | −1.13 | was #8, −0.91 |
+| 12 | factor indicator-baseline long-only 20d (2026-04-30 confirmed-OOS) | standalone | 50 | +0.192 | −1.92 | 12.1 | 0.160 | 0.062 | −1.54 | was #9, −1.37 |
+| 13 | gate v0 drawdown overlay (2026-05-10 partial-OOS) | overlay (excess vs EW) | 6 | −0.100 | +0.40 | 51.2 | 0.021 | 0.034 | −1.83 | was #11, −1.73 |
+| 14 | lie shape-kNN reversal L/S — wide universe (factor-narrow 297) | standalone | 9 | −0.703 | −0.03 | 2.7 | 0.110 | 0.001 | −3.00 | was #13, −3.45 |
+| 15 | factor long-short book 20d | standalone | 50 | −0.163 | −1.47 | 10.1 | 0.160 | 0.001 | −3.25 | was #12, −3.07 |
+| 16 | factor 5d long/short skip-1 (focused n=8) | standalone | 8 | −0.452 | −2.39 | 25.6 | 0.051 | 0.000 | −3.76 | was #14, −3.64 |
+| 17 | factor 5d long/short skip-1 (conservative n=50) | standalone | 50 | −0.452 | −2.39 | 25.6 | 0.080 | 0.000 | −4.71 | was #15, −4.52 |
 
 **What the ranking says.** The 2026-05-23 vol-v3-DoltHub-OOS extension
 (row #1) is a **caveat-rich strong-update**: +5.55 deflated t over 33

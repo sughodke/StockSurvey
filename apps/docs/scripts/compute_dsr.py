@@ -136,6 +136,17 @@ SPECS: list[ArcSpec] = [
         note='canonical live multi-asset DCA basket',
     ),
     ArcSpec(
+        key='dca-basket-search-winner-4etf',
+        npz='dca-winner-4etf-returns.npz',
+        stream_key='daily_ret',
+        mode='standalone',
+        n_trials=200,  # pre-reg Optuna search budget
+        note='basket-search Optuna winner (VTI+TLT+IEF+GLD); same val '
+             'Sharpe as canonical-13 but better full-sample max-DD '
+             '(-22.7% vs -40.0%); n_trials=200 reflects the search cost. '
+             'See findings/dca-basket-optuna.md',
+    ),
+    ArcSpec(
         key='lie-shape-knn-LS',
         npz='lie-shape-knn-returns.npz',
         stream_key='ls_block_returns',
