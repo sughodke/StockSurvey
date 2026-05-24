@@ -10,6 +10,7 @@ Active backlog for the StockSurvey monorepo. Each section from the original
 
 ## Research threads
 
+- [Done — Meta-allocator regime forecasting across the 6 strategy arcs (`confirmed-OOS` for B3 inverse-arc-vol vs B2 1/N: ΔSR_ann +0.367 [+0.028, +0.682], DSR-t +4.17; every modeling candidate C1-C5 `reversed-OOS` vs B3; operational rule: do not forecast which arc will win — weight inversely by trailing-252d realized vol)](meta-allocator-regime-forecasting.md)
 - [Joint v0 — illiquid-options VRP × securities-lending stress — small-capacity re-frame of the discarded `confirmed-OOS` vol signal; Stage-0 PASS (DoltHub `option_chain` has free per-contract NBBO), runnable free with spread-defined cohort](vol-borrow-illiquid-vrp.md)
 - [Higher-EV — borrow-stress conditioning on the *liquid* vol universe — the un-reached novel-data leg of the illiquid-VRP arc, re-pointed off the quote-availability wall onto the v3-locked liquid recipe; Stage-0 borrow-data feasibility gate first, then gauss314 (locked v3 + borrow split) → DoltHub OOS contingent on Phase-A H3 ≥ +0.10](vol-borrow-liquid-universe.md)
 - [Tradier forward structural coverage probe — pre-registered $0 sandbox-MCP probe of the v1 microcap pick cohort against the full OPRA tape; resolves whether the falsified arc's DoltHub-coverage gap is *also* an OPRA-coverage gap and gates the entire paid-vendor spend question](vol-tradier-forward-coverage.md)

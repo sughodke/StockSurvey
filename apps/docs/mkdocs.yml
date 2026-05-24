@@ -103,6 +103,7 @@ nav:
   - Tags: tags.md
   - Findings:
       - findings/index.md
+      - Meta-allocator regime forecasting (B3 inverse-arc-vol confirmed-OOS vs 1/N at 95% CI; every modeling candidate C1-C5 reversed-OOS vs B3): findings/meta-allocator-regime-forecasting.md
       - Ladder methodology rewrite (Ledoit-Wolf primary; DSR demoted to within-stratum gate; ZERO arcs beat DCA at 95% CI): findings/ladder-methodology-rewrite.md
       - Deflated Sharpe (within-arc gate; superseded for cross-arc rank by ladder-methodology-rewrite): findings/deflated-sharpe-leaderboard.md
       - Borrow-stress vol (liquid, reversed-OOS): findings/vol-borrow-liquid-universe.md
@@ -159,6 +160,7 @@ nav:
   - Workflows: workflows.md
   - TODO:
       - TODO/index.md
+      - Done — Meta-allocator regime forecasting (confirmed-OOS for B3 inverse-arc-vol vs B2 1/N at 95% CI; every modeling candidate C1-C5 reversed-OOS vs B3): TODO/meta-allocator-regime-forecasting.md
       - Done — apps/critic Φ value function (confirmed-null v0 + v0.1 rescue): TODO/critic-phi-value-function.md
       - Done — apps/factor bilevel horizon objective (confirmed-null on deployment-return rescue): TODO/factor-bilevel-horizon-objective.md
       - Done — apps/factor horizon-aligned IndicatorGridConfig (confirmed-null on input-side rescue): TODO/factor-horizon-aligned-grid.md
