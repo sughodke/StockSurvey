@@ -38,6 +38,7 @@ from ss_portfolio.metrics import (
 )
 from ss_portfolio.screening import apply_nan_mask, apply_spread_mask
 from ss_portfolio.sharpe import TRADING_DAYS, block_sharpe_with_costs
+from ss_portfolio.sharpe_diff import SharpeDiffCI, sharpe_difference_ci
 from ss_portfolio.strategies import log_returns_matrix, weights_regime
 from ss_portfolio.weights import (
     apply_position_cap,
@@ -60,6 +61,8 @@ __all__ = [
     'max_drawdown',
     'probabilistic_sharpe',
     'select_top_n_matrix',
+    'SharpeDiffCI',
+    'sharpe_difference_ci',
     'softmax_weights',
     'sortino',
     'standardize_oos',

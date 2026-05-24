@@ -12,7 +12,8 @@ Default eval window unless otherwise stated: 2013-01-29 → 2025-12-11,
 
 ## Methodology / cross-cutting
 
-- [Deflated Sharpe Ratio — the cross-arc-comparable ranking key; raw/mean-of-window Sharpe is not apples-to-apples (gate "alpha +0.067" is really a −0.10 excess-stream Sharpe, deflated t −1.73)](deflated-sharpe-leaderboard.md)
+- [Ladder methodology rewrite (closing finding, 2026-05-23) — DSR is a within-arc selection-bias correction NOT a cross-arc rank key; the new primary cross-arc test is Ledoit-Wolf studentized stationary-bootstrap CI on Sharpe-difference of date-aligned streams. Under this test, ZERO arcs beat DCA at 95%; four arcs significantly worse. The DSR ladder is now stratified by (arc class × sample structure × universe); cross-stratum DSR-rank explicitly disclaimed](ladder-methodology-rewrite.md)
+- [Deflated Sharpe Ratio — the cross-arc-comparable ranking key; raw/mean-of-window Sharpe is not apples-to-apples (gate "alpha +0.067" is really a −0.10 excess-stream Sharpe, deflated t −1.73). **NOTE 2026-05-23**: superseded by ladder-methodology-rewrite for cross-arc ranking; this page documents the within-arc DSR which remains the per-arc gate](deflated-sharpe-leaderboard.md)
 - [Borrow-stress conditioning on the liquid vol universe — `reversed-OOS`; a spectacular in-sample signal (hi-tercile Sharpe +3.80) failed to replicate OOS on 50× more data; the cleanest demonstration that an in-sample number is a hypothesis, not evidence](vol-borrow-liquid-universe.md)
 
 ## Regime app

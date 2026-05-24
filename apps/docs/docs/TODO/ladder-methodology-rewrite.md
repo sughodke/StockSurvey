@@ -1,11 +1,13 @@
 # Ladder methodology rewrite — full migration
 
-**Status: `in-progress` (2026-05-23). Sequencing all five steps from the
-three-agent synthesis (methodology + ensemble-Optuna + assumptions
-audit), each as an atomic commit, with re-published ladder at the
-end. The current rank-by-DSR-deflated-t framework is being demoted to
-a within-arc gate; the new primary cross-arc test is Ledoit-Wolf
-studentized Sharpe-difference CI on common-window-aligned streams.**
+**Status: `done` (2026-05-23). All five steps landed. Closing finding
+at [`findings/ladder-methodology-rewrite.md`](../findings/ladder-methodology-rewrite.md).
+Headline: under Ledoit-Wolf, ZERO arcs beat DCA at 95% CI; four arcs
+significantly worse. DSR demoted from cross-arc rank key to within-
+stratum gate. Pre-registration text below is unchanged — locked
+design.**
+
+---
 
 ## Why this is happening
 

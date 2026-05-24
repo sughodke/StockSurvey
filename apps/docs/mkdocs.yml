@@ -103,7 +103,8 @@ nav:
   - Tags: tags.md
   - Findings:
       - findings/index.md
-      - Deflated Sharpe (cross-arc ranking): findings/deflated-sharpe-leaderboard.md
+      - Ladder methodology rewrite (Ledoit-Wolf primary; DSR demoted to within-stratum gate; ZERO arcs beat DCA at 95% CI): findings/ladder-methodology-rewrite.md
+      - Deflated Sharpe (within-arc gate; superseded for cross-arc rank by ladder-methodology-rewrite): findings/deflated-sharpe-leaderboard.md
       - Borrow-stress vol (liquid, reversed-OOS): findings/vol-borrow-liquid-universe.md
       - Regime baselines: findings/regime-baselines.md
       - Log-returns vs raw close: findings/log-returns-vs-raw-close.md

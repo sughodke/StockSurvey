@@ -125,17 +125,28 @@ SPECS: list[ArcSpec] = [
         note='short-vol v3 deployment recipe; the one large real signal',
     ),
     ArcSpec(
-        key='vol-v3-dolthub-oos',
+        key='vol-v3-dolthub-oos-c200',
+        npz='vol-v3-dolthub-oos-c200-returns.npz',
+        stream_key='full_panel_alpha',
+        mode='standalone',
+        n_trials=12,
+        note='vol v3 DoltHub OOS with realistic 200 bps round-trip '
+             'options friction (Step 2 of methodology rewrite). 33 '
+             'non-overlapping 20d rebals. ann Sharpe +2.41 (was +2.82 '
+             'at commission=0). Carries regime-tailwind caveat from '
+             'findings/vol-v3-dolthub-oos.md — 2024-26 calm-bull sample, '
+             'no vol crisis in window.',
+    ),
+    ArcSpec(
+        key='vol-v3-dolthub-oos-c0',  # reference, kept for transparency
         npz='vol-v3-dolthub-oos-returns.npz',
         stream_key='full_panel_alpha',
         mode='standalone',
-        n_trials=12,  # same arc as vol-v3-regime-gated; OOS extension is not a new search
-        note='vol v3 architecture re-run on DoltHub 2023-08→2026-04 OOS '
-             '(138 weekly rebals, 4.6x sample of gauss314). Signal grew '
-             '+1.15→+2.85 ann Sh, 11/11 quarters positive, but ρ with DCA '
-             'shifted +0.0→+0.215 (date-aligned, pre-reg gate fails) AND '
-             'the 2024-26 sample is a calm-bull short-vol tailwind regime '
-             '— no vol crisis in window. partial-OOS / MARGINAL.',
+        n_trials=12,
+        note='REFERENCE ONLY (commission=0). Replaced on the live ladder '
+             'by vol-v3-dolthub-oos-c200 which applies realistic 200 bps '
+             'options friction. See TODO/ladder-methodology-rewrite.md '
+             'Step 2.',
     ),
     ArcSpec(
         key='dca-canonical',
