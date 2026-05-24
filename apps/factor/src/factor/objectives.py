@@ -676,6 +676,56 @@ def block_port_returns_long_short_np(
     return port - costs
 
 
+def block_studentized_sharpe_diff_vs_ew(
+    rebal_scores: Tensor,
+    log_temperature: Tensor,
+    block_log_ret: Tensor,
+    rebal_mask: Tensor,
+    rebal_days: int,
+    commission_frac: float,
+    *,
+    with_moments: bool = False,
+) -> Tensor:
+    """Studentized Sharpe-difference of softmax-LO portfolio vs EW
+    benchmark — the literature-canonical "trained-to-beat-EW" loss.
+
+    Mirrors `block_ir_vs_ew`'s constructor and cost treatment but
+    returns the **studentized t-statistic** `(SR_LO − SR_EW) / s.e.`
+    rather than the information ratio. Per Lo (2002), this is the
+    differentiable analogue of the Ledoit-Wolf (2008) bootstrap
+    Sharpe-difference test the cross-arc ladder uses; optimizing
+    this trains the head's parameters to maximize the same quantity
+    that the bootstrap CI judges at eval time.
+
+    Pair with `ss_portfolio.parametric_ci(port, ew)` for a
+    differentiable CI at training time, or
+    `ss_portfolio.sharpe_difference_ci(port, ew)` for the gold-
+    standard bootstrap inference at eval time.
+
+    Why it matters: `block_sharpe` rewards Sharpe-in-isolation;
+    `block_ir_vs_ew` rewards alpha-per-unit-tracking-error; THIS
+    rewards Sharpe-difference-significance directly — the
+    statistical claim the cross-arc DSR ladder evaluates against.
+    """
+    temp = log_temperature.exp()
+    s = rebal_scores / temp + (rebal_mask + 1e-12).log()
+    s = s - s.max(axis=1, keepdim=True)
+    exp_s = s.exp() * rebal_mask
+    w = exp_s / (exp_s.sum(axis=1, keepdim=True) + 1e-12)
+
+    port_block_ret = (w * block_log_ret).sum(axis=1)
+    counts = rebal_mask.sum(axis=1).maximum(1.0)
+    ew_block_ret = (block_log_ret * rebal_mask).sum(axis=1) / counts
+
+    init_cost = w[0].abs().sum()
+    diff_cost = 0.5 * (w[1:] - w[:-1]).abs().sum(axis=1)
+    costs = commission_frac * init_cost.reshape(1).cat(diff_cost, dim=0)
+    port_block_ret = port_block_ret - costs
+
+    return block_studentized_sharpe_diff(
+        port_block_ret, ew_block_ret, with_moments=with_moments)
+
+
 def block_studentized_sharpe_diff(
     port_block_ret_a: Tensor,
     port_block_ret_b: Tensor,
@@ -770,6 +820,7 @@ def soft_excludes_zero_tensor(
 __all__ = [
     'TRADING_DAYS', 'block_port_returns_np', 'block_port_returns_long_short_np',
     'block_sharpe', 'block_sharpe_long_short', 'block_studentized_sharpe_diff',
+    'block_studentized_sharpe_diff_vs_ew',
     'block_ir_vs_ew', 'horizon_mixture_loss', 'horizon_mixture_loss_bilevel',
     'horizon_mixture_loss_target', 'long_short_weights',
     'masked_mse', 'pearson_rank_ic', 'per_bar_pearson_ic',

@@ -101,3 +101,30 @@ def test_walkforward_runs_and_aggregates():
     np.testing.assert_allclose(
         res.mean_val_ic, np.mean([w.val_ic for w in res.windows]))
     assert 0.0 <= res.positive_val_ic_fraction <= 1.0
+
+
+def test_walkforward_runs_under_studentized_sharpe_diff_loss():
+    """Smoke: the new loss arm runs end-to-end without crashing.
+
+    Verifies that `loss_kind='studentized_sharpe_diff_vs_ew'` trains
+    the head + log-temperature through the new
+    `block_studentized_sharpe_diff_vs_ew` Tensor objective. Doesn't
+    assert on signal magnitude — random walks should give a near-zero
+    t-stat; that's correct, not a failure.
+    """
+    cfg = IndicatorGridConfig()
+    tickers = _make_synthetic_universe(n_tickers=4, n_bars=5500, cfg=cfg)
+    res = train_scorer_indicators_walkforward(
+        tickers, cfg,
+        rebal_days=20, train_window_blocks=20, val_window_blocks=10,
+        step_window_blocks=10, scorer='linear',
+        loss_kind='studentized_sharpe_diff_vs_ew',
+        n_steps=10, learning_rate=1e-2, weight_decay=1e-3,
+        verbose=False,
+    )
+    assert res.n_windows >= 2
+    for w in res.windows:
+        assert np.isfinite(w.train_ic)
+        assert np.isfinite(w.val_ic)
+        # log_temperature is part of the training graph for this loss
+        assert w.head_params['W'].shape == (cfg.feature_width(),)

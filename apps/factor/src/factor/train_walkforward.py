@@ -29,7 +29,9 @@ from factor.backbone import Backbone
 from factor.data import AlignedTickers
 from factor.objectives import (
     block_ir_vs_ew, block_port_returns_long_short_np, block_port_returns_np,
-    block_sharpe, block_sharpe_long_short, masked_mse, pearson_rank_ic,
+    block_sharpe, block_sharpe_long_short,
+    block_studentized_sharpe_diff_vs_ew,
+    masked_mse, pearson_rank_ic,
 )
 from factor.scorers import get_scorer
 from factor.train import precompute_inputs
@@ -282,7 +284,8 @@ def train_scorer_walkforward(
     the loss saw, so they remain comparable to the loss value; val_sharpe
     / train_sharpe are always against actual block log returns.
 
-    `loss_kind` ∈ `{'rank_ic', 'mse_alpha', 'block_sharpe', 'ir_vs_ew'}`:
+    `loss_kind` ∈ `{'rank_ic', 'mse_alpha', 'block_sharpe', 'ir_vs_ew',
+                    'studentized_sharpe_diff_vs_ew'}`:
       * `'rank_ic'` (default) — scale-invariant Pearson IC on
         cross-sectionally demeaned forward log-returns. Existing
         baseline. Score magnitude uncalibrated.
@@ -293,6 +296,10 @@ def train_scorer_walkforward(
         layer rather than a portfolio softmax (see
         `findings/factor-rankic-long-only-mismatch.md` + the
         `TODO/factor-sizing-input-reframe.md` plan).
+      * `'studentized_sharpe_diff_vs_ew'` — Lo (2002) / Bailey-LdP
+        (2014) studentized t-statistic `(SR_LO − SR_EW) / s.e.`. The
+        literature-canonical training analogue of the Ledoit-Wolf
+        bootstrap CI the cross-arc DSR ladder uses.
       * `'block_sharpe'` / `'ir_vs_ew'` — Sharpe-aligned losses,
         kept available but documented as worse than `rank_ic` on
         factor-narrow at the +0.005 IC regime
@@ -319,7 +326,8 @@ def train_scorer_walkforward(
             'the aux head trains nothing — use scorer=mlp instead)')
     is_multitask = scorer == 'mlp_multitask'
 
-    valid_losses = {'rank_ic', 'block_sharpe', 'ir_vs_ew', 'mse_alpha'}
+    valid_losses = {'rank_ic', 'block_sharpe', 'ir_vs_ew', 'mse_alpha',
+                    'studentized_sharpe_diff_vs_ew'}
     if loss_kind not in valid_losses:
         raise ValueError(
             f'loss_kind={loss_kind!r} not in {sorted(valid_losses)}')
@@ -332,7 +340,8 @@ def train_scorer_walkforward(
     # magnitude — temperature lives in the softmax constructor, which
     # is eval-only for these arms). block_sharpe and ir_vs_ew tune
     # temperature as part of the loss.
-    train_temp = loss_kind in ('block_sharpe', 'ir_vs_ew')
+    train_temp = loss_kind in ('block_sharpe', 'ir_vs_ew',
+                                'studentized_sharpe_diff_vs_ew')
 
     if step_window_blocks is None:
         step_window_blocks = val_window_blocks
@@ -451,6 +460,13 @@ def train_scorer_walkforward(
                     rebal_days, commission_frac)
             elif loss_kind == 'ir_vs_ew':
                 loss = -block_ir_vs_ew(
+                    out, log_temperature, blr_train, mask_train,
+                    rebal_days, commission_frac)
+            elif loss_kind == 'studentized_sharpe_diff_vs_ew':
+                # The literature-canonical Sharpe-diff-significance
+                # training loss (Lo 2002 / Bailey-LdP 2014); pairs
+                # with the Ledoit-Wolf bootstrap CI at eval time.
+                loss = -block_studentized_sharpe_diff_vs_ew(
                     out, log_temperature, blr_train, mask_train,
                     rebal_days, commission_frac)
             else:
