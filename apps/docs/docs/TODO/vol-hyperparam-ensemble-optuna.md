@@ -1,6 +1,9 @@
 # Vol-hyperparam × DCA ensemble joint Optuna search — pre-registered arc
 
-**Status: `pending` — pre-registration locked before the eval runs.**
+**Status: `pending` — pre-registration locked (commit `e3b2b8b`,
+2026-05-23); eval scaffold committed at `apps/vol/scripts/optuna_vol_hyperparam_ensemble.py`
+but eval NOT YET RUN.** Kicking off the run is the next step on this
+arc.
 Sister arc to [`dca-vol-ensemble-optuna`](dca-vol-ensemble-optuna.md),
 which adjudicated the DCA-basket × vega_scale joint search with the
 vol stream **frozen** at the canonical v3-DoltHub recipe. The
