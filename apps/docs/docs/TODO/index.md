@@ -33,6 +33,7 @@ Active backlog for the StockSurvey monorepo. Each section from the original
 
 ## Operations
 
+- [NPZ explicit-dates backfill — plumb `rebal_dates`/`dates` through 8 return-stream producers so cross-arc Ledoit-Wolf CI and per-window meta-allocator probes stop falling back to tail-alignment; ~25 LOC across 8 scripts, half-day; the H1 inflation +1.43 honest → +2.21 tail-aligned in the meta-allocator brief is the operational cost already paid](npz-explicit-dates-backfill.md)
 - [Review follow-ups — paper-trade can proceed without these](review-followups.md)
 - [Modal-cron live deployment for ss-relational](modal-cron-live-deployment.md)
 - [Memory and wall-time audit follow-ups](memory-walltime-followups.md)

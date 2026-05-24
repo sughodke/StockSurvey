@@ -176,6 +176,7 @@ nav:
       - Factor sizing-input reframe: TODO/factor-sizing-input-reframe.md
       - Done — factor endogenous-horizon entropy-weight sweep (confirmed-null on rescue hypothesis): TODO/factor-horizon-entropy-reg.md
       - Polar Morlet migration: TODO/polar-morlet-migration.md
+      - NPZ explicit-dates backfill — plumb rebal_dates / dates through 8 return-stream producers to retire tail-alignment in cross-arc CIs (operational; ~25 LOC, half-day; triggered by the per-window meta-allocator H1 inflation +1.43 honest → +2.21 tail-aligned): TODO/npz-explicit-dates-backfill.md
       - Review follow-ups: TODO/review-followups.md
       - RSI long-period ablation: TODO/rsi-long-period-ablation.md
       - FiLM w=1 diagnostic: TODO/film-w1-diagnostic.md
