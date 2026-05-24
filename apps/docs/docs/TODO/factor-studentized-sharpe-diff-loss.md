@@ -1,8 +1,13 @@
 # Factor head trained directly against studentized Sharpe-diff vs EW
 
-**Status: `pending` — pre-registration locked 2026-05-23. Eval not yet
-run. This page must be committed BEFORE the head-to-head training run
-fires; the falsification bar is not editable post-hoc.**
+**Status: `done` — eval landed 2026-05-23, verdict `confirmed-null`
+per the locked pre-reg bar. Candidate Δt = −0.60 vs baseline (worse,
+not better). Closing finding at
+[`findings/factor-studentized-sharpe-diff-loss`](../findings/factor-studentized-sharpe-diff-loss.md).
+Pre-registration text below is the locked design — NOT edited
+post-eval.**
+
+---
 
 ## Motivation
 
