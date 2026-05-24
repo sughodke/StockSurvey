@@ -1,9 +1,13 @@
 # DCA basket Optuna search — pre-registered arc
 
-**Status: `pending` — pre-registration locked 2026-05-23. Eval has
-NOT yet run. This page must be committed *before* any Optuna trial
-fires; the falsification bar and search space are not editable
-post-hoc.**
+**Status: `done` — eval ran 2026-05-23 after pre-reg commit `d49c672`.
+Verdict: `partial-OOS` (effectively `confirmed-null`). Winner Δ
+val deflated-t = +0.016 vs canonical (far below the +1.0 bar).
+Full writeup at [`findings/dca-basket-optuna`](../findings/dca-basket-optuna.md).
+Pre-registration text below is the locked design — NOT edited
+post-eval.**
+
+---
 
 ## Motivation
 

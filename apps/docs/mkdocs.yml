@@ -136,6 +136,7 @@ nav:
       - Vol surface v2.3 — DoltHub OOS extension to 2026-04 confirms signal continuity (confirmed-OOS; OOS r +0.165 across 4-feature proxy, 11/11 positive quarters): findings/vol-surface-v2-dolthub-oos.md
       - Vol surface v3 — regime-gated liquid universe composition (126d-VIX gate rescues v2.2 FAIL; fired-α Sh +2.01, fire rate 37%, MARGINAL): findings/vol-surface-v3-regime-gated.md
       - Vol v3 — DoltHub 2024-26 OOS extension (signal replicates AND grows 2.5x on 4.6x more data — deflated-t +11.21 — BUT 2024-26 is a calm-bull regime with no vol crisis; ρ with DCA = +0.215 not ≈0; partial-OOS MARGINAL — strongest case for engineering investment but not a go-live verdict): findings/vol-v3-dolthub-oos.md
+      - DCA basket Optuna search (partial-OOS / effectively confirmed-null) — pre-registered bucket search over 3,600 combinations × 200 trials found Δ deflated-t = +0.016 over canonical; winner is a simpler 4-ETF basket (VTI+TLT+IEF+GLD) achieving same val Sharpe and slightly better max-DD; the canonical basket is defensible: findings/dca-basket-optuna.md
       - Vol surface arc synthesis — partial-OOS arc closure with v3 regime-gated-liquid as deployment recipe: findings/vol-arc-synthesis.md
       - Vol small-capacity re-frame falsified — real +0.14 edge but 92.5% of the cohort is un-quotable on free data; quote-availability is a deployability gate upstream of spread (reversed-OOS): findings/vol-borrow-illiquid-vrp-falsified.md
       - Relational arc synthesis (lifted from NO_OPTIONS.md): findings/relational-arc-synthesis.md
@@ -162,7 +163,7 @@ nav:
       - Higher-EV — borrow-stress conditioning on the liquid vol universe (un-reached novel-data leg re-pointed; Stage-0 gate first, then gauss314 v3-locked + DoltHub OOS): TODO/vol-borrow-liquid-universe.md
       - Vol Tradier forward structural coverage probe (pre-reg; $0 sandbox-MCP; resolves DoltHub-vs-OPRA coverage gap; gates paid-vendor spend): TODO/vol-tradier-forward-coverage.md
       - Crypto venue port — factor indicator-grid walk-forward on CryptoCompare top-50 (pre-registered single-test from .research-venue-fit.md; scaffold built 04bf48d, smoke-test n=50 encouraging at val IC +0.0504 / 4-5 positive but NOT a verdict; Modal eval ~$0.10 not yet kicked off): TODO/factor-crypto-venue-test.md
-      - DCA basket Optuna search — pre-registered bucket search over 3,600 basket combinations with N=200 trial budget; train 2005-2018, val 2019-2025; falsification bar locked before eval (delta-t > +1.0 vs canonical 13-ETF on same-method val for confirmed-OOS, < canonical for confirmed-null): TODO/dca-basket-optuna.md
+      - Done — DCA basket Optuna search (partial-OOS / effectively confirmed-null; 200 trials × 3,600 combinations found Δ deflated-t = +0.016 over canonical, far below the +1.0 pre-reg bar; winner is a SIMPLER 4-ETF basket VTI+TLT+IEF+GLD with same val Sharpe and slightly better max-DD): TODO/dca-basket-optuna.md
       - Done — apps/factor target-side REINFORCE for π (partial-OOS; higher-β resolved, arc benchmark-artifact-bound): TODO/factor-reinforce-target-side.md
       - Done — apps/factor return-coupled recurrent CWT embedding (confirmed-null; every k ≤ indicator baseline, closes the CWT-as-predictor question arc-wide): TODO/factor-cwt-return-coupled.md
       - apps/cfr — Deep CFR meta-allocator: TODO/apps-cfr.md
