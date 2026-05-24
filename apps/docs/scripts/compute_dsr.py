@@ -48,13 +48,23 @@ class ArcSpec:
     mode: str = 'standalone'  # 'standalone' | 'overlay'
     benchmark_key: str | None = None  # npz key for benchmark stream
     borrow_bps_yr: float = 0.0  # annual borrow charged on short notional (L/S books)
-    # Annualized cross-trial Sharpe dispersion used to set
-    # expected_max_sharpe. Defaults to 0.25 — the empirically-observed
-    # cross-trial std (0.245) across 39 factor-arc walk-forward arms in
-    # this workspace (see code-review finding UF-2). Override per arc
-    # when a wider/narrower sweep was actually run. n_trials=1 arcs are
-    # immune (E[maxSR]=0 regardless of sharpe_std).
-    sharpe_std_ann: float = 0.25
+    # **Structural-only** annualized cross-trial Sharpe dispersion
+    # used to set expected_max_sharpe — combined IN QUADRATURE with
+    # the per-arc null estimation noise floor `1/sqrt(n_obs-1)`
+    # inside `standardize_oos`.
+    #
+    # Default 0.072 — the variance-decomposed structural residual
+    # from the workspace's 39-arm factor walk-forward empirical:
+    #   total observed cross-trial std (annualized): 0.245
+    #   pure-null estimation noise at typical arm n_obs=234:    0.234
+    #   structural-only residual: sqrt(0.245**2 - 0.234**2) ≈ 0.072
+    #
+    # (See TODO/ladder-methodology-rewrite.md Step 1; the prior 0.25
+    # value double-counted the null component and under-deflated
+    # short-stream arcs by up to 2.5×.)
+    #
+    # n_trials=1 arcs are immune (E[maxSR]=0 regardless).
+    sharpe_std_ann: float = 0.072
     note: str = ''
 
 

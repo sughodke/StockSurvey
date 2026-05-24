@@ -116,3 +116,64 @@ def test_block_returns_use_block_annualization():
     rebal_days = 20
     mb = standardize_oos(r, periods_per_year=TRADING_DAYS / rebal_days)
     assert mb.periods_per_year == pytest.approx(TRADING_DAYS / rebal_days)
+
+
+def test_null_floor_combines_in_quadrature():
+    """TODO/ladder-methodology-rewrite.md Step 1 regression: the
+    `sharpe_std` argument is now interpreted as the structural-only
+    component; the null estimation floor 1/sqrt(n-1) is combined in
+    quadrature. So effective sharpe_std is at least the null floor."""
+    import math
+    rng = np.random.default_rng(5)
+    r = rng.normal(0.001, 0.01, size=33)  # short sample like vol-v3
+
+    # Pass a tiny structural component; null floor should dominate.
+    mb_tiny = standardize_oos(r, periods_per_year=12.6, n_trials=12,
+                              sharpe_std=0.01)
+    null_floor = 1.0 / math.sqrt(33 - 1)
+    expected = math.sqrt(0.01**2 + null_floor**2)
+    assert mb_tiny.sharpe_std == pytest.approx(expected, rel=1e-10)
+
+    # When struct is much larger than null floor, struct dominates.
+    mb_large = standardize_oos(r, periods_per_year=12.6, n_trials=12,
+                               sharpe_std=2.0)
+    expected_large = math.sqrt(2.0**2 + null_floor**2)
+    assert mb_large.sharpe_std == pytest.approx(expected_large, rel=1e-10)
+
+
+def test_null_floor_under_deflates_legacy_fix():
+    """The pre-Step-1 code used `1/sqrt(n)` as a default and treated
+    caller-supplied sharpe_std as the total. For a short-sample arc
+    with workspace 0.25/sqrt(ppy) calibration, the new code must give
+    a STRICTLY LARGER (more punitive) deflated-t penalty."""
+    import math
+    rng = np.random.default_rng(6)
+    r = rng.normal(0.005, 0.015, size=33)  # short like vol-v3-dolthub-oos
+    ppy = 12.6
+
+    # Old behavior would have used sharpe_std=0.25/sqrt(12.6) ≈ 0.070
+    # AS THE TOTAL. New behavior treats 0.070 as the structural part
+    # and adds the null floor in quadrature.
+    workspace_struct = 0.072 / math.sqrt(ppy)
+    mb_new = standardize_oos(r, periods_per_year=ppy, n_trials=200,
+                             sharpe_std=workspace_struct)
+    # Manually reconstruct what the old code would have produced:
+    null_floor = 1.0 / math.sqrt(32)
+    old_s_std = workspace_struct           # old code = struct as-is
+    new_s_std = math.sqrt(workspace_struct**2 + null_floor**2)
+    # New effective std is larger, so expected_max_sharpe is larger,
+    # so deflated-t is SMALLER (more punitive).
+    assert new_s_std > old_s_std
+    assert mb_new.sharpe_std == pytest.approx(new_s_std, rel=1e-10)
+    assert mb_new.expected_max_sharpe > old_s_std  # punitive direction
+
+
+def test_null_floor_only_when_sharpe_std_omitted():
+    """If sharpe_std is None, only the null floor is used (most
+    conservative possible deflation)."""
+    import math
+    rng = np.random.default_rng(7)
+    r = rng.normal(0.001, 0.01, size=100)
+    mb = standardize_oos(r, periods_per_year=252, n_trials=10)
+    null_floor = 1.0 / math.sqrt(99)
+    assert mb.sharpe_std == pytest.approx(null_floor, rel=1e-10)

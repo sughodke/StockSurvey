@@ -83,55 +83,75 @@ Sharpe is skill rather than the best of `n_trials` coin flips. Ranked
 best-first; computed by `apps/docs/scripts/compute_dsr.py` →
 `Output/dsr-leaderboard.json`.
 
-**Methodology fix (2026-05-22, post-audit recompute).** The first
-publication of this table used the `standardize_oos` default
-`sharpe_std = 1/sqrt(n_obs)` — the null s.e. of a single Sharpe
-estimator, not the cross-trial dispersion the DSR formula requires.
-That was *bidirectionally* wrong: it **under**-deflated long-daily
-arcs (DCA, relational, pairs — 1/sqrt(5232) ≈ 0.014 << empirical) and
-**over**-deflated short-block arcs (vol v3 n=30: 1/sqrt(30) ≈ 0.183 >>
-empirical). The corrected pipeline (`compute_dsr.py` rev 2026-05-22,
-audit finding UF-2) uses the empirically-measured cross-trial
-annualized Sharpe std of **0.25** (n=39 factor walk-forward arms in
-this workspace, observed std 0.245). `n_trials=1` arcs are immune by
-construction (E[maxSR]=0 regardless). Both `sharpe_std_ann` per arc
-and `periods_per_year` per NPZ are now explicit-required. The table
-below is the recomputed ladder.
+**Methodology Step 1 fix (2026-05-23, null-noise floor).** Per the
+ladder-methodology-rewrite migration ([TODO](TODO/ladder-methodology-rewrite.md)),
+the 2026-05-22 calibration used `sharpe_std_ann=0.25` (workspace
+empirical from 39 factor arms) as the TOTAL cross-trial std. A
+synthetic test showed this **double-counts the null estimation
+noise**: the 0.245 empirical contained ~0.234 of pure null noise from
+those arms' own sample length; the structural-only residual is
+√(0.245² − 0.234²) ≈ **0.072 ann**. `standardize_oos` now treats the
+supplied `sharpe_std` as the structural-only component and combines
+in quadrature with the per-arc null floor `1/√(n_obs−1)`:
 
-| rank | arc (leaderboard row) | mode | n_trials | stream ann. Sharpe | skew | kurt | E[max SR] | DSR | **deflated t** | Δ vs prior |
+    sharpe_std_effective = √( struct² + null_floor² )
+
+`compute_dsr.py` default is now `sharpe_std_ann = 0.072`. Effect:
+short-stream arcs (vol-v3 n=33, lie n=60, relational-val n=1241)
+deflate more punitively because their null floor dominates;
+long-stream arcs (DCA n=5232) are barely affected. **Under this
+corrected methodology, DCA-canonical clears the t=+2 bar for the
+first time (+2.02).** Vol-v3-DoltHub stays #1 (+4.08, was +5.55) but
+its 5+ deflated-t claim was inflated by the prior calibration.
+
+| rank | arc (leaderboard row) | mode | n_trials | stream ann. Sharpe | skew | kurt | E[max SR] | DSR | **deflated t** | Δ vs Step 0 |
 |---:|---|---|---:|---:|---:|---:|---:|---:|---:|---|
-| 1 | **vol-v3-dolthub-oos** (2024-26 OOS, 33 non-overlapping 20d rebals) ⚠️ regime-tailwind caveat | standalone | 12 | +2.822 | +1.09 | 3.2 | 0.117 | **1.000** | **+5.55** | NEW 2026-05-23; corrected for overlap (was +11.21) |
-| 2 | **dca-canonical** (multi-asset DCA, the live strategy) | standalone | 4 | +0.692 | −0.52 | 11.0 | 0.017 | **0.973** | **+1.93** | was #1, +2.07 (small drop) |
-| 3 | relational analog cross_ticker (2026-05-08 confirmed-OOS) | standalone | 16 | +1.146 | −0.05 | 9.1 | 0.028 | 0.937 | +1.53 | was #2, +0.74 (lifted) |
-| 4 | vol surface v3 regime-gated (126d gate, gauss314 2019-23) | standalone | 12 | +1.153 | +1.21 | 5.2 | 0.117 | 0.907 | +1.32 | was #5, +0.13 (lifted) |
-| 5 | **dca-basket-search-winner-4etf** (Optuna-search winner: VTI+TLT+IEF+GLD; same val Sharpe as canonical-13 but better full-sample max-DD) | standalone | 200 | +0.863 | −0.14 | 6.5 | 0.044 | 0.782 | +0.78 | NEW 2026-05-23; n_trials=200 reflects the pre-reg search cost |
-| 6 | low-volatility L/S (long low-vol/short high-vol, pre-registered, n=1) — best cross-sectional arm, still sub-significant | standalone | 1 | +0.128 | −0.02 | 5.2 | 0.000 | 0.738 | +0.64 | was #3 (n=1 immune) |
-| 7 | 12-1 cross-sectional momentum L/S (pre-registered, n=1) — weak, not significant | standalone | 1 | +0.081 | −1.09 | 8.2 | 0.000 | 0.656 | +0.40 | was #4 (n=1 immune) |
-| 8 | factor 5d long-only skip-1 (focused n=8) — fat-tail mirage (1 block +93%) | standalone | 8 | +0.357 | +9.60 | 217.7 | 0.051 | 0.484 | −0.04 | was #6, +0.10 (small drop) |
-| 9 | pairs v0 (2026-05 confirmed-null) | standalone | 4 | +0.203 | +0.61 | 20.8 | 0.017 | 0.397 | −0.26 | was #7, −0.18 |
-| 10 | lie shape-kNN 1mo-reversal long/short, Phase-2 (2026-05-22) | standalone | 9 | −0.018 | −1.37 | 5.6 | 0.110 | 0.194 | −0.86 | was #10, −1.55 (lifted) |
-| 11 | factor 5d long-only skip-1 (conservative n=50) | standalone | 50 | +0.357 | +9.60 | 217.7 | 0.080 | 0.129 | −1.13 | was #8, −0.91 |
-| 12 | factor indicator-baseline long-only 20d (2026-04-30 confirmed-OOS) | standalone | 50 | +0.192 | −1.92 | 12.1 | 0.160 | 0.062 | −1.54 | was #9, −1.37 |
-| 13 | gate v0 drawdown overlay (2026-05-10 partial-OOS) | overlay (excess vs EW) | 6 | −0.100 | +0.40 | 51.2 | 0.021 | 0.034 | −1.83 | was #11, −1.73 |
-| 14 | lie shape-kNN reversal L/S — wide universe (factor-narrow 297) | standalone | 9 | −0.703 | −0.03 | 2.7 | 0.110 | 0.001 | −3.00 | was #13, −3.45 |
-| 15 | factor long-short book 20d | standalone | 50 | −0.163 | −1.47 | 10.1 | 0.160 | 0.001 | −3.25 | was #12, −3.07 |
-| 16 | factor 5d long/short skip-1 (focused n=8) | standalone | 8 | −0.452 | −2.39 | 25.6 | 0.051 | 0.000 | −3.76 | was #14, −3.64 |
-| 17 | factor 5d long/short skip-1 (conservative n=50) | standalone | 50 | −0.452 | −2.39 | 25.6 | 0.080 | 0.000 | −4.71 | was #15, −4.52 |
+| 1 | **vol-v3-dolthub-oos** (2024-26 OOS, 33 non-overlapping 20d rebals) ⚠️ regime-tailwind + options-friction caveats | standalone | 12 | +2.822 | +1.09 | 3.2 | 0.296 | **1.000** | **+4.08** | was +5.55 (Step 1 null floor) |
+| 2 | **dca-canonical** (multi-asset DCA, the live strategy) | standalone | 4 | +0.692 | −0.52 | 11.0 | 0.015 | **0.978** | **+2.02** | was +1.93 (small lift); **clears t=+2 bar for the first time** |
+| 3 | **dca-basket-search-winner-4etf** (Optuna winner: VTI+TLT+IEF+GLD) | standalone | 200 | +0.863 | −0.14 | 6.5 | 0.040 | 0.846 | **+1.02** | was +0.78 |
+| 4 | relational analog cross_ticker (2026-05-08 confirmed-OOS) | standalone | 16 | +1.146 | −0.05 | 9.1 | 0.052 | 0.762 | +0.71 | was +1.53 — Step 1 null floor cut |
+| 5 | low-volatility L/S (pre-registered n=1) — n_trials=1 immune | standalone | 1 | +0.128 | −0.02 | 5.2 | 0.000 | 0.738 | +0.64 | unchanged |
+| 6 | 12-1 cross-sectional momentum L/S (pre-registered n=1) | standalone | 1 | +0.081 | −1.09 | 8.2 | 0.000 | 0.656 | +0.40 | unchanged |
+| 7 | vol surface v3 regime-gated (126d gate, gauss314 2019-23) | standalone | 12 | +1.153 | +1.21 | 5.2 | 0.311 | 0.535 | +0.09 | was +1.32 — Step 1 null floor wiped |
+| 8 | factor 5d long-only skip-1 (focused n=8) — fat-tail mirage | standalone | 8 | +0.357 | +9.60 | 217.7 | 0.050 | 0.505 | +0.01 | was −0.04 |
+| 9 | pairs v0 (2026-05 confirmed-null) | standalone | 4 | +0.203 | +0.61 | 20.8 | 0.016 | 0.409 | −0.23 | was −0.26 |
+| 10 | factor 5d long-only skip-1 (conservative n=50) | standalone | 50 | +0.357 | +9.60 | 217.7 | 0.078 | 0.148 | −1.05 | was −1.13 |
+| 11 | factor indicator-baseline long-only 20d (2026-04-30 confirmed-OOS) | standalone | 50 | +0.192 | −1.92 | 12.1 | 0.156 | 0.070 | −1.48 | was −1.54 |
+| 12 | lie shape-kNN 1mo-reversal long/short, Phase-2 | standalone | 9 | −0.018 | −1.37 | 5.6 | 0.206 | 0.057 | −1.58 | was −0.86 — Step 1 null floor cut |
+| 13 | gate v0 drawdown overlay (2026-05-10 partial-OOS) | overlay (excess vs EW) | 6 | −0.100 | +0.40 | 51.2 | 0.020 | 0.037 | −1.79 | was −1.83 |
+| 14 | factor long-short book 20d | standalone | 50 | −0.163 | −1.47 | 10.1 | 0.156 | 0.001 | −3.19 | was −3.25 |
+| 15 | lie shape-kNN reversal L/S — wide universe (factor-narrow 297) | standalone | 9 | −0.703 | −0.03 | 2.7 | 0.161 | 0.000 | −3.49 | was −3.00 |
+| 16 | factor 5d long/short skip-1 (focused n=8) | standalone | 8 | −0.452 | −2.39 | 25.6 | 0.050 | 0.000 | −3.72 | was −3.76 |
+| 17 | factor 5d long/short skip-1 (conservative n=50) | standalone | 50 | −0.452 | −2.39 | 25.6 | 0.078 | 0.000 | −4.63 | was −4.71 |
 
-**What the ranking says.** The 2026-05-23 vol-v3-DoltHub-OOS extension
-(row #1) is a **caveat-rich strong-update**: +5.55 deflated t over 33
-non-overlapping 20-trading-day rebals (comparable in size to gauss314's
-30-rebal sample), 10/11 quarters positive, ann Sharpe +2.82 vs the
-original +1.15 — a 2.4× lift on a comparable sample. But it covers
-**2023-08 → 2026-04, a calm-bull short-vol-tailwind regime with no vol
-crisis** — the next 2008/2020/2022-style stress is the binding test,
-and the sample doesn't contain one. The signal is real on the sample
-we have; whether it is *durable* is open. Treat row #1 as a strong
-update that **vol-v3 is the most-deserving candidate for the next
-round of engineering investment** (options-broker integration), not
-as a go-live verdict. (The first publication of this row used an
-overlapping-rebal cadence that inflated deflated-t to +11.21; the
-+5.55 corrected value is what the ladder trusts.)
+**What the ranking says (Step 1 corrected).** Under the null-noise
+floor methodology, **two arcs now sit at-or-above the t=+2 bar**:
+vol-v3-DoltHub at +4.08 (down from +5.55) and DCA-canonical at +2.02
+(up from +1.93, **clears for the first time**). Vol-v3 still tops
+the ladder but its lift over DCA shrunk substantially when the short-
+stream null noise was properly accounted for. Both numbers still
+carry caveats: vol-v3's sample is the 2023-08 → 2026-04 calm-bull
+short-vol regime with no crisis (`partial-OOS` MARGINAL per the
+arc's finding); the vol-v3-DoltHub row also uses `commission_bps=0`
+which is unrealistic for options (Step 2 of the migration will apply
+realistic 100-500bps friction; the +4.08 will likely fall further).
+
+**The Step 1 reordering surfaced what was previously masked.**
+Several arcs that ranked in the +1 to +1.5 range under the prior
+calibration were actually noise-band finds: relational-analog
+dropped from +1.53 to +0.71, vol-v3-regime-gated (gauss314) dropped
+from +1.32 to +0.09. Both fell because their short streams (n=1241
+val / n=30) were under-deflated by the prior 0.25-as-total
+calibration. Long-stream arcs (DCA, factor-baseline, momentum/low-
+vol n=1-immune) were barely affected, confirming the methodology
+fix's direction matched the synthetic prediction.
+
+Beyond the top-3, **no other arc clears t=+1** under the corrected
+methodology. The pre-Step-1 picture of "5 arcs above noise" was
+itself a noise band, fed by the under-deflation. The Step 2-5
+remaining migration (realistic options costs, per-arc-class
+calibration, Ledoit-Wolf CI column, stratified ladder) is sequenced
+in [TODO/ladder-methodology-rewrite.md](TODO/ladder-methodology-rewrite.md).
 
 Beyond row #1, **no other arc clears the conventional t = +2 bar
 without the regime-tailwind caveat**. **DCA — the canonical live
@@ -283,6 +303,7 @@ Metric is what train / val numbers refer to.
 | 2026-05-23 | vol | **v3 architecture re-run on DoltHub 2024-26 OOS — does the +1.15 signal and ρ≈0 with DCA both replicate?** (predictor = v2-dolthub-oos 4-feature OLS trained 2019-10→2023-07; VIX 126d-median regime gate identical to v3; top-K=100 per 20-trading-day non-overlapping rebal; honest forward-RV from Stooq prices; pre-reg gates: fired Sh ≥ +0.30, fire-rate ∈ [20%,80%], ≥60% pos quarters, \|ρ(full_panel, DCA-block)\| ≤ 0.15) | DoltHub `volatility_history` 2023-08→2026-04, ~3K names/day | **33 non-overlapping 20-trading-day rebals**, single-split train→OOS | pooled fired-α Sharpe ; full-panel α Sharpe ; deflated-t (n_trials=12) ; ρ with DCA-block ; pos-qtr count | n/a (single split; predictor frozen on train) | **fired-α Sharpe +6.18 ; full-panel +2.82 ; deflated-t +5.55 ; 10/11 quarters positive (91%) ; ρ(full, DCA) = +0.276** | signal replicates AND grows 2-4× (vs gauss314 +1.15 Sh / t +1.32) but pre-reg ρ gate FAILS, regime-tailwind caveat | [`partial-OOS`](#verdict-labels) — **MARGINAL** (3/4 pre-reg gates pass) | **Read this row with the regime caveat front-and-center.** The OOS sample is 2023-08 → 2026-04: post-COVID calm-bull, VIX averaged ~15, no vol crisis. iv_current > forward 20d RV was a structural windfall. The original gauss314 sample (2019-23, +1.15 Sharpe) covered 2020 COVID + 2022 Fed-pivot — the +6.18 fired Sharpe on DoltHub is partly the calm regime, not a 20-year-applicable read. ρ with DCA is **+0.276** (date-aligned 29 blocks), not the ≈0 the gauss314-tail proxy suggested — diversification still meaningful (much better than relational +0.79) but weaker than claimed. DCA + vol×3 ensemble on the date-aligned overlap: deflated-t **+5.35** (vs DCA-overlap solo +1.39, vs DCA-full-daily +1.93). **The strongest empirical case yet for building `ss-vol live` (options-broker integration)** — *if* you believe the gate still fires in crises (it did in gauss314's 2020/2022 windows; need to confirm post-COVID). The next vol crisis is the binding falsification test; this sample doesn't contain one. Cost: `commission_bps=0` in the dump — options-broker frictions will reduce deployable Sharpe materially. **First-publication correction (2026-05-23)**: the initial dump used `val_dates[::4]` which collapsed to ~5-trading-day cadence in the daily-2024+ portion of the OOS span and overlapped the 20-day forward-RV window 4×, inflating deflated-t to +11.21 by double-counting independence. Corrected to step every 20 trading days (n=138 → n=33); per-period Sharpe is essentially unchanged, the lift is in obs-independence not signal magnitude. Driver `apps/vol/scripts/run_walkforward_v3_dolthub_oos.py`; artifacts `Output/vol-v3-dolthub-oos-{returns.npz,summary.json}`; on the [Cross-arc DSR ladder](#cross-arc-deflated-sharpe-ranking) at rank #1. Finding [`vol-v3-dolthub-oos`](findings/vol-v3-dolthub-oos.md). |
 | 2026-05-23 | dca | **DCA basket Optuna search — does any 13-ETF-alternative materially beat canonical?** (pre-registered bucket search over 3,600 combinations of {equity_core × intl × bonds × commodities × REITs × rebal_cadence × drift_threshold}; N_TRIALS=200 TPE; train 2005-2018 / val 2019-2025 includes 2020+2022 crises; objective = train-period deflated-t under workspace sharpe_std_ann=0.25; pre-reg bar locked in commit d49c672 BEFORE eval: Δ val deflated-t > +1.0 = confirmed-OOS, > 0 = partial-OOS, ≤ 0 = confirmed-null, AND val max-DD ≤ canonical + 5pp) | 22 ETF candidates (19 with 2005-on coverage after dropping DBC/USO/VEU) | walk-forward single split; same-method canonical comparison | val deflated-t (winner vs canonical) ; val max-DD diff ; n holdings | n/a (held-out OOS slice never seen during Optuna search) | **canonical-12 val: annSh +0.854, defl-t +0.419, maxDD −0.239 ; winner val (VTI+TLT+IEF+GLD): annSh +0.858, defl-t +0.436, maxDD −0.222** ; **Δ deflated-t = +0.016** | far below the +1.0 confirmed-OOS bar | [`partial-OOS`](#verdict-labels) — technically positive lift, semantically `confirmed-null` (within noise) | **The pre-reg called this exactly**: confirmed-null or weak partial-OOS expected; got +0.016 lift. Canonical basket is defensible — Optuna couldn't find a defensible alpha improvement over 200 trials × 3,600-combo space. **One operational note**: the winner is a *simpler* basket (4 names: VTI+TLT+IEF+GLD vs canonical's 12) achieving near-identical val Sharpe (+0.858 vs +0.854) with marginally better val max-DD (−22.2% vs −23.9%). This is "same alpha, fewer moving parts" — operational simplification, not alpha lift. The 9 SPDR sectors EW ≈ VTI in exposure; replacing them collapses friction without losing diversification. Deploying either canonical-13 or winner-4 is equally defensible; the search proved that. Driver `apps/dca/scripts/optuna_basket_search.py`; artifact `Output/dca-basket-optuna.json`. Finding [`dca-basket-optuna`](findings/dca-basket-optuna.md). Pre-reg [`TODO/dca-basket-optuna`](TODO/dca-basket-optuna.md). |
 | 2026-05-23 | dca | **DCA × vol overlay joint Optuna search — does any (basket × vega_scale) combination materially beat the canonical 13-ETF + vol×3 ensemble?** (pre-registered joint search over 16,800 (basket buckets × vega_scale ∈ {0, 0.25, 0.5, 1, 2, 3, 5}) combinations; N_TRIALS=200 TPE; train rebal 0-19 / val 20-32 of the 33-obs vol-v3-DoltHub OOS sample, periods_per_year=12.6, sharpe_std_ann=0.25; pre-reg bar locked in commit 1a06966 BEFORE eval: Δ val deflated-t > +1.0 AND val maxDD ≤ canon +5pp = confirmed-OOS; capital-free-overlay semantics `r_ens = r_dca + vega × r_vol_alpha`) | 22 ETF candidates (DCA cash leg) × frozen vol-v3 stream (`Output/vol-v3-dolthub-oos-returns.npz`, 33 non-overlapping 20d rebals 2023-08 → 2026-03) | walk-forward single split on the 33-obs vol stream; same-method canonical comparison | val deflated-t (winner vs canonical-13 + vol×3) ; val max-DD diff ; n holdings | n/a (held-out OOS slice never seen during Optuna search) | **canonical-13 + vol×3 val (n=13): annSh +2.282, defl-t +4.083, maxDD −0.010 ; winner val (SPY+GLD+vol×3, 80d rebal): annSh +2.769, defl-t +4.695, maxDD −0.008** ; **Δ deflated-t = +0.612** ; **8 of top-10 trials = exact same config (SPY+GLD+vega=3.0+80d); all top-10 carry vega_scale=3.0** | positive but below the +1.0 confirmed-OOS bar | [`partial-OOS`](#verdict-labels) — Δ deflated-t positive, basket axis below noise floor at n_val=13; canonical recipe defensible | **The pre-reg called this**: partial-OOS or confirmed-null expected; got +0.612 lift, below the +1.0 bar. **The load-bearing finding is the vega_scale=3.0 robustness** — every top-10 trial picks it; TPE collapsed onto that scale across all basket variations. The basket axis is *structurally below the noise floor* at n_train=20 / n_val=13: the vol overlay × 3.0 dominates the ensemble variance budget, the DCA leg contributes ~+0.20-0.40 Sharpe of the +2.77 total. **This is the joint-search version of the basket-only arc's finding**: a simpler basket (SPY+GLD, 2 ETFs) ties canonical-13 on deflated-t — complexity in the cash leg is replaceable without alpha loss. Caveats: 13 val obs is thin and the sample is the vol-v3 regime-tailwind calm-bull window (no vol crisis); both winner and canonical numbers are inflated relative to crisis-inclusive expectations. **Vol-side hyperparams (predictor refit window, gate lookback=126d, top-K=100, gate threshold = VIX rolling median) were NOT swept — frozen at v3 recipe upstream**; only the cash-leg basket and the overlay-sizing knob (vega_scale) varied. **Operational read**: canonical 13-ETF + vol×3 stays defensible; do NOT deploy the joint-search winner over canonical (search proved equivalence under the bar, not superiority). Driver `apps/dca/scripts/optuna_dca_vol_ensemble.py`; artifact `Output/dca-vol-ensemble-optuna.json`. Finding [`dca-vol-ensemble-optuna`](findings/dca-vol-ensemble-optuna.md). Pre-reg [`TODO/dca-vol-ensemble-optuna`](TODO/dca-vol-ensemble-optuna.md). |
+| 2026-05-23 | meta | **DSR Step 1 — null-noise floor in quadrature (ladder-methodology-rewrite step 1 of 5)** (audit synthetic test showed workspace `sharpe_std_ann=0.25` double-counts the null component of cross-trial std at short n_obs; decomposed empirically to structural-only 0.072 ann + per-arc null floor `1/√(n_obs−1)` combined in quadrature inside `standardize_oos`) | full cross-arc DSR ladder (17 deployable arcs) | n/a (methodology recompute, no new run) | deflated-t shifts per arc; verdict re-anchored at t=+2 | n/a | **DCA-canonical +1.93 → +2.02 (clears t=+2 for the first time)** ; vol-v3-DoltHub +5.55 → +4.08 (still #1 but shrunk) ; relational +1.53 → +0.71 (Step 1 null-floor cut) ; vol-v3-gauss314 +1.32 → +0.09 (Step 1 wiped) ; lie-Phase-2 −0.86 → −1.58 (more decisive null) | three short-stream arcs (vol-v3-DoltHub, relational, vol-v3-gauss314) had their deflated-t inflated under prior calibration | [`diagnostic`](#verdict-labels) | Three-agent synthesis triggered this: methodology brief flagged DSR-as-cross-arc-rank misuse; assumptions audit flagged the 0.25 empirical's null-noise contamination; ensemble Optuna confirmed n_val=13 is below the noise floor. The variance decomposition: workspace observed 0.245 ann = √(0.234²_null + 0.072²_structural). New formula treats `sharpe_std` arg as structural-only, combines null floor in quadrature. Effect: short-stream arcs get punished more (correct), long-stream arcs barely move. **DCA-canonical's lift over the t=+2 bar is the load-bearing finding** — it's the only arc with a 20-year sample length AND a positive deflated-t under proper calibration. Driver `packages/portfolio/src/ss_portfolio/deflated.py` + `apps/docs/scripts/compute_dsr.py` (default `sharpe_std_ann=0.072`). Steps 2-5 remain: realistic options friction, per-arc-class calibration, Ledoit-Wolf CI column, stratified ladder. See `TODO/ladder-methodology-rewrite.md`. |
 | 2026-05-22 | meta | **DSR ladder recompute — sharpe_std calibration fix (audit UF-2/UF-3)** (replaced the `1/sqrt(n_obs)` fallback in `standardize_oos` with an empirically-measured cross-trial dispersion of 0.25 annualized — observed std across 39 factor walk-forward arms in this workspace — and made `periods_per_year` a required NPZ key) | full cross-arc DSR ladder (15 deployable arcs) | n/a (methodology recompute, no new run) | deflated-t (DCA) ; pos-Δ count ; ranking-flip count | n/a | **DCA t +2.07 → +1.93 (still #1, no arc clears t=+2)** ; vol v3 +0.13 → +1.32 (#5 → #3) ; relational +0.74 → +1.53 (lifted at #2) ; 6 ranking flips, all within the sub-t=+2 cluster | the old fallback was bidirectionally wrong — over-deflated short-block arcs (vol n=30), under-deflated long-daily arcs (DCA n=5232) | [`diagnostic`](#verdict-labels) | The fallback used the null s.e. of a *single* Sharpe estimator (1/√n), not the cross-trial dispersion the DSR formula requires (Bailey-López de Prado 2014). With the empirical 0.25 (workspace n=39, observed 0.245), short-stream arcs *lift* and long-stream arcs *drop slightly*; the qualitative claim updates from "DCA is the only t-confident edge" to "**no arc clears t=+2; DCA is closest at +1.93, vol v3 and relational the next two at +1.32–1.53**". The frontier of "what survives deflation" widens modestly but the load-bearing conclusion — *no clean win on free public-equity data; next lever is paid/novel data or a different venue* — stands. Driver `apps/docs/scripts/compute_dsr.py` (rev 2026-05-22, adds `sharpe_std_ann` ArcSpec field + required `periods_per_year` key, raises on missing). See `findings/deflated-sharpe-leaderboard.md`. |
 
 ## Pending walk-forward checks called out elsewhere

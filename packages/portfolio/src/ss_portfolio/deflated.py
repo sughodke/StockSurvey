@@ -181,9 +181,21 @@ def standardize_oos(
         their std sets the expected-max benchmark. If given, overrides
         `n_trials` length and `sharpe_std`.
     sharpe_std
-        Optional explicit cross-trial dispersion of per-period Sharpe.
-        Falls back to ``1/sqrt(n_obs)`` (the null s.e. of a Sharpe
-        estimate) when neither this nor `trial_sharpes` is supplied.
+        Optional **structural-only** cross-trial dispersion of
+        per-period Sharpe — the std due to genuine config-space
+        variation, with the null estimation-noise floor REMOVED.
+        Combined in quadrature with the null floor `1/sqrt(n_obs-1)`
+        when computing the effective cross-trial std for the
+        expected-max-Sharpe benchmark. If ``None``, only the null
+        floor is used (the most conservative deflation possible at
+        the given sample size). If ``trial_sharpes`` is supplied, its
+        empirical std overrides this and subsumes both components.
+
+        Note: in workspace usage we set this to the
+        ``struct_only_ann / sqrt(periods_per_year)`` value where
+        ``struct_only_ann ≈ 0.072`` is the variance-decomposed
+        residual from the 39-arm factor walk-forward empirical
+        (see TODO/ladder-methodology-rewrite.md Step 1).
     benchmark
         Optional same-length per-period benchmark return stream; enables
         the information ratio (annualized excess / tracking error).
@@ -205,12 +217,29 @@ def standardize_oos(
     if trial_sharpes is not None:
         ts = np.asarray(trial_sharpes, dtype=np.float64).ravel()
         n_trials = int(ts.size)
+        # When the actual trial Sharpes are supplied their empirical
+        # std subsumes both null-noise and structural cross-config
+        # dispersion; no floor needed.
         s_std = float(ts.std(ddof=1)) if ts.size > 1 else 0.0
-    elif sharpe_std is not None:
-        s_std = float(sharpe_std)
     else:
-        # Null s.e. of a Sharpe estimate when trial dispersion is unknown.
-        s_std = 1.0 / math.sqrt(n) if n > 0 else 0.0
+        # Variance-decomposition fix (TODO/ladder-methodology-rewrite.md
+        # Step 1, 2026-05-23). The supplied `sharpe_std` is the
+        # *structural-only* cross-config dispersion expected for this
+        # arc class; it should be combined IN QUADRATURE with the
+        # null estimation noise floor 1/sqrt(n-1), because under the
+        # zero-skill null trial Sharpes have an irreducible sample-
+        # variation std of at least 1/sqrt(n-1) per-period regardless
+        # of structural dispersion.
+        #
+        # Previously the code used 1/sqrt(n) as a fallback and treated
+        # any caller-supplied `sharpe_std` as the total. The synthetic
+        # test in TODO/ladder-methodology-rewrite.md Step 1 showed this
+        # under-deflates short-stream arcs because the supplied 0.25/
+        # sqrt(ppy) is *smaller* than the null floor for n<~500.
+        struct_std = (float(sharpe_std) if sharpe_std is not None
+                      else 0.0)
+        null_floor = (1.0 / math.sqrt(n - 1)) if n > 1 else 0.0
+        s_std = math.sqrt(struct_std * struct_std + null_floor * null_floor)
 
     sr_star = expected_max_sharpe(n_trials, s_std)
     psr, psr_z = probabilistic_sharpe(sr_pp, n, skew, kurt, sharpe_benchmark=0.0)

@@ -59,6 +59,10 @@ def append_snapshot(
         existing = existing[existing['date'] != pd.to_datetime(as_of)]
         df = pd.concat([existing, df], ignore_index=True)
     df = df.sort_values(['date', 'symbol', 'kind']).reset_index(drop=True)
+    # DoltHub bootstrap inserts Decimal values for iv_current/hv_current;
+    # pyarrow rejects mixed object→float on round-trip. Force float64
+    # so the parquet schema is consistent across bootstrap + append paths.
+    df['value'] = pd.to_numeric(df['value'], errors='coerce').astype(np.float64)
     df.to_parquet(path, index=False)
 
 
@@ -123,6 +127,9 @@ def bootstrap_from_dolthub(
         columns={'hv_current': 'value'}).assign(kind='hv')
     out = pd.concat([long_iv, long_hv], ignore_index=True)
     out = out.sort_values(['date', 'symbol', 'kind']).reset_index(drop=True)
+    # DoltHub's iv_current/hv_current arrive as Decimal; cast to float64
+    # so the parquet schema matches what `append_snapshot` writes.
+    out['value'] = pd.to_numeric(out['value'], errors='coerce').astype(np.float64)
 
     path = Path(cache_path)
     path.parent.mkdir(parents=True, exist_ok=True)

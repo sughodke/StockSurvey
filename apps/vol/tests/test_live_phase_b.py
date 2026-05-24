@@ -172,22 +172,19 @@ def test_phase_b_end_to_end_dry_run(tmp_path: Path):
     cp_path = tmp_path / 'vol-v3.json'
     save_checkpoint(cp, cp_path)
 
-    # Seed the IV-history cache so the 4-week diff features compute.
-    # Without this, the cache is empty on first run → features are NaN.
+    # Seed the IV-history cache via the production append_snapshot API
+    # so dtype/schema contract is identical to what the runtime writes
+    # — sidesteps a pyarrow type-inference issue when seeding via
+    # to_parquet directly.
     cache = tmp_path / 'iv-history.parquet'
-    seed_rows = []
-    seed_date = pd.Timestamp('2026-04-25')
-    for sym in cp.universe:
-        for kind, val in [('iv', 0.28), ('hv', 0.25)]:
-            seed_rows.append({'date': seed_date, 'symbol': sym,
-                              'kind': kind, 'value': val})
-    pd.DataFrame(seed_rows).to_parquet(cache, index=False)
-
-    # Monkey-patch the cache path on the iv_history module so our
-    # test seeds get loaded back.
     import vol.iv_history as ih
     orig = ih.DEFAULT_CACHE_PATH
     ih.DEFAULT_CACHE_PATH = str(cache)
+    seed_iv = pd.Series({s: 0.28 for s in cp.universe}, dtype=float)
+    seed_hv = pd.Series({s: 0.25 for s in cp.universe}, dtype=float)
+    ih.append_snapshot(seed_iv, seed_hv,
+                       as_of=pd.Timestamp('2026-04-25'),
+                       cache_path=cache)
 
     # VIX series with last bar > rolling-median (gate FIRES).
     idx = pd.date_range('2025-09-01', periods=200, freq='B')
@@ -240,17 +237,14 @@ def test_phase_b_live_path_submits_to_broker(tmp_path: Path):
     save_checkpoint(cp, cp_path)
 
     cache = tmp_path / 'iv-history-live.parquet'
-    seed_rows = []
-    seed_date = pd.Timestamp('2026-04-25')
-    for sym in cp.universe:
-        for kind, val in [('iv', 0.28), ('hv', 0.25)]:
-            seed_rows.append({'date': seed_date, 'symbol': sym,
-                              'kind': kind, 'value': val})
-    pd.DataFrame(seed_rows).to_parquet(cache, index=False)
-
     import vol.iv_history as ih
     orig = ih.DEFAULT_CACHE_PATH
     ih.DEFAULT_CACHE_PATH = str(cache)
+    seed_iv = pd.Series({s: 0.28 for s in cp.universe}, dtype=float)
+    seed_hv = pd.Series({s: 0.25 for s in cp.universe}, dtype=float)
+    ih.append_snapshot(seed_iv, seed_hv,
+                       as_of=pd.Timestamp('2026-04-25'),
+                       cache_path=cache)
 
     idx = pd.date_range('2025-09-01', periods=200, freq='B')
     vix = pd.Series(np.full(200, 12.0), index=idx)
