@@ -676,10 +676,102 @@ def block_port_returns_long_short_np(
     return port - costs
 
 
+def block_studentized_sharpe_diff(
+    port_block_ret_a: Tensor,
+    port_block_ret_b: Tensor,
+    *,
+    with_moments: bool = False,
+) -> Tensor:
+    """Differentiable Lo-Mertens-LdP studentized Sharpe-difference t-stat.
+
+    `t = (SR_a − SR_b) / s.e.(SR_a − SR_b)` where the s.e. uses the
+    delta-method estimator (Lo 2002) optionally with the Bailey-LdP
+    (2014) skew/kurtosis correction. Inputs are per-block net return
+    Tensors (e.g. outputs of `block_sharpe` minus its final
+    mean/std/annual reduction — see `block_port_returns_np` for the
+    numpy reference).
+
+    This is the smooth-differentiable training-loss analogue of
+    `ss_portfolio.sharpe_difference_ci`. The bootstrap-CI version is
+    not differentiable; this delta-method version is what the
+    bootstrap converges to as `n → ∞` per Lo (2002), so optimizing
+    against it is the literature-canonical way to train a strategy
+    to maximize Sharpe vs a benchmark.
+
+    Pair with `ss_portfolio.parametric_ci(a.numpy(), b.numpy())` for
+    a CI scalar at eval time, or with `sharpe_difference_ci` for the
+    gold-standard bootstrap inference.
+
+    Returns a scalar Tensor — MAXIMIZE during training.
+    """
+    a = port_block_ret_a
+    b = port_block_ret_b
+    n = a.shape[0]
+    eps = 1e-12
+
+    mu_a, mu_b = a.mean(), b.mean()
+    sd_a = (a.std() + eps)
+    sd_b = (b.std() + eps)
+    sr_a, sr_b = mu_a / sd_a, mu_b / sd_b
+    delta = sr_a - sr_b
+
+    if with_moments:
+        # Bailey-LdP corrected variance (matches PSR denominator term).
+        # z = (a - mu_a) / sd_a etc.; non-excess (Pearson) kurtosis.
+        za = (a - mu_a) / sd_a
+        zb = (b - mu_b) / sd_b
+        skew_a = (za ** 3).mean()
+        skew_b = (zb ** 3).mean()
+        kurt_a = (za ** 4).mean()
+        kurt_b = (zb ** 4).mean()
+        var_a = (Tensor(1.0) - skew_a * sr_a
+                 + Tensor(0.25) * (kurt_a - Tensor(1.0)) * sr_a * sr_a) / Tensor(max(n - 1, 1))
+        var_b = (Tensor(1.0) - skew_b * sr_b
+                 + Tensor(0.25) * (kurt_b - Tensor(1.0)) * sr_b * sr_b) / Tensor(max(n - 1, 1))
+    else:
+        # Lo 2002 plain delta-method.
+        var_a = (Tensor(1.0) + Tensor(0.5) * sr_a * sr_a) / Tensor(n)
+        var_b = (Tensor(1.0) + Tensor(0.5) * sr_b * sr_b) / Tensor(n)
+
+    # Correlation between the two return streams via central second
+    # cross-moment; differentiable.
+    cov_ab = ((a - mu_a) * (b - mu_b)).mean()
+    rho = cov_ab / (sd_a * sd_b + eps)
+    var_diff = var_a + var_b - Tensor(2.0) * rho * (var_a * var_b + eps).sqrt()
+    se = (var_diff + eps).sqrt()
+    return delta / se
+
+
+def soft_excludes_zero_tensor(
+    t_stat: Tensor, *, alpha: float = 0.05, temperature: float = 0.5,
+) -> Tensor:
+    """Smooth sigmoid indicator of `|t_stat| > z_{α/2}`.
+
+    Differentiable proxy for "the parametric CI excludes 0 on the
+    positive side." Returns a Tensor in (0, 1). Smaller `temperature`
+    is closer to a Heaviside step — but harder to train through
+    because the gradient vanishes outside a narrow band around the
+    threshold.
+
+    Pair with `block_studentized_sharpe_diff` when you want the
+    training signal to be a soft "is this significantly better than
+    the benchmark" rather than the raw t-stat magnitude.
+    """
+    from ss_portfolio.sharpe_diff_smooth import NORM_QUANTILE_95
+    if alpha == 0.05:
+        z = NORM_QUANTILE_95
+    else:
+        from ss_portfolio.deflated import _norm_ppf
+        z = _norm_ppf(1.0 - alpha / 2.0)
+    arg = (t_stat.abs() - Tensor(z)) / Tensor(max(temperature, 1e-9))
+    return (arg.exp() / (Tensor(1.0) + arg.exp()))
+
+
 __all__ = [
     'TRADING_DAYS', 'block_port_returns_np', 'block_port_returns_long_short_np',
-    'block_sharpe', 'block_sharpe_long_short',
+    'block_sharpe', 'block_sharpe_long_short', 'block_studentized_sharpe_diff',
     'block_ir_vs_ew', 'horizon_mixture_loss', 'horizon_mixture_loss_bilevel',
     'horizon_mixture_loss_target', 'long_short_weights',
     'masked_mse', 'pearson_rank_ic', 'per_bar_pearson_ic',
+    'soft_excludes_zero_tensor',
 ]
