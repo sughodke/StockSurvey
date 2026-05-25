@@ -295,6 +295,135 @@ SPECS: list[ArcSpec] = [
         sharpe_std_ann=0.40,
         note='MLP head L/S. Mean val Sharpe L/S −0.118 (negative).',
     ),
+    # Regime app RSI strategy — universe-agnostic walk-forward baseline
+    # (2026-05-25). Tests `regime.trainer.weights_rsi` on stooq_us_long
+    # (312 names) at top_n=20, rsi_n=14, n_tail=5, rebal=20d, 10bps. See
+    # findings/regime-rsi-baseline.md. n_trials=18 = the robustness grid
+    # (rsi_n ∈ {7,14,21} × top_n ∈ {10,20,50} × n_tail ∈ {5,10}). The
+    # baseline arm is the headline; the grid is the deflation term.
+    ArcSpec(
+        key='rsi-universe-agnostic',
+        npz='rsi-universe-agnostic-walkforward.npz',
+        stream_key='oos_block_returns',
+        benchmark_key='oos_ew_returns',
+        mode='overlay',
+        n_trials=18,
+        note='regime-app top-N-most-oversold RSI basket vs passive EW on '
+             'stooq_us_long; mean alpha −0.05 Sharpe, 4/6 windows positive, '
+             'DSR-t ~0 → confirmed-null vs the pre-reg bar.',
+    ),
+    # Regime app scalogram head — universe-agnostic walk-forward baseline
+    # (2026-05-25). Tests `regime.trainer.weights_scalogram`
+    # (direction−momentum×coherence, mean-reversion construction) on
+    # stooq_us_long at top_n=20, scales=[5,21,90], n_tail=21, lookback=252,
+    # rebal=20d, 10bps. Pre-reg verdict reversed-OOS (mean alpha −0.357,
+    # 1/6 pos windows, DSR-t −1.17). Step 1 per-regime universe Optuna
+    # was NOT triggered per pre-reg gate. See
+    # findings/regime-scalogram-baseline.md.
+    ArcSpec(
+        key='regime-scalogram-universe-agnostic',
+        npz='scalogram-universe-agnostic-walkforward.npz',
+        stream_key='oos_block_returns',
+        benchmark_key='oos_ew_returns',
+        mode='overlay',
+        n_trials=12,  # 4 scale-subsets × 3 top_n cells
+        note='regime-app top-N counter-trend scalogram basket vs passive '
+             'EW on stooq_us_long; mean alpha −0.357 Sharpe, 1/6 positive, '
+             'all 12 grid cells negative → reversed-OOS.',
+    ),
+    # Regime app CWT-divergence head — universe-agnostic walk-forward
+    # baseline (2026-05-25). Tests `ss_portfolio.strategies.weights_regime`
+    # (top-N by CWT-power divergence) on stooq_us_long at the
+    # findings/regime-baselines.md canonical defaults: scales=[42,50,63,90,
+    # 126], lookback=120, n_tail=20, top_n=20, divergence='kl', raw-close
+    # input. rebal=20d, 10bps. Pre-reg verdict reversed-OOS at the locked
+    # baseline cell (mean alpha −0.195, 1/6 pos, DSR-t −0.78). Robustness
+    # grid (24 cells) shows the (lookback=60, n_tail=10) sub-band is less
+    # negative — best cell L2/top_n=10 at alpha +0.136 — but the locked
+    # baseline determines the verdict per CLAUDE.md pre-reg discipline.
+    # See findings/regime-cwt-baseline.md.
+    ArcSpec(
+        key='regime-cwt-universe-agnostic',
+        npz='regime-cwt-universe-agnostic-walkforward.npz',
+        stream_key='oos_block_returns',
+        benchmark_key='oos_ew_returns',
+        mode='overlay',
+        n_trials=24,  # 4 divergence × 3 top_n × 2 (lookback,n_tail) cells
+        note='regime-app top-N CWT-divergence basket vs passive EW on '
+             'stooq_us_long; baseline-cell mean alpha −0.195 Sharpe, 1/6 '
+             'positive, DSR-t −0.78 → reversed-OOS.',
+    ),
+    # Relational regime-velocity scorer — universe-agnostic walk-forward
+    # baseline (2026-05-25). Tests `relational.regime_velocity.
+    # weights_velocity_magnitude` (top-N by ||fp_t − fp_{t-W}||) on
+    # stooq_us_long at canonical Phase-11 config: lookback=120, top_n=20,
+    # fp_window=21, w_delta=20, scales=[5,7,10,12,21,26,50,90], rebal=20d,
+    # 10bps. Pre-reg verdict confirmed-null at the locked baseline cell
+    # (mean alpha +0.002, 3/6 pos, DSR-t −0.15). Robustness grid (30 cells:
+    # 2 variants × 3 top_n × 2 w_delta × {2 or 3 scale-sets}) — only one
+    # cell (magnitude, top_n=10, w_delta=20, full scales) clears +0.04
+    # alpha; grid median −0.131. Step 1 NOT triggered per pre-reg.
+    # See findings/regime-velocity-baseline.md.
+    ArcSpec(
+        key='regime-velocity-universe-agnostic',
+        npz='regime-velocity-universe-agnostic-walkforward.npz',
+        stream_key='oos_block_returns',
+        benchmark_key='oos_ew_returns',
+        mode='overlay',
+        n_trials=30,
+        note='relational regime-velocity magnitude scorer vs passive EW on '
+             'stooq_us_long; mean alpha +0.002 Sharpe, 3/6 windows positive, '
+             'DSR-t −0.15 → confirmed-null.',
+    ),
+    # Lie HRP standalone — universe-agnostic walk-forward baseline
+    # (2026-05-25). Tests `lie.hrp.weights_hrp` (López de Prado 2016 HRP)
+    # on stooq_us_long at baseline (linkage=single, lookback=120,
+    # modulator=off). HRP weights ALL names by design — no top_n. Pre-reg
+    # verdict confirmed-null (alpha −0.021, 3/6 pos, DSR-t −0.14, w1 GFC
+    # max-DD −43.6% — HRP did NOT detect symmetry-breaking). 6-cell grid
+    # (linkage ∈ {single, average, ward} × modulator ∈ {off, on}); all
+    # modulator-off cells negative-alpha, all modulator-on cells positive
+    # but the modulator arm is separately recorded (see next entry).
+    # See findings/lie-hrp-baseline.md.
+    ArcSpec(
+        key='lie-hrp-universe-agnostic',
+        npz='lie-hrp-universe-agnostic-walkforward.npz',
+        stream_key='oos_block_returns',
+        benchmark_key='oos_ew_returns',
+        mode='overlay',
+        n_trials=6,
+        note='lie.hrp.weights_hrp standalone (single-linkage) vs passive EW '
+             'on stooq_us_long; mean alpha −0.021 Sharpe, 3/6 pos, '
+             'DSR-t −0.14 → confirmed-null.',
+    ),
+    # Lie HRP + gross-exposure modulator — second arm (2026-05-25).
+    # `gross_exposure_modulator(eff_rank, n_active, floor=0.25)` overlay
+    # from lie/symmetry_rank.py applied AFTER HRP weights at each rebal.
+    # Pre-reg verdict partial-OOS (alpha +0.066, 3/6 pos) — but +0.586
+    # of the lift is concentrated in w5 (2020-2023) alone; DSR-t −0.07.
+    # Modulator is the load-bearing primitive, not HRP itself.
+    ArcSpec(
+        key='lie-hrp-with-gross-modulator',
+        npz='lie-hrp-with-gross-modulator-walkforward.npz',
+        stream_key='oos_block_returns',
+        benchmark_key='oos_ew_returns',
+        mode='overlay',
+        n_trials=6,
+        note='lie.hrp + gross_exposure_modulator (single-linkage) vs '
+             'passive EW on stooq_us_long; mean alpha +0.066 Sharpe, '
+             '3/6 pos, DSR-t −0.07 → partial-OOS (window 5 carries the '
+             'lift).',
+    ),
+    # Critic Φ-imitation policy — NOT comparable to weight-construction
+    # rows above. The critic is a meta-allocator over pair-level Sharpes
+    # from `apps/pairs` v0. Its "deployment" is top-50 pair selection per
+    # window; output unit is mean realized pair Sharpe across selected
+    # pairs, not portfolio Sharpe. It does NOT produce a daily OOS
+    # return stream comparable to standardize_oos, so it is intentionally
+    # NOT in the ladder — record-keeping only. See findings/critic-
+    # policy-baseline.md for the meta-allocator-specific verdict
+    # (partial-OOS by the driver's own pre-reg cuts, capacity-bounded
+    # above by the upstream apps/pairs confirmed-null).
 ]
 
 

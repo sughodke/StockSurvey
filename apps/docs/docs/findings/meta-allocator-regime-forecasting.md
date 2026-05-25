@@ -199,6 +199,19 @@ from 1/N on this panel. The actual bar that mattered was *inverse-vol*,
 not persistence. **L=252 is also the only viable persistence lookback:**
 L=126 and L=504 both underperform by ΔSR_ann −0.260 / −0.643.
 
+## Robustness check (2026-05-24)
+
+**Falsified for the 5-arc no-vol_v3 panel** — see
+[`meta-allocator-no-vol-v3`](meta-allocator-no-vol-v3.md). Re-running
+this exact walk-forward with vol_v3 excluded collapses the B3-vs-B2
+ΔSR_ann from **+0.367 [+0.028, +0.682]** to **+0.039 [−0.152,
++0.220]** (verdict `confirmed-null`). The "deploy inverse-arc-vol"
+operational rule above is **vol_v3-specific** — the deployment recipe
+that survives the robustness check is **DCA + sized vol_v3 sleeve**,
+NOT "inverse-vol over the arc bundle." This finding's lede should
+therefore be read as "the meta-allocator analysis surfaced vol_v3's
+contribution," not as "inverse-vol weighting is itself the edge."
+
 ## Highest-EV follow-up
 
 **Test whether B3 vs B2 reverses if vol_v3 is excluded from the panel.**

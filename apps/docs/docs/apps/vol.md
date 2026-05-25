@@ -93,6 +93,31 @@ the 2021 mega-cap melt-up era shows train R² = 0.000 / val r ≤
 - **Universe restriction by liquidity** — top-100 by OI per
   date.
 
+## Deployment recipe (as of 2026-05-24)
+
+Per the [`vol-sleeve-sizing`](../findings/vol-sleeve-sizing.md)
+finding: deploy vol_v3 as a **`vega_scale = 2.0` overlay on canonical
+DCA**, with `c_options_bps ≤ 200` per rebal. At that setting the
+combined annualized Sharpe is +2.46 (vs DCA-only +1.30), Ledoit-Wolf
+95% CI [+0.028, +2.600] (barely excludes 0), and combined max-DD
+actually improves to −4.9% from DCA's −6.8%. Verdict: `partial-OOS`
+— clears at 200 bps friction, collapses at the 400 bps stress.
+
+Operational dry-run artifact:
+`apps/vol/scripts/sleeve_live_dryrun.py`. Prints would-be sleeve
+orders without submitting; reuses `vol.live.run_live` with
+`dry_run=True`.
+
+Gap to live trading:
+- Real options broker integration (Alpaca Algo Trader Plus ~$99/mo,
+  Tradier $10/mo, or IBKR) for chain-quote throughput at top-200 OI
+  scale.
+- `ALPACA_API_KEY` + `ALPACA_SECRET_KEY` env vars (operator-managed).
+- A new sixth risk rail: realized-friction monitor ("abort if
+  rolling-3-rebal realized c_options_bps > 250"). Not yet built.
+- One VIX-gate-fired rebal cycle of clean dry-runs before flipping
+  `ss-vol live --live`.
+
 ## Reuses + dependencies
 
 - `ss_iv` (`packages/iv/`) — IV loaders + short-vol PnL

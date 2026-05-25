@@ -214,9 +214,16 @@ panel.
    the brief's "regime detection is intrinsically lagged" lower
    bound — the detector reacts after the loss is already locked in.
 
-**Highest-EV follow-up.** Re-run B3 vs B2 with vol_v3 excluded from
-the panel. If the +0.367 ΔSR survives without vol_v3, ship inverse-vol;
-if it does not, the result is a 2024-25-window artifact.
+**Highest-EV follow-up — RESOLVED 2026-05-24.** B3 vs B2 was re-run
+with vol_v3 excluded. Result: ΔSR_ann collapsed from +0.367 [+0.028,
++0.682] to **+0.039 [−0.152, +0.220]** (CI now includes 0), verdict
+**`confirmed-null`** per locked pre-reg bar. **Do NOT ship inverse-
+vol meta-allocator over the arc bundle.** The 2024-25 vol_v3 sleeve
+was carrying the result. Deployment recipe stays "DCA + sized vol_v3
+sleeve" per the ladder-methodology-rewrite finding. See
+[`findings/meta-allocator-no-vol-v3.md`](../findings/meta-allocator-no-vol-v3.md)
+and the 2026-05-24 leaderboard row. Driver:
+`apps/docs/scripts/meta_allocator_no_vol.py`.
 
 Artifacts: `Output/meta-allocator-results.json` +
 `Output/meta-allocator-daily-streams.npz`. Driver:
