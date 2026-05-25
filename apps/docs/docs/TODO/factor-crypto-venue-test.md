@@ -1,6 +1,13 @@
 # Crypto venue port — factor indicator-grid walk-forward on CryptoCompare top-50
 
-**Status: `pending` — scaffold built, smoke-tested locally, Modal eval not yet kicked off.**
+**Status: `Done` — closed 2026-05-25. Verdict `confirmed-null`. See
+[`findings/factor-crypto-venue`](../findings/factor-crypto-venue.md).
+The 74-channel indicator grid does NOT transfer from US equities to
+CryptoCompare top-50 daily at H=5d: linear mean val IC +0.0217 / MLP
++0.0134 (both miss the +0.025 bar); DSR-t below +1.5 on all four cells.
+Next experiment per the decision tree below: perp funding-rate
+cash-and-carry (He-Manela-Ross 2023) — see `.research-beyond-dca.md`
+#2.**
 
 The single most-promising re-point from
 `.research-venue-fit.md` (at repo root): port

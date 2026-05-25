@@ -246,6 +246,55 @@ SPECS: list[ArcSpec] = [
              'durable factor — marginally best of the cross-sectional arms but '
              'sub-significant + recent crowding decay',
     ),
+    # Crypto venue port (2026-05-25) — see findings/factor-crypto-venue.md.
+    # confirmed-null vs the pre-reg bar; kept on the ladder for transparency
+    # and so the next venue-port arc (perp funding-rate cash-and-carry) can
+    # be DSR-compared against the same calibration.
+    # sharpe_std_ann lifted to 0.40 ann per the TODO close-out protocol —
+    # crypto cross-trial dispersion exceeds the 0.072 equity structural
+    # residual; conservative midpoint of the TODO-recommended 0.35-0.50 band.
+    ArcSpec(
+        key='factor-crypto-linear-LO',
+        npz='walkforward-crypto-linear-s200-wd0.001-windows.npz',
+        stream_key='oos_block_returns',
+        mode='standalone',
+        n_trials=2,  # linear + MLP head, single horizon/cost/wd point
+        sharpe_std_ann=0.40,
+        note='74-channel indicator grid → linear head on CryptoCompare '
+             'top-50 (42 effective) at H=5d cross-sectional. Mean val IC '
+             '+0.0217 misses the +0.025 bar; confirmed-null.',
+    ),
+    ArcSpec(
+        key='factor-crypto-linear-LS',
+        npz='walkforward-crypto-linear-s200-wd0.001-windows.npz',
+        stream_key='oos_block_returns_long_short',
+        mode='standalone',
+        n_trials=2,
+        sharpe_std_ann=0.40,
+        note='same head, market-neutral L/S construct (spot-only, '
+             'borrow_bps_yr=0 — perp construction would add funding-rate '
+             'accounting). Mean val Sharpe L/S +0.110, not deployable.',
+    ),
+    ArcSpec(
+        key='factor-crypto-mlp-LO',
+        npz='walkforward-crypto-mlp-s200-wd0.001-windows.npz',
+        stream_key='oos_block_returns',
+        mode='standalone',
+        n_trials=2,
+        sharpe_std_ann=0.40,
+        note='same indicator grid → MLP head. Mean val IC +0.0134, also '
+             'misses the pre-reg bar; MLP overfits training (train IC +0.66 '
+             'vs linear +0.15) without OOS lift.',
+    ),
+    ArcSpec(
+        key='factor-crypto-mlp-LS',
+        npz='walkforward-crypto-mlp-s200-wd0.001-windows.npz',
+        stream_key='oos_block_returns_long_short',
+        mode='standalone',
+        n_trials=2,
+        sharpe_std_ann=0.40,
+        note='MLP head L/S. Mean val Sharpe L/S −0.118 (negative).',
+    ),
 ]
 
 
