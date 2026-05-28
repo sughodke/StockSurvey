@@ -70,6 +70,8 @@ def run_carry(
     sign: str = 'positive',
     rebal_friction_bps_per_leg: float = 15.0,  # 10 bps fee + 5 bps slippage
     n_legs: int = 2,                            # spot + perp
+    basis_error_bps_per_day: float = 0.0,       # per-day basis-tracking-error drag on |notional|
+    funding_threshold_bps_per_day: float | None = None,  # regime-gate: disable if trailing cross-coin mean funding < X bps/day
 ) -> CarryResult:
     """Run the carry backtest over the full panel.
 
@@ -93,17 +95,34 @@ def run_carry(
     # PIT — the rank decision at date d uses funding up through d−1.
     rank_score_panel = fp.rolling(trailing_window, min_periods=max(7, trailing_window // 2)).mean().shift(1)
 
+    # Regime-gate signal: trailing-`trailing_window` cross-coin-mean funding
+    # (shifted 1 day for PIT). Compared against `funding_threshold_bps_per_day`
+    # (units: bps/day = 1e-4 fraction/day). Disables strategy when mean
+    # funding falls below the threshold.
+    threshold_frac = (funding_threshold_bps_per_day * 1e-4) if funding_threshold_bps_per_day is not None else None
+    cross_coin_mean = fp.mean(axis=1, skipna=True).rolling(
+        trailing_window, min_periods=max(7, trailing_window // 2)
+    ).mean().shift(1)
+
     fric_per_leg = rebal_friction_bps_per_leg * 1e-4
     fric_round_trip = n_legs * fric_per_leg  # per unit of new notional
+    basis_drag_per_day = basis_error_bps_per_day * 1e-4  # fraction/day on |notional|
 
     last_rebal_idx = -10**9
     for i, d in enumerate(dates):
         if i - last_rebal_idx >= rebal_days:
             scores = rank_score_panel.loc[d]
+            # Regime gate: if trailing cross-coin mean funding < threshold,
+            # hold no position.
+            gated_off = False
+            if threshold_frac is not None:
+                gate_val = cross_coin_mean.loc[d]
+                if not np.isfinite(gate_val) or gate_val < threshold_frac:
+                    gated_off = True
             chosen, sign_map = _rank_top_k(scores, top_k, sign)
             new_w = pd.Series(0.0, index=coins)
             new_s = pd.Series(0.0, index=coins)
-            if chosen:
+            if chosen and not gated_off:
                 w_per = 1.0 / len(chosen)
                 for c in chosen:
                     new_w[c] = w_per
@@ -122,7 +141,11 @@ def run_carry(
     # PnL = signed-weighted funding payment received that day.
     # Carry payment at day d uses positions in force AT THAT DAY.
     gross = (weights * signs * fp.fillna(0.0)).sum(axis=1)
-    net = gross - friction_cost
+    # Basis-tracking-error drag: per-day deterministic debit scaled by
+    # gross notional in force (|weight|, summed across legs).
+    notional = weights.abs().sum(axis=1)
+    basis_drag = basis_drag_per_day * notional
+    net = gross - basis_drag - friction_cost
     return CarryResult(
         daily_return=net,
         gross_return=gross,
@@ -136,6 +159,8 @@ def run_carry(
             sign=sign,
             rebal_friction_bps_per_leg=rebal_friction_bps_per_leg,
             n_legs=n_legs,
+            basis_error_bps_per_day=basis_error_bps_per_day,
+            funding_threshold_bps_per_day=funding_threshold_bps_per_day,
         ),
     )
 

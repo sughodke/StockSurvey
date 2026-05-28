@@ -167,6 +167,66 @@ not a weight-construction primitive.
    problem, different feature class, different operational use) per
    CLAUDE.md's `confirmed-null` decision rule.
 
+## Window-5 decomposition (2026-05-28 follow-up)
+
+**Verdict: mixed — leaning coincidental.** The gate did fire correctly during
+the 2022 rate-cycle drawdown (sub-period gate=0.25 every rebal, 100% active),
+but it then *stayed stuck at the floor through the 2023 recovery* and missed
+a +0.90 EW Sharpe sub-period. The headline +0.586 w5 lift is a
+Sharpe-arithmetic artifact — scaling the bad sub-periods to floor exposure
+suppresses overall vol in the *combined* w5 stream so the full-window
+ratio inflates, even though each sub-period's modulated Sharpe equals or
+trails the unmodulated standalone in 3 of 4 cells.
+
+| Sub-period           | n_rebals | gate mean | gate active % | HRP Sh | HRP+mod Sh | EW Sh   | α nomod | α mod   | mod lift |
+|----------------------|----------|-----------|---------------|--------|------------|---------|---------|---------|----------|
+| 2020-rebound-tail    | 7        | 1.000     | 0%            | +2.303 | +2.303     | +2.661  | −0.358  | −0.358  | 0.000    |
+| 2021-calm-bull       | 12       | 0.688     | 42%           | +2.162 | +2.205     | +1.983  | +0.179  | +0.222  | +0.043   |
+| 2022-rate-cycle      | 13       | 0.250     | **100%**      | −0.182 | −0.182     | −0.135  | −0.048  | −0.048  | 0.000    |
+| 2023-recovery        | 7        | 0.250     | **100%**      | −0.207 | −0.207     | +0.903  | −1.110  | −1.110  | 0.000    |
+| **Full w5**          | 39       | 0.519     | 64%           | +0.783 | **+1.045** | +1.046  | −0.262  | **+0.324** | **+0.586** |
+
+(Reproduces the finding's −0.262 → +0.324 / +0.586 lift to 3 decimals.)
+
+What's actually happening: the gate is `eff_rank / n_active` clipped to
+`[0.25, 1.0]`. Effective rank dropped from ~31 (2021) to ~24 (2022) to ~25
+(2023) on a 312-name universe with ~150 active names; the floor of 0.25 binds
+once `eff_rank/n_active < 0.25`, which it does for the entire 2022-2023 span
+*plus* the modulated weights for 2023 are scaled identically to 2022 (no
+mechanism to release the floor on recovery). So:
+
+- **Genuine regime detection during 2022**: yes — gate activated 100% of
+  rebals during the drawdown, exactly the symmetry-breaking story.
+- **Coincidental drawup capture during 2020 rebound**: gate was *off*
+  (scalar=1.0 for the entire rebound), so the rebound is captured by the
+  underlying HRP, not gated by the modulator.
+- **Coincidental recovery-miss during 2023**: gate stayed at floor through
+  2023, throttling exposure during the +0.90 EW Sharpe period. This is
+  alpha *destruction*; the lift only survives because the floor (0.25)
+  scales both 2022 losses and 2023 gains by the same factor, while the
+  unmodulated stream eats a full 2022 drawdown that drags its combined
+  vol higher.
+
+Per-sub-period mod-lift sums to +0.043 (the 2021 cell) — the modulator
+delivers ~zero sub-period alpha and the +0.586 full-window number is
+non-additive Sharpe arithmetic. The gate works on its declared mechanism
+(symmetry-break detection) but doesn't translate the detection into
+sub-period alpha; the headline reads as luck-shaped because it depends on
+2023 sitting under the floor.
+
+![Window 5 gate, eff-rank, and cumulative returns](images/hrp-modulator-w5-decomposition.png)
+
+**Operational implication: do NOT promote the modulator to a DCA overlay
+in this form.** The floor-binding behavior is too sticky — once symmetry
+breaks, the gate refuses to re-open on the recovery. If the gate is worth
+salvaging, the next experiment is a *two-sided* gate (open faster than
+it closes, or release on a positive return-regime trigger) tested on the
+same windowing. Current modulator is **mixed**: regime-aware on the
+crash, regime-blind on the bounce.
+
+Driver: `apps/lie/scripts/hrp_w5_decomposition.py`. Numbers in
+`Output/hrp-modulator-w5-decomposition.json`.
+
 ## Master walk-forward log
 
 - [lie-hrp-universe-agnostic — `confirmed-null`](../leaderboard.md#verdict-labels)
@@ -181,5 +241,6 @@ Artifacts:
 
 - `Output/lie-hrp-universe-agnostic-walkforward.{npz,json}` (standalone arm)
 - `Output/lie-hrp-with-gross-modulator-walkforward.npz` (modulator arm)
+- `Output/hrp-modulator-w5-decomposition.json` (w5 sub-period decomposition + gate series, 2026-05-28)
 
 Driver: `apps/lie/scripts/hrp_universe_agnostic.py`.

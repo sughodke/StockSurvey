@@ -45,6 +45,7 @@ class StrangleLeg:
     delta_at_construction: float
     vega_at_construction: float
     side: str = 'sell_to_open'   # convention for entry; flip on close
+    spread_pct_at_construction: float = float('nan')
 
 
 @dataclass(frozen=True)
@@ -144,12 +145,14 @@ def build_short_strangle(
         expiration=best_exp, qty=qty, mid_price_at_construction=call_q.mid,
         iv_at_construction=call_iv, delta_at_construction=call_delta,
         vega_at_construction=call_vega,
+        spread_pct_at_construction=call_q.spread_pct,
     )
     put_leg = StrangleLeg(
         contract_symbol=occ_put, option_type='put', strike=put_q.strike,
         expiration=best_exp, qty=qty, mid_price_at_construction=put_q.mid,
         iv_at_construction=put_iv, delta_at_construction=put_delta,
         vega_at_construction=put_vega,
+        spread_pct_at_construction=put_q.spread_pct,
     )
 
     # NET position is SHORT both legs, so net_vega is NEGATIVE for us

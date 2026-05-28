@@ -53,6 +53,34 @@ def _add_live_args(p: argparse.ArgumentParser) -> None:
                         'Default 3.')
     p.add_argument('--killswitch', default=DEFAULT_KILLSWITCH,
                    help=f'Abort if this file exists. Default {DEFAULT_KILLSWITCH}.')
+    p.add_argument('--allow-falsified', action='store_true', default=False,
+                   help='Permit live dispatch of checkpoints whose strategy is '
+                        'flagged as confirmed-null / reversed-OOS in the '
+                        'leaderboard (currently `velocity` on stooq_us_long; '
+                        'see findings/regime-velocity-baseline.md). Default '
+                        'off — explicit opt-in for ensemble-use deployments.')
+
+
+FALSIFIED_RELATIONAL_STRATEGIES = frozenset({'velocity'})
+
+
+def _check_falsified(checkpoint_path: str, allow: bool) -> None:
+    """Gate confirmed-null relational strategies behind explicit opt-in.
+    `velocity` lost to passive EW on stooq_us_long in the 2026-05-25 audit;
+    see findings/regime-velocity-baseline.md.
+    """
+    from relational.persist import load_checkpoint
+    cp = load_checkpoint(checkpoint_path)
+    strat = getattr(cp, 'strategy', None)
+    if strat in FALSIFIED_RELATIONAL_STRATEGIES and not allow:
+        raise SystemExit(
+            f"refusing to dispatch checkpoint with strategy='{strat}': "
+            f"the 2026-05-25 universe-agnostic audit "
+            f"(findings/regime-velocity-baseline.md) recorded mean alpha "
+            f"+0.002 vs passive EW (confirmed-null) on stooq_us_long. Pass "
+            f"--allow-falsified to override (e.g. for ensemble-use "
+            f"deployments where velocity is one signal among many)."
+        )
 
 
 def main() -> None:
@@ -85,6 +113,7 @@ def main() -> None:
             output_dir=args.output_dir)
     elif args.subcmd == 'live':
         from relational.live import format_run, run_live
+        _check_falsified(args.params, args.allow_falsified)
         result = run_live(
             args.params,
             dry_run=args.dry_run,

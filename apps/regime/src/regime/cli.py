@@ -143,6 +143,15 @@ def _add_live_args(p: argparse.ArgumentParser) -> None:
                    help='Abort if latest bar is older than this many days. Default 3.')
     p.add_argument('--killswitch', default=DEFAULT_KILLSWITCH,
                    help=f'Abort if this file exists. Default {DEFAULT_KILLSWITCH}.')
+    p.add_argument('--allow-falsified', action='store_true', default=False,
+                   help='Permit live dispatch of checkpoints whose strategy is '
+                        'flagged as confirmed-null / reversed-OOS in the '
+                        'leaderboard (rsi, scalogram, regime on stooq_us_long). '
+                        "Default off — the apples-to-apples audit "
+                        '(findings/regime-{rsi,scalogram,cwt}-baseline.md) '
+                        'shows all three lose to passive EW on the wide '
+                        'universe; this flag is explicit opt-in for '
+                        'mega-cap-only research deployments.')
 
 
 def _build_parser() -> argparse.ArgumentParser:
@@ -205,8 +214,33 @@ def _run_train(args: argparse.Namespace) -> None:
         print(f'\nSaved best-window checkpoint to {path}')
 
 
+FALSIFIED_REGIME_STRATEGIES = frozenset({'rsi', 'scalogram', 'regime'})
+
+
+def _check_falsified(checkpoint_path: str, allow: bool) -> None:
+    """Gate confirmed-null / reversed-OOS regime strategies behind
+    an explicit opt-in. Each of `rsi`, `scalogram`, `regime` lost to
+    passive EW on stooq_us_long in the 2026-05-25 audit — see
+    findings/regime-{rsi,scalogram,cwt}-baseline.md.
+    """
+    from regime.persist import load_checkpoint
+    cp = load_checkpoint(checkpoint_path)
+    if cp.strategy in FALSIFIED_REGIME_STRATEGIES and not allow:
+        raise SystemExit(
+            f"refusing to dispatch checkpoint with strategy='{cp.strategy}': "
+            f"the 2026-05-25 universe-agnostic audit "
+            f"(findings/regime-{{rsi,scalogram,cwt}}-baseline.md) recorded "
+            f"this strategy as confirmed-null or reversed-OOS vs passive EW "
+            f"on stooq_us_long. Pass --allow-falsified to override (e.g. for "
+            f"mega-cap-only research deployments where the strategy may "
+            f"still be defensible)."
+        )
+
+
 def _run_live(args: argparse.Namespace) -> None:
     from regime.live import format_run, run_live
+
+    _check_falsified(args.params, args.allow_falsified)
 
     result = run_live(
         args.params,

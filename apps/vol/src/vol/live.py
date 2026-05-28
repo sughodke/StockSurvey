@@ -1,7 +1,7 @@
 """Live orchestration for vol-v3 — checkpoint + Alpaca options paper -> rebalance.
 
 Mirrors `regime/live.py` and `relational/live.py`: same four risk
-rails, same dry-run default. Differences are mechanical, not
+rails plus two vol-specific ones. Differences are mechanical, not
 philosophical:
 
 - Inference is short-vol options, not equity weights. Output is a
@@ -20,6 +20,15 @@ Risk rails (each aborts the run with a clear reason):
      VIX > 126d-median.)
   4. Total vega budget cap across fired picks -> clip to budget.
   5. Dry-run by default — no orders submitted unless --live.
+  6. Realized-friction monitor — abort if rolling-3-rebal mean
+     realized c_options_bps exceeds `max_realized_c_bps` (default 250).
+     The vol-v3 sleeve-sizing finding (partial-OOS) explicitly
+     depends on c_options_bps <= 200; this rail enforces the
+     condition against MEASURED bid-ask spreads, not modeled ones.
+     Today's rebal contributes to the rolling history regardless of
+     whether it triggers an abort; the abort fires on the *prior*
+     rolling-3 mean (so the most-recent observation has time to
+     persist).
 
 Two more implicit prerequisites enforced earlier:
   - Checkpoint validation via `persist.validate(cp)` at load time.
@@ -45,6 +54,85 @@ from vol.strangle import Strangle
 
 
 DEFAULT_KILLSWITCH: str = '~/.vol-killswitch'
+
+# Rail 6 — realized-friction monitor. The sleeve-sizing finding
+# (`apps/docs/docs/findings/vol-sleeve-sizing.md`) is partial-OOS at
+# c_options_bps <= 200 and collapses to CI-includes-0 at c_options_bps
+# = 400. 250 bps is the locked abort threshold: half-way through the
+# danger zone, with rolling-3-rebal averaging so a single noisy quote
+# doesn't trip the kill.
+DEFAULT_FRICTION_HISTORY: str = '~/.vol-friction-history.csv'
+DEFAULT_MAX_REALIZED_C_BPS: float = 250.0
+FRICTION_ROLLING_WINDOW_REBALS: int = 3
+
+
+def _round_trip_c_bps_from_strangles(strangles: list[Strangle]) -> float:
+    """Per-rebal realized round-trip c_options_bps, estimated from the
+    bid-ask spreads of the chosen legs at construction time.
+
+    Round-trip cost per leg = full spread (cross half-spread on entry
+    + half-spread on exit). A short strangle has two legs, so the
+    per-strangle round-trip is `call.spread_pct + put.spread_pct`.
+    We report the vega-weighted mean across strangles in basis points.
+
+    Returns NaN if no strangles or spreads are NaN — caller treats
+    NaN as "no realized signal this rebal" and does not update the
+    rolling mean.
+    """
+    import math
+    total_w = 0.0
+    weighted = 0.0
+    for s in strangles:
+        cs = getattr(s.call, 'spread_pct_at_construction', float('nan'))
+        ps = getattr(s.put,  'spread_pct_at_construction', float('nan'))
+        if not (math.isfinite(cs) and math.isfinite(ps)):
+            continue
+        w = abs(s.net_vega)
+        if w <= 0:
+            continue
+        rt_pct = cs + ps                  # full round-trip per strangle
+        weighted += rt_pct * w
+        total_w += w
+    if total_w == 0:
+        return float('nan')
+    return (weighted / total_w) * 10_000.0  # pct -> bps
+
+
+def _load_friction_history(path: Path) -> list[float]:
+    """Read the rolling c_bps log; empty list if file missing.
+    File format: one float per line, oldest first."""
+    if not path.exists():
+        return []
+    try:
+        vals = []
+        for ln in path.read_text().splitlines():
+            ln = ln.strip()
+            if not ln or ln.startswith('#'):
+                continue
+            try:
+                vals.append(float(ln.split(',')[-1]))
+            except ValueError:
+                continue
+        return vals
+    except OSError:
+        return []
+
+
+def _append_friction_history(path: Path, timestamp: str, c_bps: float,
+                             max_keep: int = 100) -> None:
+    """Append today's measured c_bps to the rolling history file.
+    Keeps the last `max_keep` entries (auto-truncates from the front)
+    so the file doesn't grow unbounded."""
+    import math
+    if not math.isfinite(c_bps):
+        return
+    path = Path(path).expanduser()
+    path.parent.mkdir(parents=True, exist_ok=True)
+    existing = path.read_text().splitlines() if path.exists() else []
+    existing.append(f'{timestamp},{c_bps:.2f}')
+    if len(existing) > max_keep:
+        existing = existing[-max_keep:]
+    path.write_text('\n'.join(existing) + '\n')
 
 
 # --- Result types ----------------------------------------------------------
@@ -81,6 +169,9 @@ class LiveRunResult:
     rejected_orders: list[tuple[str, str]] = field(default_factory=list)
     aborted_reason: str | None = None
     notes: list[str] = field(default_factory=list)
+    # Rail 6 audit
+    realized_c_bps_today: float = float('nan')
+    realized_c_bps_rolling: float = float('nan')
 
 
 # --- Orchestration ---------------------------------------------------------
@@ -96,6 +187,8 @@ def run_live(
     max_total_vega_usd: float = 5000.0,
     max_data_age_days: int = 3,
     killswitch_path: str | Path = DEFAULT_KILLSWITCH,
+    max_realized_c_bps: float = DEFAULT_MAX_REALIZED_C_BPS,
+    friction_history_path: str | Path = DEFAULT_FRICTION_HISTORY,
 ) -> LiveRunResult:
     """Run one vol-v3 rebalance pass and return a structured summary.
 
@@ -111,6 +204,11 @@ def run_live(
         across all submitted strangles is clipped to this.
     max_data_age_days : abort if latest underlying bar is older than this.
     killswitch_path : abort if this file exists.
+    max_realized_c_bps : rail 6 — abort if rolling-N-rebal mean realized
+        round-trip c_options_bps exceeds this (default 250). Derived from
+        constructed strangle leg bid-ask spreads; today's value is
+        appended to `friction_history_path` so the next run sees it.
+    friction_history_path : CSV log of `timestamp,c_bps` for rail 6.
 
     Returns
     -------
@@ -199,6 +297,43 @@ def run_live(
             f'total |vega| ${total_vega:.0f} > cap ${max_total_vega_usd:.0f}; '
             f'scaled by {scale:.3f}')
 
+    # Rail 6: realized-friction monitor (vol-specific, post-build).
+    # Measure today's c_options_bps from the constructed strangles'
+    # bid-ask spreads, then check the rolling-3-rebal mean against
+    # `max_realized_c_bps`. The vol-v3 sleeve-sizing finding's
+    # partial-OOS verdict depends on c_options_bps <= 200; this rail
+    # enforces against MEASURED spreads. The history is loaded BEFORE
+    # appending today's reading, so the abort fires on the prior
+    # window's mean (avoids today's noise self-tripping the kill).
+    fric_path = Path(friction_history_path).expanduser()
+    prior_history = _load_friction_history(fric_path)
+    realized_c_bps_today = _round_trip_c_bps_from_strangles(strangles)
+    rolling = prior_history[-FRICTION_ROLLING_WINDOW_REBALS:]
+    rolling_mean = sum(rolling) / len(rolling) if rolling else float('nan')
+    # Persist today's reading regardless of abort decision so the
+    # next run can see it.
+    import math as _math
+    if _math.isfinite(realized_c_bps_today):
+        _append_friction_history(fric_path, timestamp, realized_c_bps_today)
+        notes.append(
+            f'realized c_options_bps today={realized_c_bps_today:.1f} '
+            f'(prior rolling-{FRICTION_ROLLING_WINDOW_REBALS} '
+            f'mean={rolling_mean:.1f} bps)')
+    if (_math.isfinite(rolling_mean)
+            and len(rolling) >= FRICTION_ROLLING_WINDOW_REBALS
+            and rolling_mean > max_realized_c_bps):
+        result = _aborted(
+            checkpoint_path, timestamp, dry_run,
+            f'rail 6: rolling-{FRICTION_ROLLING_WINDOW_REBALS} mean '
+            f'c_options_bps {rolling_mean:.1f} > cap '
+            f'{max_realized_c_bps:.0f}; sleeve-sizing finding does '
+            f'not support deployment at this friction level')
+        result.realized_c_bps_today = realized_c_bps_today
+        result.realized_c_bps_rolling = rolling_mean
+        result.gate = gate
+        result.notes = notes
+        return result
+
     # Always run the submit path — dry_run=True produces synthetic
     # DRY_RUN_* order ids so the operator sees what *would* be submitted.
     # The real-money guard is the `dry_run` flag passed through.
@@ -217,6 +352,8 @@ def run_live(
         account_equity=float(acct.equity), account_cash=float(acct.cash),
         last_bar_date=last_bar_date, n_universe=len(cp.universe),
         n_eligible=n_eligible, gate=gate,
+        realized_c_bps_today=realized_c_bps_today,
+        realized_c_bps_rolling=rolling_mean,
         top_k_picks=picks, strangles=strangles,
         submitted_order_ids=order_ids, rejected_orders=rejections,
         notes=notes,
@@ -449,6 +586,11 @@ def format_run(result: LiveRunResult) -> str:
         f'{result.gate.lookback_days}d-median {result.gate.rolling_median:.2f}'
         f' -> {"FIRED" if result.gate.fired else "closed"}',
     ]
+    import math as _math
+    if _math.isfinite(result.realized_c_bps_today) or _math.isfinite(result.realized_c_bps_rolling):
+        lines.append(
+            f'  friction   : today c_bps={result.realized_c_bps_today:.1f} '
+            f'rolling-{FRICTION_ROLLING_WINDOW_REBALS}={result.realized_c_bps_rolling:.1f}')
     if result.aborted_reason:
         lines.append(f'  ABORTED    : {result.aborted_reason}')
         return '\n'.join(lines)
@@ -481,6 +623,8 @@ def format_run(result: LiveRunResult) -> str:
 
 
 __all__ = [
-    'DEFAULT_KILLSWITCH', 'GateState', 'LiveRunResult', 'run_live',
+    'DEFAULT_KILLSWITCH', 'DEFAULT_FRICTION_HISTORY',
+    'DEFAULT_MAX_REALIZED_C_BPS', 'FRICTION_ROLLING_WINDOW_REBALS',
+    'GateState', 'LiveRunResult', 'run_live',
     'submit_strangles', 'format_run',
 ]
