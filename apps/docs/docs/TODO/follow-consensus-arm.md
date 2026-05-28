@@ -1,10 +1,32 @@
 # Follow-the-leader v1 — cross-sectional consensus arm
 
-## Status
+## Status — DONE 2026-05-28
+
+Executed 2026-05-28. Verdict
+[`confirmed-OOS`](../leaderboard.md#verdict-labels) vs the locked TODO
+pre-reg bar (`partial-OOS` under the alternative user-brief CI-based
+reading). See
+[`findings/follow-consensus-arm`](../findings/follow-consensus-arm.md)
+for the eval, fold-3 OOS verdict, and operational rule.
+
+Headline: fold-1+2 reproduced v0 (Sh +1.020 vs +1.006; α +5.45 vs
++5.25 pp/yr). Fold-3 (unseen 2025-01 → 2025-10, n=198) posted
+Sh +0.863 / α vs SPY +5.13 pp/yr / pos-Q 100%. Pooled standalone
+defl-t +2.58 clears, but pooled edge-vs-SPY defl-t +1.37 sub +2.0
+and fold-3 stationary-bootstrap 95% CI [−18.28, +25.83] does not
+exclude 0 (n=198 too small).
+
+Operational rule: ship as ensemble constituent with SPY β-hedge;
+re-evaluate standalone deployment after xlsx refresh grows fold-3
+past ~500 days.
+
+---
+
+## Original pre-registration (kept for audit)
 
 Spawned by the v0 follower's `confirmed-null` verdict
 ([`findings/follow-leadership-disclosure`](../findings/follow-leadership-disclosure.md))
-on 2026-05-25. Pre-registration draft; not yet executed.
+on 2026-05-25.
 
 ## Mechanism (why this could succeed)
 
