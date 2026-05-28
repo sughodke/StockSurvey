@@ -13,3 +13,5 @@ StooqData/
 
 .macro-cache/
 .edgar-cache/
+.hl-cache/
+.congress-cache/

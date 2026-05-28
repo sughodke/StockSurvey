@@ -1,0 +1,26 @@
+[project]
+name = "follow"
+version = "0.1.0"
+requires-python = ">=3.10"
+description = "Follow-the-leader: leadership-tier congressional-disclosure follower strategy."
+dependencies = [
+    "ss-loaders",
+    "ss-portfolio",
+    "numpy",
+    "pandas",
+    "openpyxl",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/follow"]
+
+[project.scripts]
+ss-follow = "follow.cli:main"
+
+[tool.uv.sources]
+ss-loaders = { workspace = true }
+ss-portfolio = { workspace = true }

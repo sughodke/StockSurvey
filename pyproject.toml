@@ -63,6 +63,7 @@ vol = { workspace = true }
 cfr = { workspace = true }
 dca = { workspace = true }
 critic = { workspace = true }
+follow = { workspace = true }
 ss-docs = { workspace = true }
 
 [dependency-groups]

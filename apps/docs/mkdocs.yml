@@ -103,10 +103,13 @@ nav:
   - Tags: tags.md
   - Findings:
       - findings/index.md
+      - "Post-2020 cross-arc ranking & DCA+vol_v3 ensemble drilldown (partial-OOS synthesis; only vol_v3 standalone +10.73 [+7.89,+13.37] and DCA+2xvol_v3 ensemble +1.90 [+1.13,+3.10] clear LW CI vs DCA at 95%; 11 other arcs ns; sleeve-sizing +1.16 headline replicates AND grows on full daily span)": findings/post-2020-arc-ranking.md
       - Meta-allocator regime forecasting (B3 inverse-arc-vol confirmed-OOS vs 1/N at 95% CI; every modeling candidate C1-C5 reversed-OOS vs B3): findings/meta-allocator-regime-forecasting.md
       - Meta-allocator no-vol_v3 falsification (B3-vs-B2 collapses from +0.367 [+0.028, +0.682] to +0.039 [-0.152, +0.220], confirmed-null; inverse-vol's edge was vol_v3-carried): findings/meta-allocator-no-vol-v3.md
       - "Vol_v3 sleeve sizing (partial-OOS; 9x4 friction grid on DCA x vol-v3-DoltHub-OOS; recommended vega_scale=2.0 at c_options_bps<=200 -> combined Sharpe +2.46 vs DCA +1.30, CI [+0.028, +2.600] barely excludes 0, max-DD actually improves; collapses at c_bps=400)": findings/vol-sleeve-sizing.md
       - "Factor crypto venue port (confirmed-null; 74-channel indicator grid does NOT transfer to CryptoCompare top-50 at H=5d; linear val IC +0.0217, mlp +0.0134, both miss the +0.025 pre-reg bar and DSR-t < +1.5 on all four cells; next arc is perp funding-rate cash-and-carry)": findings/factor-crypto-venue.md
+      - "Crypto-and-carry — perp funding-rate cash-and-carry on Hyperliquid (confirmed-OOS vs locked pre-reg bar: net Sharpe +9.25 / DSR-t +11.8 / pos-Q 0.80 / max-DD −0.99% on 2024-01-01→2026-05-24; HEADLINE IS UPPER BOUND — academic-clean carry approximation, zero basis-tracking error or short-spot borrow; 2024 fold Sh +13.8 / 2025 +7.76 / 2026YTD −0.63 mirrors funding-regime collapse 27.5%/yr → 0.4%/yr; Binance/Bybit geo-blocked, OKX 3mo cap forced HL substitution)": findings/cnc-funding-rate-carry.md
+      - "Follow-the-leader congressional disclosure (confirmed-null vs locked pre-reg bar: leadership-arm best-cell mean ann Sh +0.80 / α vs SPY −0.09pp/yr / DSR-t −1.91 on 2019-21 ∪ 2022-24; entered at filed+1 trading day per Bowne-2024 lag prediction — apparent alpha vanishes; fold-1 +3.45pp/yr collapses to fold-2 −1.7pp/yr; surprise: all-members frequency-filter arm posts ann Sh +1.01 / α +5.25pp/yr but is NOT the pre-registered cell, recorded as next-arc hypothesis)": findings/follow-leadership-disclosure.md
       - Ladder methodology rewrite (Ledoit-Wolf primary; DSR demoted to within-stratum gate; ZERO arcs beat DCA at 95% CI): findings/ladder-methodology-rewrite.md
       - Deflated Sharpe (within-arc gate; superseded for cross-arc rank by ladder-methodology-rewrite): findings/deflated-sharpe-leaderboard.md
       - Borrow-stress vol (liquid, reversed-OOS): findings/vol-borrow-liquid-universe.md
@@ -169,6 +172,7 @@ nav:
   - Workflows: workflows.md
   - TODO:
       - TODO/index.md
+      - "Follow-the-leader v1 — cross-sectional consensus arm (orthogonal lever after v0 leadership-arm confirmed-null; pre-reg locked cell h=30/k=10/frequency on all-members cohort with `filed+1` entry; 3 folds with fold-3 2025-26 as unseen verdict slice)": TODO/follow-consensus-arm.md
       - Done — Meta-allocator regime forecasting (confirmed-OOS for B3 inverse-arc-vol vs B2 1/N at 95% CI on 6-arc panel; FALSIFIED on 5-arc no-vol_v3 panel — see meta-allocator-no-vol-v3 finding): TODO/meta-allocator-regime-forecasting.md
       - "Done - Vol_v3 sleeve sizing (partial-OOS; recommended vega_scale=2.0 at c_options_bps<=200, combined Sharpe +2.46 vs DCA +1.30 with CI [+0.028, +2.600]; gap to live = options-broker integration + paid quote source)": TODO/vol-v3-sleeve-sizing.md
       - Done — apps/critic Φ value function (confirmed-null v0 + v0.1 rescue): TODO/critic-phi-value-function.md

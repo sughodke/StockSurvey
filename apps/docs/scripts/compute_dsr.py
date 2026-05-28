@@ -295,6 +295,34 @@ SPECS: list[ArcSpec] = [
         sharpe_std_ann=0.40,
         note='MLP head L/S. Mean val Sharpe L/S −0.118 (negative).',
     ),
+    # Crypto-and-carry — perp funding-rate basis trade on Hyperliquid
+    # (2026-05-25). Pre-reg cell K=5, rebal_days=1, sign=positive,
+    # trailing_window=30; eval substrate 2024-01-01 → 2026-05-24
+    # (875 days × 18 coins). Verdict `confirmed-OOS` against the
+    # locked pre-reg bar — but the headline net Sharpe +9.25 is the
+    # academic-clean carry approximation (PnL = signed-funding ·
+    # weight − rebal friction); deployable Sharpe carries unmodeled
+    # basis-tracking error + short-leg borrow drag. 36-cell grid
+    # uniformly positive; best cell (K=10, rebal=7d, trail=30d)
+    # at +11.47. sharpe_std_ann=0.40 mirrors the crypto-venue port
+    # calibration (factor-crypto-* arcs above). See
+    # findings/cnc-funding-rate-carry.md.
+    ArcSpec(
+        key='cnc-funding-rate-carry',
+        npz='cnc-walkforward.npz',
+        stream_key='oos_block_returns',
+        mode='standalone',
+        n_trials=36,
+        sharpe_std_ann=0.40,
+        note='Hyperliquid top-20 perp funding-rate cash-and-carry, '
+             'top-K-most-funded daily rebal, 30 bps round-trip leg '
+             'friction. Pre-reg net Sharpe +9.25 (deflated-t +11.8), '
+             'pos-quarter 0.80, max DD −0.99%. Headline is upper bound — '
+             'academic-clean carry, no basis-tracking error or short-spot '
+             'borrow. 2024 fold Sh +13.8 / 2025 +7.8 / 2026YTD −0.63: '
+             'funding-rate regime collapsed from 27%/yr (2024) → 9%/yr '
+             '(2025) → 0.4%/yr (2026YTD); see funding-collapse caveat.',
+    ),
     # Regime app RSI strategy — universe-agnostic walk-forward baseline
     # (2026-05-25). Tests `regime.trainer.weights_rsi` on stooq_us_long
     # (312 names) at top_n=20, rsi_n=14, n_tail=5, rebal=20d, 10bps. See
@@ -413,6 +441,26 @@ SPECS: list[ArcSpec] = [
              'passive EW on stooq_us_long; mean alpha +0.066 Sharpe, '
              '3/6 pos, DSR-t −0.07 → partial-OOS (window 5 carries the '
              'lift).',
+    ),
+    # Follow-the-leader congressional disclosure follower (2026-05-25).
+    # Long-only top-K basket of stocks recently disclosed as purchases by
+    # leadership-tier US House+Senate members, entered at `filed + 1`
+    # trading day (disclosure-lag-honest). 18-cell grid: hold_days
+    # ∈ {30,60,90} × top_k ∈ {10,25,50} × filter ∈ {recency,frequency}.
+    # Deployable cell h=60,k=25,recency on concatenated val slices
+    # (fold-1 val 2019-21 ∪ fold-2 val 2022-24; pooled OOS n=1510 days).
+    # Overlay vs SPY (the claimed edge is alpha-over-passive-market).
+    # See findings/follow-leadership-disclosure.md.
+    ArcSpec(
+        key='follow-leadership-disclosure',
+        npz='follow-walkforward.npz',
+        stream_key='oos_block_returns',
+        benchmark_key='spy_ret',
+        mode='overlay',
+        n_trials=18,  # 3 hold x 3 top_k x 2 filter
+        note='leadership-cohort top-K disclosure follower; mean best-cell '
+             'ann Sharpe +0.80 (alpha vs SPY −0.09pp/yr); Bowne-2024 '
+             'disclosure-lag-killed-alpha prediction confirmed.',
     ),
     # Critic Φ-imitation policy — NOT comparable to weight-construction
     # rows above. The critic is a meta-allocator over pair-level Sharpes
