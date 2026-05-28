@@ -462,6 +462,29 @@ SPECS: list[ArcSpec] = [
              'ann Sharpe +0.80 (alpha vs SPY −0.09pp/yr); Bowne-2024 '
              'disclosure-lag-killed-alpha prediction confirmed.',
     ),
+    # Follow-the-leader v1 all-members consensus arm (2026-05-28).
+    # Orthogonal-lever follow-up to v0 leadership-arm confirmed-null.
+    # Pre-registered single locked cell (h=30, k=10, filter=frequency,
+    # filed+1 entry, all-members cohort) with fold-3 (2025-01 → 2025-10)
+    # as the UNSEEN OOS verdict slice. n_trials=1 because the cell was
+    # locked in TODO/follow-consensus-arm.md BEFORE the eval ran (folds
+    # 1+2 had been post-hoc-grid-searched in v0 but the cell + the
+    # fold-3 slice are pre-registered for this row). Pooled stream is
+    # fold-1 ∪ fold-2 ∪ fold-3 daily returns (n=1708). See
+    # findings/follow-consensus-arm.md.
+    ArcSpec(
+        key='follow-consensus-all-members',
+        npz='follow-consensus-fold3-walkforward.npz',
+        stream_key='oos_block_returns',
+        benchmark_key='spy_ret',
+        mode='overlay',
+        n_trials=1,
+        note='all-members consensus disclosure follower; pooled Sh +0.998, '
+             'alpha vs SPY +5.41pp/yr; fold-3 (unseen 2025) alpha +5.13pp/yr / '
+             'Sh +0.86 / pos-Q 100%; standalone defl-t +2.58, edge-vs-SPY '
+             'defl-t +1.37 (sub +2.0); confirmed-OOS vs TODO bar, partial-OOS '
+             'under CI-based reading.',
+    ),
     # Critic Φ-imitation policy — NOT comparable to weight-construction
     # rows above. The critic is a meta-allocator over pair-level Sharpes
     # from `apps/pairs` v0. Its "deployment" is top-50 pair selection per
