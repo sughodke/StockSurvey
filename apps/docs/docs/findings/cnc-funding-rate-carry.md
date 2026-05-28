@@ -11,8 +11,21 @@ positive, but it does *not* establish a deployable +9 Sharpe — basis
 tracking error, short-spot borrow on alts, and venue selection all
 debit yield in real execution. The 2024 fold carries the bulk of the
 alpha (Sh +13.8 on 27.5%/yr funding); 2026YTD has effectively zero edge
-(Sh −0.63 on 0.4%/yr funding). **Do not promote to live without a
-basis-tracking-error stress test and a venue port to a higher-history
+(Sh −0.63 on 0.4%/yr funding). The 2026-05-28 stress + gate followups
+(see "Stress + gate followups" section below) close the deployability
+question with a hard negative: the trade is **`friction-fragile`** —
+break-even basis-tracking drag is **~4.1 bps/d** (Sh=+1.0 crossing,
+interpolated), well below the ≥10 bps/d bar the deployment-robust
+verdict required, and even below the 5 bps/d "real-world OKX
+tracking" target. The funding-regime gate is **falsified at every
+threshold tested** — higher thresholds protect 2026 by keeping the
+strategy flat but unconditionally drag 2024-25 mean Sharpe down by
+≥2.08 (vs the ≤1.0 ceiling the pre-lock allowed), because cross-coin
+trailing-mean funding dips below the threshold during isolated 2025
+weeks where individual coin funding remained extractable. **Do not
+deploy CNC as-is on HL.** The arc closes as
+**substrate-confirmed, deployment-falsified**. **Do not promote to
+live without a venue port to a higher-history
 funding source.**
 
 ## Why this arc, why this venue
@@ -311,3 +324,135 @@ Single-config CLI smoke:
 uv run ss-cnc backtest --start 2024-01-01 --top-universe 20 \
   --top-k 5 --rebal-days 1 --trailing-window 30 --sign positive
 ```
+
+## Stress + gate followups (2026-05-28)
+
+The parent finding's "Stop-working" decision branch pre-registered two
+follow-up tests: (A) basis-tracking-error stress and (B)
+funding-regime gate. Driver:
+`apps/cnc/scripts/run_stress_and_gate.py`. Artifacts:
+`Output/cnc-stress-walkforward.{npz,json}` (144 runs: 36-cell grid ×
+4 drag levels) and `Output/cnc-gate-walkforward.{npz,json}` (5
+threshold levels on the pre-reg cell). Local wall ~11 min.
+
+### (A) Basis-tracking-error stress — `friction-fragile`
+
+Modeling: subtract `basis_error_bps_per_day × Σ|weight|` from gross
+*before* friction. Constant (not stochastic) drag is the conservative
+first cut — real-world tracking error is mean-zero noise plus an
+expected slippage drift, and the drift dominates over a sufficient
+horizon.
+
+Pre-reg cell (K=5, rebal=1d, sign=positive, trail=30d) net Sharpe
+under each drag level (pooled full span 2024-01-01 → 2026-05-24):
+
+| basis drag (bps/d) | net Sharpe | per-fold 2024 | 2025 | 2026YTD |
+|---|---|---|---|---|
+| 0 (baseline) | +9.195 | +13.84 | +7.76 | −0.89 |
+| 5 | −0.864 | +4.11 | −2.94 | −9.16 |
+| 10 | −10.91 | −5.59 | −13.59 | −17.44 |
+| 20 | −30.40 | −24.99 | −34.36 | −33.99 |
+
+**Break-even basis drag (interpolated Sh=+1.0 crossing): ~4.07
+bps/d.** That is materially below the 5 bps/d "real-world OKX cross-
+basis tracking" target and far below the 10 bps/d "HL→OKX cross-
+venue execution" target. **Verdict per pre-lock: `friction-fragile`**
+(net Sharpe < +1.0 at the 5 bps/d drag level).
+
+Mechanism: the gross funding yield averages roughly 12%/yr (~3.3
+bps/d) across the pooled span — once you debit a 5 bps/d *expected*
+tracking drift, you have eaten the entire gross yield plus 1.7 bps/d
+of capital. The 2024 fold's exceptional Sharpe disguises the fact
+that even there the gross was ~7.5 bps/d, so a 5 bps/d drag halves
+it; on 2025 + 2026 it goes negative outright.
+
+The grid-wide pattern confirms structural fragility, not pre-reg-
+cell-specific bad luck: at 5 bps/d every one of the 36 cells turns
+negative or near-zero (median Sh −1.5; best cell drops from +11.47
+to −0.42); at 10 bps/d every cell posts double-digit-negative Sharpe.
+
+### (B) Funding-regime gate — falsified at every threshold
+
+Modeling: at each rebal, compute trailing-30d cross-coin-mean
+funding (PIT-shifted by 1d). If below `funding_threshold_bps_per_day`,
+hold flat for that rebal cycle.
+
+Pre-reg cell, zero basis drag, per-threshold Sharpe and the gate-
+verdict criteria:
+
+| threshold (bps/d) | active fraction | full Sh | 2024 Sh | 2025 Sh | 2026 Sh | Δ24-25 mean vs baseline | verdict |
+|---|---|---|---|---|---|---|---|
+| None (baseline) | 0.98 | +9.20 | +13.84 | +7.76 | −0.89 | 0 | — |
+| 0.5 | 0.81 | +7.38 | +13.17 | +4.26 | −3.55 | +2.08 | falsified |
+| 1.0 | 0.70 | +7.31 | +11.76 | +4.82 | −2.60 | +2.50 | falsified |
+| 2.0 | 0.54 | +7.79 | +12.24 | +4.45 | +0.00 | +2.45 | falsified |
+| 5.0 | 0.25 | +5.33 | +9.87 | −1.05 | +0.00 | +6.39 | falsified |
+
+Pre-lock said `confirmed` if 2026YTD Sh lifts ≥ 0 AND 2024-25 mean
+Sh loses ≤ 1.0. No threshold satisfies both clauses simultaneously.
+
+The cleanest case (thr=2.0): 2026 gate-flat correctly suppresses the
+2026 loss (Sh exactly 0 because we never trade), but 2024-25 mean
+Sh falls by 2.45 (≈23%) vs ungated, well above the 1.0 ceiling.
+Active fraction drops to 0.54, meaning the gate was fighting the
+strategy on roughly half of 2024-25 days too.
+
+Mechanism: the gate's coin-pooled trailing-30d-mean signal is too
+coarse. When BTC/ETH funding is ~0 (true most of 2025-2026) and
+the alt-tail (FARTCOIN, HYPE, NEAR) is paying 30-100%/yr, the
+cross-coin mean is pulled below threshold by the BTC/ETH zeros even
+though the strategy's actual selection (top-K by trailing funding)
+sits squarely in the high-paying alt-tail. A per-coin gate, or a
+gate on the top-K trailing mean (not the universe trailing mean),
+would be the next thing to try — but the more fundamental issue is
+that the deployment-fragility failure in (A) makes the gate
+question moot: there is no operating point at which CNC clears the
++1.0 Sharpe bar after realistic basis drag, regardless of any gate.
+
+### Combined verdict and what to do next
+
+**The arc closes substrate-confirmed, deployment-falsified.** The
++9.25 academic Sharpe is real in the no-friction-error model but
+collapses well below the deployable bar at any realistic tracking
+drag, and the gate cannot rescue it because the strategy is friction-
+sensitive in *every* funding regime, not just the 2026YTD low-funding
+regime.
+
+Three surprises:
+
+1. **Break-even drag at 4.07 bps/d, not 10 bps/d.** I had expected
+   `friction-fragile` to mean "fails at 10 bps but survives 5" — in
+   fact even 5 bps/d collapses the trade. The 27.5%/yr 2024 funding
+   regime is the only place gross beats the modeled drag, and the
+   2024 fold's gross was already mostly consumed by rebal friction
+   before any basis drag was added.
+2. **Higher thresholds hurt 2024-25 Sharpe, not just constrain it.**
+   At thr=0.5 the 2025 fold falls from +7.76 → +4.26 (a 45% drop)
+   despite the actual 2025 cross-coin funding mean averaging ~2.4
+   bps/d (well above 0.5). Mechanism: 2025 had transient cross-
+   coin-pooled-mean dips during otherwise-extractable weeks, so the
+   gate sat out the recoveries.
+3. **At thr=5.0 the gate actively introduces a 2025 loss** (Sh
+   −1.05 from +7.76). Active fraction is 0.25 — the gate trades
+   only the highest-yield clusters, but those clusters contain
+   transient drawdowns the dense full-strategy averaged out across
+   neighbouring days. Selectivity is anti-additive here: trading
+   only the best signal-days gives you worse Sharpe than trading
+   everything, because the "off" days are mostly small-positive
+   not negative.
+
+Next experiment (recorded as `TODO/cnc-followups.md`): a venue port
+to OKX / paid Binance deep-funding is the only path that could
+materially change the deployability verdict — a higher-yielding
+venue with funding gross ≥ 8-10 bps/d would push break-even drag
+out to 10+ bps/d and might re-open the deployment window. Until
+that data is available, the CNC arc is closed.
+
+## Master walk-forward log pointer (stress + gate)
+
+Per-row policy: the stress + gate followups are *elaborations* on
+the parent leaderboard row (2026-05-25), not new rows. The parent
+row's notes column is updated with a one-line pointer
+("stress + gate followups landed 2026-05-28: friction-fragile at
+break-even 4.07 bps/d; gate falsified at all thresholds; see
+updated finding").

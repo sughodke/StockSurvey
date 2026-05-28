@@ -173,6 +173,7 @@ nav:
   - Workflows: workflows.md
   - TODO:
       - TODO/index.md
+      - "CNC venue-port followups (parent CNC arc closed substrate-confirmed but deployment-falsified 2026-05-28; basis-tracking-error stress = friction-fragile at break-even ~4.07 bps/d; funding-regime gate falsified at all thresholds; only remaining adjacent path is a venue port to OKX / paid Binance / Bybit deep-history)": TODO/cnc-followups.md
       - "Follow-the-leader v1 — cross-sectional consensus arm (orthogonal lever after v0 leadership-arm confirmed-null; pre-reg locked cell h=30/k=10/frequency on all-members cohort with `filed+1` entry; 3 folds with fold-3 2025-26 as unseen verdict slice)": TODO/follow-consensus-arm.md
       - Done — Meta-allocator regime forecasting (confirmed-OOS for B3 inverse-arc-vol vs B2 1/N at 95% CI on 6-arc panel; FALSIFIED on 5-arc no-vol_v3 panel — see meta-allocator-no-vol-v3 finding): TODO/meta-allocator-regime-forecasting.md
       - "Done - Vol_v3 sleeve sizing (partial-OOS; recommended vega_scale=2.0 at c_options_bps<=200, combined Sharpe +2.46 vs DCA +1.30 with CI [+0.028, +2.600]; gap to live = options-broker integration + paid quote source)": TODO/vol-v3-sleeve-sizing.md
