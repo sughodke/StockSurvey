@@ -6,10 +6,12 @@ state in fp32, cast outputs back to fp32 before the loss.
 Backend notes:
 - Native bf16: Ampere A100/A40, Ada L4/L40, Hopper H100 — 2-4x tensor-core
   speedup on bf16 matmul vs fp32.
-- Turing T4, V100: no native bf16 hardware. Tinygrad silently runs fp32
-  (or emulates) — no speedup, no error. The flag is harmless.
-- CPU/Metal on Intel Mac: bf16 may not be supported by the local backend;
-  pass `use_bf16=False` to opt out.
+- **Turing T4 / V100: NO bf16 support in tinygrad's CUDA path.** Compile
+  throws `Nvrtc Error NVRTC_ERROR_COMPILATION, Unresolved extern function
+  '_ZN13__nv_bfloat16C1Ef'`. Confirmed 2026-05-29 on Modal T4 with the
+  current tinygrad pin. **Always set `use_bf16=False` on T4** — it does
+  not silently fall back. The bf16 flag is opt-in, not opt-out.
+- CPU/Metal on Intel Mac: bf16 may not be supported; pass `use_bf16=False`.
 
 Reference: `apps/replay/decoders.py` (`_maybe_bf16` origin pattern),
 `apps/factor/cwt_gru_walkforward.py` (TinyJit-with-bf16 pattern).

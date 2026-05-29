@@ -37,7 +37,9 @@ class HparamsV3p5:
     long_vol_max: float = 5.0
     k_active: int = 50
     vol_temperature: float = 1.0
-    use_bf16: bool = True         # native bf16 on Ada L4/Hopper H100; harmless on T4
+    use_bf16: bool = False        # opt-in. T4 PTX path throws compile errors;
+                                   # safe on Ada L4 / Hopper H100. Set True
+                                   # explicitly when on L4+.
 
 
 class AllocatorV3p5:
