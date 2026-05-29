@@ -64,6 +64,7 @@ cfr = { workspace = true }
 dca = { workspace = true }
 critic = { workspace = true }
 follow = { workspace = true }
+e2e-portfolio = { workspace = true }
 ss-docs = { workspace = true }
 
 [dependency-groups]
