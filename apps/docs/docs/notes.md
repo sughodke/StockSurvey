@@ -537,3 +537,71 @@ of the target cohort before building anything**; it is the cheapest
 gate and it fails the most seductive ideas (real-signal-in-an-
 illiquid-cohort) fastest. The alpha-vs-EW metric hides this because
 both arms are notional — neither has to be quotable to difference.
+
+## Learner layer matters more than learner complexity
+
+Across the repo there are several "cleverer-model-on-standard-data is
+confirmed-null 49×" lines (see
+[`TODO/vol-borrow-liquid-universe`](TODO/vol-borrow-liquid-universe.md),
+[`TODO/factor-cwt-return-coupled`](TODO/factor-cwt-return-coupled.md),
+[`TODO/factor-reinforce-target-side`](TODO/factor-reinforce-target-side.md),
+[`findings/factor-endogenous-horizon-mixture`](findings/factor-endogenous-horizon-mixture.md),
+the 2026-05-17 factor-cwt row of the
+[`leaderboard`](leaderboard.md)). Those claims are correct **within
+their narrow scope**: learners trained at the *prediction layer*
+(forecast next-period cross-sectional returns; train rank-IC, eval
+Sharpe; softmax weights on a probability simplex) have indeed lost
+49× across the leaderboard. That story remains operationally true.
+
+**The narrow scope is the whole point.** Three closing arcs on
+2026-05-28 sharpened where learners DO work and where they don't:
+
+1. **At the prediction layer (forecast cross-arc / cross-sectional
+   returns)** — still confirmed-null. See
+   [`findings/meta-allocator-internal-features`](findings/meta-allocator-internal-features.md):
+   ridge / kernel-ridge / 2-PC predictive regression on 14 strategy-
+   internal features at quarterly cadence all underperformed B3
+   inverse-vol AND the canonical (DCA + 2×vol_v3) by ΔSR margins
+   that excluded zero negative. Same data, same arcs, wrong layer.
+2. **At the sizing / allocation layer (direct portfolio Sharpe
+   loss, unconstrained weights)** — **confirmed-OOS**. See
+   [`findings/learned-ensemble-beats-deterministic`](findings/learned-ensemble-beats-deterministic.md):
+   a 2-parameter mean-variance learner (closed-form + gradient
+   ascent on Sharpe both converge) over the joint (DCA daily,
+   vol_v3 daily-aligned) return stream beats the deterministic
+   `(1, 2)` recipe on every OOS split with ΔSR_ann +3.0 to +4.9,
+   every CI excluding 0, and tighter max-DD.
+3. **At the end-to-end paradigm layer (direct Sharpe loss on raw
+   inputs, deep encoder)** — paradigm directionally confirmed on
+   fold-3 unseen 2024+ (Sharpe +1.21–1.25), pooled CI-includes-zero
+   vs DCA. See [`findings/e2e-portfolio-v1`](findings/e2e-portfolio-v1.md)
+   and [`findings/e2e-portfolio-v2`](findings/e2e-portfolio-v2.md).
+   The vol_position output head in v2 learned exactly the right
+   regime gate (mean +0.52 on fold-3, ~0 in no-IV folds) without
+   any meta-layer alpha streams as inputs.
+
+The unifying frame: **a learner's failure to match a deterministic
+benchmark that extracts real alpha is a learner-objective failure,
+not a no-signal verdict on the data.** The deterministic recipe
+`DCA + 2×vol_v3` is *itself* a learned answer (it captures the σ/α
+mismatch of two alpha streams via fixed mean-variance reasoning); a
+learner that can't represent gross > 1.0 (softmax on simplex)
+physically can't represent the recipe, regardless of how clever the
+predictor.
+
+**Operational implication for choosing the lever.** When a learner
+arc lands `confirmed-null` vs a deterministic benchmark that extracts
+real alpha:
+
+- First check the **action space**: does it include the deterministic
+  answer as a representable policy?
+- Then check the **objective**: is it portfolio Sharpe directly, or
+  a forecast loss that's only a proxy for portfolio Sharpe?
+- Only after both are correct does "the model isn't extracting
+  signal" become the load-bearing claim.
+
+The "cleverer-model-on-standard-data is confirmed-null 49×"
+shorthand survives — but its narrow scope is the prediction layer
+with forecast loss. Sizing-layer learners with direct-Sharpe loss and
+appropriate action spaces are a different family; they don't have a
+49× null count, they have a `confirmed-OOS` result.
