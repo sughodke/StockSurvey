@@ -9,6 +9,7 @@ dependencies = [
     "ss-macro",
     "ss-portfolio",
     "ss-loaders",
+    "ss-tinygrad",
     "numpy",
     "pandas",
     "tinygrad",
@@ -30,3 +31,4 @@ ss-iv = { workspace = true }
 ss-macro = { workspace = true }
 ss-portfolio = { workspace = true }
 ss-loaders = { workspace = true }
+ss-tinygrad = { workspace = true }

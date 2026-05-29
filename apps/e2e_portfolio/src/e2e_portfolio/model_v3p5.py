@@ -20,7 +20,9 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 import numpy as np
-from tinygrad import Tensor, nn
+from tinygrad import Tensor, nn, dtypes
+
+from ss_tinygrad import maybe_bf16, cast_back_fp32
 
 
 @dataclass
@@ -32,9 +34,10 @@ class HparamsV3p5:
     hidden: int = 32
     head_hidden: int = 32
     vol_scale_max: float = 5.0
-    long_vol_max: float = 5.0     # NEW: matching short-vol scale envelope
+    long_vol_max: float = 5.0
     k_active: int = 50
     vol_temperature: float = 1.0
+    use_bf16: bool = True         # native bf16 on Ada L4/Hopper H100; harmless on T4
 
 
 class AllocatorV3p5:
@@ -86,16 +89,18 @@ class AllocatorV3p5:
 
     def encode_names(self, x: Tensor) -> Tensor:
         B, K, T, F = x.shape
-        x = x.reshape(B * K, T, F).transpose(1, 2)
+        x = maybe_bf16(x.reshape(B * K, T, F).transpose(1, 2),
+                       self.hp.use_bf16)
         h = self.conv1(x).relu()
         h = self.conv2(h).relu()
-        h = h.mean(axis=-1)
+        h = cast_back_fp32(h.mean(axis=-1))
         return h.reshape(B, K, self.hp.hidden)
 
     def encode_macro(self, m: Tensor) -> Tensor:
-        h = (m @ self.macro_w1.transpose() + self.macro_b1).relu()
+        mc = maybe_bf16(m, self.hp.use_bf16)
+        h = (mc @ self.macro_w1.transpose() + self.macro_b1).relu()
         h = (h @ self.macro_w2.transpose() + self.macro_b2).relu()
-        return h.mean(axis=1)
+        return cast_back_fp32(h.mean(axis=1))
 
     def __call__(self, x_assets: Tensor, x_macro: Tensor,
                  valid_mask: Tensor | None = None,

@@ -9,6 +9,7 @@ dependencies = [
     "ss-wavelets",
     "ss-loaders",
     "ss-tg-ops",
+    "ss-tinygrad",
     "numpy",
     "pandas",
     "matplotlib",
@@ -32,3 +33,6 @@ build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/replay"]
+
+[tool.uv.sources]
+ss-tinygrad = { workspace = true }

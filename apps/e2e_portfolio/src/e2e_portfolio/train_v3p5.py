@@ -1,11 +1,19 @@
-"""v3.5 training: Sharpe loss on (equity + short-vol + long-vol)."""
+"""v3.5 training: Sharpe loss on (equity + short-vol + long-vol).
+
+JIT pattern: pre-allocate buffer Tensors of fixed shape outside the
+training loop, copy random-batch contents into them with `.assign(...)`,
+then call a `@TinyJit`-wrapped step function that takes the buffer
+tensors as inputs. The JIT records the kernel schedule on the 3rd call
+and replays it for every subsequent step — same pattern proven in
+`apps/factor/cwt_gru_walkforward.py` (4x speedup vs un-jitted).
+"""
 from __future__ import annotations
 
 from dataclasses import dataclass
 import time
 
 import numpy as np
-from tinygrad import Tensor, nn
+from tinygrad import Tensor, TinyJit, nn
 
 from e2e_portfolio.data_v3p5 import PanelV3p5
 from e2e_portfolio.model_v3p5 import AllocatorV3p5, HparamsV3p5, sharpe_loss_v3p5
@@ -71,6 +79,32 @@ def train_one_fold_v3p5(
     if n_train < cfg.batch_size:
         raise ValueError(f'train fold too small: {n_train}')
 
+    B = cfg.batch_size
+    K = hp.n_assets
+    T = hp.t_lookback
+    F = hp.f_asset
+    Fm = hp.f_macro
+
+    # Pre-allocate buffer Tensors. Same Tensor objects reused every step;
+    # only the underlying data changes via `.assign()`. This lets TinyJit
+    # bind to stable Tensor identities and replay the kernel schedule.
+    xa_buf = Tensor.zeros(B, K, T, F).contiguous().realize()
+    xm_buf = Tensor.zeros(B, T, Fm).contiguous().realize()
+    vmask_buf = Tensor.zeros(B, K).contiguous().realize()
+    fwd_buf = Tensor.zeros(B, K + 1).contiguous().realize()
+    vol_pnl_buf = Tensor.zeros(B, K).contiguous().realize()
+    long_vol_buf = Tensor.zeros(B).contiguous().realize()
+
+    @TinyJit
+    def _train_step() -> Tensor:
+        opt.zero_grad()
+        ew, vw, svs, lvp = model(xa_buf, xm_buf, vmask_buf)
+        loss = sharpe_loss_v3p5(ew, fwd_buf, vw, svs, vol_pnl_buf,
+                                 lvp, long_vol_buf)
+        loss.backward()
+        opt.step()
+        return loss.realize()
+
     best_val_sh = -np.inf
     best_params = [p.numpy().copy() for p in model.parameters()]
     history = {'step': [], 'train_loss': [], 'val_sharpe': []}
@@ -78,19 +112,18 @@ def train_one_fold_v3p5(
     Tensor.training = True
     t0 = time.time()
     for step in range(cfg.n_steps):
-        idx = rng.integers(0, n_train, size=cfg.batch_size)
-        xa = Tensor(panel_train.X_assets[idx])
-        xm = Tensor(panel_train.X_macro[idx])
-        vmask = Tensor(panel_train.valid_mask[idx])
-        fwd = _attach_cash_zero(panel_train.fwd_ret[idx])
-        vol_pnl = panel_train.fwd_vol_pnl[idx].astype(np.float32)
-        long_vol_ret = panel_train.fwd_long_vol_ret[idx].astype(np.float32)
-        opt.zero_grad()
-        ew, vw, svs, lvp = model(xa, xm, vmask)
-        loss = sharpe_loss_v3p5(ew, Tensor(fwd), vw, svs, Tensor(vol_pnl),
-                                 lvp, Tensor(long_vol_ret))
-        loss.backward()
-        opt.step()
+        idx = rng.integers(0, n_train, size=B)
+        # Copy fresh per-step random batch into the persistent buffers.
+        xa_buf.assign(Tensor(panel_train.X_assets[idx])).realize()
+        xm_buf.assign(Tensor(panel_train.X_macro[idx])).realize()
+        vmask_buf.assign(Tensor(panel_train.valid_mask[idx])).realize()
+        fwd_buf.assign(Tensor(_attach_cash_zero(panel_train.fwd_ret[idx]))).realize()
+        vol_pnl_buf.assign(Tensor(
+            panel_train.fwd_vol_pnl[idx].astype(np.float32))).realize()
+        long_vol_buf.assign(Tensor(
+            panel_train.fwd_long_vol_ret[idx].astype(np.float32))).realize()
+
+        loss = _train_step()
 
         if step % cfg.log_every == 0 or step == cfg.n_steps - 1:
             history['step'].append(step)

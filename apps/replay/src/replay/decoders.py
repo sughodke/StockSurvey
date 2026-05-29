@@ -30,6 +30,7 @@ from tinygrad import dtypes
 from tinygrad.nn.optim import Adam
 
 from ss_tg_ops import conv1d_nhc
+from ss_tinygrad import maybe_bf16 as _maybe_bf16
 
 
 # ---- shared utilities -------------------------------------------------------
@@ -42,10 +43,6 @@ def _training_mode():
         yield
     finally:
         Tensor.training = prev
-
-
-def _maybe_bf16(x: Tensor, use_bf16: bool) -> Tensor:
-    return x.cast(dtypes.bfloat16) if use_bf16 else x
 
 
 def _he_normal_np(rng: np.random.Generator, shape: tuple[int, ...],
