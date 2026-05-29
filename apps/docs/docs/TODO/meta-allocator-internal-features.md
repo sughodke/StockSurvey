@@ -1,6 +1,15 @@
 # Meta-allocator with strategy-internal features — pre-registered
 
-**Status: `pending` — pre-registration locked before the eval runs.**
+**Status: `DONE` — eval ran 2026-05-28; verdict `confirmed-null` per
+the locked pre-reg bar. See [`findings/meta-allocator-internal-features`](../findings/meta-allocator-internal-features.md)
+for the writeup and the 2026-05-28 row of [`leaderboard`](../leaderboard.md).
+Closes the meta-allocator arc — cadence × input-class × learner levers
+all exhausted. Deployment recipe remains canonical DCA + 2×vol_v3
+sleeve.**
+
+---
+
+Original pre-registration (kept verbatim below for the record):
 Direct follow-up to
 [`meta-allocator-regime-forecasting`](../findings/meta-allocator-regime-forecasting.md)
 (2026-05 `confirmed-OOS` for B3 inverse-arc-vol; 5/5 macro-based
