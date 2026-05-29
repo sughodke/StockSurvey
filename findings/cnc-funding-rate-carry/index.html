@@ -1,0 +1,6184 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Trading-strategy research and live execution monorepo.">
+      
+      
+      
+        <link rel="canonical" href="https://sidghodke.com/StockSurvey/findings/cnc-funding-rate-carry/">
+      
+      
+        <link rel="prev" href="../factor-crypto-venue/">
+      
+      
+        <link rel="next" href="../follow-leadership-disclosure/">
+      
+      
+        
+      
+      
+      <link rel="icon" href="../../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.6">
+    
+    
+      
+        <title>Crypto-and-carry — perp funding-rate cash-and-carry on Hyperliquid (confirmed-OOS vs locked pre-reg bar: net Sharpe +9.25 / DSR-t +11.8 / pos-Q 0.80 / max-DD −0.99% on 2024-01-01→2026-05-24; HEADLINE IS UPPER BOUND — academic-clean carry approximation, zero basis-tracking error or short-spot borrow; 2024 fold Sh +13.8 / 2025 +7.76 / 2026YTD −0.63 mirrors funding-regime collapse 27.5%/yr → 0.4%/yr; Binance/Bybit geo-blocked, OKX 3mo cap forced HL substitution) - StockSurvey</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/main.484c7ddc.min.css">
+      
+        
+        <link rel="stylesheet" href="../../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Geist:300,300i,400,400i,700,700i%7CGeist+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Geist";--md-code-font:"Geist Mono"}</style>
+      
+    
+    
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#crypto-and-carry-perp-funding-rate-cash-and-carry-on-hyperliquid" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow md-header--lifted" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../.." title="StockSurvey" class="md-header__button md-logo" aria-label="StockSurvey" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            StockSurvey
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Crypto-and-carry — perp funding-rate cash-and-carry on Hyperliquid (confirmed-OOS vs locked pre-reg bar: net Sharpe +9.25 / DSR-t +11.8 / pos-Q 0.80 / max-DD −0.99% on 2024-01-01→2026-05-24; HEADLINE IS UPPER BOUND — academic-clean carry approximation, zero basis-tracking error or short-spot borrow; 2024 fold Sh +13.8 / 2025 +7.76 / 2026YTD −0.63 mirrors funding-regime collapse 27.5%/yr → 0.4%/yr; Binance/Bybit geo-blocked, OKX 3mo cap forced HL substitution)
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme)" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3.9 12c0-1.71 1.39-3.1 3.1-3.1h4V7H7a5 5 0 0 0-5 5 5 5 0 0 0 5 5h4v-1.9H7c-1.71 0-3.1-1.39-3.1-3.1M8 13h8v-2H8zm9-6h-4v1.9h4c1.71 0 3.1 1.39 3.1 3.1s-1.39 3.1-3.1 3.1h-4V17h4a5 5 0 0 0 5-5 5 5 0 0 0-5-5"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: light)" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_2" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M17 7H7a5 5 0 0 0-5 5 5 5 0 0 0 5 5h10a5 5 0 0 0 5-5 5 5 0 0 0-5-5m0 8a3 3 0 0 1-3-3 3 3 0 0 1 3-3 3 3 0 0 1 3 3 3 3 0 0 1-3 3"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: dark)" data-md-color-scheme="slate" data-md-color-primary="black" data-md-color-accent="indigo"  aria-label="Switch to system preference"  type="radio" name="__palette" id="__palette_2">
+    
+      <label class="md-header__button md-icon" title="Switch to system preference" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M17 7H7a5 5 0 0 0-5 5 5 5 0 0 0 5 5h10a5 5 0 0 0 5-5 5 5 0 0 0-5-5M7 15a3 3 0 0 1-3-3 3 3 0 0 1 3-3 3 3 0 0 1 3 3 3 3 0 0 1-3 3"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+          <a href="javascript:void(0)" class="md-search__icon md-icon" title="Share" aria-label="Share" data-clipboard data-clipboard-text="" data-md-component="search-share" tabindex="-1">
+            
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M18 16.08c-.76 0-1.44.3-1.96.77L8.91 12.7c.05-.23.09-.46.09-.7s-.04-.47-.09-.7l7.05-4.11c.54.5 1.25.81 2.04.81a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3c0 .24.04.47.09.7L8.04 9.81C7.5 9.31 6.79 9 6 9a3 3 0 0 0-3 3 3 3 0 0 0 3 3c.79 0 1.5-.31 2.04-.81l7.12 4.15c-.05.21-.08.43-.08.66 0 1.61 1.31 2.91 2.92 2.91s2.92-1.3 2.92-2.91A2.92 2.92 0 0 0 18 16.08"/></svg>
+          </a>
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+        <div class="md-search__suggest" data-md-component="search-suggest"></div>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/sughodke/StockSurvey" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+  </div>
+  <div class="md-source__repository">
+    sughodke/StockSurvey
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+    
+      
+<nav class="md-tabs" aria-label="Tabs" data-md-component="tabs">
+  <div class="md-grid">
+    <ul class="md-tabs__list">
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../.." class="md-tabs__link">
+        
+  
+  
+    
+  
+  Home
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../apps/" class="md-tabs__link">
+          
+  
+  
+    
+  
+  Apps
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../packages/" class="md-tabs__link">
+          
+  
+  
+    
+  
+  Packages
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../leaderboard/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Leaderboard
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../map/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Map
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../notes/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Notes
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../tags/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Tags
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+    
+  
+  
+    
+    
+      <li class="md-tabs__item md-tabs__item--active">
+        <a href="../" class="md-tabs__link">
+          
+  
+  
+    
+  
+  Findings
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../workflows/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Workflows
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../TODO/" class="md-tabs__link">
+          
+  
+  
+    
+  
+  TODO
+
+        </a>
+      </li>
+    
+  
+
+      
+    </ul>
+  </div>
+</nav>
+    
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+  
+
+
+<nav class="md-nav md-nav--primary md-nav--lifted" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="StockSurvey" class="md-nav__button md-logo" aria-label="StockSurvey" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    StockSurvey
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/sughodke/StockSurvey" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+  </div>
+  <div class="md-source__repository">
+    sughodke/StockSurvey
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_2" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../apps/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Apps
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_2" id="__nav_2_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Apps
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../apps/regime/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Regime
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../apps/relational/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Relational
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../apps/factor/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Factor
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../apps/replay/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Replay
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../apps/gate/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Gate
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../apps/pairs/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Pairs
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../apps/vol/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Vol
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../apps/cfr/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    CFR
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../apps/dca/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DCA
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../apps/notebook/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Notebook
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_3" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../packages/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Packages
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Packages
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../leaderboard/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Leaderboard
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../map/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Map
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../notes/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Notes
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../tags/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Tags
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_8" checked>
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Findings
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_8" id="__nav_8_label" tabindex="">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_8_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_8">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Findings
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../post-2020-arc-ranking/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Post-2020 cross-arc ranking & DCA+vol_v3 ensemble drilldown (partial-OOS synthesis; only vol_v3 standalone +10.73 [+7.89,+13.37] and DCA+2xvol_v3 ensemble +1.90 [+1.13,+3.10] clear LW CI vs DCA at 95%; 11 other arcs ns; sleeve-sizing +1.16 headline replicates AND grows on full daily span)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../meta-allocator-regime-forecasting/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Meta-allocator regime forecasting (B3 inverse-arc-vol confirmed-OOS vs 1/N at 95% CI; every modeling candidate C1-C5 reversed-OOS vs B3)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../meta-allocator-no-vol-v3/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Meta-allocator no-vol_v3 falsification (B3-vs-B2 collapses from +0.367 [+0.028, +0.682] to +0.039 [-0.152, +0.220], confirmed-null; inverse-vol's edge was vol_v3-carried)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../e2e-portfolio-v2/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    End-to-end deep portfolio allocator v2 (confirmed-null vs DCA; adds 5 raw IV features per ETF + 1 availability flag + continuous vol_position∈[0,2.5] head × synthetic short-vol from raw IV-vs-HV; vol_position head learns right behavior — fold-3 mean +0.52 max +0.88, fold-1 ~0 no-IV pre-2019; fold-3 v2 +1.246 beats v1 +1.216; pooled +0.776 regresses from v1 +0.874 due to fold-1+2 IV-mask drag; loses to deterministic 2-leg by ΔSR −1.26 and learned 2-leg by ΔSR −3.82 — substrate too narrow at 9 ETFs vs vol_v3's 2276-ticker universe; v3 needs full DoltHub universe top-K by OI)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../e2e-portfolio-v1/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    End-to-end deep portfolio allocator v1 (confirmed-null vs DCA on +0.10 partial-OOS bar; Zhang-Zohren-Roberts framework on 13-ETF Phase 4d with raw price + macro features; tinygrad CUDA on Modal T4 3-fold walk-forward; pooled OOS Sharpe +0.87 fold-3 unseen 2024+ +1.22 vs DCA +0.78 (ΔSR +0.094 CI includes 0); loses to deterministic 2-leg by ΔSR −1.16 and learned 2-leg by ΔSR −3.72 — the options-alpha gap; v2 must add raw IV surface features)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../learned-ensemble-beats-deterministic/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Learned 2-leg blend beats deterministic (DCA + 2x vol_v3) on Sharpe AND max-DD across 4 OOS splits (confirmed-OOS; 2-param MV on joint (DCA, vol_v3 daily-aligned) stream; learned w_vol approx 2.24 / w_dca approx 0.05; ΔSR +3.01 to +4.91 every CI excludes 0; tighter max-DD every split; methodological correction of the internal-features confirmed-null arc)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../meta-allocator-internal-features/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Meta-allocator with strategy-internal features (closing finding 2026-05-28; confirmed-null vs locked pre-reg bar; 3-trial grid D1 ridge / D2 RBF kernel ridge / D3 PCA-2-PC over 14 internal features at quarterly cadence on 6-arc panel; model* fold-3 OOS Sh +2.83 vs B3 +4.15 ΔSR −1.39 [−2.40, −0.28] excludes 0; vs canonical DCA+2xvol_v3 ΔSR −3.29 [−4.93, −1.70] excludes 0; closes the meta-allocator arc — cadence × input-class × learner levers exhausted)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../vol-sleeve-sizing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Vol_v3 sleeve sizing (partial-OOS; 9x4 friction grid on DCA x vol-v3-DoltHub-OOS; recommended vega_scale=2.0 at c_options_bps<=200 -> combined Sharpe +2.46 vs DCA +1.30, CI [+0.028, +2.600] barely excludes 0, max-DD actually improves; collapses at c_bps=400)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../factor-crypto-venue/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Factor crypto venue port (confirmed-null; 74-channel indicator grid does NOT transfer to CryptoCompare top-50 at H=5d; linear val IC +0.0217, mlp +0.0134, both miss the +0.025 pre-reg bar and DSR-t < +1.5 on all four cells; next arc is perp funding-rate cash-and-carry)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Crypto-and-carry — perp funding-rate cash-and-carry on Hyperliquid (confirmed-OOS vs locked pre-reg bar: net Sharpe +9.25 / DSR-t +11.8 / pos-Q 0.80 / max-DD −0.99% on 2024-01-01→2026-05-24; HEADLINE IS UPPER BOUND — academic-clean carry approximation, zero basis-tracking error or short-spot borrow; 2024 fold Sh +13.8 / 2025 +7.76 / 2026YTD −0.63 mirrors funding-regime collapse 27.5%/yr → 0.4%/yr; Binance/Bybit geo-blocked, OKX 3mo cap forced HL substitution)
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Crypto-and-carry — perp funding-rate cash-and-carry on Hyperliquid (confirmed-OOS vs locked pre-reg bar: net Sharpe +9.25 / DSR-t +11.8 / pos-Q 0.80 / max-DD −0.99% on 2024-01-01→2026-05-24; HEADLINE IS UPPER BOUND — academic-clean carry approximation, zero basis-tracking error or short-spot borrow; 2024 fold Sh +13.8 / 2025 +7.76 / 2026YTD −0.63 mirrors funding-regime collapse 27.5%/yr → 0.4%/yr; Binance/Bybit geo-blocked, OKX 3mo cap forced HL substitution)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#why-this-arc-why-this-venue" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Why this arc, why this venue
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#test-design-locked-pre-eval" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Test design (locked pre-eval)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#modeling-approximation-the-load-bearing-assumption" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Modeling approximation (the load-bearing assumption)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#pre-reg-cell-result" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Pre-reg cell result
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#per-fold-breakdown-pre-reg-cell-calendar-years" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Per-fold breakdown (pre-reg cell, calendar years)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#36-cell-robustness-grid" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        36-cell robustness grid
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#mechanism" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Mechanism
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#three-honest-surprises" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Three honest surprises
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#verdict-per-locked-pre-reg-bar" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Verdict per locked pre-reg bar
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#next-experiment-proposal-per-confirmed-oos-decision-branch" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Next-experiment proposal (per confirmed-OOS decision branch)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#implementation-gaps" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Implementation gaps
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#master-walk-forward-log-pointer" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Master walk-forward log pointer
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#reproduction" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Reproduction
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#stress-gate-followups-2026-05-28" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Stress + gate followups (2026-05-28)
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Stress + gate followups (2026-05-28)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#a-basis-tracking-error-stress-friction-fragile" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        (A) Basis-tracking-error stress — friction-fragile
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#b-funding-regime-gate-falsified-at-every-threshold" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        (B) Funding-regime gate — falsified at every threshold
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#combined-verdict-and-what-to-do-next" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Combined verdict and what to do next
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#master-walk-forward-log-pointer-stress-gate" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Master walk-forward log pointer (stress + gate)
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../follow-leadership-disclosure/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Follow-the-leader congressional disclosure (confirmed-null vs locked pre-reg bar: leadership-arm best-cell mean ann Sh +0.80 / α vs SPY −0.09pp/yr / DSR-t −1.91 on 2019-21 ∪ 2022-24; entered at filed+1 trading day per Bowne-2024 lag prediction — apparent alpha vanishes; fold-1 +3.45pp/yr collapses to fold-2 −1.7pp/yr; surprise: all-members frequency-filter arm posts ann Sh +1.01 / α +5.25pp/yr but is NOT the pre-registered cell, recorded as next-arc hypothesis)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../follow-consensus-arm/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Follow-the-leader v1 consensus arm (confirmed-OOS vs locked TODO pre-reg bar: all-members frequency-filter cell h=30/k=10/filed+1 reproduces v0 fold-1+2 result Sh +1.020 / α +5.45pp/yr; UNSEEN fold-3 2025 OOS posts Sh +0.86 / α +5.13pp/yr / pos-Q 100%; pooled Sh +1.0 / α +5.41pp/yr / standalone defl-t +2.58 — edge defl-t +1.37 sub-2.0 and fold-3 boot 95% CI [−18,+26] does not exclude 0; ship as ensemble constituent with SPY β-hedge, not standalone)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../ladder-methodology-rewrite/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Ladder methodology rewrite (Ledoit-Wolf primary; DSR demoted to within-stratum gate; ZERO arcs beat DCA at 95% CI)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../deflated-sharpe-leaderboard/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Deflated Sharpe (within-arc gate; superseded for cross-arc rank by ladder-methodology-rewrite)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../vol-borrow-liquid-universe/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Borrow-stress vol (liquid, reversed-OOS)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../regime-baselines/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Regime baselines
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../log-returns-vs-raw-close/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Log-returns vs raw close
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../regime-rsi-baseline/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Regime RSI strategy universe-agnostic baseline (confirmed-null)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../regime-scalogram-baseline/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Regime scalogram strategy universe-agnostic baseline (reversed-OOS)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../regime-cwt-baseline/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Regime CWT-divergence strategy universe-agnostic baseline (reversed-OOS)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../regime-velocity-baseline/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Relational regime-velocity scorer universe-agnostic baseline (confirmed-null)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../lie-hrp-baseline/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Lie HRP baseline (confirmed-null standalone, partial-OOS w/ modulator)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../critic-policy-baseline/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Critic Φ-imitation policy baseline (partial-OOS, bounded by upstream pairs)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../factor-indicator-baseline/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Factor indicator-IC baseline
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../factor-ssl-walkforward/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Factor SSL walkforward
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../time-reversal-symmetry/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Time-reversal symmetry
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../factor-f32-precision-cancellation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Factor f32 precision cancellation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../factor-multitask-aux-head/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Factor multi-task aux head
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../factor-multitask-aux-weight-sweep/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Factor multi-task aux-weight sweep
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../replay-decoders/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Replay decoder options
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../replay-dwt-compression/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Replay DWT compression
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../replay-length-axis-compression/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Replay length-axis (K) compression
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../relational-universe-shift/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Relational universe shift
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../relational-dwt-failure/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Relational DWT-L1 OOS failure
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../relational-morlet-failure/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Relational polar Morlet OOS failure
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../passive-ew-benchmark/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Passive EW benchmark (regrades shippable rows)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../factor-rankic-long-only-mismatch/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Rank-IC vs long-only top-N mismatch
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../factor-loss-pivot/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Loss-pivot — Sharpe/IR losses underperform rank-IC
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../factor-sizing-input-v0/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Sizing-input v0 — MSE-on-alpha calibrates but adds no information for rank-based emission
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../factor-sizing-input-v1/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Sizing-input v1 — factor signal-quality at 6-window resolution is too lagged to clear VIX gate
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../factor-endogenous-horizon-mixture/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Endogenous-horizon mixture — state-conditional rebal cadence beats random-π but not best fixed (π collapses to h=60 without entropy regularization)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../factor-shorthorizon-representation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Short-horizon × (C,L) representation — +0.012 ceiling was a 20d artifact; indicator grid @5d +0.0212 IC 6/6 (confirmed-OOS) but a 1-day lag halves it to +0.0114 (partial-OOS, part bid-ask-bounce); non-CWT (C,L) encoders confirmed-null
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../gate-drawdown-v0/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Gate drawdown v0 (partial-OOS)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../dynamic-rebal-cadence-null/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Dynamic rebalance cadence null — per-regime cadence oracle headroom +0.004 Sharpe (confirmed-null; cadence is non-binding and does not vary by regime, the regime signal is strategy-selection not execution timing)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../pairs-classical-v0/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Pairs classical v0 (confirmed-null)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../vol-surface-v0/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Vol surface v0 (inconclusive, 5/5 pos)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../vol-surface-v1/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Vol surface v1 (confirmed-OOS, audit-validated, per-rebal portfolio aggregator + costs in loop, alpha Sharpe +5.86 with 25x real-to-shuffle ratio)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../vol-surface-v2-dollar-pnl/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Vol surface v2.1 — dollar-PnL conversion under 3 sizing conventions (confirmed-OOS; +$4.60 / +$1.95 / +$4.60 Sharpe under $-vega / share-count / vol-points equal sizing)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../vol-surface-v2-oi-restriction/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Vol surface v2.2 — OI restriction collapses alpha monotonically (reversed-OOS on deployability; alpha decays from +5.86 unrestricted to -0.48 at top-200 OI)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../vol-surface-v2-dolthub-oos/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Vol surface v2.3 — DoltHub OOS extension to 2026-04 confirms signal continuity (confirmed-OOS; OOS r +0.165 across 4-feature proxy, 11/11 positive quarters)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../vol-surface-v3-regime-gated/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Vol surface v3 — regime-gated liquid universe composition (126d-VIX gate rescues v2.2 FAIL; fired-α Sh +2.01, fire rate 37%, MARGINAL)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../vol-v3-dolthub-oos/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Vol v3 — DoltHub 2024-26 OOS extension (signal replicates AND grows 2.5x on 4.6x more data — deflated-t +11.21 — BUT 2024-26 is a calm-bull regime with no vol crisis; ρ with DCA = +0.215 not ≈0; partial-OOS MARGINAL — strongest case for engineering investment but not a go-live verdict)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../dca-basket-optuna/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DCA basket Optuna search (partial-OOS / effectively confirmed-null) — pre-registered bucket search over 3,600 combinations × 200 trials found Δ deflated-t = +0.016 over canonical; winner is a simpler 4-ETF basket (VTI+TLT+IEF+GLD) achieving same val Sharpe and slightly better max-DD; the canonical basket is defensible
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../dca-vol-ensemble-optuna/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DCA × vol overlay joint Optuna search (partial-OOS) — pre-registered joint search over 16,800 (basket × vega_scale) combinations × 200 trials on the 33-obs vol-v3 DoltHub OOS sample found Δ val deflated-t = +0.612 over canonical 13-ETF + vol × 3.0; all top-10 trials pick vega_scale=3.0 (sizing axis robust, basket axis below noise floor at n_val=13); canonical recipe defensible
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../factor-studentized-sharpe-diff-loss/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Factor head trained against studentized Sharpe-diff loss (confirmed-null) — pre-reg locked head-to-head against ir_vs_ew + rank_ic on factor-narrow 5d; candidate Δt = −0.60 vs baseline (worse, not better); the methodology-rewrite finding 'cross-sectional null is robust to optimization method' was reinforced — even the literature-canonical training target couldn't extract alpha that wasn't there. SURPRISE: ir_vs_ew baseline is the only arm whose pooled OOS bootstrap CI excludes 0 (ann ΔSR +0.46 [+0.02, +0.91])
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../vol-arc-synthesis/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Vol surface arc synthesis — partial-OOS arc closure with v3 regime-gated-liquid as deployment recipe
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../vol-borrow-illiquid-vrp-falsified/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Vol small-capacity re-frame falsified — real +0.14 edge but 92.5% of the cohort is un-quotable on free data; quote-availability is a deployability gate upstream of spread (reversed-OOS)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../relational-arc-synthesis/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Relational arc synthesis (lifted from NO_OPTIONS.md)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../prediction-problem-pivot-arc/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Prediction-problem-pivot arc synthesis
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../macro-regime-diagnostic/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Macro regime diagnostic (5/6 features predict pivot windows)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../cfr-phase1/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    CFR Phase 1 — tabular CFR clears trailing-best by +0.609 (6/6) but ties naive uniform
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../cfr-phase2/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    CFR Phase 2 — menu enrichment confirmed-null; binding constraint is tabular sample density
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../cfr-phase3/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    CFR Phase 3 — Deep CFR + continuous state vector lifts +0.02 Sharpe (MARGINAL); architecture isn't the binding constraint either
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../cfr-phase4/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    CFR Phase 4 — universe shift to 13-asset multi-asset PASSES (alpha vs EW +0.056); first deployable CFR result
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../cfr-vs-dca-realistic/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    CFR vs DCA realistic-friction re-eval — raw alpha collapses to +0.015 net; DCA is the canonical live strategy
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../cfr-macro-gate-final/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    CFR + window-level VIX gate final close-out — bot is fully dead; memory-heavy regime gates fight regime transitions
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../cfr-sensitivity-followup/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    CFR Phase 4d sensitivity follow-up — friction × gate stress-test; audit-driven diagnostic that refines the prior closure (alpha is real and positive at every friction level, below +0.10 threshold)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../pairs-eg-gate-falsified/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Pairs EG-gate falsified — audit-followup test of EG-passing-rate regime gate; falsified at all three pre-registered thresholds; w0 sits in "working" EG band by count yet posts worst val Sharpe
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../delisting-aware-ew-falsified/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Delisting-aware EW benchmark falsified — audit-followup test of ffill-delisting bias; Δ Sharpe ≤ 0.0002 across all 4 universes (audit predicted +0.05-0.15); manifest curation + Stooq ticker reuse make the bias structurally absent
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../critic-phi-quality-v0/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Critic Φ-quality v0 — cross-app window-level value function (confirmed-null; oracle-detection illusion in first pass + true Spearman flips negative when oracle arms dropped)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../cwt-recursive-compression/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    CWT recursive compression (diagnostic) — Kalman vs GRU; nonlinearity buys nothing for reconstruction, reconstructible ≫ predictable dimensionality
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../workflows/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Workflows
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_10" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../TODO/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    TODO
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_10" id="__nav_10_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_10_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_10">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    TODO
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../TODO/cnc-followups/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    CNC venue-port followups (parent CNC arc closed substrate-confirmed but deployment-falsified 2026-05-28; basis-tracking-error stress = friction-fragile at break-even ~4.07 bps/d; funding-regime gate falsified at all thresholds; only remaining adjacent path is a venue port to OKX / paid Binance / Bybit deep-history)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../TODO/follow-consensus-arm/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Follow-the-leader v1 — cross-sectional consensus arm (orthogonal lever after v0 leadership-arm confirmed-null; pre-reg locked cell h=30/k=10/frequency on all-members cohort with `filed+1` entry; 3 folds with fold-3 2025-26 as unseen verdict slice)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../TODO/follow-consensus-ensemble-weight/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Follow-consensus β-hedged ensemble weight (pre-reg locked grid follow_w in {0, 2.5%, 5%, 7.5%, 10%, 15%, 20%} of risk budget added as 3rd leg to canonical DCA + 2×vol-v3 stack; verdict bar OOS ΔSharpe ≥ +0.10 vs 2-leg baseline AND CI excludes 0 AND max-DD ≤ 1.2× baseline; pending Quiver xlsx refresh to extend fold-3 from n=198 to ≥400 days)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../TODO/e2e-portfolio-v3p5-long-vol-head/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    E2E portfolio v3.5 — add long-vol output head (the ZZR action-space fix; minimal 1-change isolation of v4's action-space precondition; uses free Stooq VIXY substrate, no vendor cost; verdict bar requires fold-2 daily Sharpe ≥ −0.10 AND long_vol_position mean during 2020-Q1 ≥ 0.5; gates whether the heavier v4 design is needed)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../TODO/e2e-portfolio-v4-learned-regime-gate/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    E2E portfolio v4 — learned regime gate with all 6 preconditions met (pre-reg locks first end-to-end attempt with multi-lookback percentile features + symmetric vol action space (short-vol AND long-vol heads) + daily IV + aux IV-prediction regularizer; verdict bar requires pooled ΔSR ≥ +0.10 vs deterministic 2-leg AND CI excludes 0 AND fold-2 daily Sharpe ≥ −0.10 (COVID survival) AND long_vol_position mean during 2020-Q1 ≥ 0.5 (mechanism check); closes path 2 question for learned regime gating end-to-end)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../TODO/hrp-asymmetric-modulator/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    HRP asymmetric two-sided modulator (pre-reg locked 96-cell grid over open-rule x lookback x threshold x floor; rescues the symmetric eff_rank gate that detected 2022 drawdown but destroyed 2023 recovery alpha; verdict bar requires w5 OOS lift ≥ +0.10 AND sub-period lifts sum ≥ +0.08 AND 2023-recovery alpha ≥ 0; CI > ±0.40 auto-downgrades one tier)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../TODO/meta-allocator-internal-features/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Done — Meta-allocator with strategy-internal features (confirmed-null 2026-05-28; closes the meta-allocator arc — see findings/meta-allocator-internal-features.md)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../TODO/meta-allocator-regime-forecasting/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Done — Meta-allocator regime forecasting (confirmed-OOS for B3 inverse-arc-vol vs B2 1/N at 95% CI on 6-arc panel; FALSIFIED on 5-arc no-vol_v3 panel — see meta-allocator-no-vol-v3 finding)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../TODO/vol-v3-sleeve-sizing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Done - Vol_v3 sleeve sizing (partial-OOS; recommended vega_scale=2.0 at c_options_bps<=200, combined Sharpe +2.46 vs DCA +1.30 with CI [+0.028, +2.600]; gap to live = options-broker integration + paid quote source)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../TODO/critic-phi-value-function/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Done — apps/critic Φ value function (confirmed-null v0 + v0.1 rescue)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../TODO/factor-bilevel-horizon-objective/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Done — apps/factor bilevel horizon objective (confirmed-null on deployment-return rescue)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../TODO/factor-horizon-aligned-grid/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Done — apps/factor horizon-aligned IndicatorGridConfig (confirmed-null on input-side rescue)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../TODO/vol-borrow-illiquid-vrp/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Joint v0 — illiquid-options VRP × securities-lending stress (small-capacity re-frame; Stage-0 PASS — runnable free, spread-defined cohort)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../TODO/vol-borrow-liquid-universe/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Higher-EV — borrow-stress conditioning on the liquid vol universe (un-reached novel-data leg re-pointed; Stage-0 gate first, then gauss314 v3-locked + DoltHub OOS)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../TODO/vol-tradier-forward-coverage/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Vol Tradier forward structural coverage probe (pre-reg; $0 sandbox-MCP; resolves DoltHub-vs-OPRA coverage gap; gates paid-vendor spend)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../TODO/factor-crypto-venue-test/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Done — Crypto venue port — factor indicator-grid walk-forward on CryptoCompare top-50 (confirmed-null 2026-05-25; linear val IC +0.0217 / MLP +0.0134 both miss +0.025 bar; DSR-t < +1.5 on all 4 cells; 74-channel grid does NOT transfer venue from equities to crypto; next arc is perp funding-rate cash-and-carry per the decision tree)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../TODO/dca-basket-optuna/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Done — DCA basket Optuna search (partial-OOS / effectively confirmed-null; 200 trials × 3,600 combinations found Δ deflated-t = +0.016 over canonical, far below the +1.0 pre-reg bar; winner is a SIMPLER 4-ETF basket VTI+TLT+IEF+GLD with same val Sharpe and slightly better max-DD)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../TODO/dca-vol-ensemble-optuna/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Done — DCA × vol overlay joint Optuna search (partial-OOS; Δ val deflated-t = +0.612 over canonical 13-ETF + vol×3 incumbent, below the +1.0 confirmed-OOS bar; every top-10 trial picks vega_scale=3.0 — sizing axis robust, basket axis below noise floor at n_val=13)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../TODO/vol-hyperparam-ensemble-optuna/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Vol-hyperparam × DCA ensemble joint Optuna search (pre-registered commit e3b2b8b; eval scaffold committed at apps/vol/scripts/optuna_vol_hyperparam_ensemble.py, eval NOT yet run; 2,100-combination joint grid over vol-recipe knobs top_k × gate_lookback × rebal_trading_days × gate_quantile × vega_scale with DCA basket fixed at canonical-13; date-based split 2023-08→2024-12 train / 2025-01→2026-03 val of vol-v3-DoltHub substrate; +1.0 deflated-t bar over canonical v3 recipe + vol×3 incumbent)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../TODO/ladder-methodology-rewrite/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Ladder methodology rewrite — full 5-step migration per the three-agent synthesis (methodology + assumptions audit + ensemble Optuna); demote DSR from cross-arc rank key to within-arc gate; add Ledoit-Wolf studentized Sharpe-difference CI column as new primary cross-arc test; per-arc-class sharpe_std calibration; null-noise floor; realistic options friction; stratified ladder. In-progress 2026-05-23
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../TODO/factor-studentized-sharpe-diff-loss/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Done — Factor head trained against studentized Sharpe-diff loss (confirmed-null; Δt = −0.60 vs baseline ir_vs_ew; surprise — baseline excludes 0 at 95% on pooled OOS, candidate doesn't)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../TODO/factor-reinforce-target-side/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Done — apps/factor target-side REINFORCE for π (partial-OOS; higher-β resolved, arc benchmark-artifact-bound)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../TODO/factor-cwt-return-coupled/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Done — apps/factor return-coupled recurrent CWT embedding (confirmed-null; every k ≤ indicator baseline, closes the CWT-as-predictor question arc-wide)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../TODO/apps-cfr/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    apps/cfr — Deep CFR meta-allocator
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../TODO/factor-sizing-input-reframe/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Factor sizing-input reframe
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../TODO/factor-horizon-entropy-reg/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Done — factor endogenous-horizon entropy-weight sweep (confirmed-null on rescue hypothesis)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../TODO/polar-morlet-migration/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Polar Morlet migration
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../TODO/npz-explicit-dates-backfill/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    NPZ explicit-dates backfill — plumb rebal_dates / dates through 8 return-stream producers to retire tail-alignment in cross-arc CIs (operational; ~25 LOC, half-day; triggered by the per-window meta-allocator H1 inflation +1.43 honest → +2.21 tail-aligned)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../TODO/review-followups/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Review follow-ups
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../TODO/rsi-long-period-ablation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    RSI long-period ablation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../TODO/film-w1-diagnostic/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    FiLM w=1 diagnostic
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../TODO/backbone-architecture/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Backbone architecture
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../TODO/port-sharpe-tinygrad/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Port Sharpe to tinygrad
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../TODO/dwt-compression-followups/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DWT-compression follow-ups
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../TODO/factor-shorthorizon-representation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Done — factor short-horizon × (C,L) representation (resolved 2026-05-18 — representation confirmed-null, horizon confirmed-OOS, +0.012 ceiling was a 20d artifact)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../TODO/factor-shorthorizon-microstructure/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Done — factor short-horizon edge microstructure/cost stress (skip-1 partial-OOS — 5d edge ~halved by a 1-day lag to +0.0114 IC, part bid-ask-bounce)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../TODO/rebal-days-sweep/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Rebal-days sweep
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../TODO/reversed-price-experiment/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Reversed-price experiment
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../TODO/ew-overlay-test/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    EW + rank-IC overlay (parked)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../TODO/modal-cron-live-deployment/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Modal-cron live deployment
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../TODO/memory-walltime-followups/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Memory and wall-time follow-ups
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../TODO/streaming-feature-pipeline/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Streaming feature pipeline (superseded)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../TODO/different-prediction-problem/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Done — different prediction problem (resolved)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../TODO/apps-pairs/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Done — apps/pairs v0 (resolved)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../TODO/apps-vol/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Done — apps/vol v0 (resolved)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../TODO/long-short-constructor/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Done — long-short constructor (resolved)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../TODO/recently-shipped/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Recently shipped
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#why-this-arc-why-this-venue" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Why this arc, why this venue
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#test-design-locked-pre-eval" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Test design (locked pre-eval)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#modeling-approximation-the-load-bearing-assumption" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Modeling approximation (the load-bearing assumption)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#pre-reg-cell-result" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Pre-reg cell result
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#per-fold-breakdown-pre-reg-cell-calendar-years" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Per-fold breakdown (pre-reg cell, calendar years)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#36-cell-robustness-grid" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        36-cell robustness grid
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#mechanism" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Mechanism
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#three-honest-surprises" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Three honest surprises
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#verdict-per-locked-pre-reg-bar" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Verdict per locked pre-reg bar
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#next-experiment-proposal-per-confirmed-oos-decision-branch" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Next-experiment proposal (per confirmed-OOS decision branch)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#implementation-gaps" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Implementation gaps
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#master-walk-forward-log-pointer" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Master walk-forward log pointer
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#reproduction" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Reproduction
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#stress-gate-followups-2026-05-28" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Stress + gate followups (2026-05-28)
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Stress + gate followups (2026-05-28)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#a-basis-tracking-error-stress-friction-fragile" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        (A) Basis-tracking-error stress — friction-fragile
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#b-funding-regime-gate-falsified-at-every-threshold" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        (B) Funding-regime gate — falsified at every threshold
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#combined-verdict-and-what-to-do-next" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Combined verdict and what to do next
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#master-walk-forward-log-pointer-stress-gate" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Master walk-forward log pointer (stress + gate)
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+                
+
+
+
+  
+
+
+  <nav class="md-path" aria-label="Navigation" >
+    <ol class="md-path__list">
+      
+        
+  
+  
+    <li class="md-path__item">
+      <a href="../.." class="md-path__link">
+        
+  <span class="md-ellipsis">
+    Home
+  </span>
+
+      </a>
+    </li>
+  
+
+      
+      
+        
+  
+  
+    
+    
+      <li class="md-path__item">
+        <a href="../" class="md-path__link">
+          
+  <span class="md-ellipsis">
+    Findings
+  </span>
+
+        </a>
+      </li>
+    
+  
+
+      
+    </ol>
+  </nav>
+
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+  
+  
+
+
+<h1 id="crypto-and-carry-perp-funding-rate-cash-and-carry-on-hyperliquid">Crypto-and-carry — perp funding-rate cash-and-carry on Hyperliquid<a class="headerlink" href="#crypto-and-carry-perp-funding-rate-cash-and-carry-on-hyperliquid" title="Permanent link">&para;</a></h1>
+<p><strong>Operational rule (lede):</strong>
+The academic-clean cash-and-carry approximation (signed-funding minus
+rebal friction on weight delta) on Hyperliquid top-20 perps posts a
+<code>confirmed-OOS</code> headline at net Sharpe +9.25 / deflated-t +11.8 /
+pos-quarter 0.80 / max-DD −0.99% over 2024-01-01 → 2026-05-24. <strong>This
+is the upper bound, not the deployable Sharpe.</strong> The result establishes
+that the gross-funding yield minus mechanical leg friction is materially
+positive, but it does <em>not</em> establish a deployable +9 Sharpe — basis
+tracking error, short-spot borrow on alts, and venue selection all
+debit yield in real execution. The 2024 fold carries the bulk of the
+alpha (Sh +13.8 on 27.5%/yr funding); 2026YTD has effectively zero edge
+(Sh −0.63 on 0.4%/yr funding). The 2026-05-28 stress + gate followups
+(see "Stress + gate followups" section below) close the deployability
+question with a hard negative: the trade is <strong><code>friction-fragile</code></strong> —
+break-even basis-tracking drag is <strong>~4.1 bps/d</strong> (Sh=+1.0 crossing,
+interpolated), well below the ≥10 bps/d bar the deployment-robust
+verdict required, and even below the 5 bps/d "real-world OKX
+tracking" target. The funding-regime gate is <strong>falsified at every
+threshold tested</strong> — higher thresholds protect 2026 by keeping the
+strategy flat but unconditionally drag 2024-25 mean Sharpe down by
+≥2.08 (vs the ≤1.0 ceiling the pre-lock allowed), because cross-coin
+trailing-mean funding dips below the threshold during isolated 2025
+weeks where individual coin funding remained extractable. <strong>Do not
+deploy CNC as-is on HL.</strong> The arc closes as
+<strong>substrate-confirmed, deployment-falsified</strong>. <strong>Do not promote to
+live without a venue port to a higher-history
+funding source.</strong></p>
+<h2 id="why-this-arc-why-this-venue">Why this arc, why this venue<a class="headerlink" href="#why-this-arc-why-this-venue" title="Permanent link">&para;</a></h2>
+<p>The 2026-05-25 <code>factor-crypto-venue</code> <code>confirmed-null</code> falsified the
+74-channel indicator grid as a cross-sectional alpha source on
+CryptoCompare top-50 daily. Its decision-tree pointed to perp
+funding-rate carry as the orthogonal venue-fit test (He, Manela, Ross
+2023 "Indexing Crypto"; Brunnermeier-Pedersen 2009 funding-liquidity).</p>
+<p>The original brief specified Binance (<code>fapi.binance.com</code>,
+<code>/fapi/v1/fundingRate</code>) with Bybit / OKX as alternative-venue follow-ups.
+<strong>Binance returns HTTP 451 from this host (US-restricted); Bybit returns
+HTTP 403 (CloudFront geo-block); OKX exposes only ~3 months of public
+funding-rate history regardless of <code>before</code>/<code>after</code> pagination.</strong>
+Hyperliquid's public <code>info</code> endpoint exposes ~2.4 years of hourly
+funding history across 230 perpetuals with no auth and no geo-restriction,
+which is the only viable substrate available from this development
+environment. The substitution is documented in
+<code>packages/loaders/src/ss_loaders/hyperliquid.py</code>'s module docstring.</p>
+<p>The venue substitution narrows the result — HL has different funding
+dynamics, a different (DEX, on-chain margin) demand structure, and
+different listing tier than Binance — but does not invalidate the
+methodology. A future arc that establishes API access to Binance /
+Bybit / OKX deep funding history is the right follow-up to test
+venue-portability.</p>
+<h2 id="test-design-locked-pre-eval">Test design (locked pre-eval)<a class="headerlink" href="#test-design-locked-pre-eval" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th></th>
+<th></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Venue</td>
+<td>Hyperliquid (substitute for Binance after geo-block)</td>
+</tr>
+<tr>
+<td>Universe</td>
+<td>HL top-20 perps by current-snapshot <code>dayNtlVlm</code>, 180d funding-history floor → 18 effective coins</td>
+</tr>
+<tr>
+<td>Coins</td>
+<td>BTC DOGE ETH FARTCOIN HYPE NEAR NIL ONDO PUMP RENDER SOL SUI TAO TON VVV WLD XRP ZEC</td>
+</tr>
+<tr>
+<td>Date span</td>
+<td>2024-01-01 → 2026-05-24 (875 days × 18 coins)</td>
+</tr>
+<tr>
+<td>Funding cadence</td>
+<td>hourly (24/day on HL, not 8h like Binance/Bybit); daily-summed substrate</td>
+</tr>
+<tr>
+<td>Rebal substrate</td>
+<td>daily</td>
+</tr>
+<tr>
+<td>Pre-reg cell</td>
+<td>K=5, rebal_days=1, sign='positive', trailing_window=30d</td>
+</tr>
+<tr>
+<td>Friction model</td>
+<td>15 bps per leg × 2 legs (spot + perp) = 30 bps round-trip charged on <code>|Δ(sign · weight)|</code></td>
+</tr>
+<tr>
+<td>Ranking</td>
+<td>trailing-30d mean funding rate, shifted +1 day (point-in-time)</td>
+</tr>
+<tr>
+<td>Sign='positive'</td>
+<td>enter top-K positive-funding coins as long-spot/short-perp</td>
+</tr>
+<tr>
+<td>Sign='both'</td>
+<td>split capital — K/2 positive, K/2 most-negative (inverse: long-perp/short-spot)</td>
+</tr>
+<tr>
+<td>Grid</td>
+<td>3 K × 3 rebal_days × 2 sign × 2 trailing_window = 36 cells</td>
+</tr>
+<tr>
+<td>Verdict bar</td>
+<td><code>confirmed-OOS</code>: SR ≥ +1.0 ∧ DSR-t &gt; +2.0 ∧ pos-Q ≥ 0.80 ; <code>partial</code>: SR ≥ +0.5 ∧ DSR-t &gt; +1.0 ; <code>null</code>: SR &lt; +0.3 ; <code>reversed</code>: SR &lt; 0</td>
+</tr>
+<tr>
+<td>Periods/year</td>
+<td>365</td>
+</tr>
+<tr>
+<td>DSR <code>n_trials</code></td>
+<td>36</td>
+</tr>
+<tr>
+<td>DSR <code>sharpe_std_ann</code></td>
+<td>0.40 (crypto cross-trial dispersion midpoint, matches <code>factor-crypto-*</code> arcs)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="modeling-approximation-the-load-bearing-assumption">Modeling approximation (the load-bearing assumption)<a class="headerlink" href="#modeling-approximation-the-load-bearing-assumption" title="Permanent link">&para;</a></h2>
+<p>Per-day per-coin per-unit-notional carry PnL =
+<code>sign × funding_rate_summed_over_day</code>. Portfolio per-day PnL =
+<code>sum_coin weight × sign × funding</code>. On rebal days, friction =
+<code>fric_round_trip × |Δ(sign × weight)|</code>.</p>
+<p>This is the academic-clean basis-trade approximation: with equal-notional
+spot + perp legs re-hedged daily, price-delta cancels to first order
+and the funding stream IS the per-day PnL. Real-world deployment
+carries three loss channels the model does not charge:</p>
+<ol>
+<li><strong>Basis tracking error.</strong> Spot and perp prices diverge intraday;
+   the re-hedge incurs slippage on whichever leg moves first. On HL
+   specifically (DEX with on-chain spot bridging), tracking error
+   is structurally higher than on a single CEX. Plausible 5-20 bps/d
+   drag.</li>
+<li><strong>Short-spot borrow.</strong> Collecting positive funding on
+   <code>long-spot/short-perp</code> requires borrowing spot to short. On
+   alts, borrow rates can be 5-30% ann; HL specifically does not
+   offer spot shorting natively, so this requires a separate venue.</li>
+<li><strong>Liquidity / impact at scale.</strong> The model uses last-mid +
+   constant friction; at deploy size &gt; a few hundred bps of <code>dayNtlVlm</code>,
+   slippage scales nonlinearly.</li>
+</ol>
+<p>The eval is therefore an <em>upper-bound substrate test</em>, not a
+deployment forecast.</p>
+<h2 id="pre-reg-cell-result">Pre-reg cell result<a class="headerlink" href="#pre-reg-cell-result" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Metric</th>
+<th>Value</th>
+<th>Hurdle</th>
+<th>Cleared?</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>net Sharpe (ann)</td>
+<td><strong>+9.252</strong></td>
+<td>≥ +1.0</td>
+<td>yes</td>
+</tr>
+<tr>
+<td>deflated-t</td>
+<td><strong>+11.798</strong></td>
+<td>&gt; +2.0</td>
+<td>yes</td>
+</tr>
+<tr>
+<td>pos-quarter fraction</td>
+<td><strong>0.80</strong></td>
+<td>≥ 0.80</td>
+<td>yes</td>
+</tr>
+<tr>
+<td>max DD (net)</td>
+<td>−0.99%</td>
+<td>n/a (informational)</td>
+<td>—</td>
+</tr>
+<tr>
+<td>total net return</td>
+<td>+39.56%</td>
+<td>n/a</td>
+<td>—</td>
+</tr>
+<tr>
+<td>total friction</td>
+<td>17.22% of capital</td>
+<td>n/a</td>
+<td>—</td>
+</tr>
+<tr>
+<td>n_obs (days)</td>
+<td>875</td>
+<td>n/a</td>
+<td>—</td>
+</tr>
+<tr>
+<td><strong>verdict</strong></td>
+<td><strong><code>confirmed-OOS</code></strong></td>
+<td></td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<h2 id="per-fold-breakdown-pre-reg-cell-calendar-years">Per-fold breakdown (pre-reg cell, calendar years)<a class="headerlink" href="#per-fold-breakdown-pre-reg-cell-calendar-years" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Fold</th>
+<th>n days</th>
+<th>net Sharpe (ann)</th>
+<th>total return</th>
+<th>max DD</th>
+<th>mean funding (cross-coin-day)</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>2024</td>
+<td>366</td>
+<td><strong>+13.835</strong></td>
+<td>+30.27%</td>
+<td>−0.31%</td>
+<td>27.5%/yr</td>
+</tr>
+<tr>
+<td>2025</td>
+<td>365</td>
+<td>+7.755</td>
+<td>+9.53%</td>
+<td>−0.95%</td>
+<td>8.9%/yr</td>
+</tr>
+<tr>
+<td>2026YTD</td>
+<td>144</td>
+<td><strong>−0.632</strong></td>
+<td>−0.24%</td>
+<td>−0.99%</td>
+<td>0.4%/yr</td>
+</tr>
+</tbody>
+</table>
+<p>The funding-regime collapse from 27.5%/yr → 8.9%/yr → 0.4%/yr is the
+dominant story. The 2024 fold carries the headline; 2026YTD is
+effectively zero edge net of friction. This is consistent with
+post-FTX-collapse maturation of the crypto basis trade — arb capital
+has tightened the funding-yield distribution, especially on the
+liquid majors that dominate the top-20 ranking.</p>
+<h2 id="36-cell-robustness-grid">36-cell robustness grid<a class="headerlink" href="#36-cell-robustness-grid" title="Permanent link">&para;</a></h2>
+<p>All 36 cells post positive net Sharpe (range +0.65 to +11.47, median
++6.7). Heat-map of net Sharpe by <code>top_k</code> × <code>rebal_days</code> × <code>sign</code>
+× <code>trailing_window</code>:</p>
+<table>
+<thead>
+<tr>
+<th>K</th>
+<th>rebal</th>
+<th>sign</th>
+<th>trail=7</th>
+<th>trail=30</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>3</td>
+<td>1</td>
+<td>positive</td>
+<td>+2.12</td>
+<td>+8.90</td>
+</tr>
+<tr>
+<td>3</td>
+<td>1</td>
+<td>both</td>
+<td>+1.01</td>
+<td>+7.29</td>
+</tr>
+<tr>
+<td>3</td>
+<td>3</td>
+<td>positive</td>
+<td>+3.77</td>
+<td>+9.47</td>
+</tr>
+<tr>
+<td>3</td>
+<td>3</td>
+<td>both</td>
+<td>+2.42</td>
+<td>+7.22</td>
+</tr>
+<tr>
+<td>3</td>
+<td>7</td>
+<td>positive</td>
+<td>+6.02</td>
+<td>+9.92</td>
+</tr>
+<tr>
+<td>3</td>
+<td>7</td>
+<td>both</td>
+<td>+4.68</td>
+<td>+6.87</td>
+</tr>
+<tr>
+<td>5</td>
+<td>1</td>
+<td>positive</td>
+<td>+2.41</td>
+<td><strong>+9.25</strong> (pre-reg)</td>
+</tr>
+<tr>
+<td>5</td>
+<td>1</td>
+<td>both</td>
+<td>+0.65</td>
+<td>+8.92</td>
+</tr>
+<tr>
+<td>5</td>
+<td>3</td>
+<td>positive</td>
+<td>+4.38</td>
+<td>+9.71</td>
+</tr>
+<tr>
+<td>5</td>
+<td>3</td>
+<td>both</td>
+<td>+3.17</td>
+<td>+8.97</td>
+</tr>
+<tr>
+<td>5</td>
+<td>7</td>
+<td>positive</td>
+<td>+6.10</td>
+<td>+10.54</td>
+</tr>
+<tr>
+<td>5</td>
+<td>7</td>
+<td>both</td>
+<td>+4.51</td>
+<td>+8.72</td>
+</tr>
+<tr>
+<td>10</td>
+<td>1</td>
+<td>positive</td>
+<td>+5.41</td>
+<td>+10.39</td>
+</tr>
+<tr>
+<td>10</td>
+<td>1</td>
+<td>both</td>
+<td>+1.03</td>
+<td>+8.39</td>
+</tr>
+<tr>
+<td>10</td>
+<td>3</td>
+<td>positive</td>
+<td>+6.66</td>
+<td><strong>+11.22</strong></td>
+</tr>
+<tr>
+<td>10</td>
+<td>3</td>
+<td>both</td>
+<td>+2.95</td>
+<td>+8.82</td>
+</tr>
+<tr>
+<td>10</td>
+<td>7</td>
+<td>positive</td>
+<td>+7.63</td>
+<td><strong>+11.47</strong> (best)</td>
+</tr>
+<tr>
+<td>10</td>
+<td>7</td>
+<td>both</td>
+<td>+4.79</td>
+<td>+9.24</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Edge-structure reads from the grid:</strong></p>
+<ul>
+<li><strong>Trailing_window=30 dominates</strong> at every (K, rebal, sign). The
+  signal is in the <em>persistent</em> funding-rate regime, not in
+  short-window noise. trail=7 over-rotates on funding spikes that
+  mean-revert.</li>
+<li><strong><code>sign='positive'</code> dominates <code>'both'</code></strong> at every K × rebal_days ×
+  trail combination. The inverse arm (long-perp / short-spot on
+  negative funding) is real but capacity-limited: at trail=7 it
+  picks up noisy negative spikes; at trail=30 it picks up negative
+  funding that's about to flip back positive. The pure long-bias
+  variant is consistently cleaner.</li>
+<li><strong>Larger K and longer rebal_days both help</strong> at trail=30. K=10 / 
+  rebal=7d / trail=30 is the best cell at +11.47. Larger K
+  diversifies idiosyncratic funding-rate vol; longer rebal_days
+  reduces friction without losing much signal because the funding
+  regime persists ~30+ days.</li>
+</ul>
+<h2 id="mechanism">Mechanism<a class="headerlink" href="#mechanism" title="Permanent link">&para;</a></h2>
+<p>When perp price &gt; spot, longs pay shorts a funding rate every interval
+(hourly on HL) to anchor the perp to spot. The structural reason this
+persists:</p>
+<ul>
+<li><strong>Demand side:</strong> perp longs are leveraged retail demand for upside.
+  On HL specifically (DEX, no KYC for derivatives, on-chain margin),
+  retail access is frictionless.</li>
+<li><strong>Supply side:</strong> arb capital that would short the perp + long spot
+  is bounded by (1) access to spot venues with reliable settlement,
+  (2) borrow availability on alts, (3) regulated-venue gatekeeping.</li>
+</ul>
+<p>The demand-supply imbalance translates to a persistent positive
+funding rate when sentiment is bullish. The 2024-fold mean of 27.5%/yr
+reflects post-ETF-approval bullish positioning. As arb capital
+re-allocated to crypto basis trades through 2025-2026 (and as
+sentiment matured), the imbalance tightened — exactly the regime
+collapse the per-fold table records.</p>
+<h2 id="three-honest-surprises">Three honest surprises<a class="headerlink" href="#three-honest-surprises" title="Permanent link">&para;</a></h2>
+<p><strong>(1) The 2024 fold's Sharpe +13.8 is unphysical</strong> relative to any
+deployable basis trade. This is direct confirmation that the
+eval-substrate-vs-deployment gap is large. The trade IS <em>earning</em> the
+27.5%/yr funding yield in the model — that's not a calculation error,
+it's exactly what the formula computes — but a real-world execution
+would lose 10-20%/yr of it to basis-tracking error + short-spot borrow.
+The honest reading is "the gross funding yield is large enough to
+absorb plausible friction with positive net yield", not "deploy this
+for +14 Sharpe".</p>
+<p><strong>(2) Sign='both' barely helps anywhere.</strong> I expected the inverse arm
+(harvest negative funding via long-perp/short-spot) to materially
+help over a 2.4-year span that included several negative-funding
+regimes. It didn't: at trail=7 it actively hurts (cells 2, 14, 26 are
+the 3 lowest-Sharpe cells in the grid); at trail=30 it ties the
+<code>positive</code>-only variant within ±0.3 Sharpe. The most likely
+explanation: HL's negative-funding episodes are short-lived noise
+spikes on a small subset of coins, and the trailing-30d ranker is
+too slow to enter and exit on time. A faster signal might rescue
+the inverse arm, but at the cost of trail=7's signal degradation.</p>
+<p><strong>(3) The 2026YTD fold went slightly negative net</strong> despite the model
+collecting nonzero gross funding. At 0.4%/yr cross-coin-day mean
+funding, the gross yield is ≈ 1 bps/day; the friction model charges
+~30 bps round-trip on weight delta; daily rebal with the pre-reg
+config produces ~0.5 portfolio turnovers/day; friction ≈ 15 bps/day
+exceeds gross. <strong>This is the deployment canary</strong>: in the current
+funding regime, the trade is friction-bound. Operationally, the
+2026YTD regime would require either (a) widening trailing_window to
+months to lower turnover, (b) longer rebal cadence (the grid's
+rebal=7d cells are <em>less</em> friction-bound), or (c) gating the strategy
+off entirely below a minimum funding threshold. This points to the
+next experiment.</p>
+<h2 id="verdict-per-locked-pre-reg-bar">Verdict per locked pre-reg bar<a class="headerlink" href="#verdict-per-locked-pre-reg-bar" title="Permanent link">&para;</a></h2>
+<p><code>confirmed-OOS</code> (all three thresholds cleared at the pre-reg cell).
+This is HONEST per the locked bar — but the headline Sharpe is
+explicitly an upper-bound substrate result, not a deployable Sharpe.
+The <code>verdict-vs-deployability</code> split is recorded in the leaderboard
+notes column and in this finding's lede.</p>
+<h2 id="next-experiment-proposal-per-confirmed-oos-decision-branch">Next-experiment proposal (per <code>confirmed-OOS</code> decision branch)<a class="headerlink" href="#next-experiment-proposal-per-confirmed-oos-decision-branch" title="Permanent link">&para;</a></h2>
+<p>CLAUDE.md's <code>confirmed-OOS</code> branch asks: <em>Where does it stop working?
+Run the adjacent test that would either confirm scope or break it.</em></p>
+<p><strong>(A) Basis-tracking-error stress.</strong> Re-run the eval with a
+deterministic / stochastic basis-tracking-error drag (5, 10, 20 bps/d
+per dollar-notional) and re-test the verdict at each level. This is
+the cheapest follow-up: numpy-only modification of <code>cnc.backtest</code>,
+no new data. <strong>If the +1.0 Sharpe bar survives at 10 bps/d drag,
+the deployable result is robust to plausible tracking error. If it
+collapses below +1.0 at 5 bps/d, the academic result is a fragile
+upper bound and deployment requires far tighter execution than HL
+on-chain settlement can deliver.</strong></p>
+<p><strong>(B) Funding-regime gate.</strong> Add a regime gate that disables the
+strategy when trailing-30d cross-coin-mean funding &lt; X bps/day. Re-run
+the full eval with the gate active and confirm the 2026YTD Sh
+−0.63 lifts to 0.0 while the 2024-2025 fold returns are preserved.
+This is the operational fix the 2026YTD drag points at.</p>
+<p><strong>(C) Venue port (medium-term).</strong> When Binance / Bybit / OKX deep
+funding history becomes accessible (paid data feed, VPN-routed
+service, or an on-prem proxy), port the eval and confirm
+venue-portability. A confirmed-OOS at OKX with the same
+pre-registered cell would materially upgrade the deployable claim.</p>
+<p>The follow-up is documented in <code>TODO/cnc-tracking-error-stress.md</code>
+(to be created if the user pursues this).</p>
+<h2 id="implementation-gaps">Implementation gaps<a class="headerlink" href="#implementation-gaps" title="Permanent link">&para;</a></h2>
+<ul>
+<li><strong>Venue substitution from Binance to Hyperliquid.</strong> Documented in
+  <code>packages/loaders/src/ss_loaders/hyperliquid.py</code>'s module docstring
+  and <code>apps/cnc/src/cnc/__init__.py</code>'s app docstring. Hyperliquid
+  was the only freely-accessible venue from this host that exposes
+  multi-year funding history.</li>
+<li><strong>Modeling approximation.</strong> Basis tracking error, short-spot borrow,
+  and impact are all set to zero. The "Modeling approximation"
+  section above documents this explicitly.</li>
+<li><strong>No spot-leg price data used.</strong> The backtest uses only funding
+  rates + daily perp candles (for universe ranking). A
+  basis-tracking-error-aware variant would also need a spot reference
+  series (CoinGecko, Yahoo BTC-USD, or HL spot for non-native
+  coins — HL spot only carries native tokens).</li>
+<li><strong>Universe ranking is current-snapshot, not point-in-time.</strong> Top-20
+  by <code>dayNtlVlm</code> is fixed across the eval span. A future revision
+  should rank by trailing-30d candle-derived <code>vol_quote</code> at each
+  rebal bar. This is unlikely to change the verdict materially
+  because the top coins (BTC, ETH, SOL) dominated $-volume across
+  the full span on HL.</li>
+<li><strong>No survivor-bias correction.</strong> Coins whose funding history
+  starts mid-span are simply excluded; coins that delisted on HL
+  during the span would similarly be excluded by the 180d floor.
+  The 18 effective coins are all live on HL today; this is
+  selection-on-survival but is <em>less</em> severe than the
+  CryptoCompare top-N approach.</li>
+</ul>
+<h2 id="master-walk-forward-log-pointer">Master walk-forward log pointer<a class="headerlink" href="#master-walk-forward-log-pointer" title="Permanent link">&para;</a></h2>
+<p>Leaderboard row: 2026-05-25 <code>cnc | crypto-and-carry</code> — verdict
+<a href="../../leaderboard/#verdict-labels"><code>confirmed-OOS</code></a>.</p>
+<p>Parent (the <code>confirmed-null</code> whose decision branch produced this arc):
+<a href="../factor-crypto-venue/"><code>findings/factor-crypto-venue</code></a>.</p>
+<p>Related cross-arc context:
+<a href="../deflated-sharpe-leaderboard/"><code>findings/deflated-sharpe-leaderboard</code></a>,
+<a href="../ladder-methodology-rewrite/"><code>findings/ladder-methodology-rewrite</code></a>.</p>
+<h2 id="reproduction">Reproduction<a class="headerlink" href="#reproduction" title="Permanent link">&para;</a></h2>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>uv<span class="w"> </span>run<span class="w"> </span>python<span class="w"> </span>apps/cnc/scripts/run_walkforward.py
+</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="c1"># ~25s local wall after cache fill; ~10 min cold cache fill</span>
+</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="c1"># Output/cnc-walkforward.npz + .json</span>
+</span></code></pre></div>
+<p>Single-config CLI smoke:</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>uv<span class="w"> </span>run<span class="w"> </span>ss-cnc<span class="w"> </span>backtest<span class="w"> </span>--start<span class="w"> </span><span class="m">2024</span>-01-01<span class="w"> </span>--top-universe<span class="w"> </span><span class="m">20</span><span class="w"> </span><span class="se">\</span>
+</span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="w">  </span>--top-k<span class="w"> </span><span class="m">5</span><span class="w"> </span>--rebal-days<span class="w"> </span><span class="m">1</span><span class="w"> </span>--trailing-window<span class="w"> </span><span class="m">30</span><span class="w"> </span>--sign<span class="w"> </span>positive
+</span></code></pre></div>
+<h2 id="stress-gate-followups-2026-05-28">Stress + gate followups (2026-05-28)<a class="headerlink" href="#stress-gate-followups-2026-05-28" title="Permanent link">&para;</a></h2>
+<p>The parent finding's "Stop-working" decision branch pre-registered two
+follow-up tests: (A) basis-tracking-error stress and (B)
+funding-regime gate. Driver:
+<code>apps/cnc/scripts/run_stress_and_gate.py</code>. Artifacts:
+<code>Output/cnc-stress-walkforward.{npz,json}</code> (144 runs: 36-cell grid ×
+4 drag levels) and <code>Output/cnc-gate-walkforward.{npz,json}</code> (5
+threshold levels on the pre-reg cell). Local wall ~11 min.</p>
+<h3 id="a-basis-tracking-error-stress-friction-fragile">(A) Basis-tracking-error stress — <code>friction-fragile</code><a class="headerlink" href="#a-basis-tracking-error-stress-friction-fragile" title="Permanent link">&para;</a></h3>
+<p>Modeling: subtract <code>basis_error_bps_per_day × Σ|weight|</code> from gross
+<em>before</em> friction. Constant (not stochastic) drag is the conservative
+first cut — real-world tracking error is mean-zero noise plus an
+expected slippage drift, and the drift dominates over a sufficient
+horizon.</p>
+<p>Pre-reg cell (K=5, rebal=1d, sign=positive, trail=30d) net Sharpe
+under each drag level (pooled full span 2024-01-01 → 2026-05-24):</p>
+<table>
+<thead>
+<tr>
+<th>basis drag (bps/d)</th>
+<th>net Sharpe</th>
+<th>per-fold 2024</th>
+<th>2025</th>
+<th>2026YTD</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>0 (baseline)</td>
+<td>+9.195</td>
+<td>+13.84</td>
+<td>+7.76</td>
+<td>−0.89</td>
+</tr>
+<tr>
+<td>5</td>
+<td>−0.864</td>
+<td>+4.11</td>
+<td>−2.94</td>
+<td>−9.16</td>
+</tr>
+<tr>
+<td>10</td>
+<td>−10.91</td>
+<td>−5.59</td>
+<td>−13.59</td>
+<td>−17.44</td>
+</tr>
+<tr>
+<td>20</td>
+<td>−30.40</td>
+<td>−24.99</td>
+<td>−34.36</td>
+<td>−33.99</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Break-even basis drag (interpolated Sh=+1.0 crossing): ~4.07
+bps/d.</strong> That is materially below the 5 bps/d "real-world OKX cross-
+basis tracking" target and far below the 10 bps/d "HL→OKX cross-
+venue execution" target. <strong>Verdict per pre-lock: <code>friction-fragile</code></strong>
+(net Sharpe &lt; +1.0 at the 5 bps/d drag level).</p>
+<p>Mechanism: the gross funding yield averages roughly 12%/yr (~3.3
+bps/d) across the pooled span — once you debit a 5 bps/d <em>expected</em>
+tracking drift, you have eaten the entire gross yield plus 1.7 bps/d
+of capital. The 2024 fold's exceptional Sharpe disguises the fact
+that even there the gross was ~7.5 bps/d, so a 5 bps/d drag halves
+it; on 2025 + 2026 it goes negative outright.</p>
+<p>The grid-wide pattern confirms structural fragility, not pre-reg-
+cell-specific bad luck: at 5 bps/d every one of the 36 cells turns
+negative or near-zero (median Sh −1.5; best cell drops from +11.47
+to −0.42); at 10 bps/d every cell posts double-digit-negative Sharpe.</p>
+<h3 id="b-funding-regime-gate-falsified-at-every-threshold">(B) Funding-regime gate — falsified at every threshold<a class="headerlink" href="#b-funding-regime-gate-falsified-at-every-threshold" title="Permanent link">&para;</a></h3>
+<p>Modeling: at each rebal, compute trailing-30d cross-coin-mean
+funding (PIT-shifted by 1d). If below <code>funding_threshold_bps_per_day</code>,
+hold flat for that rebal cycle.</p>
+<p>Pre-reg cell, zero basis drag, per-threshold Sharpe and the gate-
+verdict criteria:</p>
+<table>
+<thead>
+<tr>
+<th>threshold (bps/d)</th>
+<th>active fraction</th>
+<th>full Sh</th>
+<th>2024 Sh</th>
+<th>2025 Sh</th>
+<th>2026 Sh</th>
+<th>Δ24-25 mean vs baseline</th>
+<th>verdict</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>None (baseline)</td>
+<td>0.98</td>
+<td>+9.20</td>
+<td>+13.84</td>
+<td>+7.76</td>
+<td>−0.89</td>
+<td>0</td>
+<td>—</td>
+</tr>
+<tr>
+<td>0.5</td>
+<td>0.81</td>
+<td>+7.38</td>
+<td>+13.17</td>
+<td>+4.26</td>
+<td>−3.55</td>
+<td>+2.08</td>
+<td>falsified</td>
+</tr>
+<tr>
+<td>1.0</td>
+<td>0.70</td>
+<td>+7.31</td>
+<td>+11.76</td>
+<td>+4.82</td>
+<td>−2.60</td>
+<td>+2.50</td>
+<td>falsified</td>
+</tr>
+<tr>
+<td>2.0</td>
+<td>0.54</td>
+<td>+7.79</td>
+<td>+12.24</td>
+<td>+4.45</td>
+<td>+0.00</td>
+<td>+2.45</td>
+<td>falsified</td>
+</tr>
+<tr>
+<td>5.0</td>
+<td>0.25</td>
+<td>+5.33</td>
+<td>+9.87</td>
+<td>−1.05</td>
+<td>+0.00</td>
+<td>+6.39</td>
+<td>falsified</td>
+</tr>
+</tbody>
+</table>
+<p>Pre-lock said <code>confirmed</code> if 2026YTD Sh lifts ≥ 0 AND 2024-25 mean
+Sh loses ≤ 1.0. No threshold satisfies both clauses simultaneously.</p>
+<p>The cleanest case (thr=2.0): 2026 gate-flat correctly suppresses the
+2026 loss (Sh exactly 0 because we never trade), but 2024-25 mean
+Sh falls by 2.45 (≈23%) vs ungated, well above the 1.0 ceiling.
+Active fraction drops to 0.54, meaning the gate was fighting the
+strategy on roughly half of 2024-25 days too.</p>
+<p>Mechanism: the gate's coin-pooled trailing-30d-mean signal is too
+coarse. When BTC/ETH funding is ~0 (true most of 2025-2026) and
+the alt-tail (FARTCOIN, HYPE, NEAR) is paying 30-100%/yr, the
+cross-coin mean is pulled below threshold by the BTC/ETH zeros even
+though the strategy's actual selection (top-K by trailing funding)
+sits squarely in the high-paying alt-tail. A per-coin gate, or a
+gate on the top-K trailing mean (not the universe trailing mean),
+would be the next thing to try — but the more fundamental issue is
+that the deployment-fragility failure in (A) makes the gate
+question moot: there is no operating point at which CNC clears the
++1.0 Sharpe bar after realistic basis drag, regardless of any gate.</p>
+<h3 id="combined-verdict-and-what-to-do-next">Combined verdict and what to do next<a class="headerlink" href="#combined-verdict-and-what-to-do-next" title="Permanent link">&para;</a></h3>
+<p><strong>The arc closes substrate-confirmed, deployment-falsified.</strong> The
++9.25 academic Sharpe is real in the no-friction-error model but
+collapses well below the deployable bar at any realistic tracking
+drag, and the gate cannot rescue it because the strategy is friction-
+sensitive in <em>every</em> funding regime, not just the 2026YTD low-funding
+regime.</p>
+<p>Three surprises:</p>
+<ol>
+<li><strong>Break-even drag at 4.07 bps/d, not 10 bps/d.</strong> I had expected
+   <code>friction-fragile</code> to mean "fails at 10 bps but survives 5" — in
+   fact even 5 bps/d collapses the trade. The 27.5%/yr 2024 funding
+   regime is the only place gross beats the modeled drag, and the
+   2024 fold's gross was already mostly consumed by rebal friction
+   before any basis drag was added.</li>
+<li><strong>Higher thresholds hurt 2024-25 Sharpe, not just constrain it.</strong>
+   At thr=0.5 the 2025 fold falls from +7.76 → +4.26 (a 45% drop)
+   despite the actual 2025 cross-coin funding mean averaging ~2.4
+   bps/d (well above 0.5). Mechanism: 2025 had transient cross-
+   coin-pooled-mean dips during otherwise-extractable weeks, so the
+   gate sat out the recoveries.</li>
+<li><strong>At thr=5.0 the gate actively introduces a 2025 loss</strong> (Sh
+   −1.05 from +7.76). Active fraction is 0.25 — the gate trades
+   only the highest-yield clusters, but those clusters contain
+   transient drawdowns the dense full-strategy averaged out across
+   neighbouring days. Selectivity is anti-additive here: trading
+   only the best signal-days gives you worse Sharpe than trading
+   everything, because the "off" days are mostly small-positive
+   not negative.</li>
+</ol>
+<p>Next experiment (recorded as <code>TODO/cnc-followups.md</code>): a venue port
+to OKX / paid Binance deep-funding is the only path that could
+materially change the deployability verdict — a higher-yielding
+venue with funding gross ≥ 8-10 bps/d would push break-even drag
+out to 10+ bps/d and might re-open the deployment window. Until
+that data is available, the CNC arc is closed.</p>
+<h2 id="master-walk-forward-log-pointer-stress-gate">Master walk-forward log pointer (stress + gate)<a class="headerlink" href="#master-walk-forward-log-pointer-stress-gate" title="Permanent link">&para;</a></h2>
+<p>Per-row policy: the stress + gate followups are <em>elaborations</em> on
+the parent leaderboard row (2026-05-25), not new rows. The parent
+row's notes column is updated with a one-line pointer
+("stress + gate followups landed 2026-05-28: friction-fragile at
+break-even 4.07 bps/d; gate falsified at all thresholds; see
+updated finding").</p>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+    
+      
+      <nav class="md-footer__inner md-grid" aria-label="Footer" >
+        
+          
+          <a href="../factor-crypto-venue/" class="md-footer__link md-footer__link--prev" aria-label="Previous: Factor crypto venue port (confirmed-null; 74-channel indicator grid does NOT transfer to CryptoCompare top-50 at H=5d; linear val IC +0.0217, mlp +0.0134, both miss the +0.025 pre-reg bar and DSR-t &lt; +1.5 on all four cells; next arc is perp funding-rate cash-and-carry)">
+            <div class="md-footer__button md-icon">
+              
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+            </div>
+            <div class="md-footer__title">
+              <span class="md-footer__direction">
+                Previous
+              </span>
+              <div class="md-ellipsis">
+                Factor crypto venue port (confirmed-null; 74-channel indicator grid does NOT transfer to CryptoCompare top-50 at H=5d; linear val IC +0.0217, mlp +0.0134, both miss the +0.025 pre-reg bar and DSR-t < +1.5 on all four cells; next arc is perp funding-rate cash-and-carry)
+              </div>
+            </div>
+          </a>
+        
+        
+          
+          <a href="../follow-leadership-disclosure/" class="md-footer__link md-footer__link--next" aria-label="Next: Follow-the-leader congressional disclosure (confirmed-null vs locked pre-reg bar: leadership-arm best-cell mean ann Sh +0.80 / α vs SPY −0.09pp/yr / DSR-t −1.91 on 2019-21 ∪ 2022-24; entered at filed+1 trading day per Bowne-2024 lag prediction — apparent alpha vanishes; fold-1 +3.45pp/yr collapses to fold-2 −1.7pp/yr; surprise: all-members frequency-filter arm posts ann Sh +1.01 / α +5.25pp/yr but is NOT the pre-registered cell, recorded as next-arc hypothesis)">
+            <div class="md-footer__title">
+              <span class="md-footer__direction">
+                Next
+              </span>
+              <div class="md-ellipsis">
+                Follow-the-leader congressional disclosure (confirmed-null vs locked pre-reg bar: leadership-arm best-cell mean ann Sh +0.80 / α vs SPY −0.09pp/yr / DSR-t −1.91 on 2019-21 ∪ 2022-24; entered at filed+1 trading day per Bowne-2024 lag prediction — apparent alpha vanishes; fold-1 +3.45pp/yr collapses to fold-2 −1.7pp/yr; surprise: all-members frequency-filter arm posts ann Sh +1.01 / α +5.25pp/yr but is NOT the pre-registered cell, recorded as next-arc hypothesis)
+              </div>
+            </div>
+            <div class="md-footer__button md-icon">
+              
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M4 11v2h12l-5.5 5.5 1.42 1.42L19.84 12l-7.92-7.92L10.5 5.5 16 11z"/></svg>
+            </div>
+          </a>
+        
+      </nav>
+    
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["content.code.annotate", "content.code.copy", "content.tooltips", "navigation.footer", "navigation.indexes", "navigation.path", "navigation.sections", "navigation.expand", "navigation.tabs", "navigation.tabs.sticky", "navigation.tracking", "search.highlight", "search.share", "search.suggest", "toc.follow"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.79ae519e.min.js"></script>
+      
+    
+  </body>
+</html>

@@ -16,7 +16,7 @@
         <link rel="prev" href="../vol-borrow-liquid-universe/">
       
       
-        <link rel="next" href="../factor-reinforce-target-side/">
+        <link rel="next" href="../factor-crypto-venue-test/">
       
       
         
@@ -1174,6 +1174,54 @@
       
         
       
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
     
     
     
@@ -1237,6 +1285,370 @@
   
   
     <li class="md-nav__item">
+      <a href="../../findings/post-2020-arc-ranking/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Post-2020 cross-arc ranking & DCA+vol_v3 ensemble drilldown (partial-OOS synthesis; only vol_v3 standalone +10.73 [+7.89,+13.37] and DCA+2xvol_v3 ensemble +1.90 [+1.13,+3.10] clear LW CI vs DCA at 95%; 11 other arcs ns; sleeve-sizing +1.16 headline replicates AND grows on full daily span)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../findings/meta-allocator-regime-forecasting/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Meta-allocator regime forecasting (B3 inverse-arc-vol confirmed-OOS vs 1/N at 95% CI; every modeling candidate C1-C5 reversed-OOS vs B3)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../findings/meta-allocator-no-vol-v3/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Meta-allocator no-vol_v3 falsification (B3-vs-B2 collapses from +0.367 [+0.028, +0.682] to +0.039 [-0.152, +0.220], confirmed-null; inverse-vol's edge was vol_v3-carried)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../findings/e2e-portfolio-v2/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    End-to-end deep portfolio allocator v2 (confirmed-null vs DCA; adds 5 raw IV features per ETF + 1 availability flag + continuous vol_position∈[0,2.5] head × synthetic short-vol from raw IV-vs-HV; vol_position head learns right behavior — fold-3 mean +0.52 max +0.88, fold-1 ~0 no-IV pre-2019; fold-3 v2 +1.246 beats v1 +1.216; pooled +0.776 regresses from v1 +0.874 due to fold-1+2 IV-mask drag; loses to deterministic 2-leg by ΔSR −1.26 and learned 2-leg by ΔSR −3.82 — substrate too narrow at 9 ETFs vs vol_v3's 2276-ticker universe; v3 needs full DoltHub universe top-K by OI)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../findings/e2e-portfolio-v1/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    End-to-end deep portfolio allocator v1 (confirmed-null vs DCA on +0.10 partial-OOS bar; Zhang-Zohren-Roberts framework on 13-ETF Phase 4d with raw price + macro features; tinygrad CUDA on Modal T4 3-fold walk-forward; pooled OOS Sharpe +0.87 fold-3 unseen 2024+ +1.22 vs DCA +0.78 (ΔSR +0.094 CI includes 0); loses to deterministic 2-leg by ΔSR −1.16 and learned 2-leg by ΔSR −3.72 — the options-alpha gap; v2 must add raw IV surface features)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../findings/learned-ensemble-beats-deterministic/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Learned 2-leg blend beats deterministic (DCA + 2x vol_v3) on Sharpe AND max-DD across 4 OOS splits (confirmed-OOS; 2-param MV on joint (DCA, vol_v3 daily-aligned) stream; learned w_vol approx 2.24 / w_dca approx 0.05; ΔSR +3.01 to +4.91 every CI excludes 0; tighter max-DD every split; methodological correction of the internal-features confirmed-null arc)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../findings/meta-allocator-internal-features/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Meta-allocator with strategy-internal features (closing finding 2026-05-28; confirmed-null vs locked pre-reg bar; 3-trial grid D1 ridge / D2 RBF kernel ridge / D3 PCA-2-PC over 14 internal features at quarterly cadence on 6-arc panel; model* fold-3 OOS Sh +2.83 vs B3 +4.15 ΔSR −1.39 [−2.40, −0.28] excludes 0; vs canonical DCA+2xvol_v3 ΔSR −3.29 [−4.93, −1.70] excludes 0; closes the meta-allocator arc — cadence × input-class × learner levers exhausted)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../findings/vol-sleeve-sizing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Vol_v3 sleeve sizing (partial-OOS; 9x4 friction grid on DCA x vol-v3-DoltHub-OOS; recommended vega_scale=2.0 at c_options_bps<=200 -> combined Sharpe +2.46 vs DCA +1.30, CI [+0.028, +2.600] barely excludes 0, max-DD actually improves; collapses at c_bps=400)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../findings/factor-crypto-venue/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Factor crypto venue port (confirmed-null; 74-channel indicator grid does NOT transfer to CryptoCompare top-50 at H=5d; linear val IC +0.0217, mlp +0.0134, both miss the +0.025 pre-reg bar and DSR-t < +1.5 on all four cells; next arc is perp funding-rate cash-and-carry)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../findings/cnc-funding-rate-carry/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Crypto-and-carry — perp funding-rate cash-and-carry on Hyperliquid (confirmed-OOS vs locked pre-reg bar: net Sharpe +9.25 / DSR-t +11.8 / pos-Q 0.80 / max-DD −0.99% on 2024-01-01→2026-05-24; HEADLINE IS UPPER BOUND — academic-clean carry approximation, zero basis-tracking error or short-spot borrow; 2024 fold Sh +13.8 / 2025 +7.76 / 2026YTD −0.63 mirrors funding-regime collapse 27.5%/yr → 0.4%/yr; Binance/Bybit geo-blocked, OKX 3mo cap forced HL substitution)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../findings/follow-leadership-disclosure/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Follow-the-leader congressional disclosure (confirmed-null vs locked pre-reg bar: leadership-arm best-cell mean ann Sh +0.80 / α vs SPY −0.09pp/yr / DSR-t −1.91 on 2019-21 ∪ 2022-24; entered at filed+1 trading day per Bowne-2024 lag prediction — apparent alpha vanishes; fold-1 +3.45pp/yr collapses to fold-2 −1.7pp/yr; surprise: all-members frequency-filter arm posts ann Sh +1.01 / α +5.25pp/yr but is NOT the pre-registered cell, recorded as next-arc hypothesis)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../findings/follow-consensus-arm/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Follow-the-leader v1 consensus arm (confirmed-OOS vs locked TODO pre-reg bar: all-members frequency-filter cell h=30/k=10/filed+1 reproduces v0 fold-1+2 result Sh +1.020 / α +5.45pp/yr; UNSEEN fold-3 2025 OOS posts Sh +0.86 / α +5.13pp/yr / pos-Q 100%; pooled Sh +1.0 / α +5.41pp/yr / standalone defl-t +2.58 — edge defl-t +1.37 sub-2.0 and fold-3 boot 95% CI [−18,+26] does not exclude 0; ship as ensemble constituent with SPY β-hedge, not standalone)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../findings/ladder-methodology-rewrite/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Ladder methodology rewrite (Ledoit-Wolf primary; DSR demoted to within-stratum gate; ZERO arcs beat DCA at 95% CI)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../../findings/deflated-sharpe-leaderboard/" class="md-nav__link">
         
   
@@ -1244,7 +1656,35 @@
   <span class="md-ellipsis">
     
   
-    Deflated Sharpe (cross-arc ranking)
+    Deflated Sharpe (within-arc gate; superseded for cross-arc rank by ladder-methodology-rewrite)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../findings/vol-borrow-liquid-universe/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Borrow-stress vol (liquid, reversed-OOS)
   
 
     
@@ -1301,6 +1741,174 @@
     
   
     Log-returns vs raw close
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../findings/regime-rsi-baseline/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Regime RSI strategy universe-agnostic baseline (confirmed-null)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../findings/regime-scalogram-baseline/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Regime scalogram strategy universe-agnostic baseline (reversed-OOS)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../findings/regime-cwt-baseline/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Regime CWT-divergence strategy universe-agnostic baseline (reversed-OOS)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../findings/regime-velocity-baseline/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Relational regime-velocity scorer universe-agnostic baseline (confirmed-null)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../findings/lie-hrp-baseline/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Lie HRP baseline (confirmed-null standalone, partial-OOS w/ modulator)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../findings/critic-policy-baseline/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Critic Φ-imitation policy baseline (partial-OOS, bounded by upstream pairs)
   
 
     
@@ -2105,6 +2713,118 @@
   
   
     <li class="md-nav__item">
+      <a href="../../findings/vol-v3-dolthub-oos/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Vol v3 — DoltHub 2024-26 OOS extension (signal replicates AND grows 2.5x on 4.6x more data — deflated-t +11.21 — BUT 2024-26 is a calm-bull regime with no vol crisis; ρ with DCA = +0.215 not ≈0; partial-OOS MARGINAL — strongest case for engineering investment but not a go-live verdict)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../findings/dca-basket-optuna/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DCA basket Optuna search (partial-OOS / effectively confirmed-null) — pre-registered bucket search over 3,600 combinations × 200 trials found Δ deflated-t = +0.016 over canonical; winner is a simpler 4-ETF basket (VTI+TLT+IEF+GLD) achieving same val Sharpe and slightly better max-DD; the canonical basket is defensible
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../findings/dca-vol-ensemble-optuna/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DCA × vol overlay joint Optuna search (partial-OOS) — pre-registered joint search over 16,800 (basket × vega_scale) combinations × 200 trials on the 33-obs vol-v3 DoltHub OOS sample found Δ val deflated-t = +0.612 over canonical 13-ETF + vol × 3.0; all top-10 trials pick vega_scale=3.0 (sizing axis robust, basket axis below noise floor at n_val=13); canonical recipe defensible
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../findings/factor-studentized-sharpe-diff-loss/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Factor head trained against studentized Sharpe-diff loss (confirmed-null) — pre-reg locked head-to-head against ir_vs_ew + rank_ic on factor-narrow 5d; candidate Δt = −0.60 vs baseline (worse, not better); the methodology-rewrite finding 'cross-sectional null is robust to optimization method' was reinforced — even the literature-canonical training target couldn't extract alpha that wasn't there. SURPRISE: ir_vs_ew baseline is the only arm whose pooled OOS bootstrap CI excludes 0 (ann ΔSR +0.46 [+0.02, +0.91])
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../../findings/vol-arc-synthesis/" class="md-nav__link">
         
   
@@ -2657,6 +3377,38 @@
       
         
       
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
     
     
     
@@ -2712,6 +3464,258 @@
           </label>
           <ul class="md-nav__list" data-md-scrollfix>
             
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../cnc-followups/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    CNC venue-port followups (parent CNC arc closed substrate-confirmed but deployment-falsified 2026-05-28; basis-tracking-error stress = friction-fragile at break-even ~4.07 bps/d; funding-regime gate falsified at all thresholds; only remaining adjacent path is a venue port to OKX / paid Binance / Bybit deep-history)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../follow-consensus-arm/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Follow-the-leader v1 — cross-sectional consensus arm (orthogonal lever after v0 leadership-arm confirmed-null; pre-reg locked cell h=30/k=10/frequency on all-members cohort with `filed+1` entry; 3 folds with fold-3 2025-26 as unseen verdict slice)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../follow-consensus-ensemble-weight/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Follow-consensus β-hedged ensemble weight (pre-reg locked grid follow_w in {0, 2.5%, 5%, 7.5%, 10%, 15%, 20%} of risk budget added as 3rd leg to canonical DCA + 2×vol-v3 stack; verdict bar OOS ΔSharpe ≥ +0.10 vs 2-leg baseline AND CI excludes 0 AND max-DD ≤ 1.2× baseline; pending Quiver xlsx refresh to extend fold-3 from n=198 to ≥400 days)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../e2e-portfolio-v3p5-long-vol-head/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    E2E portfolio v3.5 — add long-vol output head (the ZZR action-space fix; minimal 1-change isolation of v4's action-space precondition; uses free Stooq VIXY substrate, no vendor cost; verdict bar requires fold-2 daily Sharpe ≥ −0.10 AND long_vol_position mean during 2020-Q1 ≥ 0.5; gates whether the heavier v4 design is needed)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../e2e-portfolio-v4-learned-regime-gate/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    E2E portfolio v4 — learned regime gate with all 6 preconditions met (pre-reg locks first end-to-end attempt with multi-lookback percentile features + symmetric vol action space (short-vol AND long-vol heads) + daily IV + aux IV-prediction regularizer; verdict bar requires pooled ΔSR ≥ +0.10 vs deterministic 2-leg AND CI excludes 0 AND fold-2 daily Sharpe ≥ −0.10 (COVID survival) AND long_vol_position mean during 2020-Q1 ≥ 0.5 (mechanism check); closes path 2 question for learned regime gating end-to-end)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../hrp-asymmetric-modulator/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    HRP asymmetric two-sided modulator (pre-reg locked 96-cell grid over open-rule x lookback x threshold x floor; rescues the symmetric eff_rank gate that detected 2022 drawdown but destroyed 2023 recovery alpha; verdict bar requires w5 OOS lift ≥ +0.10 AND sub-period lifts sum ≥ +0.08 AND 2023-recovery alpha ≥ 0; CI > ±0.40 auto-downgrades one tier)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../meta-allocator-internal-features/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Done — Meta-allocator with strategy-internal features (confirmed-null 2026-05-28; closes the meta-allocator arc — see findings/meta-allocator-internal-features.md)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../meta-allocator-regime-forecasting/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Done — Meta-allocator regime forecasting (confirmed-OOS for B3 inverse-arc-vol vs B2 1/N at 95% CI on 6-arc panel; FALSIFIED on 5-arc no-vol_v3 panel — see meta-allocator-no-vol-v3 finding)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../vol-v3-sleeve-sizing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Done - Vol_v3 sleeve sizing (partial-OOS; recommended vega_scale=2.0 at c_options_bps<=200, combined Sharpe +2.46 vs DCA +1.30 with CI [+0.028, +2.600]; gap to live = options-broker integration + paid quote source)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
               
             
               
@@ -2980,6 +3984,174 @@
   
   
     <li class="md-nav__item">
+      <a href="../factor-crypto-venue-test/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Done — Crypto venue port — factor indicator-grid walk-forward on CryptoCompare top-50 (confirmed-null 2026-05-25; linear val IC +0.0217 / MLP +0.0134 both miss +0.025 bar; DSR-t < +1.5 on all 4 cells; 74-channel grid does NOT transfer venue from equities to crypto; next arc is perp funding-rate cash-and-carry per the decision tree)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../dca-basket-optuna/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Done — DCA basket Optuna search (partial-OOS / effectively confirmed-null; 200 trials × 3,600 combinations found Δ deflated-t = +0.016 over canonical, far below the +1.0 pre-reg bar; winner is a SIMPLER 4-ETF basket VTI+TLT+IEF+GLD with same val Sharpe and slightly better max-DD)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../dca-vol-ensemble-optuna/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Done — DCA × vol overlay joint Optuna search (partial-OOS; Δ val deflated-t = +0.612 over canonical 13-ETF + vol×3 incumbent, below the +1.0 confirmed-OOS bar; every top-10 trial picks vega_scale=3.0 — sizing axis robust, basket axis below noise floor at n_val=13)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../vol-hyperparam-ensemble-optuna/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Vol-hyperparam × DCA ensemble joint Optuna search (pre-registered commit e3b2b8b; eval scaffold committed at apps/vol/scripts/optuna_vol_hyperparam_ensemble.py, eval NOT yet run; 2,100-combination joint grid over vol-recipe knobs top_k × gate_lookback × rebal_trading_days × gate_quantile × vega_scale with DCA basket fixed at canonical-13; date-based split 2023-08→2024-12 train / 2025-01→2026-03 val of vol-v3-DoltHub substrate; +1.0 deflated-t bar over canonical v3 recipe + vol×3 incumbent)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../ladder-methodology-rewrite/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Ladder methodology rewrite — full 5-step migration per the three-agent synthesis (methodology + assumptions audit + ensemble Optuna); demote DSR from cross-arc rank key to within-arc gate; add Ledoit-Wolf studentized Sharpe-difference CI column as new primary cross-arc test; per-arc-class sharpe_std calibration; null-noise floor; realistic options friction; stratified ladder. In-progress 2026-05-23
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../factor-studentized-sharpe-diff-loss/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Done — Factor head trained against studentized Sharpe-diff loss (confirmed-null; Δt = −0.60 vs baseline ir_vs_ew; surprise — baseline excludes 0 at 95% on pooled OOS, candidate doesn't)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../factor-reinforce-target-side/" class="md-nav__link">
         
   
@@ -3128,6 +4300,34 @@
     
   
     Polar Morlet migration
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../npz-explicit-dates-backfill/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    NPZ explicit-dates backfill — plumb rebal_dates / dates through 8 return-stream producers to retire tail-alignment in cross-arc CIs (operational; ~25 LOC, half-day; triggered by the per-window meta-allocator H1 inflation +1.43 honest → +2.21 tail-aligned)
   
 
     
@@ -3965,13 +5165,13 @@ DoltHub-specific coverage gap is not the OPRA-coverage gap.</p>
         
         
           
-          <a href="../factor-reinforce-target-side/" class="md-footer__link md-footer__link--next" aria-label="Next: Done — apps/factor target-side REINFORCE for π (partial-OOS; higher-β resolved, arc benchmark-artifact-bound)">
+          <a href="../factor-crypto-venue-test/" class="md-footer__link md-footer__link--next" aria-label="Next: Done — Crypto venue port — factor indicator-grid walk-forward on CryptoCompare top-50 (confirmed-null 2026-05-25; linear val IC +0.0217 / MLP +0.0134 both miss +0.025 bar; DSR-t &lt; +1.5 on all 4 cells; 74-channel grid does NOT transfer venue from equities to crypto; next arc is perp funding-rate cash-and-carry per the decision tree)">
             <div class="md-footer__title">
               <span class="md-footer__direction">
                 Next
               </span>
               <div class="md-ellipsis">
-                Done — apps/factor target-side REINFORCE for π (partial-OOS; higher-β resolved, arc benchmark-artifact-bound)
+                Done — Crypto venue port — factor indicator-grid walk-forward on CryptoCompare top-50 (confirmed-null 2026-05-25; linear val IC +0.0217 / MLP +0.0134 both miss +0.025 bar; DSR-t < +1.5 on all 4 cells; 74-channel grid does NOT transfer venue from equities to crypto; next arc is perp funding-rate cash-and-carry per the decision tree)
               </div>
             </div>
             <div class="md-footer__button md-icon">
