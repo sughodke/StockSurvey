@@ -14,10 +14,50 @@ answer to "what meta-allocator to ship over the 6-arc panel" remains
 **DCA + sized vol_v3 sleeve**, exactly as the [post-2020 ranking
 finding](post-2020-arc-ranking.md) concluded.
 
-This is the closing experiment of the meta-allocator arc: orthogonal
-input class (strategy-internal vs macro), orthogonal cadence
-(quarterly vs monthly), same null verdict against the canonical
-benchmark. Every reasonable feature category has now been tested.
+This is the closing experiment of the **prediction-layer**
+meta-allocator arc: orthogonal input class (strategy-internal vs
+macro), orthogonal cadence (quarterly vs monthly), same null verdict
+against the canonical benchmark for the forecast-then-softmax
+learner family.
+
+## Scope clarification (2026-05-29)
+
+The numbers, the locked verdict, and the narrow conclusion stand.
+What needs qualifying is the original framing of "every learner
+class tested, all confirmed-null" and "closes the meta-allocator
+arc arc-wide."
+
+This arc tested learners with **forecast loss** (predict expected
+return per arc) and **simplex action space** (softmax(expected /
+vol) → weights ≥ 0, Σ = 1). Three modeling families inside that
+frame (ridge, kernel ridge, PCA-2-PC) all fall, against the locked
++0.30 ΔSR bar. That is the scope of the null. It does **not** rule
+out — and the locked pre-reg never tested — a **sizing-layer
+learner with direct-Sharpe loss** whose action space includes the
+deterministic recipe as a representable policy (e.g. unconstrained
+or `gross > 1` weights on alpha streams).
+
+The sister finding
+[`learned-ensemble-beats-deterministic`](learned-ensemble-beats-deterministic.md)
+landed `confirmed-OOS` on exactly that orthogonal lever: a
+2-parameter mean-variance learner on the same (DCA, vol_v3) joint
+return stream beats the canonical `DCA + 2×vol_v3` recipe on every
+OOS split (ΔSR_ann +3.0 to +4.9, every CI excludes 0, every max-DD
+tighter). Both gradient-Sharpe and closed-form-MV converge to the
+same effective portfolio — near-100% risk on vol_v3.
+
+Therefore the correct scope of this finding's closure is:
+**closes the prediction-layer meta-allocator question on the 6-arc
+panel** (cadence × input class × forecast-loss-learner all
+exhausted). The sizing-layer meta-allocator question is open and
+partially answered (positively) by the sister finding. See
+[`notes.md#learner-layer-matters-more-than-learner-complexity`](../notes.md#learner-layer-matters-more-than-learner-complexity)
+for the framing distinction.
+
+The original close-out sentence "every reasonable feature category
+has now been tested" should be read as "every feature category
+tested **at this layer + loss**" — sizing-layer features over alpha
+streams were not on this pre-reg.
 
 ---
 

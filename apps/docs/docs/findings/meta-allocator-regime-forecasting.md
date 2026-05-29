@@ -20,6 +20,34 @@ trailing window, renormalized on availability.** This is the
 Bridgewater All-Weather / López de Prado "risk parity beats
 risk-on/off timing" result, reproduced on our specific 6-arc panel.
 
+## Scope clarification (2026-05-29)
+
+The numbers above stand. The narrow conclusion — "forecasting which
+arc will win, under the C1-C5 grid evaluated here, loses to
+inverse-arc-vol on this panel" — is correct and the pre-reg-locked
+verdict labels are immutable. What this finding does **not**
+establish is a categorical "no learner can match the deterministic
+recipe" verdict.
+
+This is a test of **prediction-layer learners with forecast loss**:
+each candidate forecasts which arc will outperform, then maps
+forecasts to weights on the probability simplex via softmax /
+selection. That family is null here. A **sizing-layer learner with
+direct-Sharpe loss and an action space that admits `gross > 1`** is
+a different question, and on the same panel it `confirmed-OOS`
+(`learned-ensemble-beats-deterministic` — a 2-parameter MV learner
+on the (DCA, vol_v3) joint stream beats the deterministic
+`DCA + 2×vol_v3` recipe on every OOS split, ΔSR_ann +3.0 to +4.9,
+every CI excluding zero).
+
+The corrected framing is in
+[`notes.md#learner-layer-matters-more-than-learner-complexity`](../notes.md#learner-layer-matters-more-than-learner-complexity)
+and the empirical proof at
+[`findings/learned-ensemble-beats-deterministic.md`](learned-ensemble-beats-deterministic.md).
+Learner *layer* and *objective* dominate learner *complexity*; this
+arc tested one specific (layer, objective, action space) combination
+and the null applies only there.
+
 ## Eval setup
 
 Pre-registration locked in

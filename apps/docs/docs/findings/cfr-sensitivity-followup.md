@@ -27,6 +27,24 @@ configuration clears the +0.10 paper-trade threshold; but the
 load-bearing claims that closed the arc were less robust than the
 phrasing suggested.
 
+## Scope clarification (2026-05-29)
+
+The grid result — "no single hand-coded VIX lookback (60d / 90d /
+126d) dominates across apps, and 90d worsens alpha" — stands
+verbatim. It is in fact the cleanest motivation on the docs site
+for the orthogonal lever: a **learned memory-window selection from
+multi-lookback inputs**, with a direct-Sharpe objective and an
+action space allowing `gross > 1` so the deterministic recipe is
+representable. Hand-coding the lookback is the failure mode this
+sensitivity grid documents; learning it is the untested path.
+
+The pre-registration that formalizes the learner-side test is
+[`TODO/e2e-portfolio-v4-learned-regime-gate.md`](../TODO/e2e-portfolio-v4-learned-regime-gate.md);
+the framing distinction is in
+[`notes.md#learner-layer-matters-more-than-learner-complexity`](../notes.md#learner-layer-matters-more-than-learner-complexity)
+and the empirical proof-of-concept at the sizing layer is
+[`findings/learned-ensemble-beats-deterministic.md`](learned-ensemble-beats-deterministic.md).
+
 ## Why this experiment
 
 The 2026-05-14 audit of `apps/docs/**` (see `.audit-research-directions.md`)

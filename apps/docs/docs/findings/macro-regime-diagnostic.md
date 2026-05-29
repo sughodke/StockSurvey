@@ -7,6 +7,32 @@ tags:
 
 # Macro regime diagnostic — 5 of 6 macro features predict pivot-arc window outcomes
 
+## Scope clarification (2026-05-29)
+
+The diagnostic numbers and the v1a "−0.78 COVID alpha" result are
+correct and stand. The operational reading needs nuancing: the
+documented failure modes (raw `vix`/`credit_baa` as direct
+predictor inputs at the **prediction layer** with a hand-coded gate
+or fixed regression) tell us that *that specific use of macro
+features* fails on the pivot-arc panel.
+
+It does **not** rule out — and this diagnostic does not test —
+**scale-invariant percentile features at the sizing layer** with a
+direct-Sharpe objective. The corrected framing distinguishing
+prediction-layer learners (forecast loss → simplex weights) from
+sizing-layer learners (direct portfolio Sharpe loss → unconstrained
+weights) is in
+[`notes.md#learner-layer-matters-more-than-learner-complexity`](../notes.md#learner-layer-matters-more-than-learner-complexity).
+The empirical proof that learners can clear the deterministic-recipe
+bar at the right layer is
+[`findings/learned-ensemble-beats-deterministic.md`](learned-ensemble-beats-deterministic.md).
+
+The steel-man test that maps the corrected framing onto macro
+regime gating is pre-registered at
+[`TODO/e2e-portfolio-v4-learned-regime-gate.md`](../TODO/e2e-portfolio-v4-learned-regime-gate.md)
+— multi-lookback (60d/126d/252d) percentile features into a
+direct-Sharpe learner with `gross > 1` action space.
+
 The
 [`prediction-problem-pivot-arc`](prediction-problem-pivot-arc.md)
 left an open operational question: *what's the regime structure

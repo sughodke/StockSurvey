@@ -37,6 +37,27 @@ event because the median is inflated by the stress itself, gating the
 bot off during exactly the early-recovery regimes where it would have
 been most useful.
 
+## Scope clarification (2026-05-29)
+
+The numbers and verdict above stand. The qualifier the original
+phrasing was missing: this finding tests **hand-coded fixed-lookback
+gates** (single VIX rolling-median, single lookback). The failure
+mode — median inflation after stress events locking the gate closed
+across the early-recovery regime — is specific to that frame.
+
+Multi-lookback inputs (60d + 126d + 252d trailing percentiles + their
+ratios) presented to a learner with a **direct-Sharpe objective** and
+an **action space allowing the deterministic recipe as a
+representable policy** (gross > 1) are a different test that this
+arc never ran. That test is pre-registered at
+[`TODO/e2e-portfolio-v4-learned-regime-gate.md`](../TODO/e2e-portfolio-v4-learned-regime-gate.md).
+The framing distinction (hand-coded gate vs learner at the right
+layer/objective) is in
+[`notes.md#learner-layer-matters-more-than-learner-complexity`](../notes.md#learner-layer-matters-more-than-learner-complexity);
+empirical existence-proof that direct-Sharpe-loss learners beat
+deterministic recipes at the right layer is
+[`findings/learned-ensemble-beats-deterministic.md`](learned-ensemble-beats-deterministic.md).
+
 This is the final close-out experiment for the CFR arc. After
 [`cfr-vs-dca-realistic`](cfr-vs-dca-realistic.md) downgraded
 Phase 4d's raw +0.056 alpha to net +0.015, the macro v1b VIX gate

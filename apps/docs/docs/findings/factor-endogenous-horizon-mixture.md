@@ -1092,7 +1092,31 @@ output-side restructure (per-horizon specialized score heads, mixture
 pre-registered) or retiring the mixture. Per the standing strategic
 frame, the higher-EV move is the orthogonal **novel-data arc**
 (borrow-stress conditioning on the liquid vol universe), not further
-variants of cleverer-model-on-standard-data here.
+variants of cleverer-model-on-standard-data **at the
+prediction-layer cross-sectional-rank-IC frame this arc tests**
+here. (Scope qualifier added 2026-05-29 — see the Scope
+clarification block below; the
+`cleverer-model-on-standard-data` shorthand applies to this
+prediction-layer family, not learners in general; sizing-layer
+direct-Sharpe learners are `confirmed-OOS` on a different panel —
+see [`findings/learned-ensemble-beats-deterministic.md`](learned-ensemble-beats-deterministic.md).)
+
+### Scope clarification (2026-05-29)
+
+The `partial-OOS` verdict, the π-collapse mechanism, and the
+operational rule about entropy-unregularized mixture loss stand.
+The phrase "further variants of cleverer-model-on-standard-data"
+above refers specifically to learners with **forecast / rank-IC
+loss** at the **prediction layer**, operating on the cross-section
+of `factor-narrow`. It is not a general claim that learners can't
+extract alpha.
+
+Sizing-layer learners with direct portfolio-Sharpe loss and action
+spaces admitting `gross > 1` have been shown to clear the
+deterministic-recipe bar on a different panel
+([`findings/learned-ensemble-beats-deterministic.md`](learned-ensemble-beats-deterministic.md)).
+The corrected framing distinction is in
+[`notes.md#learner-layer-matters-more-than-learner-complexity`](../notes.md#learner-layer-matters-more-than-learner-complexity).
 
 ### Master walk-forward log
 

@@ -46,7 +46,14 @@ Live follow-ups, both *orthogonal* (neither pre-registered):
    and the research director's steer)** — borrow-stress
    conditioning (SEC FTD + FINRA daily short-volume + short
    interest) on the *liquid* vol universe. Orthogonal to
-   cleverer-model-on-standard-data; see the new
+   cleverer-model-on-standard-data **at the prediction layer with
+   forecast / rank-IC loss** (scope qualifier added 2026-05-29 —
+   sizing-layer direct-Sharpe learners are a separate, partially-
+   positive story per
+   [`findings/learned-ensemble-beats-deterministic.md`](../findings/learned-ensemble-beats-deterministic.md)
+   and
+   [`notes.md#learner-layer-matters-more-than-learner-complexity`](../notes.md#learner-layer-matters-more-than-learner-complexity));
+   see the new
    `TODO/vol-borrow-liquid-universe` pre-reg.
 
 Finding: extended in

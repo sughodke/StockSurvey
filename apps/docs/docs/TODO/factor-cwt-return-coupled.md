@@ -126,8 +126,14 @@ arc-wide.
 
 ## Strategic note
 
-This is a cleverer-model-on-standard-data experiment, which the
-standing frame ([research-strategy: avoid arbitraged
+This is a cleverer-model-on-standard-data experiment **at the
+prediction layer with rank-IC loss on the cross-section of
+`factor-narrow`** (scope qualifier added 2026-05-29; see
+[`notes.md#learner-layer-matters-more-than-learner-complexity`](../notes.md#learner-layer-matters-more-than-learner-complexity)
+— sizing-layer direct-Sharpe learners are a separate, partially-
+positive story per
+[`findings/learned-ensemble-beats-deterministic.md`](../findings/learned-ensemble-beats-deterministic.md)),
+which the standing frame ([research-strategy: avoid arbitraged
 space](../leaderboard.md#verdict-labels); 9/146 confirmed-OOS base
 rate) and the user's own recent steers (the
 [`factor-reinforce-target-side`](factor-reinforce-target-side.md)

@@ -28,9 +28,33 @@
 > It is the orthogonal **novel-data axis** the standing strategic
 > frame and the research director selected over more
 > cleverer-model-on-standard-data variants (which are
-> `confirmed-null` 49× and just produced one more benchmark-artifact
+> `confirmed-null` 49× **at the prediction layer with forecast loss
+> on standard price/volume data** — see Scope clarification below;
+> sizing-layer direct-Sharpe learners are a separate, partially-
+> positive story per
+> [`findings/learned-ensemble-beats-deterministic.md`](../findings/learned-ensemble-beats-deterministic.md)
+> and
+> [`notes.md#learner-layer-matters-more-than-learner-complexity`](../notes.md#learner-layer-matters-more-than-learner-complexity))
+> and just produced one more benchmark-artifact
 > `partial-OOS` in the
 > [endogenous-horizon arc](../findings/factor-endogenous-horizon-mixture.md)).
+
+## Scope clarification (2026-05-29)
+
+The "novel-data > cleverer-model-on-standard-data" framing motivating
+this TODO is correct, but the supporting "49× confirmed-null"
+shorthand applies to **prediction-layer learners with forecast loss
+and simplex action space** on standard price/volume data, not to
+learners categorically. Sizing-layer learners with direct-Sharpe
+loss have been shown to clear the deterministic-recipe bar on the
+arc-blend panel
+([`findings/learned-ensemble-beats-deterministic.md`](../findings/learned-ensemble-beats-deterministic.md)).
+This TODO's "deliberately boring locked-OLS model + novel data"
+choice still stands — the data lever is the higher-EV move for this
+specific arc — but the rationale is "novel data here, locked model
+to avoid burning DOF on a thin dataset," not "learners are
+disproven." Framing distinction in
+[`notes.md#learner-layer-matters-more-than-learner-complexity`](../notes.md#learner-layer-matters-more-than-learner-complexity).
 
 ## The mechanism (not a bolted-on second signal)
 

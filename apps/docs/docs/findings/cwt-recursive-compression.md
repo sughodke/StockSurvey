@@ -33,8 +33,30 @@ state dim `k` on `factor-narrow` (see "Return-coupled embedding — the
 arc closure"). The terminal reading is therefore stronger than
 "recursive states are the wrong compressor": *the causal CWT carries
 no cross-sectional return signal recoverable by any representation
-move — the binding constraint is the feature class, so the lever is
-different data, not a cleverer model on the CWT.* **Explicit *length* compression is far harsher than
+move tested here — the binding constraint is the feature class
+under cross-sectional-return-forecasting at the prediction layer,
+so the next lever on this arc is different data, not a cleverer
+model on the CWT for the same prediction problem.*
+
+## Scope clarification (2026-05-29)
+
+The reconstruction / self-prediction / return-prediction R² and
+Sharpe results stand. What needs the scope qualifier: the "stop
+applying cleverer models to standard CWT data" steer is correct
+**at the prediction layer, for cross-sectional return forecasting,
+with the rank-IC objective**. It is not a categorical "no learner
+applied to CWT inputs can work" claim.
+
+The repo's docs now distinguish prediction-layer learners (forecast
+loss → simplex weights) from sizing-layer learners (direct
+portfolio Sharpe → unconstrained / `gross > 1` weights). The latter
+class was not tested in this arc and is `confirmed-OOS` against the
+deterministic recipe on a different panel
+([`findings/learned-ensemble-beats-deterministic.md`](learned-ensemble-beats-deterministic.md)).
+The framing distinction is in
+[`notes.md#learner-layer-matters-more-than-learner-complexity`](../notes.md#learner-layer-matters-more-than-learner-complexity).
+The arc-closure here applies to CWT-as-cross-sectional-return-predictor
+specifically. **Explicit *length* compression is far harsher than
 per-bar width compression**: forcing one `k`-vector to stand in for a
 whole `L=32`-bar window (32× at `k=13`) loses ~18% of the variance
 where the per-bar state was near-lossless — and this curve is
